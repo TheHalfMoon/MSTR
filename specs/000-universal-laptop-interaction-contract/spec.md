@@ -2,193 +2,264 @@
 
 **Feature Branch:** `plan/000-speckit-complete-package`  
 **Created:** 2026-08-24  
-**Status:** Ready for implementation after review  
-**Input:** Build the preconstruction qualification program that determines the smallest viable model/runtime/distribution contract for a best-in-class local software-engineering system that ordinary laptop users can install and run.
+**Status:** Ready for implementation after plan review  
+**Input:** Establish the preconstruction qualification program that determines the viable model/runtime/distribution/interaction envelope for a best-in-class local software-engineering system that ordinary laptop users can acquire, install, and use.
+
+> This specification defines **what MSTR-000 must prove and deliver**. Candidate names, programming languages, libraries, concrete retrieval tools, runtime backends, and other implementation choices belong in `research.md` and `plan.md`.
 
 ## User Scenarios & Testing
 
 ### User Story 1 - Ordinary Laptop User Can Acquire and Run MSTR Locally (Priority: P1)
 
-A developer with an ordinary contemporary laptop can obtain the primary MSTR release, install or launch it without a development toolchain, open a repository, and use local coding assistance without a discrete GPU, provider account, API key, subscription, activation server, or mandatory network connection after artifact acquisition.
+A developer with an ordinary contemporary laptop can obtain the primary MSTR release, install or launch it without assembling a development environment, open a repository, and use local coding assistance without a discrete GPU, provider account, API key, subscription, activation server, or mandatory network connection after the required artifacts are local.
 
-**Why this priority:** This is the product identity. A stronger model that requires workstation/cloud hardware fails the primary MSTR mission.
+**Why this priority:** This is the product identity. A stronger system that requires workstation or cloud infrastructure fails the primary MSTR mission.
 
-**Independent Test:** On each required U1 platform lane, use a fully local artifact set, disconnect external networking, launch basic MSTR without Docker/Python/Node.js, open the reference repository in the reference editor, and complete the local smoke interaction without OOM, sustained swap thrashing, provider authentication, or remote inference.
+**Independent Test:** On every required platform family, use the universal-laptop hardware tier, disconnect external networking after required artifacts are local, launch basic MSTR, open the reference repository in the reference editor, and complete the local smoke interaction without OOM, sustained paging failure, provider authentication, remote inference, or unacceptable editor degradation.
 
 **Acceptance Scenarios:**
-1. Given an 8 GB U1 machine with all artifacts local, when network is disconnected and MSTR launches, basic assistance starts without provider auth or remote fallback.
-2. Given editor + medium repo are open, when MSTR operates at 8K, whole-laptop responsiveness remains within canonical guardrails.
-3. Given no Python/Node/Docker/compiler toolchain, primary install still launches basic MSTR.
-4. At least one official complete acquisition path is accountless/ungated where redistribution rights permit.
+1. Given a universal-laptop reference machine with all required artifacts local, when external network access is unavailable and MSTR launches, then basic coding assistance starts without provider authentication or remote fallback.
+2. Given the reference editor and repository are open, when MSTR operates at the reference context, then the laptop remains within the canonical memory and responsiveness guardrails.
+3. Given the user has no language-specific development environment installed for MSTR itself, when the primary MSTR package is launched, then basic assistance can still start.
+4. Given redistribution rights permit it, when a new user acquires the primary release, then at least one official complete acquisition path does not require a provider account or separate model-access gate.
 
 ### User Story 2 - Researcher Can Qualify Backbone Candidates Reproducibly (Priority: P1)
 
-A researcher can statically screen compact foundation candidates, admit only legally/distributably compatible models, build/obtain pinned artifacts under explicit task authority, and compare them under the same hardware, quantization, measurement, manifest, and reporting contracts.
+A researcher can screen multiple materially different compact foundation candidates, admit only candidates compatible with MSTR's product/distribution requirements, and compare admitted artifacts under the same hardware, measurement, task, and reporting conditions.
 
-**Independent Test:** run static-only qualification on one candidate and produce a schema-valid candidate record with exact revision, rights decision, architecture/tokenizer metadata, runtime/quantization maturity, and admission decision without downloading weights.
+**Why this priority:** Expensive model development is wasted if the selected foundation cannot legally ship, cannot run on the universal-laptop tier, or only appears strong under incomparable test conditions.
 
-**Acceptance Scenarios:** ambiguous/non-commercial rights fail closed; incompatible required components block primary PASS; mismatched cache/manifests cannot be presented as fair direct comparison; new eligible models can enter through the same gate.
+**Independent Test:** Qualify one candidate from public upstream metadata and produce a complete, immutable candidate record containing exact upstream revision, rights decision, architecture/footprint facts, local-deployment maturity, and an explicit admission decision without downloading model weights.
 
-### User Story 3 - Engineer Can Use a Stable Interaction and Edit Contract (Priority: P1)
+**Acceptance Scenarios:**
+1. Given ambiguous or incompatible commercial/redistribution rights, when static qualification completes, then the candidate cannot become primary weight-eligible.
+2. Given a required component has incompatible terms, when the candidate is evaluated, then the parent candidate cannot receive an unconditional primary PASS.
+3. Given two results use materially different task/cache/hardware conditions, when a direct-comparison report is requested, then the system rejects or explicitly labels the comparison as non-equivalent.
+4. Given a newly released candidate satisfies the same product boundary, when the landscape is rescanned, then it can enter through the same qualification gate without changing the rules for existing candidates.
 
-An engineer can rely on one versioned prompt/tool/edit/cache contract that is deterministic enough to train against, cache efficiently, apply edits safely, and migrate deliberately.
+### User Story 3 - Engineer Can Rely on a Stable Interaction and Edit Contract (Priority: P1)
 
-**Independent Test:** canonical fixtures round-trip byte-stably; schema validation works; stale writes reject deterministically.
+An engineer can rely on one versioned interaction contract for prompts, tool requests/results, edits, stale-write handling, task state, privacy semantics, and reusable context so later training and serving do not silently use different protocols.
 
-**Acceptance Scenarios:** stale hash never silently overwrites; identical tool results serialize identically; malformed tool output fails explicitly; material post-training contract revision requires migration evidence.
+**Why this priority:** Training against a moving serving contract wastes data/compute and produces unreliable caching, tools, and edits.
+
+**Independent Test:** Canonical contract fixtures reproduce identically across repeated serialization/validation runs, malformed requests fail explicitly, and edits targeting stale file state are rejected rather than silently overwriting newer content.
+
+**Acceptance Scenarios:**
+1. Given the same structured tool result, when it is serialized repeatedly under the same contract version, then the canonical bytes are identical.
+2. Given an edit references stale file state, when it is applied, then the operation fails deterministically without overwriting newer content.
+3. Given malformed or unauthorized tool syntax, when the runtime receives it, then the request is rejected and is not counted as a successful action.
+4. Given a material interaction-contract change after training begins, when migration is proposed, then regression and migration evidence are required before adoption.
 
 ### User Story 4 - Researcher Can Select the Best Universal-Laptop Backbone by Verified Utility (Priority: P1)
 
-Surviving candidates are compared by raw coding, FIM, tool/edit reliability, repo work, local Q4, verified completion, TTVC, memory, sustained responsiveness, and equivalent bounded adaptation.
+A researcher can compare surviving candidates by direct coding ability, completion/edit behavior, repository work, tool reliability, verified completion, latency, memory pressure, sustained responsiveness, and equivalent bounded adaptation rather than by one public leaderboard or one precision format.
 
-**Independent Test:** regenerate a scorecard from exact evidence identities with raw/neutral/full-system separation.
+**Why this priority:** MSTR needs the best real local software-engineering foundation, not the best marketing score.
 
-**Acceptance Scenarios:** a high leaderboard model failing U1 cannot win; Q4 primary behavior controls viability; post-adaptation evidence can change rank; harness-only gain is attributed to system layer.
+**Independent Test:** Rebuild a candidate scorecard from immutable evidence and reproduce the candidate ordering while keeping raw-model, neutral-harness, and full-system gains separate.
 
-### User Story 5 - Runtime Engineer Can Choose the Smallest Useful Context Engine (Priority: P2)
+**Acceptance Scenarios:**
+1. Given a candidate scores highly on public benchmarks but fails the universal-laptop gate, when selection occurs, then it cannot win the primary product.
+2. Given a candidate performs well before local compression but fails in the primary local artifact form, when selection occurs, then its primary viability reflects the local result.
+3. Given equivalent bounded adaptation changes candidate ordering, when final selection occurs, then post-adaptation evidence is considered.
+4. Given a gain comes only from the optimized system layer, when results are published, then it is not attributed to raw-model improvement.
 
-Compare exact search, symbols, sparse indexing, embeddings/rerankers, SCIP, Graphify, and Code-Graph-RAG under the same tasks and choose the smallest solve-rate/token/latency/RAM/disk Pareto-efficient stack.
+### User Story 5 - Runtime Engineer Can Choose the Smallest Useful Repository Context System (Priority: P2)
 
-**Independent Test:** each arm reports localization, solve rate, tokens, TTVC, RAM, disk, build/update cost.
+A runtime engineer can compare progressively richer repository-localization/context approaches under the same tasks and choose the smallest approach that delivers sufficient verified utility relative to latency, input tokens, memory, disk, startup, and incremental-update cost.
 
-### User Story 6 - RL/Data Engineer Can Build Verifiable Executable Tasks Safely (Priority: P2)
+**Why this priority:** A small model benefits from precise repository context, but heavy retrieval can erase the laptop and speed advantages MSTR is designed to deliver.
 
-Construct executable tasks with reproducible environments, reference-pass/no-op-fail/unsolved checks, reward-shortcut attacks, provenance, and reset metrics before large RL planning.
+**Independent Test:** Each context arm produces the same resource/quality score surface and the selected default is demonstrably non-dominated or justified against the measured Pareto frontier.
 
-**Independent Test:** one fixture passes reference, fails no-op/unsolved, and rejects evaluator tampering/test deletion/hardcoding shortcuts.
+**Acceptance Scenarios:**
+1. Given a richer context arm provides no material verified-task gain, when defaults are selected, then the simpler arm wins.
+2. Given a richer arm improves solve rate but exceeds the universal-laptop resource budget, when the primary default is selected, then it cannot become mandatory without an explicit product-boundary change.
 
-### User Story 7 - Security and Provenance Reviewer Can Audit the Entire Qualification Chain (Priority: P2)
+### User Story 6 - Training Engineer Can Build Verifiable Executable Tasks Safely (Priority: P2)
 
-A reviewer can trace every material score/artifact/rights/provenance/security boundary to exact records without chat history.
+A training engineer can construct reproducible executable software tasks whose expected solution is verifiable, whose unchanged/broken states fail appropriately, and whose reward logic resists common shortcuts before any large-scale reinforcement-learning program is planned.
 
-**Independent Test:** traverse report -> run -> task -> model/artifact/runtime/hardware/contract/provenance and reject missing mandatory identity.
+**Why this priority:** Scalable agent training is only useful when environments and verifiers reward actual software-engineering success rather than exploitable shortcuts.
 
-### User Story 8 - Founder Can Close MSTR-000 With an Implementation-Ready MSTR-001 Decision (Priority: P1)
+**Independent Test:** A controlled executable task accepts the known-good solution, rejects the no-op/unsolved state, resets reproducibly, and blocks the defined reward-shortcut and answer-leakage attacks.
 
-The founder receives one reconciled decision package containing measured laptop floor, contracts, local runtime/Q4, context decision, top backbone/top-two, risks, and bounded next-stage proposal.
+**Acceptance Scenarios:**
+1. Given the task's known-good solution, when required verification runs, then it passes.
+2. Given no change or the known broken state, when verification runs, then it fails.
+3. Given attempts to weaken/delete tests, hardcode answers, tamper with the evaluator, spoof outputs, or retrieve future/public solutions, when the task is evaluated, then the shortcut does not earn a valid success.
 
-**Independent Test:** a new agent can state exactly what is selected, authorized, deferred, and prohibited.
+### User Story 7 - Security and Provenance Reviewer Can Audit the Qualification Chain (Priority: P2)
+
+A reviewer can trace every material score, artifact, rights decision, task, verifier, runtime, hardware profile, and provenance record from repository evidence without relying on private chat history.
+
+**Why this priority:** MSTR's release and research claims must be independently inspectable and must not silently leak user data, benchmark answers, or incompatible source material.
+
+**Independent Test:** Starting from a material report, traverse every mandatory identity to its source record; a missing mandatory identity, unauthorized network path, workspace escape, or prohibited provenance state causes audit failure.
+
+**Acceptance Scenarios:**
+1. Given a material result lacks a required identity, when audit runs, then it is invalid for headline direct comparison.
+2. Given repository content attempts to override user/system authority or exfiltrate data, when the security boundary is exercised, then repository content remains untrusted and the prohibited effect is blocked.
+3. Given training/evaluation provenance intersects excluded benchmark solutions, when contamination checks run, then the affected material is excluded or explicitly disqualified.
+
+### User Story 8 - Founder Can Close MSTR-000 With a Buildable Next-Stage Decision (Priority: P1)
+
+The founder receives one reconciled closeout package containing the measured laptop floor, distribution/privacy contract, local serving baseline, interaction contract, context decision, top backbone or controlled top-two set, environment/verifier requirements, unresolved risks, and a bounded next-stage data/mid-training proposal.
+
+**Why this priority:** MSTR-000 exists to remove expensive uncertainty. Closeout must make the next workstream implementable without repeating architecture debates.
+
+**Independent Test:** A new implementation agent, with repository access but no prior chat context, can state exactly what MSTR-000 selected, what remains unresolved, what the next workstream may execute, and what remains prohibited.
+
+**Acceptance Scenarios:**
+1. Given all mandatory closeout evidence, when the package is independently reviewed, then all CRITICAL/HIGH consistency conflicts are resolved before closure.
+2. Given explicit founder acceptance, when MSTR-000 closes, then the exact next-stage authority is recorded canonically.
+3. Given closeout is not accepted, when continuation is requested, then long training remains unauthorized.
 
 ## Edge Cases
 
-- Small active params but huge total weights.
-- Permissive backbone with restrictive tokenizer/vision component.
-- Upstream license/files change between static check and weight access.
-- Q4 fits disk but KV cache breaks 8 GB at 8K.
-- Burst CPU looks fast but thermal throttling ruins sustained use.
-- Fast Metal path but no portable Windows/Linux CPU path.
-- Tokenizer makes tokens/sec misleading.
-- Retrieval helps solve rate but destroys RAM/disk/latency budget.
-- Tool JSON is syntactically valid but semantically unauthorized.
-- Verifier is exploitable by test deletion/assertion weakening/hardcoding.
-- Benchmark fixes leak via training/git/cache/network.
-- Paid comparison model/harness changes mid-run.
-- Task succeeds without edit (`TTFCE=N/A`).
-- Agent training destroys FIM/raw coding/Q4/tool reliability.
-- Vision footprint breaks universal product.
+- A model reports a small active parameter count but requires a very large total weight footprint.
+- A nominally permissive model includes a tokenizer, vision component, dataset, runtime component, or other required asset with different terms.
+- Upstream terms or artifacts change between static screening and later acquisition.
+- A compressed artifact fits on disk but context/cache memory makes the whole laptop unusable.
+- Short burst performance looks fast but sustained operation causes severe throttling or editor degradation.
+- An accelerated platform works well but portable CPU operation fails on another required platform family.
+- Tokenization differences make tokens-per-second appear misleading relative to actual source-code output.
+- More repository context increases solve rate but exceeds the memory/disk/latency budget.
+- A tool request is syntactically valid but attempts an unauthorized effect.
+- A verifier can be gamed by changing tests/evaluators instead of solving the task.
+- Benchmark answers can leak through training data, future repository history, caches, or network access.
+- A task is solved without modifying repository files; first-correct-edit is not applicable rather than zero.
+- Later post-training improves agent behavior but degrades direct coding/completion or local reliability.
+- Optional multimodal capability creates unacceptable artifact or memory overhead for the primary laptop release.
 
-## Functional Requirements
+## Requirements
 
-### Product and Platform
-- **FR-001:** U1 MUST be 8 GB total RAM, CPU-only, 8K, OS + editor + medium repo + MSTR concurrently.
-- **FR-002:** 4K/8K/16K contexts MUST be characterized separately.
-- **FR-003:** Primary Q4 artifact target MUST be <=3 GB unless explicitly amended by measured governance.
-- **FR-004:** Windows x86_64, Linux x86_64, and macOS arm64/M1-class MUST be required lanes.
-- **FR-005:** Final support floor MUST be measurement-based, not vendor claims.
-- **FR-006:** Whole-laptop usability MUST include memory, paging, sustained CPU, and editor responsiveness.
+### Functional Requirements — Product and Platform
 
-### Distribution, Install, Privacy
-- **FR-007:** No provider account/API key/subscription/activation/remote fallback for primary local use.
-- **FR-008:** At least one official complete acquisition path MUST be ungated/accountless where rights allow.
-- **FR-009:** Basic operation MUST work offline after required artifacts are local.
-- **FR-010:** Telemetry/outbound network MUST be off by default.
-- **FR-011:** User code MUST NOT be uploaded/used for training by default.
-- **FR-012:** Basic launch MUST NOT require Docker/Python/Node/compiler/source build.
-- **FR-013:** Required artifacts MUST have compatibility metadata and cryptographic hashes.
+- **FR-001:** The primary qualification tier MUST use 8 GB total RAM, require no discrete GPU, use an 8K reference context, and measure MSTR while the operating system, reference editor, and reference repository are concurrently active.
+- **FR-002:** The qualification program MUST characterize 4K, 8K, and 16K context tiers separately rather than infer laptop usability from a model's advertised maximum context.
+- **FR-003:** The primary local model artifact MUST target no more than 3 GB unless an explicit measured specification amendment changes the product boundary.
+- **FR-004:** Windows on x86-64, Linux on x86-64, and macOS on Apple Silicon MUST be required platform families for the primary release qualification.
+- **FR-005:** The final support floor MUST be established from measured behavior rather than vendor/model claims.
+- **FR-006:** Whole-laptop qualification MUST include model/system memory pressure, paging behavior, sustained compute behavior, and editor responsiveness in addition to model throughput.
 
-### Candidate Admission and Rights
-- **FR-014:** Every candidate MUST be pinned to an exact upstream revision before weight access.
-- **FR-015:** Admission MUST fail closed unless intended personal/commercial use, modification/fine-tuning, quantization/conversion, and derivative redistribution are sufficiently established.
-- **FR-016:** Dataset, teacher/API-output, runtime, tokenizer/vision, and tooling rights MUST be separate records.
-- **FR-017:** Research/non-commercial/field/scale-restricted candidates MUST NOT become primary unless resolved.
-- **FR-018:** Landscape MUST be rescanned immediately before first weight access.
+### Functional Requirements — Distribution, Installation, and Privacy
 
-### Evidence and Measurement
-- **FR-019:** Material results MUST use a versioned measurement protocol.
-- **FR-020:** Evidence MUST bind model revision, artifact hash, tokenizer, quantizer, runtime, hardware, context/cache, interaction contract, task manifest, seed, result.
-- **FR-021:** TTFI/TTFA/TTFCE/TTVC, solve rate, memory/paging, sustained throughput, responsiveness MUST follow canonical definitions.
-- **FR-022:** Cold/session-warm/prefix-warm results MUST be separate.
-- **FR-023:** Failed/timeout/OOM/verifier-fail runs MUST remain evidence.
-- **FR-024:** Raw/neutral/full-system scores MUST be separate.
-- **FR-025:** Direct comparisons MUST reject mismatched protocols/manifests/config unless labeled non-equivalent.
+- **FR-007:** Primary local use MUST NOT require a provider account, API key, subscription, activation server, or hidden remote-model fallback.
+- **FR-008:** Where redistribution rights permit, at least one official complete primary-artifact acquisition path MUST NOT require a provider account or separate model-access gate.
+- **FR-009:** Basic coding assistance MUST work with external networking unavailable after all required artifacts are local.
+- **FR-010:** Telemetry and outbound network access MUST be disabled by default.
+- **FR-011:** User repository contents MUST NOT be uploaded or used for training by default.
+- **FR-012:** Basic MSTR launch MUST NOT require users to build MSTR from source or assemble a language-specific development/tooling environment for MSTR itself.
+- **FR-013:** Every required release artifact MUST have an explicit compatibility identity and integrity hash.
 
-### Interaction and Editing
-- **FR-026:** Prompt/chat, FIM, tool grammar, result serialization, edit grammar, context order, stale-write, serving/cache MUST be versioned before material agent SFT/RL.
-- **FR-027:** Tool/result serialization MUST be deterministic.
-- **FR-028:** Edit layer MUST be stale-safe.
-- **FR-029:** v1 apply path MUST be deterministic; learned apply not required.
-- **FR-030:** Malformed/rejected tool calls MUST NOT count as successful actions.
+### Functional Requirements — Candidate Admission and Rights
 
-### Candidate Tournament
-- **FR-031:** Initial static qualification MUST include the clarified candidate set and lower-bound control.
-- **FR-032:** Surviving candidates MUST be tested in required local Q4-class form.
-- **FR-033:** Selection MUST include raw coding, FIM, multilingual instructions, tool/edit, repo work, TTVC, solve rate, memory, sustained responsiveness.
-- **FR-034:** Vendor benchmarks MUST NOT be sufficient for selection.
-- **FR-035:** Finalists MUST receive equivalent bounded adaptation unless ineligible/dominated before adaptation.
-- **FR-036:** Rights/U1/distribution failures MUST block primary selection regardless of quality.
+- **FR-014:** Every candidate considered for artifact acquisition MUST be pinned to an immutable upstream revision before acquisition.
+- **FR-015:** Primary-candidate admission MUST fail closed unless intended personal/commercial use, modification/fine-tuning, conversion/compression, and redistribution of the intended derivative artifact are sufficiently established.
+- **FR-016:** Rights for model components, data, teacher/generated outputs, serving/runtime components, and transformation tooling MUST be recorded separately when they can independently restrict the intended product.
+- **FR-017:** Research-only, non-commercial-only, field-restricted, scale-restricted, or derivative-redistribution-incompatible candidates MUST NOT become the primary backbone unless the relevant restriction is resolved.
+- **FR-018:** The compact foundation landscape MUST be rescanned immediately before the first artifact-acquisition decision using the same admission criteria.
+- **FR-019:** Static qualification MUST compare multiple materially different compact foundation candidates and at least one deliberately lightweight code-oriented control unless the market scan proves such comparison impossible.
 
-### Context Engine
-- **FR-037:** Exact search MUST be baseline.
-- **FR-038:** Tree-sitter symbols and sparse indexing MUST be measured before heavier default retrieval.
-- **FR-039:** Embeddings, SCIP, Graphify, Code-Graph-RAG MUST remain optional until proven.
-- **FR-040:** Context RAM/disk/startup/update costs MUST count against laptop budget.
-- **FR-041:** Default MUST be smallest measured Pareto-efficient stack.
+### Functional Requirements — Evidence and Measurement
 
-### Environment / Verifier Factory
-- **FR-042:** Executable tasks MUST prove reference/oracle pass and no-op fail before RL use.
-- **FR-043:** Tasks MUST support unsolved/broken validation where applicable.
-- **FR-044:** Shortcut tests MUST cover evaluator/test tampering, deletion/weakening, hardcoding, output spoofing, future history, cache/deleted solution recovery, public-solution/network leakage.
-- **FR-045:** Reset latency, yield, reproducibility, CPU, storage, failure rate MUST be measured before RL scaling.
+- **FR-020:** Every material performance result MUST identify the measurement protocol used.
+- **FR-021:** Material result evidence MUST identify the exact model/source revision, artifact integrity identity, tokenizer identity, transformation/compression method, serving/runtime build, hardware profile, context/cache state, interaction-contract version, task manifest, verifier policy, seed/sampling state, and final result where applicable.
+- **FR-022:** Time-to-first-local-interaction, time-to-first-action, time-to-first-correct-edit, time-to-verified-completion, verified completion rate, memory/paging, sustained throughput, and responsiveness MUST follow the canonical measurement definitions.
+- **FR-023:** Cold-process, warm-session, and reusable-prefix-cache states MUST be reported separately when they materially affect latency.
+- **FR-024:** Failed, timed-out, memory-failed, verifier-failed, and model/tool-failed runs MUST remain visible in evidence rather than be silently dropped.
+- **FR-025:** Raw-model, neutral-minimal-harness, and full-optimized-system results MUST be maintained as separate score surfaces.
+- **FR-026:** A direct comparison MUST be rejected or explicitly labeled non-equivalent when material task, verifier, timeout, cache, protocol, or hardware conditions differ.
 
-### Security and Provenance
-- **FR-046:** Repository content MUST be treated as untrusted data.
-- **FR-047:** Secret/workspace/network semantics MUST be explicit/tested.
-- **FR-048:** Training provenance MUST support source, license, hash, dedup lineage, benchmark exclusion, opt-out.
-- **FR-049:** Benchmark runtime MUST prevent future-history/public-solution retrieval.
-- **FR-050:** Public benchmark limitations/contamination risk MUST accompany headline evaluation.
+### Functional Requirements — Interaction and Editing
 
-### Governance and Closeout
-- **FR-051:** GitHub main MUST remain canonical.
-- **FR-052:** Weight access, paid APIs, rented compute, long training, large data, RL, release MUST require exact canonical task authority.
-- **FR-053:** MSTR-000 MUST NOT authorize long training or production release.
-- **FR-054:** Closeout MUST produce bounded MSTR-001 proposal with compute/data/environment cost and rights constraints.
-- **FR-055:** Closeout MUST receive independent review/reconciliation and explicit founder acceptance.
+- **FR-027:** Before material agent post-training, MSTR MUST version the coupled interaction contract covering model/tokenizer identity constraints, prompt structure, completion/edit semantics, tool requests/results, context ordering, stale-write behavior, task state, privacy/network semantics, and serving/cache assumptions.
+- **FR-028:** Canonical structured interaction serialization MUST be deterministic for identical input and contract versions.
+- **FR-029:** Repository edits MUST use stale-safe semantics that prevent silent overwrite of newer file state.
+- **FR-030:** The primary edit-application path MUST have a deterministic non-learned baseline before any learned alternative can be considered.
+- **FR-031:** Malformed, rejected, or unauthorized tool requests MUST NOT be counted as successful external actions.
+
+### Functional Requirements — Candidate Tournament
+
+- **FR-032:** Every candidate surviving static admission MUST be evaluated in the primary local compressed/quantized artifact form selected for qualification before final primary selection.
+- **FR-033:** Candidate selection MUST include direct coding/completion, edit behavior, multilingual developer instructions, tool reliability, repository work, verified completion, TTVC, memory pressure, and sustained laptop responsiveness.
+- **FR-034:** Vendor-reported or single public benchmark results MUST NOT be sufficient for final selection.
+- **FR-035:** Finalists MUST receive an equivalent bounded adaptation experiment before final selection unless a candidate is already ineligible or clearly dominated under a predeclared stopping rule.
+- **FR-036:** A candidate failing rights, distribution, integrity, or universal-laptop gates MUST NOT win the primary product regardless of capability scores.
+
+### Functional Requirements — Repository Context
+
+- **FR-037:** The context tournament MUST begin with a minimal exact/lexical repository-search baseline.
+- **FR-038:** Progressively richer symbol-aware, indexed, semantic, or graph-oriented context approaches MUST be treated as comparative arms rather than assumed defaults.
+- **FR-039:** Every context arm MUST account for input-token, latency, memory, disk, startup/build, and incremental-update cost in addition to localization/verified-task quality.
+- **FR-040:** Context-system resource use MUST count against the same universal-laptop budget as the model/runtime.
+- **FR-041:** The primary default MUST be the smallest measured context approach on the acceptable quality/resource Pareto frontier.
+
+### Functional Requirements — Executable Tasks and Verification
+
+- **FR-042:** A task intended for future reinforcement-learning use MUST demonstrate that a known-good solution passes and that the unchanged/no-op state fails before admission.
+- **FR-043:** Where applicable, executable tasks MUST validate that their known broken/unsolved state fails as intended.
+- **FR-044:** Verifier qualification MUST include attacks for evaluator/test tampering, deletion/weakening, hardcoding, output spoofing, future-history retrieval, cached/deleted-solution recovery, and public-solution/network retrieval.
+- **FR-045:** Environment task yield, reset/startup time, reproducibility, compute use, storage footprint, and infrastructure failure rate MUST be measured before any decision to scale reinforcement learning.
+
+### Functional Requirements — Security, Provenance, and Evaluation Integrity
+
+- **FR-046:** Repository files, comments, issue text, test output, and other repository-provided content MUST be treated as untrusted data rather than project/system authority.
+- **FR-047:** Workspace, secret, and network boundaries MUST be explicit and testable.
+- **FR-048:** Training provenance design MUST support source identity, revision, license decision, content hash, transformation/dedup lineage, benchmark-exclusion state, and owner opt-out state where applicable.
+- **FR-049:** Benchmark execution MUST block future-fix history and public-solution retrieval unless a benchmark explicitly tests an allowed networked scenario.
+- **FR-050:** Public benchmark results MUST be accompanied by known limitations and MUST remain supporting evidence rather than the sole project truth.
+- **FR-051:** MSTR MUST define a fresh/private hidden-test evaluation contract before major release claims are finalized.
+
+### Functional Requirements — Governance and Closeout
+
+- **FR-052:** GitHub `main` MUST remain the canonical project state; unmerged branches, consultations, model outputs, and benchmark results remain evidence candidates.
+- **FR-053:** Model-artifact acquisition, paid external model use, rented compute, large data ingestion, bounded adaptation, long training, reinforcement learning, and release publication MUST require the exact canonical authority appropriate to that external effect.
+- **FR-054:** MSTR-000 MUST NOT itself authorize long training, large-scale reinforcement learning, large-corpus ingestion, or production release.
+- **FR-055:** MSTR-000 closeout MUST produce a bounded next-stage data/mid-training proposal, receive an independent cross-artifact/evidence review, resolve CRITICAL/HIGH conflicts, and receive explicit founder acceptance before closure.
 
 ## Key Entities
 
-CandidateModel, RightsDecision, ModelArtifact, RuntimeBuild, HardwareProfile, InteractionContract, DistributionContract, TaskManifest, RunEvidence, BenchmarkManifest, ContextArm, EnvironmentTask, VerifierDefinition, ProvenanceRecord, DecisionRecord. See `data-model.md`.
+- **Candidate Model:** a potential compact foundation or control under qualification.
+- **Rights Decision:** the product-compatibility judgment for one model/component/data/tool source.
+- **Model Artifact:** one immutable local model representation tied to its exact source and transformation lineage.
+- **Runtime Build:** the exact serving/inference build used by a measurement.
+- **Hardware Profile:** the reproducible platform/CPU/memory/editor/reference-workload identity.
+- **Interaction Contract:** the versioned serving/training semantics for prompts, tools, edits, context, state, and privacy.
+- **Task / Benchmark Manifest:** the frozen work, verifier, timeout, sampling, network, and comparison conditions.
+- **Run Evidence:** one immutable measured execution record.
+- **Context Arm:** one repository-context strategy under comparative qualification.
+- **Environment Task / Verifier:** one reproducible executable software task and its protected success definition.
+- **Provenance Record:** source/rights/hash/lineage/exclusion/opt-out evidence.
+- **Decision Record:** an evidence-bound selected/rejected/deferred project decision.
+
+See `data-model.md` for implementation planning details.
 
 ## Assumptions
 
-- MSTR-000 is qualification, not long training.
-- Python qualification harness is acceptable though eventual end-user runtime should favor self-contained portability.
-- Final backbone/runtime/quant/context decisions are intentionally empirical.
-- Upstream model/license/runtime facts must be revalidated at execution time.
+- MSTR-000 is a qualification and decision-reduction workstream, not the long-training program.
+- The exact backbone, local serving backend, local compression profile, context implementation, later data mixture, and later reinforcement-learning framework remain empirical decisions.
+- Upstream model, license, component, and runtime facts can change and therefore must be revalidated at the execution gate that relies on them.
+- A separate implementation plan may select practical research tooling without changing the user-facing product requirements in this specification.
 
 ## Success Criteria
 
-- **SC-001:** package has zero unresolved `[NEEDS CLARIFICATION]` markers.
-- **SC-002:** T000–T002 remain traceable canonical complete tasks.
-- **SC-003:** every incomplete task has prerequisites, output path(s), and completion evidence.
-- **SC-004:** at least three materially different eligible compact foundations survive static qualification or shortage is explicit.
-- **SC-005:** each locally admitted candidate has pinned Q4/runtime identity.
-- **SC-006:** required U1 results report 8K whole-laptop behavior without hidden discrete-GPU requirement.
-- **SC-007:** rights/distribution/U1/artifact failures cannot win.
-- **SC-008:** Interaction Contract v1 has deterministic fixture tests.
-- **SC-009:** scorecards separate raw/neutral/full system.
-- **SC-010:** final selection uses post-Q4/equivalent bounded-adaptation evidence.
-- **SC-011:** context default is Pareto-efficient across solve rate/tokens/latency/RAM/disk/update.
-- **SC-012:** environment MVP rejects no-op-pass and canonical reward shortcuts.
-- **SC-013:** material results are fully traceable without chat history.
-- **SC-014:** closeout package lets a new implementation agent proceed without redesign.
-- **SC-015:** long training remains blocked until closeout/founder acceptance.
+### Measurable Outcomes
+
+- **SC-001:** 100% of required platform families have an explicit qualification result before the primary release may claim support; unsupported families are not generalized into "all laptops."
+- **SC-002:** On the U1 8 GB / CPU-only / 8K qualification tier, a primary candidate must complete the canonical local smoke workflow without OOM, canonical memory-pressure failure, or reference-editor responsiveness failure.
+- **SC-003:** The selected primary local model artifact is no larger than 3 GB, unless the product specification is explicitly amended with measured evidence and founder approval before selection.
+- **SC-004:** 100% of primary local smoke tests complete with external networking unavailable after required artifacts are local and without provider authentication, API keys, subscriptions, activation, or remote-model fallback.
+- **SC-005:** At least three materially different product-eligible compact foundation candidates are compared under the same qualification protocol, or the closeout package explicitly proves that the eligible market contains fewer than three.
+- **SC-006:** 100% of candidates selected for local artifact acquisition have complete immutable upstream identity and a non-failing primary rights decision before acquisition.
+- **SC-007:** 100% of material direct-comparison results can be traced from report to exact task, candidate/artifact, runtime, hardware, interaction contract, verifier policy, and measurement protocol without relying on chat history.
+- **SC-008:** No candidate that fails rights, artifact integrity, universal-laptop, offline, or required-platform gates can be selected as the primary MSTR backbone.
+- **SC-009:** 100% of canonical stale-write conflict fixtures reject an overwrite of newer repository content.
+- **SC-010:** Candidate selection reports verified completion rate together with TTVC and keep raw-model, neutral-harness, and full-system effects separately attributable.
+- **SC-011:** The selected repository-context default is non-dominated on the approved quality/resource comparison or includes an explicit documented exception approved at closeout.
+- **SC-012:** Every executable task admitted by the MSTR-000 environment MVP passes its known-good solution check, fails its required no-op/broken checks, and passes the mandatory reward-shortcut admission battery.
+- **SC-013:** The final top-one/top-two backbone decision includes equivalent bounded post-adaptation evidence for every finalist not removed by a predeclared ineligibility/dominance rule.
+- **SC-014:** At MSTR-000 closeout, an implementation agent with repository access and no prior conversation can identify all selected decisions, unresolved risks, exact next-stage authority, and prohibited actions from canonical files alone.
+- **SC-015:** Long training, large-scale reinforcement learning, large-corpus ingestion, and production release remain unauthorized until a later exact canonical workstream/task explicitly grants the relevant authority after MSTR-000 closeout.
