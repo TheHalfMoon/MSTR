@@ -69,20 +69,21 @@ For software-engineering tasks:
 
 ```text
 TTFA =
-  timestamp(first externally observable task-relevant action begins)
+  timestamp(first externally observable task-relevant action is accepted/starts)
   - timestamp(task submission is accepted by MSTR)
 ```
 
 A qualifying action is the first task-relevant:
 
-- repository search;
-- file/symbol read;
-- structured tool request;
-- shell/build/test request;
-- edit operation;
+- repository search accepted by the search runtime;
+- file/symbol read accepted by the tool runtime;
+- shell/build/test process start;
+- edit transaction start;
 - or, for a task that genuinely requires no tool, first user-visible output token.
 
-Internal reasoning tokens, hidden planning, logging, or speculative work that produces no external task-relevant action do **not** stop TTFA.
+A model merely emitting malformed/rejected tool syntax does not stop TTFA. The action must cross the model/runtime boundary into an accepted externally observable operation.
+
+Internal reasoning tokens, hidden planning, logging, or speculative work that produces no accepted task-relevant action do **not** stop TTFA.
 
 Record separately:
 
@@ -96,15 +97,18 @@ Record separately:
 
 ```text
 TTFCE =
-  timestamp(first durable edit operation begins)
+  timestamp(first durable edit transaction successfully COMMITS to the workspace)
   - timestamp(task submission is accepted)
 ```
 
 An edit is **durable/correct** only if:
 
-1. at least one resulting changed region is present in the final verified repository state;
-2. that contribution is not fully reverted before successful completion; and
-3. the final required verifier set passes with that contribution present.
+1. the apply engine successfully completes the write/transaction and records the resulting file hash/state;
+2. at least one resulting changed region is present in the final verified repository state;
+3. that contribution is not fully reverted before successful completion; and
+4. the final required verifier set passes with that contribution present.
+
+Starting an edit operation does not stop TTFCE; parsing, conflict handling, stale-checking, and apply latency remain inside the metric until the successful workspace mutation is externally visible.
 
 The apply engine must record file hashes before/after each edit so the harness can trace edit lineage. An early wrong edit that is later reverted does not count.
 
@@ -116,7 +120,8 @@ If the task is solved without a repository edit, `TTFCE = N/A` rather than zero.
 
 ```text
 TTVC =
-  timestamp(last REQUIRED verifier returns PASS and task reaches completed state)
+  max(timestamp(last REQUIRED verifier returns PASS),
+      timestamp(task enters completed state))
   - timestamp(task submission is accepted)
 ```
 
@@ -158,22 +163,54 @@ The <=3 GB MSTR target applies to the primary model artifact unless a later cano
 
 ## 10. Memory measurement
 
-Memory is measured at both MSTR process-tree level and whole-system level.
+Memory is measured at three attribution levels plus whole-system pressure.
+
+### A. `MSTR_CORE_TREE`
+
+Includes every process/service required to provide MSTR model inference and repository intelligence even when no task-specific external build/test command is running, including:
+
+- model server/runtime;
+- tokenizer/prompt service;
+- context/retrieval/index helpers;
+- apply engine helpers;
+- local orchestration/IPC services;
+- any daemon moved out-of-process by MSTR.
+
+The <=4 GB U1 soft RSS target applies to this core attribution at the 8K reference context. MSTR cannot hide memory by moving model/retrieval work into a separate helper daemon.
+
+### B. `TASK_TOOL_TREE`
+
+Includes repository-specific external processes started because of the task, such as:
+
+- compiler/linker;
+- test runner;
+- language package/build tool;
+- shell commands;
+- application process launched for verification.
+
+These are reported separately because their memory belongs to the repository/toolchain rather than model footprint.
+
+### C. `TOTAL_AGENT_TREE`
+
+`MSTR_CORE_TREE + TASK_TOOL_TREE` where process lineage permits reliable aggregation.
 
 ### Required process metrics
 
 Record, where the OS exposes them:
 
-- process-tree RSS / working set;
-- private/unique memory or private working set;
-- peak process-tree RSS;
+- core process-tree RSS / working set;
+- core private/unique memory or private working set;
+- peak `MSTR_CORE_TREE` RSS;
+- peak `TASK_TOOL_TREE` RSS;
+- peak `TOTAL_AGENT_TREE` RSS where available;
 - model-mapping/file-backed memory where distinguishable;
-- peak during model load;
-- peak during 8K prefill;
-- peak during steady decode;
-- peak during repository indexing/tool operation.
+- core peak during model load;
+- core peak during 8K prefill;
+- core peak during steady decode;
+- core peak during repository indexing;
+- task-tool peak during build/test verification.
 
-Do not compare unlike OS memory concepts without labeling them. `PROCESS_TREE_RSS` is the common headline, while platform-specific private/footprint metrics remain mandatory supporting evidence where available.
+Do not compare unlike OS memory concepts without labeling them. `MSTR_CORE_TREE_RSS` is the common model/system-footprint headline; task tools remain separately visible and whole-system pressure remains authoritative for laptop usability.
 
 ### Required whole-system metrics
 
@@ -188,7 +225,7 @@ Record:
 - major/hard page-fault counters;
 - platform memory-pressure state where exposed.
 
-MSTR child processes and helper processes belong to the MSTR process tree and cannot be excluded to make RAM appear smaller.
+All MSTR runtime/helper processes belong to `MSTR_CORE_TREE`; all MSTR-started task/tool subprocesses belong to `TASK_TOOL_TREE`. Neither category may be silently omitted. Whole-system measurements include both.
 
 ## 11. Paging / swap-thrashing classification
 
@@ -210,7 +247,7 @@ Platform evidence:
 - Linux: `/proc`/`vmstat` major faults plus `si/so` or equivalent swap I/O;
 - macOS: memory pressure, `vm_stat` pageouts/swap/compressor metrics where available.
 
-T022 may tighten these thresholds with evidence, but may not loosen them merely to rescue a candidate without explicit review.
+T022 may tighten these thresholds with evidence, but may not loosen them merely to rescue a candidate without explicit review and a measurement-protocol revision.
 
 ## 12. Prefill and decode throughput
 
@@ -420,7 +457,9 @@ KV_CACHE_CONFIG
 INTERACTION_CONTRACT_VERSION
 PREFIX_CACHE_STATE
 MODEL_ARTIFACT_BYTES
-PROCESS_TREE_PEAK_RSS
+MSTR_CORE_TREE_PEAK_RSS
+TASK_TOOL_TREE_PEAK_RSS
+TOTAL_AGENT_TREE_PEAK_RSS_IF_AVAILABLE
 SYSTEM_MIN_AVAILABLE_MEMORY
 SWAP_PAGEFILE_DELTA
 PAGEFAULT_METRICS
@@ -440,7 +479,7 @@ FINAL_RESULT
 
 ## 21. Protocol change rule
 
-After candidate scoring starts, a material change to metric definitions, cache state, timeout policy, verifier requirements, editor workload, or memory-pressure thresholds requires:
+After candidate scoring starts, a material change to metric definitions, cache state, timeout policy, verifier requirements, editor workload, memory attribution, or memory-pressure thresholds requires:
 
 1. a new protocol version;
 2. rationale;
@@ -454,10 +493,10 @@ Historical results remain labeled with their original protocol.
 T001_RESULT = PASS
 MEASUREMENT_PROTOCOL = MSTR-MEASURE-v0
 TTFI = DEFINED
-TTFA = DEFINED
-TTFCE = DEFINED
-TTVC = DEFINED
-MEMORY_PROTOCOL = PROCESS_TREE + WHOLE_SYSTEM
+TTFA = ACCEPTED_EXTERNAL_ACTION
+TTFCE = SUCCESSFULLY_COMMITTED_DURABLE_VERIFIED_EDIT
+TTVC = VERIFIED_TERMINAL_COMPLETION
+MEMORY_PROTOCOL = MSTR_CORE_TREE + TASK_TOOL_TREE + WHOLE_SYSTEM
 SWAP_THRASH_RULE = DEFINED
 THROUGHPUT = PREFILL + DECODE + TOKENIZER_NORMALIZED_OUTPUT
 SUSTAINED_CPU_TEST = 10_MINUTES
