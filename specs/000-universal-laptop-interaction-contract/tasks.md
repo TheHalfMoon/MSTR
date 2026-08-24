@@ -22,7 +22,7 @@ A checkbox becomes complete only when the stated output exists, required tests/e
 
 **Purpose:** create the implementation skeleton only. No model weights, candidate execution, or external service access.
 
-- [ ] T003 Bootstrap package/test/config/evidence layout → `pyproject.toml`, `.gitignore`, `src/mstr_qualify/__init__.py`, `src/mstr_qualify/__main__.py`, `tests/`, `configs/`, `schemas/`, `artifacts/{candidates,manifests,results,decisions}/`.
+- [x] T003 Bootstrap package/test/config/evidence layout → `pyproject.toml`, `.gitignore`, `src/mstr_qualify/__init__.py`, `src/mstr_qualify/__main__.py`, `tests/`, `configs/`, `schemas/`, `artifacts/{candidates,manifests,results,decisions}/`. Evidence: `evidence/T003-qualification-harness-bootstrap.md`.
 
 **Checkpoint:** repository has an installable empty qualification package and ignored locations for external/large artifacts.
 
