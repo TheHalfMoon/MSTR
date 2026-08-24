@@ -9,7 +9,7 @@ description = "Qualification and evidence harness for MSTR preconstruction resea
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "TheHalfMoon" }]
-dependencies = []
+dependencies = ["jsonschema>=4.23,<5"]
 
 [project.optional-dependencies]
 dev = [

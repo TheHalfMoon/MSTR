@@ -7,13 +7,11 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_BEFORE_T003 = 8278dc49292cd907799b289ed538bd5b5c348230
+CANONICAL_MAIN_BEFORE_T004 = 4f16e1e5a8a515ecebb0750cbd0b93876c8ae3ea
 PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION
 ACTIVE_SPEC = MSTR-000
 SPEC_KIT_PACKAGE = CANONICAL
 ```
-
-PR #5 canonicalized the complete MSTR-000 Spec Kit package. The active implementation queue is `specs/000-universal-laptop-interaction-contract/tasks.md`.
 
 ## Canonical completed history
 
@@ -21,21 +19,24 @@ PR #5 canonicalized the complete MSTR-000 Spec Kit package. The active implement
 T000 = COMPLETE_CANONICAL / UNIVERSAL_LAPTOP_MATRIX
 T001 = COMPLETE_CANONICAL / MSTR-MEASURE-v0
 T002 = COMPLETE_CANONICAL / MSTR-DIST-v0
+T003 = COMPLETE_CANONICAL / QUALIFICATION_HARNESS_BOOTSTRAP
 ```
+
+T003 canonical merge: `4f16e1e5a8a515ecebb0750cbd0b93876c8ae3ea`.
 
 ## Active work
 
 ```text
-ACTIVE_TASK = T003
-ACTIVE_BRANCH = task/000-t003-qualification-harness-bootstrap
+ACTIVE_TASK = T004
+ACTIVE_BRANCH = task/000-t004-schema-validation
 TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
-NEXT_TASK_AFTER_T003_CANONICAL = T004
+NEXT_TASK_AFTER_T004_CANONICAL = T005
 ```
 
-T003 is the qualification-harness bootstrap only. It creates the Python package/test/config/schema/artifact layout and does not implement candidate qualification, model/runtime integration, or any external-effect task.
+T004 implements repository-local Draft 2020-12 JSON Schema loading and validation for the four canonical design contracts. Runtime schema files reuse the design-source Git blob identities, validation rejects unknown schema names and external `$ref` values, and valid/invalid fixtures exercise fail-closed behavior.
 
-Candidate evidence for T003 is recorded at:
-`specs/000-universal-laptop-interaction-contract/evidence/T003-qualification-harness-bootstrap.md`.
+Candidate evidence:
+`specs/000-universal-laptop-interaction-contract/evidence/T004-strict-schema-validation.md`.
 
 ## Product invariant
 
@@ -62,7 +63,7 @@ INTERACTION_CONTRACT = UNFROZEN
 DEFAULT_CONTEXT_ENGINE = UNSELECTED
 LOCAL_RUNTIME_BASELINE = UNSELECTED
 
-MODEL_WEIGHT_ACCESS = NOT_AUTHORIZED_BY_T003
+MODEL_WEIGHT_ACCESS = NOT_AUTHORIZED_BY_T004
 MODEL_EXECUTION = NONE
 PAID_MODEL_API_EXECUTION = NONE
 RENTED_TRAINING_COMPUTE = NONE
@@ -71,12 +72,12 @@ LARGE_SCALE_RL = NOT_STARTED / PROHIBITED_IN_MSTR-000
 PRODUCTION_MODEL_RELEASE = NONE
 ```
 
-The first possible model-weight acquisition remains T028 and requires separate exact authorization after all prerequisite tasks are canonical. T053 is the only MSTR-000 bounded micro-adaptation gate and also requires separate exact authorization.
+The first possible model-weight acquisition remains T028 and requires separate exact authorization after all prerequisites are canonical. T053 remains the only MSTR-000 bounded micro-adaptation gate and also requires separate exact authorization.
 
-## Candidate search space
+## Dependency note
 
-The current research shortlist remains evidence-only until static qualification tasks execute. No model is selected by this state file.
+T004 adds `jsonschema>=4.23,<5` to the **research qualification harness** only so MSTR can enforce its Draft 2020-12 contracts locally. This is not an end-user MSTR runtime decision. The locally validated package version was 4.26.0 under the MIT license.
 
 ## Next gate
 
-If T003 is reviewed and merged without scope expansion, proceed to T004: strict schema loading/validation and runtime copies of the design schemas. T004 does not authorize model-weight access.
+If T004 is reviewed and merged without scope expansion, proceed to T005: typed qualification errors and stable ID/SHA-256 helpers. T005 does not authorize model-weight access.

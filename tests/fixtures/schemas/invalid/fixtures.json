@@ -1,0 +1,6 @@
+{
+  "candidate-record": {"schema_version":"mstr.candidate.v1","candidate_id":"fixture-model","unexpected":true},
+  "task-manifest": {"schema_version":"mstr.task.v1","task_id":"fixture-task","repository":"example/repo","base_revision":"x","task_text":"x","workspace_scope":[],"required_verifiers":[],"timeout_seconds":0,"network_policy":"open","future_history_policy":"blocked"},
+  "run-evidence": {"schema_version":"mstr.run.v1","run_id":"run-1","artifact_sha256":"not-a-sha","final_result":"made_up"},
+  "interaction-contract": {"schema_version":"mstr.interaction.v1","contract_version":"0","stable_prefix_hash":"bad"}
+}

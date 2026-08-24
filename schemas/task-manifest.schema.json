@@ -1,0 +1,10 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://mstr.local/schemas/task-manifest-v1.json",
+  "title":"MSTR Task Manifest v1",
+  "type":"object","additionalProperties":false,
+  "required":["schema_version","task_id","repository","base_revision","task_text","required_verifiers","timeout_seconds","network_policy","future_history_policy","workspace_scope"],
+  "properties":{
+    "schema_version":{"const":"mstr.task.v1"},"task_id":{"type":"string","minLength":1},"repository":{"type":"string","minLength":1},"base_revision":{"type":"string","minLength":1},"task_text":{"type":"string","minLength":1},"workspace_scope":{"type":"array","minItems":1,"items":{"type":"string"}},"required_verifiers":{"type":"array","minItems":1,"items":{"type":"string"}},"timeout_seconds":{"type":"integer","minimum":1},"seed":{"type":["integer","null"]},"sampling":{"type":"object","additionalProperties":true},"tool_budget":{"type":["integer","null"],"minimum":1},"network_policy":{"enum":["disabled","loopback_only","explicit_allowlist"]},"network_allowlist":{"type":"array","items":{"type":"string"}},"future_history_policy":{"enum":["blocked","not_applicable"]},"hidden_artifact_ids":{"type":"array","items":{"type":"string"}},"benchmark_exclusion_class":{"type":["string","null"]},"notes":{"type":"array","items":{"type":"string"}}
+  }
+}
