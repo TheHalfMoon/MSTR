@@ -1,104 +1,293 @@
-# MSTR-000 Tasks
+# Tasks: MSTR-000 Universal Laptop Qualification + Interaction Contract
 
-All tasks are preconstruction qualification tasks. A checked task means evidence was produced and reviewed; it does not itself select the final backbone or authorize long training.
+**Strict checklist format:** `- [ ] T### [P?] [US#?] Action → exact output path(s)`.
 
-No model-weight download, paid model API execution, or rented training compute is authorized by this planning PR. After the plan becomes canonical, only the explicit task that names such access may authorize it.
+- Setup and Foundational tasks intentionally have **no** user-story label.
+- User-story phases use `[US1]` through `[US8]`.
+- `[P]` means safe to run in parallel only after the phase prerequisites are satisfied and only when the tasks do not mutate the same output.
+- T000–T002 are canonical completed historical tasks; the executable Spec Kit queue continues at T003.
+- Earlier incomplete/noncanonical T003+ draft IDs are superseded by this graph.
 
-## Governance, hardware, and measurement
+A checkbox becomes complete only when the stated output exists, required tests/evidence pass, identity fields are complete, external effects stayed within exact authority, and the result is canonical through repository governance.
 
-- [x] T000 Define the universal-laptop reference hardware/OS matrix, concurrent editor workload, exact support floor, and 4K/8K/16K context ladder. Evidence: `evidence/T000-universal-laptop-hardware-matrix.md`. The task defines a qualification floor; final measured support remains T060.
-- [x] T001 Define canonical TTFI, TTFA, TTFCE, TTVC, artifact-size, process-RSS, total-system-memory, swap/page-fault, throughput, sustained-thermal, and optional energy measurement procedures. Evidence: `evidence/T001-measurement-procedures.md` (`MSTR-MEASURE-v0`).
-- [x] T002 Freeze the universal distribution/install/privacy contract: no account/API key, offline after install, telemetry/network off by default, portable CPU runtime, and no Docker/dev-toolchain requirement merely to launch basic assistance. Evidence: `evidence/T002-distribution-install-privacy-contract.md` (`MSTR-DIST-v0`).
-- [ ] T003 Define the primary-backbone rights gate covering use, commercial use, modification/fine-tuning, quantization/conversion, derivative redistribution, and end-user obligations.
-- [ ] T004 Define evidence identity requirements for model revision, checksums, tokenizer, quantizer, runtime/build flags, hardware, context/cache, interaction contract, task manifest, and seeds.
-- [ ] T005 Freeze the MSTR-000 benchmark/task manifest and seed policy before candidate scoring.
-- [ ] T006 Define raw-model, neutral-harness, and full-system reporting surfaces plus the competitive TTVC protocol.
+## Phase 0 — Canonical Product Foundation — COMPLETE
 
-## Base-model static qualification — no weight download required
+- [x] T000 [US1] Define universal-laptop matrix → `evidence/T000-universal-laptop-hardware-matrix.md`.
+- [x] T001 [US1] Freeze `MSTR-MEASURE-v0` → `evidence/T001-measurement-procedures.md`.
+- [x] T002 [US1] Freeze `MSTR-DIST-v0` → `evidence/T002-distribution-install-privacy-contract.md`.
 
-- [ ] T007 Qualify `Qwen/Qwen3.5-2B-Base`: license/terms, architecture, tokenizer, vision footprint, local-runtime support, quantization maturity, and exact upstream revision.
-- [ ] T008 Qualify `Qwen/Qwen3.5-4B-Base` under the same static gate.
-- [ ] T009 Qualify `mistralai/Ministral-3-3B-Base-2512` under the same static gate.
-- [ ] T010 Qualify `Qwen/Qwen3-4B-Base` as the mature dense control.
-- [ ] T011 Qualify `ibm-granite/granite-4.1-3b-base`, including FIM suitability and distribution rights.
-- [ ] T012 Qualify `HuggingFaceTB/SmolLM3-3B-Base` as an open text-only control.
-- [ ] T013 Qualify `Qwen/Qwen2.5-Coder-1.5B` as the code-specialized lower-bound control.
-- [ ] T014 Record `Qwen/Qwen2.5-Coder-3B` as ineligible for the primary backbone while its upstream research/non-commercial license remains incompatible.
-- [ ] T015 Review useful post-trained comparison points such as Phi-4-mini-instruct without treating them as foundation candidates.
-- [ ] T016 Re-scan the current compact open-base landscape immediately before the first weight-access task; statically qualify any materially stronger eligible candidate.
-- [ ] T017 Select the bounded set of candidates eligible to proceed to task-scoped local artifact qualification. This is not final backbone admission.
+---
 
-## Task-scoped local Q4 qualification
+## Phase 1 — Setup
 
-- [ ] T018 Define the exact candidate weight-access manifest, upstream revisions, expected hashes, storage ceiling, quantization recipes, runtime versions, and cost ceiling if any.
-- [ ] T019 After explicit task authorization, obtain/build pinned Q4-class test artifacts for the admitted candidates only.
-- [ ] T020 Compare at least one quality-oriented and one compatibility-oriented Q4 profile where practical; record exact quantizer/tool revision.
-- [ ] T021 Prove portable CPU runtime paths and record optional Metal/Vulkan/CUDA/etc. acceleration only as bonuses.
-- [ ] T022 Measure artifact size, process RSS, total-system memory pressure, swap/page faults, cold load, warm TTFA, and throughput at 4K/8K/16K on the reference matrix.
-- [ ] T023 Run sustained CPU inference to measure throttling/responsiveness; measure energy per task where reliable counters exist.
-- [ ] T024 Measure Q4 degradation in coding, FIM, multilingual instruction following, JSON/tool calls, and edit grammar.
-- [ ] T025 Reject candidates that violate rights, artifact-size, CPU-runtime, whole-laptop memory, responsiveness, or offline-use gates.
+**Purpose:** create the implementation skeleton only. No model weights, candidate execution, or external service access.
 
-## Interaction contract
+- [ ] T003 Bootstrap package/test/config/evidence layout → `pyproject.toml`, `.gitignore`, `src/mstr_qualify/__init__.py`, `src/mstr_qualify/__main__.py`, `tests/`, `configs/`, `schemas/`, `artifacts/{candidates,manifests,results,decisions}/`.
 
-- [ ] T026 Run prompt-prefix/cache-layout bake-off on surviving candidates.
-- [ ] T027 Run tool-call grammar and deterministic result-serialization bake-off.
-- [ ] T028 Run edit-format tournament: whole-file vs unified-diff vs search/replace vs anchored patch.
-- [ ] T029 Define deterministic stale-safe apply semantics and file-version/hash contract.
-- [ ] T030 Define network/privacy/sandbox semantics visible to the model and task-state/compaction schema if used.
-- [ ] T031 Produce Interaction Contract v0 candidate from T026–T030.
+**Checkpoint:** repository has an installable empty qualification package and ignored locations for external/large artifacts.
 
-## Quality tournament
+---
 
-- [ ] T032 Run fresh raw coding/FIM/multilingual control suite on surviving candidates.
-- [ ] T033 Run tool/edit reliability suite under Interaction Contract v0.
-- [ ] T034 Run bounded repository-localization and repair suite with a neutral minimal harness.
-- [ ] T035 Measure whole-laptop verified completion rate, TTVC, verified completions/hour, and verified utility per GB.
-- [ ] T036 If separately authorized and access is available, run the fixed competitive TTVC protocol against selected cloud coding systems; keep cloud/harness effects separate from model comparisons.
-- [ ] T037 Select top candidates for bounded micro-adaptation; do not select the final backbone yet.
+## Phase 2 — Foundational Infrastructure — BLOCKS USER-STORY IMPLEMENTATION
 
-## Bounded micro-adaptation
+**Prerequisite:** T003.  
+**Independent test:** from a clean Python 3.11+ environment with no model weights and external network blocked, `python -m mstr_qualify validate` validates schemas/fixtures and `pytest -q` passes.
 
-- [ ] T038 Define a small, decontaminated, execution-grounded adaptation set shared across candidates, including FIM replay and failure/recovery examples.
-- [ ] T039 Define the identical bounded adaptation recipe, exact token/update budget, hardware, seeds, and cost ceiling.
-- [ ] T040 Run the identical bounded adaptation protocol for the top candidates only after task authorization.
-- [ ] T041 Re-run T022–T035 after adaptation.
-- [ ] T042 Decide whether a top-two MSTR-001 pilot remains necessary or whether one candidate is decisively dominated.
+- [ ] T004 [P] Implement strict schema loading/validation and copy design schemas into runtime schema directory → `src/mstr_qualify/schemas.py`, `schemas/*.schema.json`, `tests/contract/test_schemas.py`, `tests/fixtures/schemas/{valid,invalid}/`.
+- [ ] T005 [P] Implement typed qualification errors plus stable ID/SHA-256 helpers → `src/mstr_qualify/errors.py`, `src/mstr_qualify/ids.py`, `tests/unit/test_errors.py`, `tests/unit/test_ids.py`.
+- [ ] T006 Implement fail-closed component/backbone rights evaluation → `src/mstr_qualify/rights.py`, `tests/unit/test_rights.py`, `tests/fixtures/rights/`, `evidence/T006-primary-backbone-rights-gate.md`.
+- [ ] T007 Implement immutable/canonical evidence serialization and supersession semantics → `src/mstr_qualify/evidence.py`, `tests/unit/test_evidence.py`, `tests/contract/test_evidence_roundtrip.py`, `tests/fixtures/evidence/`.
+- [ ] T008 Implement task/benchmark/candidate manifest loaders and validation → `src/mstr_qualify/manifests.py`, `tests/unit/test_manifests.py`, `benchmarks/manifests/README.md`, `configs/candidates/README.md`.
+- [ ] T009 Implement score-surface/report comparability rules that reject mismatched protocol/cache/hardware/task conditions → `src/mstr_qualify/reporting.py`, `tests/unit/test_reporting.py`, `tests/fixtures/reporting/`.
+- [ ] T010 Implement dependency-light offline CLI commands `validate`, `rights`, `candidate static`, `manifest validate` → `src/mstr_qualify/cli.py`, `tests/integration/test_cli_offline.py`.
+- [ ] T011 Freeze harness quality gates and baseline test evidence → `evidence/T011-harness-foundation-qualification.md`, `configs/quality.toml`, plus passing `tests/`; add CI workflow only if explicitly chosen and document absence otherwise.
 
-## Context tournament
+**Checkpoint:** foundational harness ready. User-story work can begin according to dependencies below.
 
-- [ ] T043 Establish exact-search/ripgrep baseline.
-- [ ] T044 Add Tree-sitter RepoMap-style symbols and measure marginal value.
-- [ ] T045 Add incremental sparse index and measure marginal value, memory, disk, startup, and incremental-update cost.
-- [ ] T046 Evaluate optional embeddings/reranker arm.
-- [ ] T047 Evaluate optional SCIP arm on supported languages.
-- [ ] T048 Evaluate Graphify as an experimental arm.
-- [ ] T049 Evaluate Code-Graph-RAG as an experimental arm.
-- [ ] T050 Select the smallest context stack on the solve-rate/token/latency/RAM/disk Pareto frontier. Context-engine memory counts against the 8 GB whole-laptop budget.
+---
 
-## Environment factory
+## Phase 3 — User Story 2: Reproducible Static Candidate Admission (P1)
 
-- [ ] T051 Build a small deterministic executable-task factory prototype.
-- [ ] T052 Add oracle/reference-pass, no-op-fail, and unsolved-state checks.
-- [ ] T053 Add reward-shortcut attacks: test deletion, assertion weakening, hardcoding, verifier tampering, future-history lookup, public-solution/network lookup, cache/deleted-solution recovery, and output spoofing.
-- [ ] T054 Measure task yield, reset latency, CPU utilization, storage footprint, environment failure rate, and reproducibility.
+**Goal:** identify compact candidate foundations that are legally/distributably/technically eligible for later local qualification without downloading weights.  
+**Prerequisite:** T003–T011 canonical.  
+**Independent test:** every candidate produces a schema-valid record pinned to an immutable upstream revision; ambiguous/incompatible rights fail closed; no weight files are accessed.
 
-## Security, privacy, and provenance
+- [ ] T012 [P] [US2] Qualify Qwen3.5-2B → `artifacts/candidates/qwen3.5-2b.json`, `evidence/candidates/T012-qwen3.5-2b.md`.
+- [ ] T013 [P] [US2] Qualify Qwen3.5-4B → `artifacts/candidates/qwen3.5-4b.json`, `evidence/candidates/T013-qwen3.5-4b.md`.
+- [ ] T014 [P] [US2] Qualify Ministral-3-3B → `artifacts/candidates/ministral-3-3b.json`, `evidence/candidates/T014-ministral-3-3b.md`.
+- [ ] T015 [P] [US2] Qualify Qwen3-4B control → `artifacts/candidates/qwen3-4b.json`, `evidence/candidates/T015-qwen3-4b.md`.
+- [ ] T016 [P] [US2] Qualify Granite-4.1-3B including FIM/component rights → `artifacts/candidates/granite-4.1-3b.json`, `evidence/candidates/T016-granite-4.1-3b.md`.
+- [ ] T017 [P] [US2] Qualify SmolLM3-3B → `artifacts/candidates/smollm3-3b.json`, `evidence/candidates/T017-smollm3-3b.md`.
+- [ ] T018 [P] [US2] Qualify Qwen2.5-Coder-1.5B lower-bound control → `artifacts/candidates/qwen2.5-coder-1.5b.json`, `evidence/candidates/T018-qwen2.5-coder-1.5b.md`.
+- [ ] T019 [P] [US2] Record Qwen2.5-Coder-3B as reference-only/ineligible unless exact current terms changed → `artifacts/candidates/qwen2.5-coder-3b-reference.json`, `evidence/candidates/T019-qwen2.5-coder-3b.md`.
+- [ ] T020 [P] [US2] Record useful compact post-trained comparison points without treating them as foundation winners → `artifacts/candidates/comparisons/*.json`, `evidence/candidates/T020-posttrained-comparisons.md`.
+- [ ] T021 [US2] Re-scan current approximately 1B–5B open foundation landscape immediately before first weight-access planning → `evidence/T021-landscape-rescan.md`; any new candidate gets `artifacts/candidates/<id>.json` under the same schema.
+- [ ] T022 [US2] Select bounded weight-eligible candidate set without final backbone admission → `artifacts/decisions/T022-static-candidate-admission.json`, `evidence/T022-static-candidate-admission.md`.
 
-- [ ] T055 Define repository-content trust boundaries and prompt-injection test cases.
-- [ ] T056 Define local network/telemetry defaults, secret-handling boundaries, and offline privacy tests.
-- [ ] T057 Define training-data provenance schema, benchmark exclusion, owner opt-out, and license checks.
-- [ ] T058 Define teacher/API-output provenance and terms checks before any synthetic/distilled data can enter MSTR training.
-- [ ] T059 Define runtime answer-leakage controls for future benchmark runs.
+**Checkpoint:** US2 independently demonstrable; weight-eligible set exists without any model acquisition.
 
-## MSTR-000 closeout
+---
 
-- [ ] T060 Freeze the measured universal-laptop hardware/OS floor and default context.
-- [ ] T061 Freeze the distribution/install/privacy contract and basic local runtime requirements.
-- [ ] T062 Freeze Interaction Contract v1.
-- [ ] T063 Record selected portable local inference baseline, Q4 profile, artifact provenance contract, and acceptance thresholds.
-- [ ] T064 Record selected minimal Context Engine and its RAM/disk budget.
-- [ ] T065 Record top backbone choice or top-two MSTR-001 pilot set.
-- [ ] T066 Produce MSTR-001 bounded training proposal and compute/environment budget, including dataset/teacher rights constraints.
-- [ ] T067 Independent review and reconciliation of all MSTR-000 evidence.
-- [ ] T068 Founder acceptance of MSTR-000 closeout before serious training begins.
+## Phase 4 — User Story 1: Universal-Laptop Local Artifact Qualification (P1)
+
+**Goal:** prove which admitted candidates actually fit and function under the universal-laptop product envelope.  
+**Prerequisite:** T022 canonical.  
+**Authority:** no candidate weight access before T028.  
+**Independent test:** every admitted candidate has pinned artifact/runtime identity and U1 8GB/CPU/8K evidence or an explicit rejection reason.
+
+- [ ] T023 [P] [US1] Define runtime/platform adapter protocols with dummy implementations → `src/mstr_qualify/runtimes/base.py`, `src/mstr_qualify/measurement/platform.py`, `tests/unit/test_runtime_protocol.py`, `tests/unit/test_platform_sampler.py`.
+- [ ] T024 [P] [US1] Implement artifact manifest/hash verification → `src/mstr_qualify/artifacts.py`, `tests/unit/test_artifacts.py`, `tests/fixtures/artifacts/`.
+- [ ] T025 [P] [US1] Implement Windows/Linux/macOS memory/paging samplers and unavailable-metric semantics → `src/mstr_qualify/measurement/{windows,linux,macos}.py`, `tests/unit/measurement/`.
+- [ ] T026 [P] [US1] Implement `MSTR-MEASURE-v0` monotonic event/TTFI/TTFA/TTFCE/TTVC logic → `src/mstr_qualify/measurement/protocol.py`, `tests/unit/measurement/test_protocol.py`.
+- [ ] T027 [US1] Freeze exact weight-access/acquisition manifest including candidates/revisions, source URLs, expected integrity checks, storage ceiling, runtime/quantizer, network behavior, cost ceiling, retention/cleanup → `artifacts/manifests/T027-weight-access.json`, `evidence/T027-weight-access-preflight.md`.
+- [ ] T028 [US1] **EXPLICIT WEIGHT ACCESS GATE:** only after separate exact authorization, acquire T027-listed candidate artifacts, verify source/integrity, keep binaries outside Git → `artifacts/manifests/T028-acquired-artifacts.json`, `evidence/T028-weight-acquisition.md`; downloaded files remain ignored/external.
+- [ ] T029 [US1] Build/obtain quality-oriented and compatibility-oriented Q4 profiles where practical, with exact quantizer/recipe/hash → `artifacts/manifests/quantization/*.json`, `evidence/T029-q4-profiles.md`.
+- [ ] T030 [US1] Implement/qualify portable CPU runtime adapters; acceleration is separate bonus data → `src/mstr_qualify/runtimes/<runtime>.py`, `configs/runtimes/*.json`, `tests/integration/test_runtime_adapters.py`, `evidence/T030-runtime-adapters.md`.
+- [ ] T031 [US1] Measure 4K/8K/16K artifact/load/memory/paging/prefill/decode behavior → `artifacts/results/local/T031/*.jsonl`, `evidence/T031-local-memory-throughput.md`.
+- [ ] T032 [US1] Measure 10-minute sustained CPU behavior and reference-editor responsiveness on required lanes → `artifacts/results/local/T032/*.jsonl`, `evidence/T032-sustained-responsiveness.md`.
+- [ ] T033 [US1] Measure Q4 regressions in raw coding/FIM/multilingual/schema/tool/edit primitives → `artifacts/results/local/T033/*.jsonl`, `evidence/T033-q4-regressions.md`.
+- [ ] T034 [US1] Reject rights/U1/offline/size/runtime failures and freeze local-qualified set → `artifacts/decisions/T034-local-artifact-admission.json`, `evidence/T034-local-artifact-admission.md`.
+
+**Checkpoint:** US1 qualification outcome independently demonstrable for every locally admitted candidate.
+
+---
+
+## Phase 5 — User Story 3: Stable Interaction + Deterministic Edit Contract (P1)
+
+**Goal:** freeze a trainable/servable prompt-tool-edit contract before material post-training.  
+**Prerequisite:** T034.  
+**Independent test:** canonical fixtures are deterministic; malformed calls fail explicitly; stale hashes cannot overwrite; Interaction v0 validates against schema.
+
+- [ ] T035 [P] [US3] Implement prompt/stable-prefix representation and canonical hashing → `src/mstr_qualify/interaction/prompt.py`, `configs/interaction/prompt-arms/*.json`, `tests/contract/test_prompt_prefix.py`.
+- [ ] T036 [P] [US3] Implement candidate tool grammars/parsers with malformed/schema failure semantics → `src/mstr_qualify/interaction/tools.py`, `configs/interaction/tool-arms/*.json`, `tests/unit/interaction/test_tools.py`.
+- [ ] T037 [P] [US3] Implement deterministic tool-result serialization → `src/mstr_qualify/interaction/serialization.py`, `tests/contract/test_tool_serialization.py`, `tests/fixtures/interaction/tool-results/`.
+- [ ] T038 [P] [US3] Implement edit-format tournament adapters for whole-file/unified-diff/search-replace/anchored patch → `src/mstr_qualify/interaction/edits.py`, `configs/interaction/edit-arms/*.json`, `tests/unit/interaction/test_edits.py`.
+- [ ] T039 [US3] Implement deterministic file-hash/version stale-write transactions and conflict rejection → `src/mstr_qualify/interaction/apply.py`, `tests/security/test_stale_write.py`, `tests/integration/test_apply_transactions.py`.
+- [ ] T040 [P] [US3] Define model-visible network/privacy/sandbox/task-state/context-order semantics → `configs/interaction/runtime-semantics.json`, `tests/contract/test_runtime_semantics.py`.
+- [ ] T041 [US3] Run prompt/cache/tool/result/edit bake-off on local-qualified candidates → `artifacts/results/interaction/T041/*.jsonl`, `evidence/T041-interaction-bakeoff.md`.
+- [ ] T042 [US3] Freeze Interaction Contract v0 candidate and fixtures → `configs/interaction/mstr-interaction-v0.json`, `artifacts/decisions/T042-interaction-v0.json`, `evidence/T042-interaction-v0.md`.
+
+**Checkpoint:** US3 independently passes contract/serialization/stale-write tests.
+
+---
+
+## Phase 6 — User Story 4: Verified Candidate Selection + Equivalent Bounded Adaptation (P1)
+
+**Goal:** select the strongest local foundation using comparable verified evidence rather than one leaderboard.  
+**Prerequisite:** T042.  
+**Independent test:** regenerate raw/neutral/full-system scorecards from exact evidence; failed seeds remain visible; finalists receive equivalent bounded adaptation.
+
+- [ ] T043 [US4] Freeze tournament task/seed/sampling/verifier/timeout/cache manifest before scoring → `benchmarks/manifests/T043-candidate-tournament.json`, `evidence/T043-tournament-freeze.md`.
+- [ ] T044 [P] [US4] Run raw coding/FIM/multilingual surface → `artifacts/results/tournament/T044-raw/*.jsonl`, `evidence/T044-raw-results.md`.
+- [ ] T045 [P] [US4] Run tool/edit reliability under Interaction v0 → `artifacts/results/tournament/T045-tool-edit/*.jsonl`, `evidence/T045-tool-edit-results.md`.
+- [ ] T046 [US4] Implement/use neutral minimal repository harness and run localization/repair tasks → `src/mstr_qualify/harness/neutral.py`, `tests/integration/test_neutral_harness.py`, `artifacts/results/tournament/T046-repo/*.jsonl`, `evidence/T046-neutral-repo-results.md`.
+- [ ] T047 [US4] Compute U1 solve rate, TTVC, completions/hour, utility-per-GB with failure-inclusive reporting → `artifacts/results/tournament/T047-utility.json`, `evidence/T047-laptop-utility.md`.
+- [ ] T048 [US4] Define optional external competitive TTVC protocol without executing paid systems → `benchmarks/manifests/T048-competitive-ttvc.json`, `evidence/T048-competitive-protocol.md`.
+- [ ] T049 [US4] Generate pre-adaptation raw/neutral/full scorecard → `artifacts/decisions/T049-pre-adaptation-scorecard.json`, `evidence/T049-pre-adaptation-scorecard.md`.
+- [ ] T050 [US4] Select finalists for equivalent bounded adaptation → `artifacts/decisions/T050-finalists.json`, `evidence/T050-finalist-selection.md`.
+- [ ] T051 [US4] Freeze small decontaminated execution-grounded adaptation set manifest with FIM/failure/recovery/general-reasoning replay → `artifacts/manifests/T051-micro-adaptation-data.json`, `evidence/T051-micro-adaptation-data.md`; training data binaries remain external/ignored.
+- [ ] T052 [US4] Freeze identical adaptation recipe: token/update budget, seeds, hardware, optimizer/config, cost ceiling, stopping/regression rules → `artifacts/manifests/T052-micro-adaptation-recipe.json`, `evidence/T052-micro-adaptation-preflight.md`.
+- [ ] T053 [US4] **EXPLICIT BOUNDED TRAINING GATE:** only after separate exact authorization, run T052 for finalists; no long training → `artifacts/results/adaptation/T053/*.json`, `evidence/T053-micro-adaptation-execution.md`; resulting model binaries stay outside Git.
+- [ ] T054 [US4] Re-run local/quality tournament on adapted finalists and compare regressions/gains → `artifacts/results/adaptation/T054/*.jsonl`, `evidence/T054-post-adaptation-results.md`.
+- [ ] T055 [US4] Freeze top-one backbone or top-two controlled MSTR-001 mid-training pilot set → `artifacts/decisions/T055-backbone-decision.json`, `evidence/T055-backbone-decision.md`; this is not long-training authority.
+
+**Checkpoint:** US4 independently produces the evidence-backed top-one/top-two decision.
+
+---
+
+## Phase 7 — User Story 5: Smallest Useful Context Engine (P2)
+
+**Goal:** select the smallest repository-context system that earns its resource cost.  
+**Prerequisite:** Foundational T011; final quality-facing comparison uses T042+ and the frozen task surface.  
+**Independent test:** each arm reports localization/solve-rate/tokens/TTVC/RAM/disk/build/update under a common manifest; default is the smallest Pareto-efficient arm.
+
+- [ ] T056 [US5] Implement `ContextProvider` and exact/ripgrep baseline → `src/mstr_qualify/context/base.py`, `src/mstr_qualify/context/exact.py`, `tests/unit/context/test_exact.py`, `configs/context/exact.json`.
+- [ ] T057 [US5] Implement Tree-sitter/RepoMap-style symbols and resource metrics → `src/mstr_qualify/context/symbols.py`, `tests/unit/context/test_symbols.py`, `configs/context/symbols.json`.
+- [ ] T058 [US5] Implement incremental sparse index with startup/update/RAM/disk metrics → `src/mstr_qualify/context/sparse.py`, `tests/unit/context/test_sparse.py`, `configs/context/sparse.json`.
+- [ ] T059 [P] [US5] Evaluate embeddings/reranker experimental arm without making it mandatory → `src/mstr_qualify/context/embeddings.py` or isolated adapter config, `configs/context/embeddings.json`, `artifacts/results/context/T059/*.jsonl`.
+- [ ] T060 [P] [US5] Evaluate SCIP experimental arm → `src/mstr_qualify/context/scip.py` or isolated adapter config, `configs/context/scip.json`, `artifacts/results/context/T060/*.jsonl`.
+- [ ] T061 [P] [US5] Evaluate Graphify experimental arm in isolated optional integration → `configs/context/graphify.json`, `artifacts/results/context/T061/*.jsonl`, `evidence/context/T061-graphify.md`.
+- [ ] T062 [P] [US5] Evaluate Code-Graph-RAG experimental arm in isolated optional integration → `configs/context/code-graph-rag.json`, `artifacts/results/context/T062/*.jsonl`, `evidence/context/T062-code-graph-rag.md`.
+- [ ] T063 [US5] Generate common Context Pareto report → `artifacts/results/context/T063-pareto.json`, `evidence/T063-context-pareto.md`.
+- [ ] T064 [US5] Freeze default minimal Context Engine plus RAM/disk budget → `artifacts/decisions/T064-context-engine.json`, `evidence/T064-context-engine-decision.md`.
+
+**Checkpoint:** US5 independently yields one default context decision or an explicit no-extra-context decision.
+
+---
+
+## Phase 8 — User Story 6: Verifiable Environment / Verifier Factory MVP (P2)
+
+**Goal:** prove MSTR can construct trustworthy executable tasks before any large-scale RL plan.  
+**Prerequisite:** T003–T011.  
+**Independent test:** a fixture task passes its known-good solution, fails no-op/unsolved, rejects canonical reward shortcuts, resets reproducibly, and exposes reset/storage/CPU cost.
+
+- [ ] T065 [P] [US6] Implement `EnvironmentTask`/`VerifierDefinition` records and validation → `src/mstr_qualify/environment/models.py`, `src/mstr_qualify/verifier/models.py`, `schemas/environment-task.schema.json`, `schemas/verifier.schema.json`, `tests/contract/test_environment_schemas.py`.
+- [ ] T066 [P] [US6] Implement deterministic workspace reset/snapshot abstraction with clean-hash verification → `src/mstr_qualify/environment/workspace.py`, `tests/integration/test_workspace_reset.py`.
+- [ ] T067 [US6] Implement verifier runner with protected evaluator paths/structured results → `src/mstr_qualify/verifier/runner.py`, `tests/integration/test_verifier_runner.py`.
+- [ ] T068 [US6] Implement environment admission checks: oracle/reference pass, no-op fail, unsolved/broken fail → `src/mstr_qualify/environment/admission.py`, `tests/integration/test_environment_admission.py`, `benchmarks/fixtures/environment/`.
+- [ ] T069 [US6] Implement reward-shortcut battery: test deletion, assertion weakening, hardcoding, evaluator tamper, spoofing, cache/deleted-solution recovery → `src/mstr_qualify/verifier/shortcuts.py`, `tests/security/test_reward_shortcuts.py`.
+- [ ] T070 [US6] Implement future-history/public-solution/network leakage controls → `src/mstr_qualify/environment/leakage.py`, `tests/security/test_environment_leakage.py`.
+- [ ] T071 [US6] Measure task yield/reset/startup/CPU/storage/failure/reproducibility on MVP fixtures → `artifacts/results/environment/T071.json`, `evidence/T071-environment-throughput.md`.
+- [ ] T072 [US6] Freeze downstream MSTR-003 environment/verifier contract requirements; do not imply MSTR-003 execution authority → `artifacts/decisions/T072-environment-requirements.json`, `evidence/T072-environment-requirements.md`.
+
+**Checkpoint:** US6 independently proves environment/verifier readiness requirements for the later RL workstream.
+
+---
+
+## Phase 9 — User Story 7: Security, Privacy, Provenance, and Evaluation Integrity (P2)
+
+**Goal:** make the entire qualification chain auditable and fail closed against malicious repository input, leakage, and incompatible provenance.  
+**Prerequisite:** T003–T011.  
+**Independent test:** malicious repository fixtures cannot elevate instructions, escape workspace scope, exfiltrate secrets/network by default, or bypass benchmark leakage/provenance audit rules.
+
+- [ ] T073 [P] [US7] Define repository-content authority/trust model and prompt-injection fixtures → `docs/security/REPOSITORY_TRUST_MODEL.md`, `tests/security/fixtures/prompt_injection/`, `tests/security/test_prompt_injection.py`.
+- [ ] T074 [P] [US7] Implement workspace traversal, secret handling, network/telemetry default-off tests → `tests/security/test_workspace_scope.py`, `tests/security/test_secrets.py`, `tests/security/test_network_policy.py`.
+- [ ] T075 [P] [US7] Implement provenance record schema/model and lineage validation → `schemas/provenance-record.schema.json`, `src/mstr_qualify/provenance.py`, `tests/contract/test_provenance.py`.
+- [ ] T076 [US7] Define exact/fuzzy/AST/identity benchmark-exclusion fingerprinting and owner opt-out design → `docs/data/DECONTAMINATION_AND_OPTOUT.md`, `src/mstr_qualify/decontamination.py`, `tests/unit/test_decontamination.py`.
+- [ ] T077 [P] [US7] Implement teacher/API-output provenance and terms gate → `src/mstr_qualify/teacher_rights.py`, `tests/unit/test_teacher_rights.py`, `docs/data/TEACHER_OUTPUT_POLICY.md`.
+- [ ] T078 [US7] Implement runtime evaluation leakage fixtures for network/future-history/cache/public-solution paths → `tests/security/fixtures/leakage/`, `tests/security/test_runtime_leakage.py`.
+- [ ] T079 [US7] Freeze private/fresh MSTR Gauntlet construction/access contract without publishing hidden tasks → `benchmarks/private/README.md`, `benchmarks/private/manifest-template.json`, `docs/evaluation/GAUNTLET_POLICY.md`.
+- [ ] T080 [US7] Implement evidence-audit command traversing report → run → task → artifact/runtime/hardware/contracts/provenance → `src/mstr_qualify/audit.py`, CLI wiring in `src/mstr_qualify/cli.py`, `tests/integration/test_evidence_audit.py`.
+- [ ] T081 [US7] Produce security/provenance readiness evidence → `evidence/T081-security-provenance-readiness.md`.
+
+**Checkpoint:** US7 independently yields an auditable, privacy-preserving, leakage-aware qualification chain.
+
+---
+
+## Phase 10 — User Story 8: MSTR-000 Closeout and Buildable Next-Stage Decision (P1, Dependency-Final)
+
+**Goal:** close MSTR-000 only when a new agent can execute the next workstream without reopening settled architecture questions.  
+**Prerequisite:** mandatory evidence from T034, T055, T064, T072, T081 and every blocking implementation-readiness item.  
+**Independent test:** a new agent can reconstruct selected hardware/distribution/runtime/interaction/context/backbone decisions and exact MSTR-001 authority from repository files only.
+
+- [ ] T082 [US8] Freeze measured universal-laptop hardware/OS floor and default context → `artifacts/decisions/T082-hardware-floor.json`, `evidence/T082-hardware-floor.md`.
+- [ ] T083 [US8] Freeze closeout distribution/install/privacy contract revision → `artifacts/decisions/T083-distribution-contract.json`, `evidence/T083-distribution-contract.md`.
+- [ ] T084 [US8] Freeze Interaction Contract v1 plus fixtures/migration policy → `configs/interaction/mstr-interaction-v1.json`, `artifacts/decisions/T084-interaction-v1.json`, `evidence/T084-interaction-v1.md`.
+- [ ] T085 [US8] Freeze portable runtime/Q4 baseline, provenance contract, and acceptance thresholds → `artifacts/decisions/T085-runtime-q4.json`, `evidence/T085-runtime-q4.md`.
+- [ ] T086 [US8] Freeze minimal Context Engine/resource budget → `artifacts/decisions/T086-context-engine.json`, `evidence/T086-context-engine.md`.
+- [ ] T087 [US8] Freeze top backbone/top-two set with final raw/neutral/full scorecard → `artifacts/decisions/T087-backbone.json`, `evidence/T087-final-scorecard.md`.
+- [ ] T088 [US8] Produce **bounded MSTR-001 Data Engine + Code/FIM Mid-Training** Spec Kit input package with data/compute/cost/rights/regression gates and explicit non-authorities → `artifacts/decisions/T088-mstr-001-proposal.json`, `docs/handoffs/MSTR-001-PREPLAN.md`.
+- [ ] T089 [US8] Perform independent Spec Kit/evidence consistency review; resolve all CRITICAL/HIGH findings → `evidence/T089-independent-closeout-review.md`.
+- [ ] T090 [US8] Record explicit founder acceptance, mark MSTR-000 CLOSED_CANONICAL, update exact next authority → `artifacts/decisions/T090-founder-closeout.json`, `docs/canonical/CURRENT_STATE.md`, `checklists/implementation-readiness.md`.
+
+**Checkpoint:** US8 complete; MSTR-000 may become CLOSED_CANONICAL. No long training is implied unless a later exact MSTR-001 task authorizes it.
+
+---
+
+## Dependencies & Execution Order
+
+### Phase Dependencies
+
+```text
+Phase 0 canonical history
+    -> Phase 1 Setup (T003)
+    -> Phase 2 Foundational (T004-T011)
+    -> US2 static admission (T012-T022)
+    -> US1 local artifact qualification (T023-T034)
+    -> US3 interaction contract (T035-T042)
+    -> US4 quality/adaptation decision (T043-T055)
+
+After Foundational, these P2 stories may advance in parallel where their own prerequisites allow:
+    US5 context (T056-T064)
+    US6 environment/verifier (T065-T072)
+    US7 security/provenance (T073-T081)
+
+US8 closeout waits for US1/US4/US5/US6/US7 blocking decisions.
+```
+
+### User Story Dependencies
+
+- **US2 (P1):** first current user-story phase because US1 local qualification needs an admitted candidate set.
+- **US1 (P1):** depends on US2 static admission.
+- **US3 (P1):** depends on US1 local-qualified candidates.
+- **US4 (P1):** depends on US3 Interaction v0.
+- **US5 (P2):** can prototype after Foundational; final quality decision uses the frozen interaction/task surface.
+- **US6 (P2):** can begin after Foundational and proceeds independently of model-weight acquisition.
+- **US7 (P2):** can begin after Foundational and provides cross-cutting gates.
+- **US8 (P1 dependency-final):** closes only after required outputs from all blocking stories.
+
+### Parallel Opportunities
+
+- Setup is intentionally serial: T003.
+- Foundational: T004 and T005 can run in parallel; subsequent foundation tasks use their contracts/helpers.
+- US2: T012–T020 can be assigned to separate reviewers/agents after the common rights/schema gate is ready.
+- US1: T023–T026 can run in parallel before the T027 acquisition preflight.
+- US3: T035–T038 and T040 can run in parallel; T039/T041/T042 converge them.
+- US4: T044 and T045 can run in parallel after T043.
+- US5: T059–T062 experimental arms can run in parallel after the common baseline/interface work.
+- US6: T065 and T066 can run in parallel.
+- US7: T073, T074, T075, and T077 can run in parallel after Foundational.
+- US8 is mostly sequential convergence and should not be parallelized in ways that race canonical decisions.
+
+## Implementation Strategy
+
+### MVP 1 — Zero-Weight Qualification Harness
+
+Complete T003–T022. Deliverable: an offline, tested harness that can fail-closed on rights and produce a canonical weight-eligible candidate set **without accessing model weights**. This is the first useful implementation checkpoint.
+
+### MVP 2 — Universal-Laptop Candidate Qualification
+
+Complete T023–T034 after separate T028 authority. Deliverable: local Q4/runtime evidence and a local-qualified candidate set.
+
+### MVP 3 — Stable Train/Serve Contract + Candidate Decision
+
+Complete T035–T055, with separate T053 authority only if bounded adaptation is executed. Deliverable: Interaction v0 and top-one/top-two backbone decision.
+
+### MVP 4 — Context + Environment + Security Readiness
+
+Complete T056–T081. Deliverable: minimal context decision, trustworthy environment/verifier requirements, and auditable security/provenance boundaries.
+
+### Closeout
+
+Complete T082–T090. Deliverable: repository-only reconstruction of all MSTR-000 decisions and a bounded MSTR-001 Data Engine + Code/FIM Mid-Training input package.
+
+## External-Effect Gates
+
+```text
+T027 = acquisition preflight only
+T028 = first possible explicitly authorized model-weight acquisition
+T052 = bounded adaptation preflight only
+T053 = explicitly authorized bounded equivalent micro-adaptation only
+```
+
+No MSTR-000 task authorizes long training, large-scale RL, large-corpus ingestion, production release, or generic paid/cloud execution.

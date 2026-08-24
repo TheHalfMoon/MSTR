@@ -1,56 +1,124 @@
 # MSTR
 
-MSTR is an independent research and engineering project for building an **extremely capable software-engineering model that ordinary people can install and run locally on an ordinary laptop**.
+MSTR is an independent research and engineering project for building an **extremely capable software-engineering model and runtime that ordinary people can install and run locally on an ordinary laptop**.
 
-## Primary product invariant
+## Primary Product Invariant
 
-MSTR is not allowed to become a cloud-only or workstation-only model. The universal-laptop release is the primary product, not a degraded afterthought.
+The universal-laptop release is the primary product, not a reduced afterthought.
 
 ```text
 PRIMARY_MODE = LOCAL / OFFLINE-CAPABLE
+REFERENCE_TOTAL_RAM = 8_GB
+REFERENCE_CONTEXT = 8K
+CPU_ONLY_BASIC_OPERATION = REQUIRED
 DISCRETE_GPU_REQUIRED = NO
+PRIMARY_QUANT = Q4_CLASS
+PRIMARY_MODEL_ARTIFACT_TARGET <= 3_GB
 ACCOUNT_REQUIRED = NO
 API_KEY_REQUIRED = NO
-REFERENCE_TOTAL_RAM = 8_GB
-REFERENCE_CPU = MODERN_X86_64_OR_ARM64
-PRIMARY_QUANT = Q4_CLASS
-PRIMARY_DOWNLOAD_TARGET = <= 3_GB
-REFERENCE_CONTEXT = 8192_TOKENS
-CONTEXT_LADDER = 4096 / 8192 / 16384
-MSTR_PROCESS_RSS_SOFT_TARGET = <= 4_GB_AT_REFERENCE_CONTEXT
-WHOLE_LAPTOP_USABILITY = REQUIRED
+SUBSCRIPTION_REQUIRED = NO
 BASIC_MODE_DOCKER_REQUIRED = NO
-WINDOWS = REQUIRED
-LINUX = REQUIRED
-MACOS = REQUIRED
-OFFLINE_AFTER_INSTALL = REQUIRED
+BASIC_MODE_PYTHON_OR_NODE_REQUIRED = NO
 TELEMETRY_DEFAULT = OFF
+WINDOWS + LINUX + MACOS = REQUIRED_PLATFORM_FAMILIES
 ```
 
-These are qualification targets, not performance claims already proven. MSTR-000 must replace provisional values with measured limits and an explicit OS/CPU support matrix.
+These are qualification targets until measured closeout freezes the final support floor.
 
-The 8 GB gate is a **whole-laptop** gate: MSTR must remain usable while a reference editor and operating system are running. Model-only RAM measurements are insufficient, and sustained swap thrashing is a failure.
+## Development Method
 
-MSTR may later publish stronger optional editions, but the universal-laptop release remains the primary product and its hardware floor may not be silently raised.
+MSTR uses **Spec Kit / Spec-Driven Development**.
 
-## Distribution principle
+Start with:
 
-The primary MSTR release must be usable without a provider login, API key, subscription, or network connection after installation. Its backbone and distribution chain must permit the intended use, modification, quantization, and redistribution of derivative artifacts.
+1. `.specify/memory/constitution.md`
+2. `docs/canonical/CURRENT_STATE.md`
+3. `docs/canonical/PROGRAM_ROADMAP.md`
+4. `specs/000-universal-laptop-interaction-contract/`
 
-## Current phase
+The active MSTR-000 package contains:
+- specification and independently testable user stories;
+- clarification closeout;
+- research decisions;
+- technical implementation plan and Constitution Check;
+- data model and machine-readable contracts;
+- quickstart and implementation handoff;
+- implementation-readiness checklist;
+- dependency-ordered executable tasks with paths and external-effect gates.
 
-MSTR begins in **preconstruction**. No final backbone is selected, no model weights are currently authorized for download by the planning candidate, and no long training run is authorized.
-
-The first governed workstream is **MSTR-000 — Universal Laptop Interaction Contract + Base/Local/Speed Qualification**. Its purpose is to empirically freeze the coupled model/runtime/tool/edit/distribution contract before serious training compute is spent.
+## Current Phase
 
 ```text
-PROJECT_PHASE = PRECONSTRUCTION
-PRIMARY_PARAMETER_CLASS = APPROX_2B_TO_4B_DENSE_CANDIDATES
-LOWER_BOUND_CONTROL = APPROX_1_5B
-BACKBONE = UNSELECTED
-INTERACTION_CONTRACT = UNFROZEN
-DISTRIBUTION_CONTRACT = UNFROZEN
+PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION
+ACTIVE_SPEC = MSTR-000
+T000 = COMPLETE_CANONICAL
+T001 = COMPLETE_CANONICAL
+T002 = COMPLETE_CANONICAL
+FINAL_BACKBONE = UNSELECTED
 LONG_TRAINING = NOT_STARTED
-FINAL_MODEL_WEIGHT_ADMISSION = NONE
-MSTR_000 = ACTIVE_PLANNING_CANDIDATE
 ```
+
+MSTR-000 determines and implements the **qualification harness plus the model/runtime/distribution/interaction qualification program** before serious training compute is spent. It closes with the top backbone or top-two pilot decision and a bounded MSTR-001 data/mid-training proposal.
+
+## Product Thesis
+
+MSTR is not trying to win by parameter count alone.
+
+The target is:
+
+> **maximum verified software-engineering utility per GB, per second, and per unit of training evidence**
+
+Model quality, repository localization, deterministic editing, tool reliability, executable verification, local inference, quantization, context management, and end-to-end TTVC are designed together.
+
+## Program Roadmap
+
+The program is split into gated Spec Kit workstreams:
+
+```text
+MSTR-000  Qualification Harness + Universal Laptop / Interaction / Backbone Qualification
+MSTR-001  Data Engine + Bounded Code/FIM Mid-Training
+MSTR-002  Coding SFT + Repository / Tool / Planning Behavior
+MSTR-003  Environment Factory + Agentic RL
+MSTR-004  Local Inference Speed Co-Design
+MSTR-005  Packaging + Security + Privacy + Offline Release Engineering
+MSTR-006  MSTR Gauntlet + Release Candidate Qualification
+MSTR-007  MSTR v1 Release
+MSTR-008  Post-Release Evidence + Improvement Loop
+```
+
+The implementation details of later workstreams are intentionally deferred until predecessor evidence is canonical. See `docs/canonical/PROGRAM_ROADMAP.md`.
+
+## First Executable Task After MSTR-000 Plan Approval
+
+```text
+T003 = BOOTSTRAP_QUALIFICATION_HARNESS
+```
+
+This is **not** a model-download or training task.
+
+Within MSTR-000:
+
+```text
+T028 = first possible explicitly authorized candidate-weight acquisition
+T053 = explicitly authorized bounded equivalent micro-adaptation only
+```
+
+No MSTR-000 task authorizes long training or large-scale RL.
+
+## Hard Boundaries During MSTR-000
+
+```text
+NO FINAL BACKBONE SELECTION WITHOUT EVIDENCE
+NO LONG TRAINING
+NO LARGE DATASET INGESTION
+NO LARGE-SCALE RL
+NO PRODUCTION MODEL RELEASE
+NO CLAIM OF GENERAL SUPERIORITY OVER CURSOR/FABLE
+NO SILENT HARDWARE-FLOOR INCREASE
+```
+
+Any model-weight acquisition, paid API use, rented compute, or bounded micro-adaptation must be explicitly authorized by the exact canonical task that performs it.
+
+## Repository Authority
+
+GitHub `main` is canonical. Branches, PRs, consultations, model outputs, and benchmark results are evidence candidates until merged through the governed workflow.

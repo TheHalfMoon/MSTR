@@ -1,99 +1,116 @@
 # MSTR-000 Implementation Readiness Checklist
 
-MSTR-000 is a qualification program. This checklist governs whether the project is ready to move from preconstruction into serious model training.
+## A. Spec Kit Package
+- [x] Constitution exists without placeholders.
+- [x] Prioritized independently testable user stories.
+- [x] FR-### and SC-### identifiers.
+- [x] Zero blocking clarification markers.
+- [x] Research decisions/rationale/deferred questions.
+- [x] Plan has Technical Context, Constitution Check, structure, phases, tests, complexity, authority.
+- [x] Data model and contracts.
+- [x] Quickstart and implementation handoff.
+- [x] Dependency-ordered tasks include concrete output paths, user-story traceability, independent phase tests, and parallel markers.
+- [x] T000–T002 canonical history is preserved.
+- [x] Incomplete/noncanonical earlier T003+ draft numbering is explicitly superseded.
+- [x] Read-only cross-artifact planning consistency review found no unresolved CRITICAL conflict after roadmap/task reconciliation.
+- [x] Independent closeout review remains separately required by T089; the planning review does not satisfy that future gate.
 
-## Universal-laptop product gate
+## B. Constitution / Planning Gate
+- [x] Universal-laptop primary invariant is preserved in constitution, spec, plan, roadmap, and tasks.
+- [x] Offline/accountless/privacy defaults remain binding.
+- [x] Candidate/data/teacher/runtime rights fail closed.
+- [x] No final backbone is preselected.
+- [x] TTVC/verified utility remains the primary speed/product metric.
+- [x] Heavy context/agent/apply components remain evidence-gated.
+- [x] Public benchmarks remain secondary evidence; fresh/private evaluation is required later.
+- [x] No MSTR-000 task silently authorizes long training, large-scale RL, large corpus ingestion, or production release.
+- [x] External-effect execution is isolated to explicit task gates; T027/T052 are preflight manifests, while T028/T053 require separate exact authorization.
 
-- [ ] Exact supported OS/CPU matrix is measured and documented rather than summarized as generic x86_64/ARM64 support.
-- [ ] Reference 8 GB system runs MSTR alongside the reference OS/editor workload without OOM or sustained swap thrashing.
-- [ ] 8K default context is proven; 4K/8K/16K memory and latency behavior are separately characterized.
-- [ ] No discrete GPU is required.
-- [ ] Primary Q4 model artifact meets the <=3 GB target or an explicit founder-approved revision exists.
-- [ ] MSTR process RSS is measured against the <=4 GB soft target at the reference 8K context, and whole-system responsiveness is acceptable.
-- [ ] Windows, Linux, and macOS runtime paths are proven or precisely scoped with no misleading compatibility claim.
-- [ ] CPU-only TTFA, TTFCE, and TTVC are measured on real repositories.
-- [ ] Sustained CPU inference is tested for throttling and interactive usability; energy/task is recorded where reliable counters exist.
-- [ ] 4 GB and older-hardware behavior is characterized even if it is not the mandatory primary floor.
+## C. Harness Foundation — Implementation Gate
+- [ ] Clean Python 3.11+ install.
+- [ ] Full applicable test suite passes.
+- [ ] Schema valid/invalid fixtures pass.
+- [ ] Serialization determinism passes.
+- [ ] Offline CLI proves no hidden network dependency.
+- [ ] Evidence IDs/hashes are stable.
+- [ ] Comparison rejects mismatched protocol/cache/hardware/task conditions.
+- [ ] CI exists or its absence is explicitly stated; no false CI PASS claim.
 
-## Universal distribution/install/privacy gate
+## D. Static Candidate Admission
+- [ ] Exact revision/license/terms recorded for every candidate.
+- [ ] Personal/commercial use, modification/fine-tuning, quantization/conversion, derivative redistribution, component rights, and account/gating obligations are checked.
+- [ ] Architecture/total footprint/tokenizer/FIM/vision/runtime/quantization maturity are recorded.
+- [ ] Current compact foundation landscape is rescanned immediately before weight-access planning.
+- [ ] At least three materially different eligible foundations survive, or the shortage is explicitly recorded.
 
-- [ ] Local use requires no provider account, API key, or subscription.
-- [ ] Offline operation after installation is proven.
-- [ ] Telemetry and network egress are off by default.
-- [ ] Basic local coding assistance launches without requiring Docker, Python, Node.js, or building MSTR from source.
-- [ ] A portable CPU runtime path is proven for the primary artifact.
-- [ ] TTFI/install friction is measured on each required OS path.
-- [ ] Artifact checksums, quantization provenance, runtime version/build flags, and installation provenance are recorded.
+## E. Weight Access
+- [ ] Canonical preflight manifest exists before acquisition.
+- [ ] Only admitted candidates are listed.
+- [ ] Exact revisions, source URLs, integrity verification, storage ceiling, runtime/quantizer, network behavior, cost ceiling, retention/cleanup are defined.
+- [ ] No model binary is committed to Git.
 
-## Model rights and candidate gate
+## F. Universal Laptop Qualification
+- [ ] Pinned Q4 artifacts and portable CPU runtime identities exist.
+- [ ] 4K/8K/16K are measured separately.
+- [ ] U1 is measured as OS + editor + medium repo + MSTR, not model-only RAM.
+- [ ] MSTR core, task-tool subprocess, and whole-system memory surfaces are separated.
+- [ ] Paging/swap, 10-minute sustained CPU, and editor responsiveness are measured.
+- [ ] Q4 coding/FIM/multilingual/schema/tool/edit regressions are measured.
+- [ ] Rights/U1/offline/size/runtime failures are rejected from primary candidacy.
 
-- [ ] Every primary candidate has an exact upstream revision and license/terms record.
-- [ ] Primary candidate rights permit intended personal and commercial use.
-- [ ] Primary candidate rights permit modification/fine-tuning and quantization/conversion.
-- [ ] Primary candidate rights permit redistribution of intended derivative MSTR weights/artifacts.
-- [ ] Primary release does not require every end user to obtain a separate provider account or commercial model license.
-- [ ] Runtime/tool dependency licenses are compatible with the intended release.
-- [ ] Teacher/API-output and dataset rights are tracked separately from the base-model license.
-- [ ] `Qwen/Qwen2.5-Coder-3B` remains excluded from primary-backbone eligibility while its upstream research/non-commercial license remains incompatible.
+## G. Interaction Contract
+- [ ] Stable prefix/hash and tokenizer assumptions are versioned.
+- [ ] FIM semantics are versioned.
+- [ ] Tool grammar and deterministic result serialization pass fixtures.
+- [ ] Edit grammar and stale-write behavior pass conflict fixtures.
+- [ ] Malformed/rejected calls fail explicitly.
+- [ ] Network/privacy/sandbox/task-state semantics are explicit.
+- [ ] Interaction Contract v0 is frozen before bounded finalist adaptation.
 
-## Model quality gate
+## H. Candidate Tournament
+- [ ] Task/seed/sampling/verifier/timeout/cache manifest is frozen before scoring.
+- [ ] Raw/neutral/full-system surfaces are separate.
+- [ ] Primary comparison uses Q4/local behavior, not BF16/vendor scores alone.
+- [ ] Solve rate and TTVC are reported together; failed seeds/timeouts remain in evidence.
+- [ ] Equivalent bounded adaptation recipe is frozen for finalists.
+- [ ] Post-adaptation regressions and gains are remeasured.
+- [ ] Top-one/top-two decision is evidence-backed.
 
-- [ ] At least three materially different eligible compact candidates were qualified.
-- [ ] Candidate comparison used the same interaction contract and evaluation manifest.
-- [ ] Q4 quality and tool-call reliability were measured, not inferred from BF16/reference precision.
-- [ ] Top candidates received equivalent bounded adaptation before final ranking where required.
-- [ ] No vendor-reported leaderboard result is used as the sole selection reason.
-- [ ] A lower-bound very-small coder control is included so MSTR does not assume more parameters automatically improve laptop utility.
+## I. Context Engine
+- [ ] Exact/ripgrep baseline exists.
+- [ ] Tree-sitter/symbol and sparse-index arms exist before heavier defaults.
+- [ ] Embedding/SCIP/Graphify/Code-Graph-RAG arms remain optional/isolated.
+- [ ] Every arm reports quality, tokens, TTVC, RAM, disk, startup/build, and incremental-update cost.
+- [ ] Default is the smallest measured Pareto-efficient context stack.
 
-## Interaction-contract gate
+## J. Environment / Verifier MVP
+- [ ] Environment/verifier schemas validate.
+- [ ] Workspace reset is deterministic and clean-hash checked.
+- [ ] Reference/oracle pass, no-op fail, and unsolved/broken fail checks exist.
+- [ ] Evaluator paths are protected.
+- [ ] Canonical reward-shortcut battery passes.
+- [ ] Future-history/public-solution/network leakage controls pass.
+- [ ] Task yield/reset/startup/CPU/storage/failure/reproducibility are measured.
 
-- [ ] Prompt prefix is versioned and cache-stable.
-- [ ] Tool grammar is versioned.
-- [ ] Tool-result serialization is deterministic.
-- [ ] FIM control semantics are frozen.
-- [ ] Edit grammar is frozen.
-- [ ] Stale-write/file-version behavior is deterministic.
-- [ ] Local inference baseline and cache behavior are recorded.
-- [ ] Network/privacy/sandbox semantics visible to the model are frozen.
-- [ ] Task-state/compaction schema is frozen if used.
+## K. Security / Provenance
+- [ ] Repository content is explicitly untrusted.
+- [ ] Workspace traversal, secret, and network/telemetry tests pass.
+- [ ] Provenance records include source/revision/license/hash/lineage.
+- [ ] Benchmark exclusion/decontamination and owner opt-out are designed/tested.
+- [ ] Teacher/API-output rights gate exists.
+- [ ] Runtime leakage fixtures pass.
+- [ ] Private/fresh Gauntlet construction/access contract exists.
+- [ ] Evidence audit traverses report -> run -> task -> artifact/runtime/hardware/contracts/provenance.
 
-## Runtime gate
-
-- [ ] Exact-search baseline exists.
-- [ ] Tree-sitter/symbol context marginal value is measured.
-- [ ] Any additional index/retriever proves value per RAM, disk, token, and millisecond.
-- [ ] Context-engine memory is included in the 8 GB whole-laptop budget.
-- [ ] Graphify and Code-Graph-RAG are not mandatory unless tournament evidence justifies them.
-- [ ] Deterministic apply engine passes stale/conflict tests.
-- [ ] Verification path can run locally without a cloud service.
-
-## Evaluation-integrity gate
-
-- [ ] Raw model, neutral harness, and full MSTR system are scored separately.
-- [ ] Private MSTR Gauntlet design exists before major training.
-- [ ] Training contamination controls are defined.
-- [ ] Runtime answer-leakage controls are defined separately.
-- [ ] Public benchmark limitations are documented.
-- [ ] Material results bind exact model/artifact/runtime/hardware/config/task identities.
-
-## Environment/RL readiness gate
-
-- [ ] Executable-task factory MVP exists.
-- [ ] Oracle/reference patch passes.
-- [ ] No-op state fails.
-- [ ] Unsolved-state/difficulty check exists.
-- [ ] Reward-shortcut battery exists.
-- [ ] Future-history/public-solution leakage is blocked in solver environments.
-- [ ] Environment reset/startup/storage throughput is measured.
-- [ ] CPU/sandbox capacity estimate accompanies any future GPU-RL budget.
-
-## Governance gate
-
-- [ ] MSTR-000 planning itself contains no unauthorized model-weight downloads, paid model calls, or rented training execution.
-- [ ] All MSTR-000 tasks relevant to closeout are complete.
-- [ ] Evidence is bound to exact model/runtime/config identities.
-- [ ] Material findings are reconciled.
-- [ ] Independent review is complete.
-- [ ] Founder explicitly accepts the MSTR-000 closeout.
-
-If any mandatory item remains unresolved, MSTR-001 may perform only bounded follow-up experiments; long training is not ready.
+## L. MSTR-000 Closeout
+- [ ] Measured hardware/OS floor and default context are frozen.
+- [ ] Distribution/install/privacy closeout revision is frozen.
+- [ ] Interaction Contract v1 + fixtures/migration policy are frozen.
+- [ ] Portable runtime/Q4 baseline is frozen.
+- [ ] Minimal Context Engine and resource budget are frozen.
+- [ ] Top backbone/top-two set and final scorecard are frozen.
+- [ ] Bounded MSTR-001 Data Engine + Code/FIM Mid-Training preplan exists with data/compute/cost/rights/regression gates and explicit non-authorities.
+- [ ] Independent T089 closeout review resolves all CRITICAL/HIGH findings.
+- [ ] Founder T090 acceptance is explicit.
+- [ ] `docs/canonical/CURRENT_STATE.md` records MSTR-000 `CLOSED_CANONICAL` and the exact next MSTR-001 authority.
+- [ ] Long training remains prohibited until an exact MSTR-001 task separately authorizes it.
