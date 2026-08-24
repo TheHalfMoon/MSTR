@@ -37,14 +37,14 @@ Start with:
 4. `specs/000-universal-laptop-interaction-contract/`
 
 The active MSTR-000 package contains:
-- specification and user stories;
+- specification and independently testable user stories;
 - clarification closeout;
 - research decisions;
-- technical implementation plan;
+- technical implementation plan and Constitution Check;
 - data model and machine-readable contracts;
 - quickstart and implementation handoff;
 - implementation-readiness checklist;
-- dependency-ordered executable tasks.
+- dependency-ordered executable tasks with paths and external-effect gates.
 
 ## Current Phase
 
@@ -58,7 +58,7 @@ FINAL_BACKBONE = UNSELECTED
 LONG_TRAINING = NOT_STARTED
 ```
 
-MSTR-000 exists to determine the correct model/runtime/distribution/interaction contract before serious training compute is spent.
+MSTR-000 determines and implements the **qualification harness plus the model/runtime/distribution/interaction qualification program** before serious training compute is spent. It closes with the top backbone or top-two pilot decision and a bounded MSTR-001 data/mid-training proposal.
 
 ## Product Thesis
 
@@ -68,25 +68,42 @@ The target is:
 
 > **maximum verified software-engineering utility per GB, per second, and per unit of training evidence**
 
-That means model quality, repository localization, deterministic editing, tool reliability, executable verification, local inference, quantization, context management, and end-to-end TTVC are designed together.
+Model quality, repository localization, deterministic editing, tool reliability, executable verification, local inference, quantization, context management, and end-to-end TTVC are designed together.
 
 ## Program Roadmap
 
-The program is split into gated workstreams:
+The program is split into gated Spec Kit workstreams:
 
 ```text
-MSTR-000  Qualification + Interaction Contract
-MSTR-001  Harness/Runtime Skeleton + Backbone Pilot
-MSTR-002  Data Engine + Code/FIM Mid-Training
-MSTR-003  Coding SFT + Repository/Tool Behavior
-MSTR-004  Environment Factory + Agentic RL
-MSTR-005  Local Inference Speed Co-Design
-MSTR-006  Packaging + Security + Privacy
-MSTR-007  Gauntlet + Release Candidate Qualification
-MSTR-008  v1 Release + Evidence Loop
+MSTR-000  Qualification Harness + Universal Laptop / Interaction / Backbone Qualification
+MSTR-001  Data Engine + Bounded Code/FIM Mid-Training
+MSTR-002  Coding SFT + Repository / Tool / Planning Behavior
+MSTR-003  Environment Factory + Agentic RL
+MSTR-004  Local Inference Speed Co-Design
+MSTR-005  Packaging + Security + Privacy + Offline Release Engineering
+MSTR-006  MSTR Gauntlet + Release Candidate Qualification
+MSTR-007  MSTR v1 Release
+MSTR-008  Post-Release Evidence + Improvement Loop
 ```
 
-See `docs/canonical/PROGRAM_ROADMAP.md`.
+The implementation details of later workstreams are intentionally deferred until predecessor evidence is canonical. See `docs/canonical/PROGRAM_ROADMAP.md`.
+
+## First Executable Task After MSTR-000 Plan Approval
+
+```text
+T003 = BOOTSTRAP_QUALIFICATION_HARNESS
+```
+
+This is **not** a model-download or training task.
+
+Within MSTR-000:
+
+```text
+T028 = first possible explicitly authorized candidate-weight acquisition
+T053 = explicitly authorized bounded equivalent micro-adaptation only
+```
+
+No MSTR-000 task authorizes long training or large-scale RL.
 
 ## Hard Boundaries During MSTR-000
 
