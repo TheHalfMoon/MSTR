@@ -15,6 +15,8 @@ from typing import Any
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError, ValidationError
 
+from .errors import SchemaValidationError
+
 SCHEMA_FILES: Mapping[str, str] = {
     "candidate-record": "candidate-record.schema.json",
     "task-manifest": "task-manifest.schema.json",
@@ -41,9 +43,13 @@ def _reject_external_refs(schema: Mapping[str, Any]) -> None:
         if key != "$ref":
             continue
         if not isinstance(value, str):
-            raise ValueError("schema $ref values must be strings")
+            raise SchemaValidationError("schema $ref values must be strings", code="schema.ref_type")
         if not value.startswith("#"):
-            raise ValueError(f"external schema reference is prohibited: {value!r}")
+            raise SchemaValidationError(
+                "external schema reference is prohibited",
+                code="schema.external_ref",
+                details={"ref": value},
+            )
 
 
 def load_schema(name: str, *, schema_dir: Path | None = None) -> dict[str, Any]:
@@ -53,28 +59,46 @@ def load_schema(name: str, *, schema_dir: Path | None = None) -> dict[str, Any]:
         filename = SCHEMA_FILES[name]
     except KeyError as exc:
         allowed = ", ".join(sorted(SCHEMA_FILES))
-        raise ValueError(f"unknown schema {name!r}; expected one of: {allowed}") from exc
+        raise SchemaValidationError(
+            "unknown schema",
+            code="schema.unknown",
+            details={"name": name, "allowed": allowed},
+        ) from exc
 
     path = (schema_dir or DEFAULT_SCHEMA_DIR) / filename
     try:
         raw = path.read_text(encoding="utf-8")
     except OSError as exc:
-        raise ValueError(f"unable to read schema {name!r} from {path}") from exc
+        raise SchemaValidationError(
+            "unable to read schema",
+            code="schema.read",
+            details={"name": name, "path": str(path)},
+        ) from exc
 
     try:
         schema = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"schema {name!r} is not valid JSON: {exc.msg}") from exc
+        raise SchemaValidationError(
+            "schema is not valid JSON",
+            code="schema.json",
+            details={"name": name, "reason": exc.msg},
+        ) from exc
 
     if not isinstance(schema, dict):
-        raise ValueError(f"schema {name!r} must contain a JSON object")
+        raise SchemaValidationError(
+            "schema must contain a JSON object",
+            code="schema.root_type",
+            details={"name": name},
+        )
 
     _reject_external_refs(schema)
     try:
         Draft202012Validator.check_schema(schema)
     except SchemaError as exc:
-        raise ValueError(
-            f"schema {name!r} is not valid Draft 2020-12 JSON Schema: {exc.message}"
+        raise SchemaValidationError(
+            "schema is not valid Draft 2020-12 JSON Schema",
+            code="schema.meta",
+            details={"name": name, "reason": exc.message},
         ) from exc
     return schema
 
@@ -118,7 +142,11 @@ def validate_instance(
     errors = validation_errors(name, instance, schema_dir=schema_dir)
     if errors:
         joined = "\n".join(f"- {message}" for message in errors)
-        raise ValueError(f"{name} validation failed:\n{joined}")
+        raise SchemaValidationError(
+            f"{name} validation failed:\n{joined}",
+            code="schema.instance_invalid",
+            details={"schema": name},
+        )
 
 
 def validate_json_file(
@@ -132,7 +160,15 @@ def validate_json_file(
     try:
         instance = json.loads(path.read_text(encoding="utf-8"))
     except OSError as exc:
-        raise ValueError(f"unable to read JSON instance from {path}") from exc
+        raise SchemaValidationError(
+            "unable to read JSON instance",
+            code="schema.instance_read",
+            details={"path": str(path)},
+        ) from exc
     except json.JSONDecodeError as exc:
-        raise ValueError(f"instance {path} is not valid JSON: {exc.msg}") from exc
+        raise SchemaValidationError(
+            "instance is not valid JSON",
+            code="schema.instance_json",
+            details={"path": str(path), "reason": exc.msg},
+        ) from exc
     validate_instance(name, instance, schema_dir=schema_dir)
