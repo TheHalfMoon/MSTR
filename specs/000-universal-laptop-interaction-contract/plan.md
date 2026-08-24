@@ -1,15 +1,25 @@
 # Implementation Plan: MSTR-000 Universal Laptop Qualification + Interaction Contract
 
-**Branch:** `plan/000-speckit-complete-package`  
 **Spec:** `specs/000-universal-laptop-interaction-contract/spec.md`  
 **Constitution:** `.specify/memory/constitution.md`  
-**Status:** Implementation-ready after review
+**Status:** PLAN_FINALIZED / IMPLEMENTATION_PARTIAL_THROUGH_T009 / EXECUTION_PAUSED_BY_FOUNDER
 
 ## Summary
 
 MSTR-000 builds a small, cross-platform qualification harness and evidence package that answers expensive questions before long training: actual laptop/distribution floor; legally/technically eligible compact bases; local Q4/runtime viability; trainable prompt/tool/edit/cache contract; fair candidate selection after bounded equivalent adaptation; minimal context stack; trustworthy executable task/verifier factory; and a bounded MSTR-001 proposal.
 
-The implementation separates the **research qualification harness** from the future **end-user MSTR runtime**. MSTR-000 uses Python for fast reproducible experimentation and evidence handling; later Spec Kit workstreams may implement the shipping runtime in Rust or another portable technology after runtime/backbone constraints are empirically known.
+The implementation separates the **research qualification harness** from the future **end-user MSTR runtime**. MSTR-000 uses Python for reproducible qualification/evidence. The future user-facing runtime remains local/offline and independent from the cloud training stack.
+
+## Current execution boundary
+
+```text
+T000-T009 = COMPLETE_CANONICAL
+NEXT_TASK_ON_RESUME = T010
+EXECUTION_STATE = PAUSED
+PAUSE_REASON = FINISH_WEPLD_FIRST
+```
+
+No MSTR task is active. Resume requires explicit founder direction and live GitHub reconciliation.
 
 ## Technical Context
 
@@ -18,24 +28,32 @@ The implementation separates the **research qualification harness** from the fut
 **CLI:** dependency-light Python CLI  
 **Schemas:** JSON Schema Draft 2020-12  
 **Persistence:** JSON/JSONL + Markdown summaries; large binaries/logs external and referenced by hash/path  
-**Testing:** `pytest`; contract fixtures; deterministic serialization golden tests; offline/network/stale-write tests  
+**Testing:** `pytest`; contract fixtures; deterministic serialization; offline/network/stale-write tests  
 **Static quality:** Ruff + mypy or explicitly accepted equivalents  
 **Model/runtime integration:** adapter interfaces; no backend preselected  
 **OS qualification:** Windows x86_64, Linux x86_64, macOS arm64/M1-class  
-**Primary hardware:** U1 = 8 GB, CPU-only, 8K, reference editor + medium repository open  
+**Primary hardware:** U1 = 8 GB, CPU-only, 8K, editor + medium repository open  
 **Performance protocol:** `MSTR-MEASURE-v0`  
 **Distribution protocol:** `MSTR-DIST-v0`  
 **Network default:** disabled/local-only  
 **Model files in Git:** prohibited  
-**Long training / large-scale RL:** out of scope
+**Long training / large-scale RL:** out of scope in MSTR-000
 
-### Harness Performance Goals
+### Future training execution context — planning only
 
-The harness should add negligible distortion: event timestamp target <1 ms per lifecycle event; deterministic serializer byte stability; ordinary manifest validation target <100 ms; evidence/report generation kept outside TTVC unless explicitly measured; no hidden network calls; platform sampling interval documented.
+Canonical program detail: `docs/canonical/TRAINING_EXECUTION_STRATEGY.md`.
 
-### Scale / Scope
+```text
+ACCESSIBLE_COMPUTE = Google Colab first candidate
+TRAINING_FRAMEWORK = Unsloth first candidate
+END_USER_DEPENDENCY_ON_COLAB/UNSLOTH = NONE
+INTERRUPTION_SAFE_CHECKPOINTING = REQUIRED
+PINNED_RUNTIME/PACKAGES = REQUIRED
+RUN_MANIFEST + HASHES = REQUIRED
+POST_TRAIN_QUANTIZED_REGRESSION = REQUIRED
+```
 
-Designed for ~6–10 statically screened compact candidates, ~3–5 locally admitted artifacts, 3 required OS families, 4K/8K/16K contexts, tens to low hundreds of controlled fixtures, repeated runs/seeds sufficient for selection, and one small environment-factory MVP.
+If a compact Qwen3.5 model wins qualification, current external guidance makes bf16 LoRA the first pilot method; QLoRA is not preselected and must earn admission experimentally.
 
 ## Constitution Check
 
@@ -51,18 +69,21 @@ Designed for ~6–10 statically screened compact candidates, ~3–5 locally admi
 | Evaluation Integrity | private/fresh design + leakage controls | PASS |
 | Reproducibility | exact manifests/hashes/failures retained | PASS |
 | Bounded Authority | paid/weight/compute actions task-scoped | PASS |
+| Training/Product Separation | Colab/Unsloth never required by end user | PASS |
 
 **Pre-design gate:** PASS.  
-**Post-design re-check:** PASS. Data model/contracts introduce no cloud dependency, mandatory graph DB, selected backbone, or long-training authority.
+**Post-design re-check:** PASS.
 
 ## Project Structure
 
-### Spec Kit
+### Spec Kit / canonical planning
 
 ```text
 .specify/memory/constitution.md
 docs/canonical/CURRENT_STATE.md
 docs/canonical/PROGRAM_ROADMAP.md
+docs/canonical/TRAINING_EXECUTION_STRATEGY.md
+docs/handoffs/MSTR-RESUME-AFTER-WEPLD.md
 specs/000-universal-laptop-interaction-contract/
   spec.md
   clarification-closeout.md
@@ -77,7 +98,7 @@ specs/000-universal-laptop-interaction-contract/
   tasks.md
 ```
 
-### Implementation Created by Tasks
+### MSTR-000 implementation
 
 ```text
 pyproject.toml
@@ -96,7 +117,20 @@ artifacts/{candidates,manifests,results,decisions}/
 tests/{unit,contract,integration,fixtures,security}/
 ```
 
-Not built in MSTR-000: production desktop GUI, large training pipeline, distributed RL stack, model weights in Git, mandatory graph/vector DB, subagent swarm, learned apply model, cloud inference service.
+Not built in MSTR-000: production desktop GUI, long training pipeline, distributed RL stack, model weights in Git, mandatory graph/vector DB, subagent swarm, learned apply model, cloud inference service.
+
+### Later training structure — planned, not created now
+
+```text
+training/
+  configs/{midtrain,sft,preference,rl}/
+  unsloth/
+  colab/
+  manifests/
+  scripts/
+```
+
+Notebook cells must call repository-owned scripts/configs rather than becoming the only source of training logic.
 
 ## Architecture
 
@@ -151,6 +185,26 @@ Distinguish configuration invalid, rights ineligible/ambiguous, artifact mismatc
 8. Security/provenance/leakage controls.
 9. MSTR-000 closeout and bounded MSTR-001 proposal.
 
+Current implementation is paused after T009 inside Phase 1; T010 is next.
+
+## Future Training Handoff
+
+MSTR-001 must convert `docs/canonical/TRAINING_EXECUTION_STRATEGY.md` into its own full Spec Kit package. It must not simply copy notebook defaults.
+
+At minimum its plan/tasks must define:
+- admitted data/provenance;
+- exact base/tokenizer revisions;
+- Colab/runtime/package pinning or justified alternative;
+- Unsloth compatibility or justified alternative;
+- smoke -> micro -> bounded pilot sequence;
+- checkpoint/resume lineage;
+- cost ceiling;
+- stop rules;
+- raw/FIM/repository/Q4 regression surfaces;
+- export/master/quant artifact identities.
+
+MSTR-002 must separately own SFT/tool/planning behavior, and MSTR-003 must separately own RL/environment scaling.
+
 ## Test Strategy
 
 **Unit:** IDs/hashes, schema validation, rights logic, manifest validation, timing, memory classification, stale edits, comparison rules.  
@@ -168,13 +222,18 @@ Distinguish configuration invalid, rights ineligible/ambiguous, artifact mismatc
 | Schemas + Markdown | reproducibility and automated validation | prose-only evidence |
 | Environment factory MVP | RL readiness depends on verifier quality | choose RL framework first |
 | Private/fresh evaluation | public contamination/noise risk | public leaderboards only |
+| Colab + Unsloth as replaceable training lane | accessible compute without product lock-in | make notebook/framework the architecture |
 
-No additional architecture complexity is approved.
+No additional architecture complexity is approved by this plan.
 
 ## Authority Boundaries
 
-MSTR-000 tasks may create source, tests, manifests, fixtures, and docs. They do not automatically authorize model-weight acquisition, gated-term acceptance, paid APIs, rented compute, micro-adaptation, long training, large data ingestion, RL, or release. Exact tasks must explicitly grant external effects and state resource/cost ceilings.
+MSTR-000 tasks may create source, tests, manifests, fixtures, and docs. They do not automatically authorize model-weight acquisition, gated-term acceptance, paid APIs, Colab execution, Unsloth installation/execution, rented compute, micro-adaptation, long training, large data ingestion, RL, or release.
 
-## Deliverables at Closeout
+Exact tasks must explicitly grant external effects and resource/cost ceilings.
+
+During the current founder pause, **no T010+ execution is authorized** until explicit resume.
+
+## Deliverables at MSTR-000 Closeout
 
 Measured hardware/OS floor; distribution/install/privacy contract; local runtime/Q4 baseline; Interaction Contract v1; deterministic apply semantics; minimal context engine; top backbone/top-two pilot; environment MVP requirements; bounded MSTR-001 proposal; independent review; founder acceptance.

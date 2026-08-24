@@ -23,7 +23,7 @@ TELEMETRY_DEFAULT = OFF
 WINDOWS + LINUX + MACOS = REQUIRED_PLATFORM_FAMILIES
 ```
 
-These are qualification targets until measured closeout freezes the final support floor.
+These remain qualification targets until measured MSTR-000 closeout freezes the final support floor.
 
 ## Development Method
 
@@ -34,45 +34,48 @@ Start with:
 1. `.specify/memory/constitution.md`
 2. `docs/canonical/CURRENT_STATE.md`
 3. `docs/canonical/PROGRAM_ROADMAP.md`
-4. `specs/000-universal-laptop-interaction-contract/`
+4. `docs/canonical/TRAINING_EXECUTION_STRATEGY.md`
+5. `specs/000-universal-laptop-interaction-contract/`
+6. `docs/handoffs/MSTR-RESUME-AFTER-WEPLD.md`
 
-The active MSTR-000 package contains:
-- specification and independently testable user stories;
-- clarification closeout;
-- research decisions;
-- technical implementation plan and Constitution Check;
-- data model and machine-readable contracts;
-- quickstart and implementation handoff;
-- implementation-readiness checklist;
-- dependency-ordered executable tasks with paths and external-effect gates.
+The active MSTR-000 package contains the specification, clarification closeout, research, implementation plan, data model, machine-readable contracts, quickstart, implementation handoff, readiness checklists, evidence, and dependency-ordered tasks.
 
-## Current Phase
+## Current State
 
 ```text
 PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION
+PROJECT_STATE = PAUSED_BY_FOUNDER_AFTER_PLAN_FINALIZATION
 ACTIVE_SPEC = MSTR-000
-T000 = COMPLETE_CANONICAL
-T001 = COMPLETE_CANONICAL
-T002 = COMPLETE_CANONICAL
+T000-T009 = COMPLETE_CANONICAL
+NEXT_TASK_ON_RESUME = T010
 FINAL_BACKBONE = UNSELECTED
+MODEL_WEIGHT_ACCESS = NONE
+MODEL_EXECUTION = NONE
+TRAINING = NONE
 LONG_TRAINING = NOT_STARTED
 ```
 
-MSTR-000 determines and implements the **qualification harness plus the model/runtime/distribution/interaction qualification program** before serious training compute is spent. It closes with the top backbone or top-two pilot decision and a bounded MSTR-001 data/mid-training proposal.
+The pause is intentional: MSTR resumes only after the founder explicitly returns to it after completing the WePLD project. Live GitHub truth must be revalidated before any new mutation.
+
+## Training Direction
+
+MSTR's future training plan treats **Google Colab + Unsloth as the primary accessible execution path**, not as product dependencies:
+
+```text
+Google Colab = GPU execution environment
+Unsloth     = preferred efficient training framework
+MSTR runtime = separate local/offline end-user product
+```
+
+The program does **not** preselect a backbone or training precision. If a Qwen3.5 compact base wins the evidence tournament, the current default pilot is bf16 LoRA with Unsloth; QLoRA is an experimental arm rather than the default for that family. Every later run must be resumable, pinned, hashed, and regression-tested. See `docs/canonical/TRAINING_EXECUTION_STRATEGY.md`.
 
 ## Product Thesis
-
-MSTR is not trying to win by parameter count alone.
-
-The target is:
 
 > **maximum verified software-engineering utility per GB, per second, and per unit of training evidence**
 
 Model quality, repository localization, deterministic editing, tool reliability, executable verification, local inference, quantization, context management, and end-to-end TTVC are designed together.
 
 ## Program Roadmap
-
-The program is split into gated Spec Kit workstreams:
 
 ```text
 MSTR-000  Qualification Harness + Universal Laptop / Interaction / Backbone Qualification
@@ -86,17 +89,9 @@ MSTR-007  MSTR v1 Release
 MSTR-008  Post-Release Evidence + Improvement Loop
 ```
 
-The implementation details of later workstreams are intentionally deferred until predecessor evidence is canonical. See `docs/canonical/PROGRAM_ROADMAP.md`.
+Later workstreams remain implementation-deferred until predecessor evidence is canonical.
 
-## First Executable Task After MSTR-000 Plan Approval
-
-```text
-T003 = BOOTSTRAP_QUALIFICATION_HARNESS
-```
-
-This is **not** a model-download or training task.
-
-Within MSTR-000:
+## External-Effect Gates Inside MSTR-000
 
 ```text
 T028 = first possible explicitly authorized candidate-weight acquisition
@@ -105,7 +100,7 @@ T053 = explicitly authorized bounded equivalent micro-adaptation only
 
 No MSTR-000 task authorizes long training or large-scale RL.
 
-## Hard Boundaries During MSTR-000
+## Hard Boundaries
 
 ```text
 NO FINAL BACKBONE SELECTION WITHOUT EVIDENCE
@@ -115,10 +110,7 @@ NO LARGE-SCALE RL
 NO PRODUCTION MODEL RELEASE
 NO CLAIM OF GENERAL SUPERIORITY OVER CURSOR/FABLE
 NO SILENT HARDWARE-FLOOR INCREASE
+NO WORK DURING THE CURRENT PAUSE WITHOUT EXPLICIT FOUNDER RESUME
 ```
 
-Any model-weight acquisition, paid API use, rented compute, or bounded micro-adaptation must be explicitly authorized by the exact canonical task that performs it.
-
-## Repository Authority
-
-GitHub `main` is canonical. Branches, PRs, consultations, model outputs, and benchmark results are evidence candidates until merged through the governed workflow.
+GitHub `main` is canonical. Branches, PRs, consultations, model outputs, notebooks, and benchmark results are evidence candidates until merged through the governed workflow.

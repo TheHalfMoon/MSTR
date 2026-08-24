@@ -7,10 +7,15 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_BEFORE_T009 = ccf15209e9ffce663eb27af21ca1e1ad9b914469
+CANONICAL_MAIN_BEFORE_PLAN_FINALIZATION = 7a1cea4c3462fb3d811e8b6c20303ab16cbfd94c
 PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION
+PROJECT_STATE = PAUSED_BY_FOUNDER_AFTER_PLAN_FINALIZATION
 ACTIVE_SPEC = MSTR-000
 SPEC_KIT_PACKAGE = CANONICAL
+ACTIVE_TASK = NONE
+NEXT_TASK_ON_RESUME = T010
+RESUME_REQUIRES = EXPLICIT_FOUNDER_DIRECTION + LIVE_GITHUB_REVALIDATION
+PAUSE_REASON = FINISH_WEPLD_FIRST
 ```
 
 ## Canonical completed history
@@ -25,23 +30,16 @@ T005 = COMPLETE_CANONICAL / TYPED_ERRORS_AND_STABLE_IDENTITIES
 T006 = COMPLETE_CANONICAL / FAIL_CLOSED_RIGHTS_GATE
 T007 = COMPLETE_CANONICAL / IMMUTABLE_EVIDENCE_SERIALIZATION
 T008 = COMPLETE_CANONICAL / LOCAL_MANIFEST_LOADERS
+T009 = COMPLETE_CANONICAL / SCORE_COMPARABILITY
 ```
 
-Latest canonical merge before T009: `ccf15209e9ffce663eb27af21ca1e1ad9b914469`.
+T009 canonical merge: `7a1cea4c3462fb3d811e8b6c20303ab16cbfd94c`.
 
-## Active work
+## Pause boundary
 
-```text
-ACTIVE_TASK = T009
-ACTIVE_BRANCH = task/000-t009-comparability
-TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
-NEXT_TASK_AFTER_T009_CANONICAL = T010
-```
+No MSTR task is active during the pause. T010 remains the next dependency-ordered task, but it is **not authorized to start** until the founder explicitly resumes MSTR after WePLD and live repository truth is revalidated.
 
-T009 implements deterministic direct-comparison eligibility for raw-model, neutral-harness, and full-system score surfaces. Direct comparisons require matching measurement protocol, task/revision, verifier, timeout, cache state, hardware class, context, Interaction Contract, and sampling configuration. Seed may differ as a repeated sample under the same frozen protocol.
-
-Candidate evidence:
-`specs/000-universal-laptop-interaction-contract/evidence/T009-comparability.md`.
+Do not infer resume authority from old messages, generic automation, or stale handoffs.
 
 ## Product invariant
 
@@ -58,6 +56,20 @@ TELEMETRY_DEFAULT = OFF
 WINDOWS + LINUX + MACOS = REQUIRED_PLATFORM_FAMILIES
 ```
 
+## Planned training execution strategy — not current authority
+
+```text
+PRIMARY_ACCESSIBLE_COMPUTE_CANDIDATE = GOOGLE_COLAB
+PRIMARY_EFFICIENT_TRAINING_FRAMEWORK_CANDIDATE = UNSLOTH
+DEFAULT_QWEN3_5_PILOT_IF_SELECTED = BF16_LORA
+QWEN3_5_QLORA = EXPERIMENT_ONLY_NOT_DEFAULT
+CHECKPOINT_RESUME = REQUIRED
+TRAINING_RUN_MANIFEST = REQUIRED
+POST_TRAIN_EXPORT = LORA + MERGED_MASTER + GGUF_TOURNAMENT
+```
+
+This is a program plan, not authority to access weights, install training stacks, allocate GPUs, or train.
+
 ## Model / compute authority
 
 ```text
@@ -66,22 +78,32 @@ INTERACTION_CONTRACT = UNFROZEN
 DEFAULT_CONTEXT_ENGINE = UNSELECTED
 LOCAL_RUNTIME_BASELINE = UNSELECTED
 
-MODEL_WEIGHT_ACCESS = NOT_AUTHORIZED_BY_T009
+MODEL_WEIGHT_ACCESS = NONE / NOT_CURRENTLY_AUTHORIZED
 MODEL_EXECUTION = NONE
 BENCHMARK_EXECUTION = NONE
 PAID_MODEL_API_EXECUTION = NONE
+GOOGLE_COLAB_EXECUTION = NONE
+UNSLOTH_INSTALL_OR_EXECUTION = NONE
 RENTED_TRAINING_COMPUTE = NONE
+TRAINING = NONE
 LONG_TRAINING = NOT_STARTED / PROHIBITED_IN_MSTR-000
 LARGE_SCALE_RL = NOT_STARTED / PROHIBITED_IN_MSTR-000
 PRODUCTION_MODEL_RELEASE = NONE
 ```
 
-The first possible model-weight acquisition remains T028 and requires separate exact authorization after all prerequisites are canonical. T053 remains the only MSTR-000 bounded micro-adaptation gate and also requires separate exact authorization.
+Within MSTR-000, T028 remains the first possible model-weight acquisition and requires separate exact authorization after prerequisites are canonical. T053 remains the only bounded micro-adaptation gate and also requires separate exact authorization.
 
-## Comparison rule
+## Resume gate
 
-Cold/warm cache states, different hardware classes, different task/verifier/timeout conditions, different Interaction Contracts, and different raw/neutral/full-system surfaces are separate evidence surfaces. T009 rejects direct comparison rather than normalizing them silently. TTVC summaries must retain verified-completion rate and timeout context.
+When the founder returns after WePLD:
 
-## Next gate
+1. verify live `main`, open PRs, reviews, checks, and task graph;
+2. read `.specify/memory/constitution.md`;
+3. read this file;
+4. read `docs/canonical/PROGRAM_ROADMAP.md`;
+5. read `docs/canonical/TRAINING_EXECUTION_STRATEGY.md`;
+6. read the full MSTR-000 Spec Kit package;
+7. confirm T010 is still the correct next task;
+8. start only the exact authorized task on a fresh branch.
 
-If T009 is reviewed and merged without scope expansion, proceed to T010: dependency-light offline CLI commands for validation/static qualification. T010 does not authorize model-weight access.
+Canonical resume handoff: `docs/handoffs/MSTR-RESUME-AFTER-WEPLD.md`.

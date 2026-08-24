@@ -1,6 +1,6 @@
 # MSTR Program Roadmap
 
-**Status:** Program-level roadmap  
+**Status:** Program-level roadmap — plan finalized, execution paused after T009.  
 **Canonical authority:** This roadmap defines workstream sequencing and ownership. Each active Spec Kit package controls its own implementation details.  
 **Primary product:** Universal-laptop local software-engineering model/system.
 
@@ -8,7 +8,7 @@
 
 Build the strongest practical openly downloadable local software-engineering system that ordinary laptop owners can install and use without a discrete GPU, cloud subscription, provider account, or API key.
 
-The program is split into independently reviewable Spec Kit workstreams so that expensive training and release decisions are made only after cheaper qualification questions have been answered with evidence.
+Expensive training and release decisions occur only after cheaper qualification questions are answered with evidence.
 
 ## Non-Negotiable Product Envelope
 
@@ -26,13 +26,26 @@ WINDOWS + LINUX + MACOS = REQUIRED_PLATFORM_FAMILIES
 
 Measured evidence may refine the exact support floor, but it may not be silently raised.
 
+## Current program state
+
+```text
+MSTR-000 = ACTIVE_SPEC_BUT_EXECUTION_PAUSED
+T000-T009 = COMPLETE_CANONICAL
+NEXT_TASK_ON_RESUME = T010
+PAUSE_REASON = FINISH_WEPLD_FIRST
+FINAL_BACKBONE = UNSELECTED
+TRAINING = NONE
+```
+
+The pause requires explicit founder resume plus live GitHub reconciliation. See `docs/handoffs/MSTR-RESUME-AFTER-WEPLD.md`.
+
 ## Workstream Sequence
 
 ### MSTR-000 — Qualification Harness + Universal Laptop / Interaction / Backbone Qualification
 
 **Purpose:** determine what can actually be built, trained, and shipped before serious training spend.
 
-**Builds and qualifies:** the reusable qualification harness; evidence/manifest engine; candidate-rights gate; local artifact/Q4 measurement path; runtime adapter boundary; deterministic edit/apply primitives; raw/neutral/full-system score surfaces; interaction-contract tournament; bounded equivalent finalist adaptation; context-engine tournament; environment/verifier MVP requirements; security/provenance/leakage contracts.
+**Builds and qualifies:** reusable qualification harness; evidence/manifest engine; candidate-rights gate; local artifact/Q4 measurement path; runtime adapter boundary; deterministic edit/apply primitives; raw/neutral/full-system score surfaces; interaction-contract tournament; bounded equivalent finalist adaptation; context-engine tournament; environment/verifier MVP requirements; security/provenance/leakage contracts.
 
 **Must close with:**
 - measured hardware/OS floor and default context;
@@ -42,18 +55,18 @@ Measured evidence may refine the exact support floor, but it may not be silently
 - deterministic edit/apply contract;
 - minimal context-engine decision;
 - top backbone or top-two pilot decision;
-- environment/verifier requirements for later training;
-- bounded MSTR-001 data/mid-training proposal with cost, rights, and regression gates.
+- environment/verifier requirements;
+- bounded MSTR-001 data/mid-training proposal with cost, rights, checkpoint, and regression gates.
 
-**Current state:** active. T000–T002 are canonical complete; the complete Spec Kit implementation package defines the remaining executable graph.
+**Current state:** T000-T009 canonical, paused before T010.
 
 **Blocks:** all later long training.
 
 ### MSTR-001 — Data Engine + Bounded Code/FIM Mid-Training
 
-**Purpose:** build the legally traceable, contamination-controlled data engine and determine whether code/repository mid-training materially improves the MSTR-000-selected foundation without unacceptable forgetting or laptop regressions.
+**Purpose:** build the legally traceable, contamination-controlled data engine and determine whether code/repository mid-training materially improves the selected foundation without unacceptable forgetting or laptop regressions.
 
-**Expected build outputs:**
+**Expected outputs:**
 - source/provenance ledger;
 - license/terms and benchmark-exclusion filters;
 - exact/fuzzy/AST-aware dedup and lineage;
@@ -61,15 +74,18 @@ Measured evidence may refine the exact support floor, but it may not be silently
 - ordinary FIM plus structured/function/dependency-aware FIM experiments;
 - general-reasoning replay;
 - quality sampling/audit tooling;
-- bounded pilot recipe and measured pilot before any larger token run.
+- bounded pilot recipe and measured pilot before any larger token run;
+- resume-safe training manifests/checkpoints and post-pilot quantized regression.
 
-**Exit gate:** a reproducible bounded pilot demonstrates a positive capability/forgetting/quantized-deployment tradeoff and the admitted data chain is auditable and legally compatible with the intended release.
+**Preferred accessible execution path:** Google Colab + Unsloth, subject to exact backbone support and task authority. The workstream must support interruption/resume, pin dependencies, and keep training logic in repository code/configs rather than notebook-only cells.
+
+**Exit gate:** bounded pilot demonstrates a positive capability/forgetting/quantized-deployment tradeoff and the admitted data chain is auditable and legally compatible.
 
 ### MSTR-002 — Coding SFT + Repository / Tool / Planning Behavior
 
 **Purpose:** teach the selected model the frozen MSTR Interaction Contract and strong software-engineering behavior.
 
-**Expected build outputs:**
+**Expected outputs:**
 - high-quality coding/instruction SFT;
 - persistent FIM replay;
 - repository inspection/localization trajectories;
@@ -78,7 +94,9 @@ Measured evidence may refine the exact support floor, but it may not be silently
 - planning/decomposition examples;
 - failure/rollback/recovery trajectories;
 - security-aware repository handling;
-- regression suites for raw coding, FIM, schema/tool reliability, Q4 behavior, and laptop deployment.
+- regression suites for raw coding, FIM, tool reliability, Q4 behavior, and laptop deployment.
+
+**Training policy:** Unsloth is the preferred first compact-model SFT/LoRA implementation if still supported and reproducible. The data/contract format must remain framework-neutral. For Qwen3.5, current planning starts with bf16 LoRA and treats QLoRA as an experimental arm unless newer evidence changes that decision.
 
 **Exit gate:** post-SFT MSTR improves verified repository tasks without unacceptable regression in direct coding/FIM, quantized reliability, or universal-laptop deployment.
 
@@ -86,101 +104,71 @@ Measured evidence may refine the exact support floor, but it may not be silently
 
 **Purpose:** train long-horizon software-engineering behavior in executable, adversarially verified environments.
 
-**Expected build outputs:**
-- scalable environment factory based on the MSTR-000 contracts;
+**Expected outputs:**
+- scalable environment factory based on MSTR-000 contracts;
 - solvability/frontier checks;
-- reference/oracle-pass, no-op-fail, and unsolved-state verifier validation;
+- reference/oracle-pass, no-op-fail, unsolved-state verifier validation;
 - continuous reward-shortcut discovery;
 - difficulty/frontier curriculum;
 - long-horizon task-state/context compaction;
 - deterministic terminal rewards and localized process feedback where justified;
 - RL framework qualification and bounded pilot before scaling.
 
-`slime`, `verl`, and other frameworks remain candidates until this workstream qualifies the best fit for MSTR's environments and compute topology.
+Unsloth may support cheap notebook RL pilots. `slime`, `verl`, and alternatives remain candidates for scaled long-horizon RL; no framework is preselected.
 
 **Exit gate:** bounded RL produces statistically credible verified-task gains without reward hacking, evaluator leakage, or catastrophic core-capability regression.
 
 ### MSTR-004 — Local Inference Speed Co-Design
 
-**Purpose:** minimize end-to-end TTVC once the post-training target distribution is stable enough for fair optimization.
+**Purpose:** minimize end-to-end TTVC once the post-training target distribution is stable.
 
-**Tournament arms may include:**
-- stable prompt/prefix caching;
-- n-gram/suffix speculation;
-- native MTP where supported;
-- EAGLE/DFlash-class drafting where evidence warrants;
-- quantization and KV/cache profiles;
-- context compaction;
-- tool parallelism/asynchrony;
-- warm environment snapshots;
-- affected-test selection;
-- incremental build/test;
-- serving/kernel/runtime optimization.
+Tournament arms may include stable prefix caching, n-gram/suffix speculation, native MTP, evidence-backed draft methods, quantization/KV profiles, context compaction, parallel tools, warm environments, affected-test selection, incremental build/test, and runtime/kernel optimization.
 
-**Exit gate:** selected changes improve verified TTVC or whole-laptop utility while holding quality/security/regression gates, not merely tokens/sec.
+**Exit gate:** selected changes improve verified TTVC or whole-laptop utility while holding quality/security/regression gates.
 
 ### MSTR-005 — Packaging + Security + Privacy + Offline Release Engineering
 
 **Purpose:** turn the qualified model/system into the ordinary-user laptop product.
 
-**Expected build outputs:**
-- self-contained Windows/Linux/macOS packages;
-- accountless official artifact acquisition;
-- offline first-run/basic-use qualification;
-- no-silent-network and telemetry-default-off tests;
-- prompt-injection and malicious-repository hardening;
-- secret/workspace/network boundaries;
-- reproducible model/runtime manifests;
-- signed/checksummed update and rollback flows;
-- uninstall/data-location behavior.
+**Expected outputs:** self-contained Windows/Linux/macOS packages, accountless artifact acquisition, offline basic use, no-silent-network and telemetry-off tests, malicious-repository hardening, secret/workspace/network boundaries, reproducible manifests, signed/checksummed update/rollback, uninstall/data-location behavior.
 
-**Exit gate:** a non-developer can obtain, install, and use MSTR locally without cloud credentials or a development toolchain, while the security/privacy contract passes.
+**Exit gate:** non-developer local use without cloud credentials or a development toolchain.
 
 ### MSTR-006 — MSTR Gauntlet + Release Candidate Qualification
 
 **Purpose:** make a defensible release decision using fresh/private and public continuity evidence.
 
-**Expected build outputs:**
-- fresh/private post-cutoff MSTR Gauntlet;
-- public benchmark continuity suite with limitations documented;
-- quantized regression suite;
-- security/evaluator-integrity suite;
-- competitive TTVC protocol;
-- raw vs neutral-harness vs full-system scorecards;
-- candidate release model/data cards;
-- reproducibility and contamination/leakage audit package.
+**Expected outputs:** private post-cutoff Gauntlet, public continuity suite with limitations, quantized regression, security/evaluator integrity, competitive TTVC, raw/neutral/full-system scorecards, model/data cards, contamination/leakage audit.
 
-**Exit gate:** every release-blocking and headline claim is traceable to exact evidence and the universal-laptop gate passes on required platform families.
+**Exit gate:** every release-blocking/headline claim traces to exact evidence and the universal-laptop gate passes.
 
 ### MSTR-007 — MSTR v1 Release
 
-**Purpose:** publish the first stable MSTR model/runtime/source release.
+Publish approved model/runtime/source artifacts, hashes/manifests, model/data cards, benchmark report, install docs, opt-out/contact process, and release/update/security policy.
 
-**Expected build outputs:**
-- approved model and runtime artifacts;
-- source release;
-- hashes/manifests;
-- model card and data card;
-- benchmark/qualification report;
-- installation/package documentation;
-- opt-out/contact process;
-- release/update/security policy.
-
-**Exit gate:** MSTR v1 is downloadable, usable, reproducible, independently testable, and its claims match the evidence package.
+**Exit gate:** downloadable, usable, reproducible, independently testable, and evidence-matched.
 
 ### MSTR-008 — Post-Release Evidence and Improvement Loop
 
-**Purpose:** improve MSTR without destroying the evidence, compatibility, or universal-laptop properties that justified v1.
+Add rolling fresh tasks, reproducible bug/eval additions, regression-driven releases, runtime/model experiments, and separately specified distilled/larger editions without weakening v1 invariants.
 
-**Expected build outputs:**
-- issue/telemetry-free opt-in feedback and reproducible bug/eval additions;
-- rolling fresh benchmark/task additions;
-- regression-driven point releases;
-- model/runtime optimization experiments;
-- optional distilled/larger editions only under separately specified gates;
-- next-version Spec Kit workstreams based on observed failure modes.
+## Training execution policy
 
-**Exit gate:** each material change is backed by a new or amended specification and reproduces the relevant v1 product/security/evaluation invariants.
+Canonical detail: `docs/canonical/TRAINING_EXECUTION_STRATEGY.md`.
+
+Key principles:
+
+```text
+COLAB = ACCESSIBLE COMPUTE, NOT PRODUCT DEPENDENCY
+UNSLOTH = PREFERRED FIRST TRAINING FRAMEWORK, NOT DATA/ARCHITECTURE LOCK-IN
+INTERRUPTION_SAFE = REQUIRED
+PINNED ENVIRONMENT = REQUIRED
+RUN MANIFEST + HASHES = REQUIRED
+BF16_LORA_FOR_QWEN3_5 = CURRENT FIRST PILOT IF SELECTED
+QWEN3_5_QLORA = EXPERIMENTAL
+QUANTIZED_REGRESSION = REQUIRED AFTER MATERIAL TRAINING
+GGUF_LOCAL_EXPORT = RELEASE-RELEVANT
+```
 
 ## Dependency Graph
 
@@ -213,18 +201,18 @@ MSTR-004   MSTR-005
       MSTR-008
 ```
 
-MSTR-004 and MSTR-005 may overlap only after the post-training distribution is stable enough to benchmark and package without repeatedly invalidating results.
+MSTR-004 and MSTR-005 may overlap only after the post-training distribution is stable enough to benchmark/package without repeatedly invalidating results.
 
 ## Workstream Planning Rule
 
-Later workstreams are intentionally **program-complete but implementation-deferred**. Their detailed Spec Kit packages MUST consume predecessor evidence rather than pretending that the backbone, runtime, data mixture, teacher strategy, RL framework, speculative method, or release format is already known.
+Later workstreams are program-complete but implementation-deferred. Their detailed Spec Kit packages MUST consume predecessor evidence rather than pretending the backbone, runtime, data mixture, teacher strategy, RL framework, or speculative method is already known.
 
 Before each workstream begins:
 
 ```text
-predecessor closeout is canonical
--> founder/authority gate satisfied where required
--> create new Spec Kit spec
+predecessor closeout canonical
+-> founder/authority gate
+-> create Spec Kit spec
 -> clarify
 -> research
 -> plan + Constitution Check
@@ -233,4 +221,4 @@ predecessor closeout is canonical
 -> implement
 ```
 
-This roadmap therefore prevents duplicated work while keeping later implementation evidence-driven.
+This roadmap prevents duplicated work while keeping later implementation evidence-driven.
