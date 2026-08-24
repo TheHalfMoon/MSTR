@@ -7,7 +7,7 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_BEFORE_T005 = bc3d37803434fcad15c92683705d61cf68477846
+CANONICAL_MAIN_BEFORE_T006 = 47b6f07449f92136336044b29f73c0a4e8a8a218
 PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION
 ACTIVE_SPEC = MSTR-000
 SPEC_KIT_PACKAGE = CANONICAL
@@ -21,23 +21,24 @@ T001 = COMPLETE_CANONICAL / MSTR-MEASURE-v0
 T002 = COMPLETE_CANONICAL / MSTR-DIST-v0
 T003 = COMPLETE_CANONICAL / QUALIFICATION_HARNESS_BOOTSTRAP
 T004 = COMPLETE_CANONICAL / STRICT_LOCAL_SCHEMA_VALIDATION
+T005 = COMPLETE_CANONICAL / TYPED_ERRORS_AND_STABLE_IDENTITIES
 ```
 
-Latest canonical merge before T005: `bc3d37803434fcad15c92683705d61cf68477846`.
+Latest canonical merge before T006: `47b6f07449f92136336044b29f73c0a4e8a8a218`.
 
 ## Active work
 
 ```text
-ACTIVE_TASK = T005
-ACTIVE_BRANCH = task/000-t005-errors-ids
+ACTIVE_TASK = T006
+ACTIVE_BRANCH = task/000-t006-rights-gate
 TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
-NEXT_TASK_AFTER_T005_CANONICAL = T006
+NEXT_TASK_AFTER_T006_CANONICAL = T007
 ```
 
-T005 adds deterministic typed qualification errors and stable SHA-256/identity helpers, and migrates T004 schema validation onto those typed errors without loosening validation behavior.
+T006 implements the generic fail-closed primary-backbone/component rights gate. It recomputes eligibility from rights facts and required component evidence instead of trusting a declared decision field. It does not qualify any named model by itself.
 
 Candidate evidence:
-`specs/000-universal-laptop-interaction-contract/evidence/T005-errors-ids.md`.
+`specs/000-universal-laptop-interaction-contract/evidence/T006-primary-backbone-rights-gate.md`.
 
 ## Product invariant
 
@@ -64,21 +65,22 @@ INTERACTION_CONTRACT = UNFROZEN
 DEFAULT_CONTEXT_ENGINE = UNSELECTED
 LOCAL_RUNTIME_BASELINE = UNSELECTED
 
-MODEL_WEIGHT_ACCESS = NOT_AUTHORIZED_BY_T005
+MODEL_WEIGHT_ACCESS = NOT_AUTHORIZED_BY_T006
 MODEL_EXECUTION = NONE
 PAID_MODEL_API_EXECUTION = NONE
 RENTED_TRAINING_COMPUTE = NONE
 LONG_TRAINING = NOT_STARTED / PROHIBITED_IN_MSTR-000
 LARGE_SCALE_RL = NOT_STARTED / PROHIBITED_IN_MSTR-000
 PRODUCTION_MODEL_RELEASE = NONE
+CANDIDATE_ADMISSION = NONE_BY_T006_ALONE
 ```
 
 The first possible model-weight acquisition remains T028 and requires separate exact authorization after all prerequisites are canonical. T053 remains the only MSTR-000 bounded micro-adaptation gate and also requires separate exact authorization.
 
-## Dependency note
+## Rights-gate rule
 
-The only current runtime dependency of the research qualification harness is `jsonschema>=4.23,<5`, introduced by T004. No dependency has been selected for the future end-user MSTR runtime.
+For primary admission, every required component must establish the intended personal/commercial use, modification, fine-tuning, quantization, and derivative redistribution rights, with no unresolved `unknown`, user-facing account/click-through/separate-license gate, or field/scale restriction. Source-specific legal/terms evidence is collected by later candidate tasks; T006 does not perform legal interpretation or external retrieval.
 
 ## Next gate
 
-If T005 is reviewed and merged without scope expansion, proceed to T006: fail-closed component/backbone rights evaluation and its evidence contract. T006 is static/legal qualification only and does not authorize model-weight access.
+If T006 is reviewed and merged without scope expansion, proceed to T007: immutable/canonical evidence serialization and supersession semantics. T007 does not authorize model-weight access.
