@@ -91,7 +91,7 @@ The framework remains replaceable; MSTR training data, manifests, and evaluation
 
 ## Decision 19 — Qwen3.5 QLoRA Is Not the Default Pilot
 
-Current Unsloth guidance specifically advises against 4-bit QLoRA for Qwen3.5 due to higher-than-normal quantization differences. If Qwen3.5 2B/4B wins the MSTR tournament, the first pilot should therefore use bf16 LoRA when feasible. QLoRA remains an experiment that must demonstrate equivalent or acceptable quality.
+Current Unsloth guidance specifically advises against 4-bit QLoRA for Qwen3.5 due to higher-than-normal quantization differences. If Qwen3.5 2B/4B wins the MSTR tournament, the first pilot should therefore use 16-bit LoRA: bf16 where supported, with fp16 fallback on hardware that does not support bf16. QLoRA remains an experiment that must demonstrate equivalent or acceptable quality.
 
 This rule is backbone-specific and must be revalidated if tooling/model support changes.
 

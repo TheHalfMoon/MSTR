@@ -62,7 +62,7 @@ Candidate arms:
 - QLoRA only where the selected model family and evidence justify it;
 - limited full fine-tuning only if a later Spec Kit explicitly justifies the compute and expected value.
 
-For Qwen3.5 specifically, current Unsloth guidance says 4-bit QLoRA is not recommended because quantization differences are higher than normal. Therefore, if a Qwen3.5 compact model wins MSTR qualification, **bf16 LoRA is the default first pilot** and QLoRA is an explicit experimental arm, not the default.
+For Qwen3.5 specifically, current Unsloth guidance says 4-bit QLoRA is not recommended because quantization differences are higher than normal. Therefore, if a Qwen3.5 compact model wins MSTR qualification, **16-bit LoRA is the default first pilot: bf16 where supported, with fp16 fallback where the assigned GPU requires it** and QLoRA is an explicit experimental arm, not the default.
 
 ### C2 — MSTR-001 bounded code/FIM pilot
 

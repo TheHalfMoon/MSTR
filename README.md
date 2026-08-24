@@ -67,7 +67,7 @@ Unsloth     = preferred efficient training framework
 MSTR runtime = separate local/offline end-user product
 ```
 
-The program does **not** preselect a backbone or training precision. If a Qwen3.5 compact base wins the evidence tournament, the current default pilot is bf16 LoRA with Unsloth; QLoRA is an experimental arm rather than the default for that family. Every later run must be resumable, pinned, hashed, and regression-tested. See `docs/canonical/TRAINING_EXECUTION_STRATEGY.md`.
+The program does **not** preselect a backbone or training precision. If a Qwen3.5 compact base wins the evidence tournament, the current default pilot is 16-bit LoRA with Unsloth (bf16 where supported, fp16 fallback where required); QLoRA is an experimental arm rather than the default for that family. Every later run must be resumable, pinned, hashed, and regression-tested. See `docs/canonical/TRAINING_EXECUTION_STRATEGY.md`.
 
 ## Product Thesis
 

@@ -96,7 +96,7 @@ The pause requires explicit founder resume plus live GitHub reconciliation. See 
 - security-aware repository handling;
 - regression suites for raw coding, FIM, tool reliability, Q4 behavior, and laptop deployment.
 
-**Training policy:** Unsloth is the preferred first compact-model SFT/LoRA implementation if still supported and reproducible. The data/contract format must remain framework-neutral. For Qwen3.5, current planning starts with bf16 LoRA and treats QLoRA as an experimental arm unless newer evidence changes that decision.
+**Training policy:** Unsloth is the preferred first compact-model SFT/LoRA implementation if still supported and reproducible. The data/contract format must remain framework-neutral. For Qwen3.5, current planning starts with 16-bit LoRA (bf16 where supported, fp16 fallback where required) and treats QLoRA as an experimental arm unless newer evidence changes that decision.
 
 **Exit gate:** post-SFT MSTR improves verified repository tasks without unacceptable regression in direct coding/FIM, quantized reliability, or universal-laptop deployment.
 
@@ -164,7 +164,7 @@ UNSLOTH = PREFERRED FIRST TRAINING FRAMEWORK, NOT DATA/ARCHITECTURE LOCK-IN
 INTERRUPTION_SAFE = REQUIRED
 PINNED ENVIRONMENT = REQUIRED
 RUN MANIFEST + HASHES = REQUIRED
-BF16_LORA_FOR_QWEN3_5 = CURRENT FIRST PILOT IF SELECTED
+LORA_16BIT_BF16_OR_FP16_FOR_QWEN3_5 = CURRENT FIRST PILOT IF SELECTED
 QWEN3_5_QLORA = EXPERIMENTAL
 QUANTIZED_REGRESSION = REQUIRED AFTER MATERIAL TRAINING
 GGUF_LOCAL_EXPORT = RELEASE-RELEVANT

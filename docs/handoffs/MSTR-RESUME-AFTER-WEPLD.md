@@ -63,7 +63,7 @@ Colab environment
 + universal-laptop qualification
 ```
 
-For Qwen3.5 compact models, revalidate Unsloth's then-current guidance before choosing bf16 LoRA, QLoRA, or another method.
+For Qwen3.5 compact models, revalidate Unsloth's then-current guidance before choosing 16-bit LoRA (bf16/fp16), QLoRA, or another method.
 
 ## No stale authority
 

@@ -60,7 +60,7 @@ verify live base
 
 ## Training direction — future only
 
-Google Colab + Unsloth is the preferred accessible future training path, subject to the selected backbone and later Spec Kit gates. For a Qwen3.5 compact winner, current planning uses bf16 LoRA as the first pilot and treats QLoRA as experimental.
+Google Colab + Unsloth is the preferred accessible future training path, subject to the selected backbone and later Spec Kit gates. For a Qwen3.5 compact winner, current planning uses 16-bit LoRA as the first pilot (bf16 where supported, fp16 fallback where required) and treats QLoRA as experimental.
 
 This is not current execution authority. See `docs/canonical/TRAINING_EXECUTION_STRATEGY.md`.
 

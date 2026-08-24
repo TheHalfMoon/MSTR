@@ -53,7 +53,7 @@ RUN_MANIFEST + HASHES = REQUIRED
 POST_TRAIN_QUANTIZED_REGRESSION = REQUIRED
 ```
 
-If a compact Qwen3.5 model wins qualification, current external guidance makes bf16 LoRA the first pilot method; QLoRA is not preselected and must earn admission experimentally.
+If a compact Qwen3.5 model wins qualification, current external guidance makes 16-bit LoRA the first pilot method (bf16 where supported, fp16 fallback where required); QLoRA is not preselected and must earn admission experimentally.
 
 ## Constitution Check
 
