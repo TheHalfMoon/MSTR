@@ -1,99 +1,65 @@
 # MSTR-000 Implementation Readiness Checklist
 
-MSTR-000 is a qualification program. This checklist governs whether the project is ready to move from preconstruction into serious model training.
+## A. Spec Kit Package
+- [x] Constitution exists without placeholders.
+- [x] Prioritized independently testable user stories.
+- [x] FR-### and SC-### identifiers.
+- [x] Zero blocking clarification markers.
+- [x] Research decisions/rationale/deferred questions.
+- [x] Plan has Technical Context, Constitution Check, structure, phases, tests, complexity, authority.
+- [x] Data model and contracts.
+- [x] Quickstart and handoff.
+- [x] Dependency-ordered tasks with paths.
+- [x] T000–T002 history preserved.
+- [x] Noncanonical T003+ draft numbering explicitly superseded.
+- [ ] Independent read-only consistency review has no CRITICAL conflict.
 
-## Universal-laptop product gate
+## B. Constitution
+- [ ] Universal-laptop invariant intact.
+- [ ] Offline/accountless/privacy defaults intact.
+- [ ] Rights fail closed.
+- [ ] No preselected backbone.
+- [ ] TTVC/verified utility primary.
+- [ ] Heavy components evidence-gated.
+- [ ] Public benchmarks secondary evidence.
+- [ ] No silent long training/RL/release authority.
+- [ ] External-effect tasks state scope/cost ceilings.
 
-- [ ] Exact supported OS/CPU matrix is measured and documented rather than summarized as generic x86_64/ARM64 support.
-- [ ] Reference 8 GB system runs MSTR alongside the reference OS/editor workload without OOM or sustained swap thrashing.
-- [ ] 8K default context is proven; 4K/8K/16K memory and latency behavior are separately characterized.
-- [ ] No discrete GPU is required.
-- [ ] Primary Q4 model artifact meets the <=3 GB target or an explicit founder-approved revision exists.
-- [ ] MSTR process RSS is measured against the <=4 GB soft target at the reference 8K context, and whole-system responsiveness is acceptable.
-- [ ] Windows, Linux, and macOS runtime paths are proven or precisely scoped with no misleading compatibility claim.
-- [ ] CPU-only TTFA, TTFCE, and TTVC are measured on real repositories.
-- [ ] Sustained CPU inference is tested for throttling and interactive usability; energy/task is recorded where reliable counters exist.
-- [ ] 4 GB and older-hardware behavior is characterized even if it is not the mandatory primary floor.
+## C. Harness Foundation
+- [ ] Clean Python 3.11+ install.
+- [ ] Full tests pass.
+- [ ] Schema valid/invalid fixtures pass.
+- [ ] Serialization determinism passes.
+- [ ] Offline CLI proves no hidden network.
+- [ ] Evidence IDs/hashes stable.
+- [ ] Comparison rejects mismatched conditions.
+- [ ] CI exists or absence explicitly stated.
 
-## Universal distribution/install/privacy gate
+## D. Static Candidate Admission
+- [ ] exact revision/license/terms; personal/commercial; modification/fine-tune; quantization; derivative redistribution; component rights; gating; architecture/footprint/runtime maturity.
+- [ ] landscape rescan before weight access.
+- [ ] >=3 eligible foundations or explicit shortage.
 
-- [ ] Local use requires no provider account, API key, or subscription.
-- [ ] Offline operation after installation is proven.
-- [ ] Telemetry and network egress are off by default.
-- [ ] Basic local coding assistance launches without requiring Docker, Python, Node.js, or building MSTR from source.
-- [ ] A portable CPU runtime path is proven for the primary artifact.
-- [ ] TTFI/install friction is measured on each required OS path.
-- [ ] Artifact checksums, quantization provenance, runtime version/build flags, and installation provenance are recorded.
+## E. Weight Access
+- [ ] manifest before acquisition; admitted candidates only; revisions/hash verification/storage/runtime/quantizer/network/cost/retention defined; no binaries in Git.
 
-## Model rights and candidate gate
+## F. Universal Laptop
+- [ ] pinned Q4 artifacts; portable CPU; 4K/8K/16K; U1 whole-laptop; core/tool/system memory; paging; 10-min sustained; editor responsiveness; Q4 regressions; failures rejected.
 
-- [ ] Every primary candidate has an exact upstream revision and license/terms record.
-- [ ] Primary candidate rights permit intended personal and commercial use.
-- [ ] Primary candidate rights permit modification/fine-tuning and quantization/conversion.
-- [ ] Primary candidate rights permit redistribution of intended derivative MSTR weights/artifacts.
-- [ ] Primary release does not require every end user to obtain a separate provider account or commercial model license.
-- [ ] Runtime/tool dependency licenses are compatible with the intended release.
-- [ ] Teacher/API-output and dataset rights are tracked separately from the base-model license.
-- [ ] `Qwen/Qwen2.5-Coder-3B` remains excluded from primary-backbone eligibility while its upstream research/non-commercial license remains incompatible.
+## G. Interaction
+- [ ] stable prefix/hash; FIM version; tool grammar; deterministic result; edit grammar; stale-write; malformed failure; network/task-state; v0 before adaptation.
 
-## Model quality gate
+## H. Tournament
+- [ ] frozen manifest; raw/neutral/full; Q4 controls; solve rate + TTVC; failed seeds retained; vendor scores not sole basis; equivalent adaptation; post-adaptation regressions; top-one/top-two decision.
 
-- [ ] At least three materially different eligible compact candidates were qualified.
-- [ ] Candidate comparison used the same interaction contract and evaluation manifest.
-- [ ] Q4 quality and tool-call reliability were measured, not inferred from BF16/reference precision.
-- [ ] Top candidates received equivalent bounded adaptation before final ranking where required.
-- [ ] No vendor-reported leaderboard result is used as the sole selection reason.
-- [ ] A lower-bound very-small coder control is included so MSTR does not assume more parameters automatically improve laptop utility.
+## I. Context
+- [ ] exact baseline; symbols; sparse; heavy arms optional; every arm has quality/tokens/latency/RAM/disk/build/update; default Pareto-efficient.
 
-## Interaction-contract gate
+## J. Environment/Verifier
+- [ ] schemas; deterministic reset; oracle pass; no-op fail; unsolved fail; evaluator protection; shortcut attacks; leakage controls; throughput/reset/storage/repro metrics.
 
-- [ ] Prompt prefix is versioned and cache-stable.
-- [ ] Tool grammar is versioned.
-- [ ] Tool-result serialization is deterministic.
-- [ ] FIM control semantics are frozen.
-- [ ] Edit grammar is frozen.
-- [ ] Stale-write/file-version behavior is deterministic.
-- [ ] Local inference baseline and cache behavior are recorded.
-- [ ] Network/privacy/sandbox semantics visible to the model are frozen.
-- [ ] Task-state/compaction schema is frozen if used.
+## K. Security/Provenance
+- [ ] repo untrusted; traversal/secrets/network tests; provenance source/revision/license/hash/lineage; benchmark exclusion; opt-out; teacher-output rights; runtime leakage; private Gauntlet contract; end-to-end evidence audit.
 
-## Runtime gate
-
-- [ ] Exact-search baseline exists.
-- [ ] Tree-sitter/symbol context marginal value is measured.
-- [ ] Any additional index/retriever proves value per RAM, disk, token, and millisecond.
-- [ ] Context-engine memory is included in the 8 GB whole-laptop budget.
-- [ ] Graphify and Code-Graph-RAG are not mandatory unless tournament evidence justifies them.
-- [ ] Deterministic apply engine passes stale/conflict tests.
-- [ ] Verification path can run locally without a cloud service.
-
-## Evaluation-integrity gate
-
-- [ ] Raw model, neutral harness, and full MSTR system are scored separately.
-- [ ] Private MSTR Gauntlet design exists before major training.
-- [ ] Training contamination controls are defined.
-- [ ] Runtime answer-leakage controls are defined separately.
-- [ ] Public benchmark limitations are documented.
-- [ ] Material results bind exact model/artifact/runtime/hardware/config/task identities.
-
-## Environment/RL readiness gate
-
-- [ ] Executable-task factory MVP exists.
-- [ ] Oracle/reference patch passes.
-- [ ] No-op state fails.
-- [ ] Unsolved-state/difficulty check exists.
-- [ ] Reward-shortcut battery exists.
-- [ ] Future-history/public-solution leakage is blocked in solver environments.
-- [ ] Environment reset/startup/storage throughput is measured.
-- [ ] CPU/sandbox capacity estimate accompanies any future GPU-RL budget.
-
-## Governance gate
-
-- [ ] MSTR-000 planning itself contains no unauthorized model-weight downloads, paid model calls, or rented training execution.
-- [ ] All MSTR-000 tasks relevant to closeout are complete.
-- [ ] Evidence is bound to exact model/runtime/config identities.
-- [ ] Material findings are reconciled.
-- [ ] Independent review is complete.
-- [ ] Founder explicitly accepts the MSTR-000 closeout.
-
-If any mandatory item remains unresolved, MSTR-001 may perform only bounded follow-up experiments; long training is not ready.
+## L. Closeout
+- [ ] measured support/default context; distribution v1; Interaction v1; runtime/Q4; context; backbone/top-two; environment requirements; MSTR-001 proposal; data/teacher rights; independent review; founder acceptance; CURRENT_STATE closed; long training only via MSTR-001 exact task.

@@ -1,186 +1,92 @@
-# MSTR-000 Research Reconciliation
+# MSTR-000 Research
 
-## Decision context
+**Purpose:** record research decisions that justify the MSTR-000 implementation plan. Upstream facts must be revalidated at execution time before irreversible or paid action.
 
-The founder clarified that the primary MSTR model must be installable and usable by people on ordinary laptops. That constraint materially changes the preconstruction search space: larger models may remain useful as teachers or optional editions, but the primary tournament must first test compact foundations that can plausibly satisfy an 8 GB, CPU-only, offline product envelope.
+## Decision 1 — Use Spec Kit as the Planning/Execution Backbone
 
-## Verified current candidate observations — 2026-08-24
+MSTR uses constitution -> specification -> clarification -> research -> plan -> data model/contracts/quickstart -> tasks -> review/analyze -> implement -> converge/closeout. The official Spec Kit workflow makes `spec.md` requirements/user-story authority, `plan.md` technical execution authority, `tasks.md` the dependency-ordered implementation queue, and `.specify/memory/constitution.md` live governance.
 
-### Qwen3.5-2B-Base
+Primary source: https://github.com/github/spec-kit
 
-- Upstream: `Qwen/Qwen3.5-2B-Base`.
-- Apache-2.0.
-- 2B language model with vision encoder.
-- hybrid Gated DeltaNet/attention architecture.
-- MTP trained with multiple steps.
-- 262,144 native context, but MSTR must qualify at laptop-realistic 4K/8K/16K contexts rather than treating the vendor maximum as usable local context.
-- upstream exposes Transformers/vLLM/SGLang use and quantization discovery for llama.cpp-compatible apps.
+## Decision 2 — Universal-Laptop Primary, Not Sub-10B Marketing
 
-Source:
-https://huggingface.co/Qwen/Qwen3.5-2B-Base
+The product search space is constrained by actual laptop usability: 8 GB total RAM, CPU-only, 8K reference context, OS + editor + medium repo + MSTR, Q4 artifact target <=3 GB, no mandatory cloud/account/API. Selecting the strongest <10B model first and optimizing deployment later is rejected.
 
-### Qwen3.5-4B-Base
+## Decision 3 — Tournament Approximately 2B–4B Dense Foundations
 
-- Upstream: `Qwen/Qwen3.5-4B-Base`.
-- Apache-2.0.
-- 4B-class language model with vision encoder.
-- hybrid Gated DeltaNet/attention architecture.
-- MTP-capable family.
-- strong foundation candidate, but 8 GB whole-laptop memory, Q4 reliability, and portable CPU-runtime maturity remain unproven MSTR gates.
+Initial candidates: Qwen3.5 2B/4B, Ministral 3B, Qwen3 4B, Granite 4.1 3B, SmolLM3 3B, plus Qwen2.5-Coder 1.5B control. The set is rescanned before weight access. No model is selected by reputation.
 
-Source:
-https://huggingface.co/Qwen/Qwen3.5-4B-Base
+## Decision 4 — Rights Gate Precedes Weight Access
 
-### Ministral-3-3B-Base-2512
+Candidate qualification fails closed for commercial use, modification/fine-tuning, quantization/conversion, and derivative redistribution. Dataset, teacher/API-output, runtime, and tooling rights are independent checks. Qwen2.5-Coder-3B remains a reference-only/ineligible primary candidate while current restrictions remain.
 
-- Upstream: `mistralai/Ministral-3-3B-Base-2512`.
-- Apache-2.0.
-- approximately 3.4B language model plus approximately 0.4B vision encoder.
-- designed for edge deployment; upstream states quantized deployment below 8 GB RAM/VRAM is possible.
-- 256K-class configured context, but laptop-realistic context still must be measured.
-- useful architectural/deployment hedge against the Qwen3.5 hybrid family.
+## Decision 5 — Separate Research Harness From Product Runtime
 
-Source:
-https://huggingface.co/mistralai/Ministral-3-3B-Base-2512
+Build MSTR-000 qualification tooling in Python for fast reproducible experiments; defer the final end-user runtime implementation. The eventual product should favor self-contained cross-platform packaging after model/backend constraints are known.
 
-### Qwen3-4B-Base
+## Decision 6 — TTVC Is the North-Star Speed Metric
 
-- Upstream: `Qwen/Qwen3-4B-Base`.
-- Apache-2.0.
-- mature dense text-model control with broad ecosystem support.
-- valuable because a simpler mature architecture may beat a newer architecture once Q4, CPU runtime, tool reliability, and whole-laptop constraints are included.
+Optimize Time To Verified Completion with TTFI/TTFA/TTFCE, solve rate, whole-system memory, responsiveness, sustained throughput, and artifact/install burden. Tokens/sec is supporting evidence only.
 
-Source:
-https://huggingface.co/Qwen/Qwen3-4B-Base
+## Decision 7 — Freeze Interaction Contract Before Material SFT/RL
 
-### Granite-4.1-3B-Base
+Version prompt/chat prefix, FIM semantics, tool grammar, result serialization, edit grammar, stale-write behavior, context ordering, and serving/cache assumptions before material agent training.
 
-- Upstream: `ibm-granite/granite-4.1-3b-base`.
-- Apache-2.0.
-- 3B base checkpoint released in 2026.
-- explicitly supports Fill-in-the-Middle code completion.
-- trained from a Granite 4.x foundation with an extended long-context phase.
-- important omission from the first draft and now a required static-qualification candidate because it combines permissive redistribution, compact size, and native FIM relevance.
+## Decision 8 — Deterministic Apply v1
 
-Source:
-https://huggingface.co/ibm-granite/granite-4.1-3b-base
+Start with deterministic stale-safe editing. A learned apply model is deferred unless experiments prove enough value.
 
-### SmolLM3-3B-Base
+## Decision 9 — Minimal Context Engine First
 
-- Upstream: `HuggingFaceTB/SmolLM3-3B-Base`.
-- Apache-2.0.
-- 3B base with mature Transformers/ONNX-oriented ecosystem visibility.
-- retained as an open, text-only control; it must earn any weight-download slot on static quality/runtime evidence.
+Tournament order: exact search -> Tree-sitter/RepoMap-style symbols -> sparse index -> embeddings/reranker -> SCIP -> Graphify -> Code-Graph-RAG. Heavy systems must earn RAM/disk/latency complexity.
 
-Source:
-https://huggingface.co/HuggingFaceTB/SmolLM3-3B-Base
+Relevant projects: https://github.com/Graphify-Labs/graphify and https://github.com/vitali87/code-graph-rag plus Tree-sitter/SCIP/Aider-style RepoMap concepts.
 
-### Qwen2.5-Coder-1.5B lower-bound control
+## Decision 10 — Harness Diversity, Canonical Trajectory Schema Later
 
-- Upstream: `Qwen/Qwen2.5-Coder-1.5B`.
-- Apache-2.0.
-- 1.54B pretraining-stage code-specialized model.
-- supports FIM use and 32,768-token context per the upstream card.
-- deliberately below the nominal 2B–4B primary range: if post-training this much smaller model produces better verified laptop utility per GB/second, MSTR should know that before committing to 3B–4B.
+Future training may adapt multiple SWE harnesses (DeepSeek Harness, mini-swe-agent, SWE-agent, OpenHands, Harbor, SWE-smith/SWE-Next-like sources), but MSTR should preserve task/action/result/patch/verifier semantics rather than permanently bind to one syntax.
 
-Source:
-https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B
+## Decision 11 — Environment/Verifier Quality Before RL Framework Selection
 
-## Candidate removed by exact license review
+Prototype reference-pass/no-op-fail/unsolved checks, reward shortcuts, leakage controls, and reset/reproducibility metrics before committing to large-scale RL.
 
-### Qwen2.5-Coder-3B
+## Decision 12 — RL Direction Remains Provisional
 
-The first MSTR-000 draft incorrectly treated `Qwen/Qwen2.5-Coder-3B` as an eligible code-specialized control. Exact upstream review shows its current license is the **Qwen Research License**, not Apache-2.0. The license restricts granted use to non-commercial purposes and requires a separate commercial license.
+`slime` is a leading future candidate for coding-agent long-horizon RL; `verl`/specialized speculative co-training and other frameworks remain comparison paths. MSTR-000 does not select the final RL framework.
 
-That conflicts with the founder goal that MSTR be broadly usable and redistributable. Therefore:
+## Decision 13 — Preserve FIM During Later Post-Training
 
-```text
-QWEN2_5_CODER_3B_PRIMARY_BACKBONE = INELIGIBLE
-REASON = RESEARCH_NONCOMMERCIAL_LICENSE
-```
+FIM/code-completion remains a regression surface and later mixes should retain FIM replay as needed so agent training does not destroy direct coding ability.
 
-It may be referenced academically or used only in a separately authorized research comparison consistent with its terms. It cannot become the primary MSTR backbone.
+## Decision 14 — Public Benchmarks Are Secondary Evidence
 
-Source:
-https://huggingface.co/Qwen/Qwen2.5-Coder-3B/blob/main/LICENSE
+Use public coding/SWE/terminal benchmark families for continuity, but maintain a private/fresh MSTR Gauntlet. Exact benchmark validity is re-reviewed at release-candidate time.
 
-This defect demonstrates why exact license qualification must precede model-weight access.
+## Decision 15 — Raw Model and System Quality Must Be Separated
 
-## Other current watchlist observations
+Every material comparison has raw model, neutral minimal harness, and full MSTR system surfaces.
 
-### Phi-4-mini-instruct
+## Decision 16 — Vision Is Optional, Not a MSTR-000 Requirement
 
-`microsoft/Phi-4-mini-instruct` is a 3.8B dense post-trained model under MIT and is useful as a ready-made local reference for reasoning/tool behavior. It is not automatically a clean foundation candidate because the checkpoint is post-trained; MSTR may use it as a comparison point unless a suitable base checkpoint and training rights are separately qualified.
+A multimodal base may retain vision if laptop artifact/RAM/runtime requirements still pass; text/code SWE remains the first release-critical path.
 
-Source:
-https://huggingface.co/microsoft/Phi-4-mini-instruct
+## Decision 17 — Program Uses Gated Workstreams
 
-### LFM2.5-2.6B
+MSTR-000 does not pretend to know final token mix, teacher, RL scale, or speculative decoder. `docs/canonical/PROGRAM_ROADMAP.md` defines the sequence and each later workstream derives detail from predecessor evidence.
 
-Liquid AI publishes an on-device-oriented 2.6B family and reports strong CPU/low-memory inference characteristics. Its custom `LFM Open License v1.0` requires a separate legal-compatibility review before it can enter the primary backbone tournament. Do not equate "open" in a model card with automatic MSTR redistribution compatibility.
+## Research Risks Remaining
 
-Source:
-https://huggingface.co/LiquidAI/LFM2.5-2.6B-Base
+1. A 2B model may deploy well but miss SWE quality.
+2. A 4B model may exceed comfortable 8 GB behavior at 8K.
+3. Hybrid architectures may have weaker local quantization/runtime support.
+4. Q4 may hurt tool/FIM/JSON reliability.
+5. Repository retrieval may be the quality bottleneck for small models.
+6. CPU thermal limits may dominate perceived speed.
+7. Model/data/teacher terms may block attractive paths.
+8. Public benchmark scores may not correlate with laptop TTVC.
+9. Environment/verifier throughput may dominate RL cost.
+10. Agent optimization may degrade raw coding/FIM without replay gates.
 
-### Large-active-vs-total caveat
+## Primary Research Thesis
 
-A model can report very low **activated** parameters while storing far more total weights. MSTR's universal-laptop gate is based on total artifact/storage/RAM reality, not active-parameter marketing. Large-total-weight MoE models cannot enter the primary tournament merely because their active parameter count is small.
-
-## External adversarial consultation reconciliation
-
-An adversarial architecture review recommended several changes that remain useful after the laptop-goal clarification.
-
-### Accepted
-
-- freeze prompt/tool/edit/cache semantics before serious training;
-- treat environment throughput as a major RL bottleneck;
-- keep FIM replay during later SFT/RL to reduce forgetting;
-- prefer deterministic stale-safe edit application before building a learned apply model;
-- train or refresh speculative/MTP capability with the target rather than maintain a stale separate drafter;
-- maintain raw-model / neutral-harness / full-system evaluation separately;
-- make reward-hacking tests continuous;
-- build a private fresh-task Gauntlet;
-- keep heavy graph systems as tournament arms rather than dependencies;
-- use TTVC rather than tokens/sec as the principal task-speed metric.
-
-### Modified by the universal-laptop goal
-
-The earlier ~9B primary recommendation is superseded for MSTR-000. Larger checkpoints may later serve as teachers, data generators, upper-bound controls, or optional high-memory editions. They may not silently replace the universal primary product.
-
-## Provisional hardware and install definition
-
-"Any laptop" cannot literally include every historical machine. MSTR-000 therefore starts from a broad contemporary floor and must validate it empirically:
-
-```text
-8 GB total RAM
-modern x86_64 or ARM64 CPU
-no discrete GPU
-reference context = 8K tokens
-4K/8K/16K context ladder measured
-<=3 GB primary Q4 model artifact target
-no provider account/API key
-no Docker requirement for basic local assistance
-offline after install
-telemetry/network egress off by default
-```
-
-The model must be tested while a real editor and OS are running. A model that consumes nearly all 8 GB by itself has not satisfied the founder goal even if it technically loads.
-
-The project should additionally characterize 4 GB and older-CPU behavior. Failure there does not automatically invalidate the primary release, but any genuinely usable lower-memory configuration is strategically valuable.
-
-## Research risks still open
-
-1. A 1.5B–2B model may meet universal deployment goals but miss the desired SWE quality ceiling.
-2. A 4B model may offer better quality but have an uncomfortable whole-system memory/latency envelope on 8 GB systems.
-3. Multimodal vision towers may add download/runtime cost that is not justified for v1.
-4. Hybrid attention architectures may complicate quantization or portable local backends.
-5. Q4 may disproportionately damage tool-call JSON/FIM reliability.
-6. Vendor maximum-context claims are irrelevant if laptop memory makes those contexts unusable.
-7. Repository/runtime intelligence may provide more practical value than adding parameters; this must be measured rather than assumed.
-8. CPU-only sustained inference may cause thermal throttling, poor battery life, or make the editor unresponsive even when RAM fits.
-9. Custom/open-looking licenses may still conflict with unrestricted MSTR distribution.
-10. Teacher-model/API output terms can contaminate the legal status of a distillation pipeline even when the base model is permissively licensed.
-
-## Research thesis
-
-MSTR's best chance is not to reproduce frontier raw intelligence on a laptop. It is to maximize **verified software-engineering utility per GB and per second** through a small strong model, precise repository localization, compact context, deterministic editing, cheap verification, strong executable post-training, and a genuinely frictionless local distribution path.
+MSTR's strongest defensible path is to maximize **verified software-engineering utility per GB, per second, and per unit of training evidence** through a compact strong base, precise repository localization, deterministic editing, executable verification, stable interaction contracts, high-quality execution-grounded post-training, and local inference co-design.

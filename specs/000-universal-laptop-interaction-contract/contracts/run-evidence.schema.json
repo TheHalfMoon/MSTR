@@ -1,0 +1,10 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://mstr.local/schemas/run-evidence-v1.json",
+  "title":"MSTR Run Evidence v1",
+  "type":"object","additionalProperties":false,
+  "required":["schema_version","run_id","measurement_protocol","task_id","candidate_id","artifact_sha256","runtime_id","hardware_id","interaction_contract_version","context_length","cache_state","final_result","verifier_results"],
+  "properties":{
+    "schema_version":{"const":"mstr.run.v1"},"run_id":{"type":"string","minLength":1},"measurement_protocol":{"type":"string","minLength":1},"benchmark_manifest_id":{"type":["string","null"]},"task_id":{"type":"string"},"candidate_id":{"type":"string"},"model_revision":{"type":"string"},"artifact_sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"tokenizer_revision":{"type":["string","null"]},"quantization_method":{"type":"string"},"quantizer_version":{"type":"string"},"runtime_id":{"type":"string"},"runtime_build_flags":{"type":"array","items":{"type":"string"}},"hardware_id":{"type":"string"},"interaction_contract_version":{"type":"string"},"context_length":{"type":"integer","minimum":1},"cache_state":{"enum":["process_cold","session_warm","prefix_warm"]},"seed":{"type":["integer","null"]},"timings_ms":{"type":"object","additionalProperties":false,"properties":{"cold_load":{"type":["number","null"],"minimum":0},"ttfa":{"type":["number","null"],"minimum":0},"ttfce":{"type":["number","null"],"minimum":0},"ttvc":{"type":["number","null"],"minimum":0}}},"memory":{"type":"object","additionalProperties":true},"throughput":{"type":"object","additionalProperties":true},"sustained_ratio":{"type":["number","null"],"minimum":0},"editor_responsiveness_p95_ms":{"type":["number","null"],"minimum":0},"verifier_results":{"type":"array","items":{"type":"object","additionalProperties":true}},"final_result":{"enum":["verified_pass","verifier_fail","model_error","tool_error","memory_pressure_fail","timeout","infrastructure_invalid"]},"invalidation_reason":{"type":["string","null"]},"logs":{"type":"array","items":{"type":"string"}}
+  }
+}

@@ -7,110 +7,116 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN = 8427d22aaf5a8ad5d70d264f9ef4e2241cfe063f
-BOOTSTRAP_COMMIT = 4efdc5779ba5b83df6d54b42b030ff912d138722
-PR_1 = MERGED_CANONICAL
-PR_2 = MERGED_CANONICAL
-PR_3 = MERGED_CANONICAL
+CANONICAL_MAIN_AT_PLAN_START = 318a797c42b976cd9c420a6e9303489bf852e6da
 PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION
+ACTIVE_SPEC = MSTR-000
 ```
 
-PR #1 canonicalized MSTR-000 planning. PR #2 canonicalized T000 (universal-laptop matrix). PR #3 canonicalized T001 (`MSTR-MEASURE-v0`). No model weights, model execution, paid model calls, rented compute, or dependency admission have occurred.
+The commit above includes a harmless empty `.specify/memory/.keep` bootstrap that was written directly to `main` while initializing the Spec Kit memory path. It changes no runtime or model behavior. The complete Spec Kit package is being prepared on a separate planning branch/PR.
 
-## Founder product direction
+## Canonical MSTR-000 Evidence
+
+```text
+T000 = COMPLETE_CANONICAL
+T001 = COMPLETE_CANONICAL
+T002 = COMPLETE_CANONICAL
+
+T000 = UNIVERSAL_LAPTOP_MATRIX
+T001 = MSTR-MEASURE-v0
+T002 = MSTR-DIST-v0
+```
+
+Canonical evidence:
+- `specs/000-universal-laptop-interaction-contract/evidence/T000-universal-laptop-hardware-matrix.md`
+- `.../T001-measurement-procedures.md`
+- `.../T002-distribution-install-privacy-contract.md`
+
+## Product Direction
 
 ```text
 PRIMARY_PRODUCT = UNIVERSAL_LAPTOP_CODER
-LOCAL_OFFLINE_CAPABLE = REQUIRED
-DISCRETE_GPU_REQUIRED = NO
-ACCOUNT_OR_API_KEY_REQUIRED = NO
 REFERENCE_TOTAL_RAM = 8_GB
-REFERENCE_CONTEXT = 8192_TOKENS_PROVISIONAL
-CONTEXT_LADDER = 4096 / 8192 / 16384
-PRIMARY_DOWNLOAD_TARGET = <= 3_GB_Q4_CLASS
-MSTR_PROCESS_RSS_SOFT_TARGET = <= 4_GB_AT_REFERENCE_CONTEXT
-WHOLE_LAPTOP_USABILITY = REQUIRED
-TARGET_OS = WINDOWS + LINUX + MACOS
+REFERENCE_CONTEXT = 8K
+CPU_ONLY_BASIC_OPERATION = REQUIRED
+DISCRETE_GPU_REQUIRED = NO
+PRIMARY_Q4_ARTIFACT_TARGET <= 3_GB
+ACCOUNT_OR_API_KEY_REQUIRED = NO
+OFFLINE_AFTER_ACQUISITION = REQUIRED
 TELEMETRY_DEFAULT = OFF
+WINDOWS + LINUX + MACOS = REQUIRED_PLATFORM_FAMILIES
 ```
 
-## Canonical T000 matrix
+The final measured support floor remains unfrozen until MSTR-000 closeout.
+
+## Planning Reconciliation
+
+The earlier MSTR-000 planning package is being upgraded into a complete Spec Kit implementation package.
+
+The new package adds:
 
 ```text
-U0 = 4_GB / 4K / STRETCH_CHARACTERIZATION
-U1 = 8_GB / 8K / CPU_ONLY / UNIVERSAL_PRIMARY_GATE
-U2 = 16_GB / 16K / RECOMMENDED_HEADROOM
-U3 = OPTIONAL_ACCELERATION / NON_BLOCKING
-REQUIRED_PLATFORM_LANES = WINDOWS_X86_64 + LINUX_X86_64 + MACOS_ARM64_M1_CLASS
-FINAL_SUPPORT_FLOOR = UNFROZEN_UNTIL_T060
+.specify/memory/constitution.md
+clarification-closeout.md
+data-model.md
+contracts/
+quickstart.md
+implementation-handoff.md
+Spec Kit user stories / FR / SC traceability
+dependency-ordered executable tasks with file paths
+program roadmap
 ```
 
-## Canonical T001 measurement protocol
+Only T000–T002 were canonical completed task IDs before this upgrade. The earlier incomplete T003+ draft task numbering had not become canonical evidence and is superseded by the new Spec Kit task graph.
+
+## Active Planning Work
 
 ```text
-MEASUREMENT_PROTOCOL = MSTR-MEASURE-v0
-TTFI = LOCAL_INSTALL_TO_FIRST_LOCAL_INTERACTION
-TTFA = TASK_ACCEPTED_TO_ACCEPTED_EXTERNAL_ACTION
-TTFCE = TASK_ACCEPTED_TO_FIRST_SUCCESSFULLY_COMMITTED_DURABLE_VERIFIED_EDIT
-TTVC = TASK_ACCEPTED_TO_VERIFIED_TERMINAL_COMPLETION
-MEMORY = MSTR_CORE_TREE + TASK_TOOL_TREE + WHOLE_SYSTEM
-CACHE_STATES = PROCESS_COLD / SESSION_WARM / PREFIX_WARM
-SUSTAINED_CPU_TEST = 10_MINUTES
+ACTIVE_PLANNING_BRANCH = plan/000-speckit-complete-package
+PLAN_PURPOSE = COMPLETE_IMPLEMENTATION_READY_SPEC_KIT_PACKAGE
+NEXT_EXECUTABLE_TASK_AFTER_PLAN_MERGE = T003
 ```
 
-## T002 distribution/install/privacy contract candidate
+The previously started `task/000-t003-primary-backbone-rights-gate` branch did not contain a committed canonical T003 implementation and is paused/superseded by the Spec Kit replan. It must not be treated as completed evidence.
+
+## Model / Compute State
 
 ```text
-DISTRIBUTION_CONTRACT = MSTR-DIST-v0_CANDIDATE
-PROVIDER_ACCOUNT_REQUIRED = NO
-API_KEY_REQUIRED = NO
-SUBSCRIPTION_REQUIRED = NO
-ACTIVATION_SERVER_REQUIRED = NO
-NETWORK_REQUIRED_AFTER_LOCAL_ARTIFACT_ACQUISITION = NO
-TELEMETRY_DEFAULT = OFF
-USER_CODE_UPLOAD_DEFAULT = NEVER
-TRAIN_ON_USER_CODE_DEFAULT = NEVER
-BASIC_MODE_BUILD_FROM_SOURCE = NO
-BASIC_MODE_DOCKER_REQUIRED = NO
-BASIC_MODE_PYTHON_REQUIRED = NO
-BASIC_MODE_NODE_REQUIRED = NO
-REMOTE_MODEL_FALLBACK = PROHIBITED
-WORKSPACE_SCOPE_DEFAULT = SELECTED_REPOSITORY
-```
-
-Evidence candidate:
-`specs/000-universal-laptop-interaction-contract/evidence/T002-distribution-install-privacy-contract.md`
-
-## Candidate policy
-
-Initial eligible static-qualification set:
-
-- `Qwen/Qwen3.5-2B-Base`;
-- `Qwen/Qwen3.5-4B-Base`;
-- `mistralai/Ministral-3-3B-Base-2512`;
-- `Qwen/Qwen3-4B-Base`;
-- `ibm-granite/granite-4.1-3b-base`;
-- `HuggingFaceTB/SmolLM3-3B-Base`;
-- `Qwen/Qwen2.5-Coder-1.5B` as lower-bound code control.
-
-`Qwen/Qwen2.5-Coder-3B` remains ineligible for the primary backbone while its current upstream license remains non-commercial.
-
-## Active workstream
-
-```text
-ACTIVE_SPEC = MSTR-000
-SPEC_STATE = CANONICAL_ACTIVE
-ACTIVE_TASK = T002
-ACTIVE_BRANCH = task/000-t002-distribution-install-privacy
-TASK_STATE = EVIDENCE_CANDIDATE
-BACKBONE = UNSELECTED
+FINAL_BACKBONE = UNSELECTED
 INTERACTION_CONTRACT = UNFROZEN
-DISTRIBUTION_CONTRACT = MSTR-DIST-v0_CANDIDATE
-MODEL_WEIGHT_DOWNLOAD = NONE
+DEFAULT_CONTEXT_ENGINE = UNSELECTED
+LOCAL_RUNTIME_BASELINE = UNSELECTED
+
+MODEL_WEIGHT_ACCESS = NONE_IN_CURRENT_PLAN_PR
 PAID_MODEL_API_EXECUTION = NONE
 RENTED_TRAINING_COMPUTE = NONE
-FINAL_BACKBONE_ADMISSION = NONE
-TRAINING_RUN = NONE
+LONG_TRAINING = NOT_STARTED
+LARGE_SCALE_RL = NOT_STARTED
+PRODUCTION_MODEL_RELEASE = NONE
 ```
 
-The next task after T002 canonical closeout is T003, the primary-backbone rights gate. T003 is static legal/terms qualification and requires no model-weight download.
+## Candidate Search Space
+
+Initial static-qualification candidates remain:
+
+- `Qwen/Qwen3.5-2B-Base`
+- `Qwen/Qwen3.5-4B-Base`
+- `mistralai/Ministral-3-3B-Base-2512`
+- `Qwen/Qwen3-4B-Base`
+- `ibm-granite/granite-4.1-3b-base`
+- `HuggingFaceTB/SmolLM3-3B-Base`
+
+Lower-bound coder control:
+- `Qwen/Qwen2.5-Coder-1.5B`
+
+Current explicit primary-backbone exclusion:
+- `Qwen/Qwen2.5-Coder-3B` while its upstream licensing posture remains incompatible with MSTR's primary redistribution/commercial-use goal.
+
+All upstream facts must be revalidated by the static qualification tasks.
+
+## Next Gate
+
+The next work is **not** model download or training.
+
+After the Spec Kit package is reviewed/canonical, begin T003: bootstrap the qualification harness and repository implementation structure.
+
+Long training remains blocked until MSTR-000 closeout + founder acceptance.

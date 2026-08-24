@@ -1,0 +1,10 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://mstr.local/schemas/interaction-contract-v1.json",
+  "title":"MSTR Interaction Contract Identity v1",
+  "type":"object","additionalProperties":false,
+  "required":["schema_version","contract_version","tokenizer","prompt_template","stable_prefix_hash","fim","tool_grammar","tool_result_serialization","edit_grammar","stale_write_semantics","context_order","network_semantics","runtime_cache_semantics","fixture_revision"],
+  "properties":{
+    "schema_version":{"const":"mstr.interaction.v1"},"contract_version":{"type":"string","minLength":1},"tokenizer":{"type":"object","required":["id","revision"],"additionalProperties":false,"properties":{"id":{"type":"string"},"revision":{"type":"string"}}},"prompt_template":{"type":"string"},"stable_prefix_hash":{"type":"string","pattern":"^[0-9a-f]{64}$"},"fim":{"type":"object","additionalProperties":true},"tool_grammar":{"type":"string"},"tool_result_serialization":{"type":"string"},"edit_grammar":{"type":"string"},"stale_write_semantics":{"type":"string"},"context_order":{"type":"array","items":{"type":"string"}},"task_state_schema":{"type":["string","null"]},"network_semantics":{"type":"string"},"runtime_cache_semantics":{"type":"string"},"fixture_revision":{"type":"string"}
+  }
+}

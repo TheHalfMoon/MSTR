@@ -1,104 +1,129 @@
-# MSTR-000 Tasks
+# Tasks: MSTR-000 Universal Laptop Qualification + Interaction Contract
 
-All tasks are preconstruction qualification tasks. A checked task means evidence was produced and reviewed; it does not itself select the final backbone or authorize long training.
+**Format:** `- [ ] T### [P?] [US#] Description with concrete output paths`. `[P]` means safe parallel work after prerequisites. T000–T002 are canonical complete. Earlier incomplete noncanonical T003+ draft IDs are superseded by this graph.
 
-No model-weight download, paid model API execution, or rented training compute is authorized by this planning PR. After the plan becomes canonical, only the explicit task that names such access may authorize it.
+## Phase 1: Canonical Product Foundation — COMPLETE
+- [x] T000 [US1] Universal-laptop matrix in `evidence/T000-universal-laptop-hardware-matrix.md`.
+- [x] T001 [US1] `MSTR-MEASURE-v0` in `evidence/T001-measurement-procedures.md`.
+- [x] T002 [US1] `MSTR-DIST-v0` in `evidence/T002-distribution-install-privacy-contract.md`.
 
-## Governance, hardware, and measurement
+## Phase 2: Qualification Harness Foundation
+**Independent test:** offline `python -m mstr_qualify validate` validates schemas/fixtures; full tests pass without model weights.
+- [ ] T003 [P] [US2] Bootstrap `pyproject.toml`, `src/mstr_qualify/`, `tests/`, `configs/`, `schemas/`, `artifacts/`, `.gitignore`.
+- [ ] T004 [P] [US7] Implement design schemas in `schemas/` and strict loader `src/mstr_qualify/schemas.py`; valid/invalid fixtures `tests/contract/`.
+- [ ] T005 [P] [US7] Typed errors + ID/SHA helpers in `errors.py`/`ids.py`; unit tests.
+- [ ] T006 [US2] Rights gate `rights.py`, tests, `evidence/T006-primary-backbone-rights-gate.md`.
+- [ ] T007 [US7] Immutable evidence serialization `evidence.py`; golden/round-trip tests.
+- [ ] T008 [US2] Task/benchmark manifests `manifests.py`; baseline `benchmarks/manifests/`.
+- [ ] T009 [US4] Reporting/comparability `reporting.py`; reject mismatched cache/hardware/manifest.
+- [ ] T010 [US2] CLI `validate`, `rights`, `candidate static`, `manifest validate`; offline integration test.
+- [ ] T011 [US7] Quality config/full baseline gates; `evidence/T011-harness-foundation-qualification.md`.
 
-- [x] T000 Define the universal-laptop reference hardware/OS matrix, concurrent editor workload, exact support floor, and 4K/8K/16K context ladder. Evidence: `evidence/T000-universal-laptop-hardware-matrix.md`. The task defines a qualification floor; final measured support remains T060.
-- [x] T001 Define canonical TTFI, TTFA, TTFCE, TTVC, artifact-size, process-RSS, total-system-memory, swap/page-fault, throughput, sustained-thermal, and optional energy measurement procedures. Evidence: `evidence/T001-measurement-procedures.md` (`MSTR-MEASURE-v0`).
-- [x] T002 Freeze the universal distribution/install/privacy contract: no account/API key, offline after install, telemetry/network off by default, portable CPU runtime, and no Docker/dev-toolchain requirement merely to launch basic assistance. Evidence: `evidence/T002-distribution-install-privacy-contract.md` (`MSTR-DIST-v0`).
-- [ ] T003 Define the primary-backbone rights gate covering use, commercial use, modification/fine-tuning, quantization/conversion, derivative redistribution, and end-user obligations.
-- [ ] T004 Define evidence identity requirements for model revision, checksums, tokenizer, quantizer, runtime/build flags, hardware, context/cache, interaction contract, task manifest, and seeds.
-- [ ] T005 Freeze the MSTR-000 benchmark/task manifest and seed policy before candidate scoring.
-- [ ] T006 Define raw-model, neutral-harness, and full-system reporting surfaces plus the competitive TTVC protocol.
+## Phase 3: US2 Static Candidate Admission
+**Prereq:** T003–T011. **Test:** schema-valid candidate record per exact revision, no weights.
+- [ ] T012 [P] [US2] Qwen3.5-2B candidate JSON + evidence.
+- [ ] T013 [P] [US2] Qwen3.5-4B candidate JSON + evidence.
+- [ ] T014 [P] [US2] Ministral-3-3B candidate JSON + evidence.
+- [ ] T015 [P] [US2] Qwen3-4B control JSON + evidence.
+- [ ] T016 [P] [US2] Granite-4.1-3B JSON + evidence including FIM/components.
+- [ ] T017 [P] [US2] SmolLM3-3B JSON + evidence.
+- [ ] T018 [P] [US2] Qwen2.5-Coder-1.5B control JSON + evidence.
+- [ ] T019 [P] [US2] Qwen2.5-Coder-3B reference-only/ineligible record with exact terms.
+- [ ] T020 [P] [US2] Compact post-trained comparison records under `artifacts/candidates/comparisons/`.
+- [ ] T021 [US2] Current 1B–5B foundation rescan; `evidence/T021-landscape-rescan.md`.
+- [ ] T022 [US2] Static admission decision `artifacts/decisions/T022-static-candidate-admission.json`.
 
-## Base-model static qualification — no weight download required
+## Phase 4: US1 Task-Scoped Local Artifact Qualification
+**Prereq:** T022. **No weight access before T028.**
+- [ ] T023 [P] [US1] `RuntimeAdapter` + `PlatformSampler` protocols and dummy tests.
+- [ ] T024 [P] [US1] Artifact manifest/hash verification `artifacts.py` + mismatch tests.
+- [ ] T025 [P] [US1] Windows/Linux/macOS memory/paging samplers + fixture tests.
+- [ ] T026 [P] [US1] `MSTR-MEASURE-v0` clocks/TTFI/TTFA/TTFCE/TTVC implementation + edge tests.
+- [ ] T027 [US1] Weight-access manifest with exact candidates/revisions/hash/storage/runtime/quantizer/network/cost/retention.
+- [ ] T028 [US1] **EXPLICIT WEIGHT ACCESS:** acquire only T027 artifacts after exact authorization; verify provenance; no binaries in Git.
+- [ ] T029 [US1] Compatibility + quality Q4 profiles where practical; exact quantizer/recipe/hash.
+- [ ] T030 [US1] Portable CPU runtime adapters; acceleration only bonus surfaces.
+- [ ] T031 [US1] 4K/8K/16K size/load/memory/paging/prefill/decode results under `artifacts/results/local/`.
+- [ ] T032 [US1] 10-minute sustained CPU/editor responsiveness characterization.
+- [ ] T033 [US1] Q4 raw coding/FIM/multilingual/schema/edit primitive regressions.
+- [ ] T034 [US1] Local artifact admission decision rejecting rights/U1/offline/size failures.
 
-- [ ] T007 Qualify `Qwen/Qwen3.5-2B-Base`: license/terms, architecture, tokenizer, vision footprint, local-runtime support, quantization maturity, and exact upstream revision.
-- [ ] T008 Qualify `Qwen/Qwen3.5-4B-Base` under the same static gate.
-- [ ] T009 Qualify `mistralai/Ministral-3-3B-Base-2512` under the same static gate.
-- [ ] T010 Qualify `Qwen/Qwen3-4B-Base` as the mature dense control.
-- [ ] T011 Qualify `ibm-granite/granite-4.1-3b-base`, including FIM suitability and distribution rights.
-- [ ] T012 Qualify `HuggingFaceTB/SmolLM3-3B-Base` as an open text-only control.
-- [ ] T013 Qualify `Qwen/Qwen2.5-Coder-1.5B` as the code-specialized lower-bound control.
-- [ ] T014 Record `Qwen/Qwen2.5-Coder-3B` as ineligible for the primary backbone while its upstream research/non-commercial license remains incompatible.
-- [ ] T015 Review useful post-trained comparison points such as Phi-4-mini-instruct without treating them as foundation candidates.
-- [ ] T016 Re-scan the current compact open-base landscape immediately before the first weight-access task; statically qualify any materially stronger eligible candidate.
-- [ ] T017 Select the bounded set of candidates eligible to proceed to task-scoped local artifact qualification. This is not final backbone admission.
+## Phase 5: US3 Interaction + Deterministic Edit Contract
+**Prereq:** T034.
+- [ ] T035 [P] [US3] Prompt/stable-prefix representation + hash golden fixtures.
+- [ ] T036 [P] [US3] Tool grammar/parsers + malformed/schema tests.
+- [ ] T037 [P] [US3] Deterministic tool-result serializers + byte-stability tests.
+- [ ] T038 [P] [US3] Whole-file/unified-diff/search-replace/anchored edit adapters.
+- [ ] T039 [US3] File hash/version stale-write transactions + conflict tests.
+- [ ] T040 [P] [US3] Network/privacy/sandbox/task-state semantics configs.
+- [ ] T041 [US3] Prompt/cache/tool/result/edit bake-off results.
+- [ ] T042 [US3] Freeze `configs/interaction/mstr-interaction-v0.json` + decision.
 
-## Task-scoped local Q4 qualification
+## Phase 6: US4 Candidate Quality + Bounded Adaptation
+**Prereq:** T042.
+- [ ] T043 [US4] Freeze tournament task/seed/verifier/timeout manifest.
+- [ ] T044 [P] [US4] Raw coding/FIM/multilingual results.
+- [ ] T045 [P] [US4] Tool/edit reliability under Interaction v0.
+- [ ] T046 [US4] Neutral minimal repository harness + localization/repair results.
+- [ ] T047 [US4] Whole-laptop solve rate/TTVC/completions-hour/utility-per-GB.
+- [ ] T048 [US4] Define optional external competitive TTVC protocol; no paid execution implied.
+- [ ] T049 [US4] Pre-adaptation scorecard raw/neutral/full.
+- [ ] T050 [US4] Select finalists.
+- [ ] T051 [US4] Decontaminated execution-grounded micro-adaptation dataset manifest with FIM/recovery/reasoning replay.
+- [ ] T052 [US4] Identical adaptation recipe/token/update/seeds/hardware/cost ceiling.
+- [ ] T053 [US4] **EXPLICIT BOUNDED TRAINING:** run only after exact authorization.
+- [ ] T054 [US4] Re-run local/quality suite on adapted finalists.
+- [ ] T055 [US4] Top-one/top-two MSTR-001 pilot decision; not long-training authority.
 
-- [ ] T018 Define the exact candidate weight-access manifest, upstream revisions, expected hashes, storage ceiling, quantization recipes, runtime versions, and cost ceiling if any.
-- [ ] T019 After explicit task authorization, obtain/build pinned Q4-class test artifacts for the admitted candidates only.
-- [ ] T020 Compare at least one quality-oriented and one compatibility-oriented Q4 profile where practical; record exact quantizer/tool revision.
-- [ ] T021 Prove portable CPU runtime paths and record optional Metal/Vulkan/CUDA/etc. acceleration only as bonuses.
-- [ ] T022 Measure artifact size, process RSS, total-system memory pressure, swap/page faults, cold load, warm TTFA, and throughput at 4K/8K/16K on the reference matrix.
-- [ ] T023 Run sustained CPU inference to measure throttling/responsiveness; measure energy per task where reliable counters exist.
-- [ ] T024 Measure Q4 degradation in coding, FIM, multilingual instruction following, JSON/tool calls, and edit grammar.
-- [ ] T025 Reject candidates that violate rights, artifact-size, CPU-runtime, whole-laptop memory, responsiveness, or offline-use gates.
+## Phase 7: US5 Context Engine Tournament
+- [ ] T056 [US5] `ContextProvider` + exact/ripgrep baseline.
+- [ ] T057 [US5] Tree-sitter/RepoMap-style symbols + resource metrics.
+- [ ] T058 [US5] Incremental sparse index + startup/update/RAM/disk.
+- [ ] T059 [P] [US5] Embeddings/reranker experimental arm.
+- [ ] T060 [P] [US5] SCIP experimental arm.
+- [ ] T061 [P] [US5] Graphify experimental arm.
+- [ ] T062 [P] [US5] Code-Graph-RAG experimental arm.
+- [ ] T063 [US5] Context Pareto report.
+- [ ] T064 [US5] Default minimal Context Engine decision + RAM/disk budget.
 
-## Interaction contract
+## Phase 8: US6 Environment / Verifier Factory MVP
+- [ ] T065 [P] [US6] EnvironmentTask/Verifier records and validation.
+- [ ] T066 [P] [US6] Deterministic workspace reset/snapshot + clean-hash tests.
+- [ ] T067 [US6] Verifier runner with protected evaluator paths.
+- [ ] T068 [US6] Oracle/reference pass, no-op fail, unsolved/broken fail admission.
+- [ ] T069 [US6] Reward-shortcut battery: test deletion, assertion weakening, hardcoding, evaluator tamper, spoofing, cache/deleted solution.
+- [ ] T070 [US6] Future-history/public-solution/network leakage controls.
+- [ ] T071 [US6] Task yield/reset/startup/CPU/storage/failure/repro metrics.
+- [ ] T072 [US6] Freeze MSTR-001 environment-factory MVP requirements.
 
-- [ ] T026 Run prompt-prefix/cache-layout bake-off on surviving candidates.
-- [ ] T027 Run tool-call grammar and deterministic result-serialization bake-off.
-- [ ] T028 Run edit-format tournament: whole-file vs unified-diff vs search/replace vs anchored patch.
-- [ ] T029 Define deterministic stale-safe apply semantics and file-version/hash contract.
-- [ ] T030 Define network/privacy/sandbox semantics visible to the model and task-state/compaction schema if used.
-- [ ] T031 Produce Interaction Contract v0 candidate from T026–T030.
+## Phase 9: US7 Security, Privacy, Provenance, Benchmark Integrity
+- [ ] T073 [P] [US7] Repository authority/trust model + prompt-injection fixtures.
+- [ ] T074 [P] [US7] Workspace traversal, secrets, network/telemetry tests.
+- [ ] T075 [P] [US7] Provenance record schema/model.
+- [ ] T076 [US7] Benchmark exclusion/decontamination fingerprint + opt-out design.
+- [ ] T077 [P] [US7] Teacher/API-output provenance/terms gate.
+- [ ] T078 [US7] Runtime evaluation leakage fixtures.
+- [ ] T079 [US7] Private/fresh MSTR Gauntlet contract in `benchmarks/private/README.md`.
+- [ ] T080 [US7] Evidence audit command report->run->task->artifact/runtime/hardware/contracts/provenance.
+- [ ] T081 [US7] Security/provenance readiness evidence.
 
-## Quality tournament
+## Phase 10: US8 MSTR-000 Closeout
+- [ ] T082 [US8] Freeze measured hardware/OS floor + default context.
+- [ ] T083 [US8] Freeze closeout distribution/install/privacy contract.
+- [ ] T084 [US8] Freeze Interaction Contract v1 + fixtures/migration.
+- [ ] T085 [US8] Freeze portable runtime/Q4 baseline + provenance/thresholds.
+- [ ] T086 [US8] Freeze minimal Context Engine + resource budget.
+- [ ] T087 [US8] Freeze top backbone/top-two with final scorecard.
+- [ ] T088 [US8] Bounded MSTR-001 proposal with data/compute/environment/cost/rights/regression gates/non-authorities.
+- [ ] T089 [US8] Independent Spec Kit consistency/evidence review; resolve CRITICAL/HIGH.
+- [ ] T090 [US8] Founder acceptance; set MSTR-000 CLOSED_CANONICAL; update current state and exact next MSTR-001 authority.
 
-- [ ] T032 Run fresh raw coding/FIM/multilingual control suite on surviving candidates.
-- [ ] T033 Run tool/edit reliability suite under Interaction Contract v0.
-- [ ] T034 Run bounded repository-localization and repair suite with a neutral minimal harness.
-- [ ] T035 Measure whole-laptop verified completion rate, TTVC, verified completions/hour, and verified utility per GB.
-- [ ] T036 If separately authorized and access is available, run the fixed competitive TTVC protocol against selected cloud coding systems; keep cloud/harness effects separate from model comparisons.
-- [ ] T037 Select top candidates for bounded micro-adaptation; do not select the final backbone yet.
+## Dependencies
+Critical path: `T003-T011 -> T012-T022 -> T023-T034 -> T035-T042 -> T043-T055 -> T064+T072+T081 -> T082-T090`.
 
-## Bounded micro-adaptation
+US6 environment work can begin after harness foundation. T012–T020 can parallelize. T059–T062 can parallelize after context interface/baselines. T073/T074/T075/T077 can parallelize after harness foundation.
 
-- [ ] T038 Define a small, decontaminated, execution-grounded adaptation set shared across candidates, including FIM replay and failure/recovery examples.
-- [ ] T039 Define the identical bounded adaptation recipe, exact token/update budget, hardware, seeds, and cost ceiling.
-- [ ] T040 Run the identical bounded adaptation protocol for the top candidates only after task authorization.
-- [ ] T041 Re-run T022–T035 after adaptation.
-- [ ] T042 Decide whether a top-two MSTR-001 pilot remains necessary or whether one candidate is decisively dominated.
+External-effect gates: **T028 first possible weight acquisition; T053 bounded micro-adaptation only. No MSTR-000 task authorizes long training or large-scale RL.**
 
-## Context tournament
-
-- [ ] T043 Establish exact-search/ripgrep baseline.
-- [ ] T044 Add Tree-sitter RepoMap-style symbols and measure marginal value.
-- [ ] T045 Add incremental sparse index and measure marginal value, memory, disk, startup, and incremental-update cost.
-- [ ] T046 Evaluate optional embeddings/reranker arm.
-- [ ] T047 Evaluate optional SCIP arm on supported languages.
-- [ ] T048 Evaluate Graphify as an experimental arm.
-- [ ] T049 Evaluate Code-Graph-RAG as an experimental arm.
-- [ ] T050 Select the smallest context stack on the solve-rate/token/latency/RAM/disk Pareto frontier. Context-engine memory counts against the 8 GB whole-laptop budget.
-
-## Environment factory
-
-- [ ] T051 Build a small deterministic executable-task factory prototype.
-- [ ] T052 Add oracle/reference-pass, no-op-fail, and unsolved-state checks.
-- [ ] T053 Add reward-shortcut attacks: test deletion, assertion weakening, hardcoding, verifier tampering, future-history lookup, public-solution/network lookup, cache/deleted-solution recovery, and output spoofing.
-- [ ] T054 Measure task yield, reset latency, CPU utilization, storage footprint, environment failure rate, and reproducibility.
-
-## Security, privacy, and provenance
-
-- [ ] T055 Define repository-content trust boundaries and prompt-injection test cases.
-- [ ] T056 Define local network/telemetry defaults, secret-handling boundaries, and offline privacy tests.
-- [ ] T057 Define training-data provenance schema, benchmark exclusion, owner opt-out, and license checks.
-- [ ] T058 Define teacher/API-output provenance and terms checks before any synthetic/distilled data can enter MSTR training.
-- [ ] T059 Define runtime answer-leakage controls for future benchmark runs.
-
-## MSTR-000 closeout
-
-- [ ] T060 Freeze the measured universal-laptop hardware/OS floor and default context.
-- [ ] T061 Freeze the distribution/install/privacy contract and basic local runtime requirements.
-- [ ] T062 Freeze Interaction Contract v1.
-- [ ] T063 Record selected portable local inference baseline, Q4 profile, artifact provenance contract, and acceptance thresholds.
-- [ ] T064 Record selected minimal Context Engine and its RAM/disk budget.
-- [ ] T065 Record top backbone choice or top-two MSTR-001 pilot set.
-- [ ] T066 Produce MSTR-001 bounded training proposal and compute/environment budget, including dataset/teacher rights constraints.
-- [ ] T067 Independent review and reconciliation of all MSTR-000 evidence.
-- [ ] T068 Founder acceptance of MSTR-000 closeout before serious training begins.
+## Completion Rule
+A checkbox becomes `[x]` only when output paths exist, independent test/gate passes, identities are complete, external effects stayed in scope, and the result is canonical through repository governance.
