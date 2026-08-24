@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+.venv/
+venv/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Secrets / local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# External model/data payloads must never enter Git
+models/
+weights/
+downloads/
+data/raw/
+artifacts/external/
+artifacts/tmp/
+*.safetensors
+*.gguf
+*.pt
+*.pth
+*.onnx
+
+# Local logs and transient measurement output
+*.log
+.tmp/
+tmp/
