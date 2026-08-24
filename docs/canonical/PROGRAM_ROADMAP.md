@@ -1,14 +1,14 @@
 # MSTR Program Roadmap
 
 **Status:** Program-level roadmap  
-**Canonical authority:** This roadmap describes sequencing and workstream boundaries. The active Spec Kit package controls implementation details.  
+**Canonical authority:** This roadmap defines workstream sequencing and ownership. Each active Spec Kit package controls its own implementation details.  
 **Primary product:** Universal-laptop local software-engineering model/system.
 
 ## Program Objective
 
 Build the strongest practical openly downloadable local software-engineering system that ordinary laptop owners can install and use without a discrete GPU, cloud subscription, provider account, or API key.
 
-The program is deliberately split into independently reviewable Spec Kit workstreams so that expensive training decisions are made only after cheaper questions have been answered.
+The program is split into independently reviewable Spec Kit workstreams so that expensive training and release decisions are made only after cheaper qualification questions have been answered with evidence.
 
 ## Non-Negotiable Product Envelope
 
@@ -28,79 +28,159 @@ Measured evidence may refine the exact support floor, but it may not be silently
 
 ## Workstream Sequence
 
-### MSTR-000 — Universal Laptop Qualification + Interaction Contract
+### MSTR-000 — Qualification Harness + Universal Laptop / Interaction / Backbone Qualification
 
-**Purpose:** determine what can actually be built and shipped before serious training spend.
+**Purpose:** determine what can actually be built, trained, and shipped before serious training spend.
 
-**Must close with:** measured hardware/OS floor; distribution/install/privacy contract; admissible backbone shortlist; selected portable inference/Q4 baseline; Interaction Contract v1; deterministic edit/apply contract; minimal context-engine decision; evaluation/measurement harness; executable environment-factory MVP requirements; top backbone or top-two pilot set; bounded MSTR-001 compute/data proposal.
+**Builds and qualifies:** the reusable qualification harness; evidence/manifest engine; candidate-rights gate; local artifact/Q4 measurement path; runtime adapter boundary; deterministic edit/apply primitives; raw/neutral/full-system score surfaces; interaction-contract tournament; bounded equivalent finalist adaptation; context-engine tournament; environment/verifier MVP requirements; security/provenance/leakage contracts.
 
-**Current state:** active. T000–T002 are canonical complete.
+**Must close with:**
+- measured hardware/OS floor and default context;
+- distribution/install/privacy contract;
+- portable local runtime/Q4 baseline;
+- Interaction Contract v1;
+- deterministic edit/apply contract;
+- minimal context-engine decision;
+- top backbone or top-two pilot decision;
+- environment/verifier requirements for later training;
+- bounded MSTR-001 data/mid-training proposal with cost, rights, and regression gates.
+
+**Current state:** active. T000–T002 are canonical complete; the complete Spec Kit implementation package defines the remaining executable graph.
 
 **Blocks:** all later long training.
 
-### MSTR-001 — Qualification Harness + Runtime Skeleton + Backbone Pilot
+### MSTR-001 — Data Engine + Bounded Code/FIM Mid-Training
 
-**Purpose:** turn the MSTR-000 contracts into the first reusable executable system and run the bounded top-one/top-two backbone pilot.
+**Purpose:** build the legally traceable, contamination-controlled data engine and determine whether code/repository mid-training materially improves the MSTR-000-selected foundation without unacceptable forgetting or laptop regressions.
 
-**Expected build outputs:** portable MSTR CLI/runtime skeleton; runtime adapter abstraction; evidence/manifest engine; deterministic apply engine; baseline exact search + symbol map; task/verifier runner; local Q4 candidate integration; reproducible raw/neutral/full-system scoring; top-one backbone decision if evidence is decisive.
+**Expected build outputs:**
+- source/provenance ledger;
+- license/terms and benchmark-exclusion filters;
+- exact/fuzzy/AST-aware dedup and lineage;
+- code/doc/test/diff/repository-window mixtures;
+- ordinary FIM plus structured/function/dependency-aware FIM experiments;
+- general-reasoning replay;
+- quality sampling/audit tooling;
+- bounded pilot recipe and measured pilot before any larger token run.
 
-**Exit gate:** a single reproducible codebase can run the canonical local qualification suite end-to-end on required hardware lanes.
+**Exit gate:** a reproducible bounded pilot demonstrates a positive capability/forgetting/quantized-deployment tradeoff and the admitted data chain is auditable and legally compatible with the intended release.
 
-### MSTR-002 — Data Engine + Code/FIM Mid-Training
+### MSTR-002 — Coding SFT + Repository / Tool / Planning Behavior
 
-**Purpose:** construct a legally traceable, decontaminated data engine and determine whether bounded code/repository mid-training materially improves the selected base.
+**Purpose:** teach the selected model the frozen MSTR Interaction Contract and strong software-engineering behavior.
 
-**Expected outputs:** source/provenance ledger; license and benchmark-exclusion filters; exact/fuzzy/AST dedup; code/doc/test/diff/repository-window mixtures; ordinary + structured/function-aware FIM generation; general-reasoning replay; data-quality sampling and audit tooling; small pilot before any large token run.
+**Expected build outputs:**
+- high-quality coding/instruction SFT;
+- persistent FIM replay;
+- repository inspection/localization trajectories;
+- tool-use and deterministic-edit trajectories;
+- build/test/recovery examples;
+- planning/decomposition examples;
+- failure/rollback/recovery trajectories;
+- security-aware repository handling;
+- regression suites for raw coding, FIM, schema/tool reliability, Q4 behavior, and laptop deployment.
 
-**Exit gate:** measured pilot proves a positive capability/forgetting tradeoff and the corpus chain is distributable/auditable.
+**Exit gate:** post-SFT MSTR improves verified repository tasks without unacceptable regression in direct coding/FIM, quantized reliability, or universal-laptop deployment.
 
-### MSTR-003 — Coding SFT + Repository/Tool Behavior
-
-**Purpose:** teach the model the frozen MSTR Interaction Contract and strong software-engineering behavior.
-
-**Expected outputs:** instruction SFT; FIM replay; repository inspection/localization; tool-use trajectories; deterministic edit protocol; build/test/recovery examples; planning/decomposition examples; security-aware repository handling; negative/failure trajectories.
-
-**Exit gate:** post-SFT model improves verified repository tasks without unacceptable FIM, raw coding, local memory, or tool-schema regressions.
-
-### MSTR-004 — Environment Factory + Agentic RL
+### MSTR-003 — Environment Factory + Agentic RL
 
 **Purpose:** train long-horizon software-engineering behavior in executable, adversarially verified environments.
 
-**Expected outputs:** environment factory; solvability checks; reference/no-op/unsolved verifier validation; reward-shortcut battery; frontier/difficulty curriculum; long-horizon context compaction; deterministic terminal rewards plus localized process feedback where useful; RL framework qualification; bounded pilot before scaling.
+**Expected build outputs:**
+- scalable environment factory based on the MSTR-000 contracts;
+- solvability/frontier checks;
+- reference/oracle-pass, no-op-fail, and unsolved-state verifier validation;
+- continuous reward-shortcut discovery;
+- difficulty/frontier curriculum;
+- long-horizon task-state/context compaction;
+- deterministic terminal rewards and localized process feedback where justified;
+- RL framework qualification and bounded pilot before scaling.
 
-**Exit gate:** RL produces statistically credible verified-task gains without reward hacking or catastrophic regression.
+`slime`, `verl`, and other frameworks remain candidates until this workstream qualifies the best fit for MSTR's environments and compute topology.
 
-### MSTR-005 — Local Inference Speed Co-Design
+**Exit gate:** bounded RL produces statistically credible verified-task gains without reward hacking, evaluator leakage, or catastrophic core-capability regression.
 
-**Purpose:** reduce end-to-end TTVC after the target distribution is stable.
+### MSTR-004 — Local Inference Speed Co-Design
 
-**Tournament arms may include:** prefix/prompt caching; n-gram/suffix speculation; native MTP; EAGLE/DFlash-class drafting where supported; quantization profiles; KV/cache policies; context compaction; tool parallelism; warm environment snapshots; affected-test selection; incremental build/test; serving/kernel optimizations.
+**Purpose:** minimize end-to-end TTVC once the post-training target distribution is stable enough for fair optimization.
 
-**Exit gate:** improvements are measured on TTVC/quality/laptop responsiveness, not tokens/sec alone.
+**Tournament arms may include:**
+- stable prompt/prefix caching;
+- n-gram/suffix speculation;
+- native MTP where supported;
+- EAGLE/DFlash-class drafting where evidence warrants;
+- quantization and KV/cache profiles;
+- context compaction;
+- tool parallelism/asynchrony;
+- warm environment snapshots;
+- affected-test selection;
+- incremental build/test;
+- serving/kernel/runtime optimization.
 
-### MSTR-006 — Packaging, Security, Privacy, and Offline Release Engineering
+**Exit gate:** selected changes improve verified TTVC or whole-laptop utility while holding quality/security/regression gates, not merely tokens/sec.
 
-**Purpose:** produce the actual ordinary-user laptop product.
+### MSTR-005 — Packaging + Security + Privacy + Offline Release Engineering
 
-**Expected outputs:** signed/self-contained platform packages; accountless artifact acquisition; offline smoke tests; no-silent-network tests; prompt-injection and malicious-repository tests; secret/network boundaries; reproducible model/runtime manifests; update/rollback; uninstall/data-location behavior; Windows/Linux/macOS release paths.
+**Purpose:** turn the qualified model/system into the ordinary-user laptop product.
 
-**Exit gate:** a non-developer can install and use MSTR locally without cloud credentials or a development toolchain.
+**Expected build outputs:**
+- self-contained Windows/Linux/macOS packages;
+- accountless official artifact acquisition;
+- offline first-run/basic-use qualification;
+- no-silent-network and telemetry-default-off tests;
+- prompt-injection and malicious-repository hardening;
+- secret/workspace/network boundaries;
+- reproducible model/runtime manifests;
+- signed/checksummed update and rollback flows;
+- uninstall/data-location behavior.
 
-### MSTR-007 — MSTR Gauntlet + Release Candidate Qualification
+**Exit gate:** a non-developer can obtain, install, and use MSTR locally without cloud credentials or a development toolchain, while the security/privacy contract passes.
 
-**Purpose:** make a defensible release decision.
+### MSTR-006 — MSTR Gauntlet + Release Candidate Qualification
 
-**Expected outputs:** private/fresh post-cutoff Gauntlet; public benchmark continuity suite; quantized regression suite; security/evaluator-integrity suite; competitive TTVC protocol; raw vs neutral-harness vs full-system scorecards; release model/data cards; reproducibility package.
+**Purpose:** make a defensible release decision using fresh/private and public continuity evidence.
 
-**Exit gate:** all headline claims are traceable to exact evidence and the universal-laptop product gate passes.
+**Expected build outputs:**
+- fresh/private post-cutoff MSTR Gauntlet;
+- public benchmark continuity suite with limitations documented;
+- quantized regression suite;
+- security/evaluator-integrity suite;
+- competitive TTVC protocol;
+- raw vs neutral-harness vs full-system scorecards;
+- candidate release model/data cards;
+- reproducibility and contamination/leakage audit package.
 
-### MSTR-008 — v1 Release + Post-Release Evidence Loop
+**Exit gate:** every release-blocking and headline claim is traceable to exact evidence and the universal-laptop gate passes on required platform families.
 
-**Purpose:** publish the first stable MSTR release and establish a clean improvement loop.
+### MSTR-007 — MSTR v1 Release
 
-**Expected outputs:** model/runtime artifacts; source release; checksums/manifests; model card/data card; benchmark reports; opt-out process; issue-driven evaluation additions; release/update policy.
+**Purpose:** publish the first stable MSTR model/runtime/source release.
 
-**Exit gate:** MSTR v1 is downloadable, usable, reproducible, and independently testable.
+**Expected build outputs:**
+- approved model and runtime artifacts;
+- source release;
+- hashes/manifests;
+- model card and data card;
+- benchmark/qualification report;
+- installation/package documentation;
+- opt-out/contact process;
+- release/update/security policy.
+
+**Exit gate:** MSTR v1 is downloadable, usable, reproducible, independently testable, and its claims match the evidence package.
+
+### MSTR-008 — Post-Release Evidence and Improvement Loop
+
+**Purpose:** improve MSTR without destroying the evidence, compatibility, or universal-laptop properties that justified v1.
+
+**Expected build outputs:**
+- issue/telemetry-free opt-in feedback and reproducible bug/eval additions;
+- rolling fresh benchmark/task additions;
+- regression-driven point releases;
+- model/runtime optimization experiments;
+- optional distilled/larger editions only under separately specified gates;
+- next-version Spec Kit workstreams based on observed failure modes.
+
+**Exit gate:** each material change is backed by a new or amended specification and reproduces the relevant v1 product/security/evaluation invariants.
 
 ## Dependency Graph
 
@@ -116,15 +196,15 @@ MSTR-002
    v
 MSTR-003
    |
-   v
-MSTR-004
-   |
    +----------+
    |          |
    v          v
-MSTR-005   MSTR-006
+MSTR-004   MSTR-005
    |          |
    +-----+----+
+         |
+         v
+      MSTR-006
          |
          v
       MSTR-007
@@ -133,10 +213,24 @@ MSTR-005   MSTR-006
       MSTR-008
 ```
 
-MSTR-005 and MSTR-006 may overlap after the post-training model distribution is stable enough to benchmark.
+MSTR-004 and MSTR-005 may overlap only after the post-training distribution is stable enough to benchmark and package without repeatedly invalidating results.
 
-## Planning Rule
+## Workstream Planning Rule
 
-Later workstreams are intentionally not fully implementation-specified yet. Their detailed Spec Kit packages MUST use the evidence and frozen decisions produced by their predecessors rather than pretending the backbone, runtime, data mix, or RL recipe is already known.
+Later workstreams are intentionally **program-complete but implementation-deferred**. Their detailed Spec Kit packages MUST consume predecessor evidence rather than pretending that the backbone, runtime, data mixture, teacher strategy, RL framework, speculative method, or release format is already known.
 
-This roadmap is therefore complete in sequencing and ownership while remaining evidence-driven in implementation detail.
+Before each workstream begins:
+
+```text
+predecessor closeout is canonical
+-> founder/authority gate satisfied where required
+-> create new Spec Kit spec
+-> clarify
+-> research
+-> plan + Constitution Check
+-> data model/contracts/quickstart
+-> tasks/analyze
+-> implement
+```
+
+This roadmap therefore prevents duplicated work while keeping later implementation evidence-driven.
