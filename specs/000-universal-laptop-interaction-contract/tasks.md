@@ -8,7 +8,7 @@ No model-weight download, paid model API execution, or rented training compute i
 
 - [x] T000 Define the universal-laptop reference hardware/OS matrix, concurrent editor workload, exact support floor, and 4K/8K/16K context ladder. Evidence: `evidence/T000-universal-laptop-hardware-matrix.md`. The task defines a qualification floor; final measured support remains T060.
 - [x] T001 Define canonical TTFI, TTFA, TTFCE, TTVC, artifact-size, process-RSS, total-system-memory, swap/page-fault, throughput, sustained-thermal, and optional energy measurement procedures. Evidence: `evidence/T001-measurement-procedures.md` (`MSTR-MEASURE-v0`).
-- [ ] T002 Freeze the universal distribution/install/privacy contract: no account/API key, offline after install, telemetry/network off by default, portable CPU runtime, and no Docker/dev-toolchain requirement merely to launch basic assistance.
+- [x] T002 Freeze the universal distribution/install/privacy contract: no account/API key, offline after install, telemetry/network off by default, portable CPU runtime, and no Docker/dev-toolchain requirement merely to launch basic assistance. Evidence: `evidence/T002-distribution-install-privacy-contract.md` (`MSTR-DIST-v0`).
 - [ ] T003 Define the primary-backbone rights gate covering use, commercial use, modification/fine-tuning, quantization/conversion, derivative redistribution, and end-user obligations.
 - [ ] T004 Define evidence identity requirements for model revision, checksums, tokenizer, quantizer, runtime/build flags, hardware, context/cache, interaction contract, task manifest, and seeds.
 - [ ] T005 Freeze the MSTR-000 benchmark/task manifest and seed policy before candidate scoring.
