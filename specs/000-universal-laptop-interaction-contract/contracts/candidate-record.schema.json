@@ -4,7 +4,7 @@
   "title": "MSTR Candidate Record v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version","candidate_id","upstream_id","upstream_revision","candidate_role","status","rights","architecture"],
+  "required": ["schema_version","candidate_id","upstream_id","upstream_revision","candidate_role","status","rights","architecture","runtime_support_notes","quantization_support_notes","source_urls"],
   "properties": {
     "schema_version":{"const":"mstr.candidate.v1"},
     "candidate_id":{"type":"string","minLength":1},
@@ -12,10 +12,43 @@
     "upstream_revision":{"type":"string","minLength":1},
     "candidate_role":{"enum":["foundation","control","comparison","reference_only"]},
     "status":{"enum":["discovered","static_qualified","weight_eligible","local_qualified","rejected","reference_only","finalist","selected"]},
-    "architecture":{"type":"object","additionalProperties":false,"required":["family","parameter_count_total","tokenizer_id"],"properties":{"family":{"type":"string"},"parameter_count_total":{"type":"integer","minimum":1},"parameter_count_active":{"type":["integer","null"],"minimum":1},"tokenizer_id":{"type":"string"},"tokenizer_revision":{"type":["string","null"]},"vision_components":{"type":"array","items":{"type":"string"}},"fim_capability":{"enum":["yes","no","unknown","partial"]}}},
-    "rights":{"type":"object","additionalProperties":false,"required":["decision","license_name","personal_use","commercial_use","modification","fine_tuning","quantization","derivative_redistribution","account_gate_required","end_user_separate_license_required","rationale"],"properties":{"decision":{"enum":["pass_permissive","pass_conditional","fail","reference_only"]},"license_name":{"type":"string"},"terms_urls":{"type":"array","items":{"type":"string"}},"personal_use":{"enum":["yes","no","unknown"]},"commercial_use":{"enum":["yes","no","unknown"]},"modification":{"enum":["yes","no","unknown"]},"fine_tuning":{"enum":["yes","no","unknown"]},"quantization":{"enum":["yes","no","unknown"]},"derivative_redistribution":{"enum":["yes","no","unknown"]},"account_gate_required":{"type":"boolean"},"clickthrough_gate_required":{"type":"boolean"},"end_user_separate_license_required":{"type":"boolean"},"field_or_scale_restrictions":{"type":"array","items":{"type":"string"}},"rationale":{"type":"string","minLength":1}}},
+    "architecture":{
+      "type":"object",
+      "additionalProperties":false,
+      "required":["family","parameter_count_total","parameter_count_active","tokenizer_id","tokenizer_revision","vision_components","fim_capability"],
+      "properties":{
+        "family":{"type":"string","minLength":1},
+        "parameter_count_total":{"type":"integer","minimum":1},
+        "parameter_count_active":{"type":["integer","null"],"minimum":1},
+        "tokenizer_id":{"type":"string","minLength":1},
+        "tokenizer_revision":{"type":"string","minLength":1},
+        "vision_components":{"type":"array","items":{"type":"string"}},
+        "fim_capability":{"enum":["yes","no","unknown","partial"]}
+      }
+    },
+    "rights":{
+      "type":"object",
+      "additionalProperties":false,
+      "required":["decision","license_name","terms_urls","personal_use","commercial_use","modification","fine_tuning","quantization","derivative_redistribution","account_gate_required","clickthrough_gate_required","end_user_separate_license_required","field_or_scale_restrictions","rationale"],
+      "properties":{
+        "decision":{"enum":["pass_permissive","pass_conditional","fail","reference_only"]},
+        "license_name":{"type":"string","minLength":1},
+        "terms_urls":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},
+        "personal_use":{"enum":["yes","no","unknown"]},
+        "commercial_use":{"enum":["yes","no","unknown"]},
+        "modification":{"enum":["yes","no","unknown"]},
+        "fine_tuning":{"enum":["yes","no","unknown"]},
+        "quantization":{"enum":["yes","no","unknown"]},
+        "derivative_redistribution":{"enum":["yes","no","unknown"]},
+        "account_gate_required":{"type":"boolean"},
+        "clickthrough_gate_required":{"type":"boolean"},
+        "end_user_separate_license_required":{"type":"boolean"},
+        "field_or_scale_restrictions":{"type":"array","items":{"type":"string"}},
+        "rationale":{"type":"string","minLength":1}
+      }
+    },
     "runtime_support_notes":{"type":"array","items":{"type":"string"}},
     "quantization_support_notes":{"type":"array","items":{"type":"string"}},
-    "source_urls":{"type":"array","items":{"type":"string"}}
+    "source_urls":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}}
   }
 }
