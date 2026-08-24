@@ -1,0 +1,17 @@
+{
+  "score_surface": "neutral_harness",
+  "measurement_protocol": "MSTR-MEASURE-v0",
+  "task_id": "task-1",
+  "task_manifest_revision": "manifest-sha",
+  "verifier_set_id": "V1",
+  "timeout_seconds": 300,
+  "cache_state": "process_cold",
+  "hardware_class": "U1",
+  "context_length": 8192,
+  "interaction_contract_version": "interaction-v0",
+  "sampling_config": {
+    "temperature": 0.0,
+    "top_p": 1.0
+  },
+  "seed": 0
+}
