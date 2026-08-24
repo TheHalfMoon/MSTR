@@ -6,7 +6,7 @@ No model-weight download, paid model API execution, or rented training compute i
 
 ## Governance, hardware, and measurement
 
-- [ ] T000 Define the universal-laptop reference hardware/OS matrix, concurrent editor workload, exact support floor, and 4K/8K/16K context ladder.
+- [x] T000 Define the universal-laptop reference hardware/OS matrix, concurrent editor workload, exact support floor, and 4K/8K/16K context ladder. Evidence: `evidence/T000-universal-laptop-hardware-matrix.md`. The task defines a qualification floor; final measured support remains T060.
 - [ ] T001 Define canonical TTFI, TTFA, TTFCE, TTVC, artifact-size, process-RSS, total-system-memory, swap/page-fault, throughput, sustained-thermal, and optional energy measurement procedures.
 - [ ] T002 Freeze the universal distribution/install/privacy contract: no account/API key, offline after install, telemetry/network off by default, portable CPU runtime, and no Docker/dev-toolchain requirement merely to launch basic assistance.
 - [ ] T003 Define the primary-backbone rights gate covering use, commercial use, modification/fine-tuning, quantization/conversion, derivative redistribution, and end-user obligations.
