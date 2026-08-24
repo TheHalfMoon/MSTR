@@ -8,14 +8,16 @@
 
 ## 1. Purpose
 
-MSTR's primary release must be usable by ordinary laptop owners as a genuinely local tool. "Open weights" is insufficient if first launch requires a cloud account, development toolchain, hidden model download, telemetry, or a complicated source build.
+MSTR's primary release must be usable by ordinary laptop owners as a genuinely local tool. "Open weights" is insufficient if obtaining or launching the primary release requires a provider account, gated click-through, development toolchain, hidden model download, telemetry, or complicated source build.
 
 T002 freezes the minimum distribution, installation, offline, privacy, update, and user-data behavior that every primary MSTR release path must satisfy.
 
 ## 2. Primary local-use invariant
 
 ```text
-PROVIDER_ACCOUNT_REQUIRED = NO
+PRIMARY_ARTIFACT_ACQUISITION_ACCOUNT_REQUIRED = NO
+PRIMARY_ARTIFACT_GATED_CLICKTHROUGH_REQUIRED = NO
+PROVIDER_ACCOUNT_REQUIRED_FOR_USE = NO
 API_KEY_REQUIRED = NO
 SUBSCRIPTION_REQUIRED = NO
 ACTIVATION_SERVER_REQUIRED = NO
@@ -40,12 +42,16 @@ MSTR distinguishes artifact **acquisition** from product **operation**.
 
 Users may obtain signed/checksummed MSTR artifacts from one or more distribution hosts. Network access is naturally required to download those artifacts unless they are transferred by another medium.
 
+For the primary universal release, **at least one official complete acquisition path must permit obtaining all required runtime/model artifacts without creating a provider/hosting account or accepting a separate gated model-access click-through**. Ordinary web terms governing the distribution host are not treated as a model-access gate, but a login/token/license-acceptance wall is.
+
+If an upstream host is gated while MSTR's rights permit redistribution, the project must provide an ungated official MSTR distribution path for the derivative release. If rights do not permit that, the candidate cannot satisfy the universal primary distribution contract.
+
 ### Local operation
 
 Once the required runtime and model artifacts exist locally:
 
 - first launch must succeed with the network disconnected;
-- ordinary coding, search, edit, and supported local verification must not require network access;
+- ordinary coding, search, edit, and supported local verification must not require remote network access;
 - no license activation handshake is permitted;
 - no hidden provider-model fallback is permitted;
 - no first-run dependency/model download is permitted unless the user explicitly selected an optional component and the UI/CLI clearly states it before network access.
@@ -137,17 +143,20 @@ OUTBOUND_TELEMETRY = OFF
 UPDATE_CHECK = OFF_UNLESS_USER_OPTS_IN
 REMOTE_MODEL_FALLBACK = PROHIBITED
 REMOTE_REPO_INDEXING = PROHIBITED
+NON_LOOPBACK_LISTEN = OFF_BY_DEFAULT
 ```
 
-The primary runtime must not create required outbound network traffic during local tasks.
+The primary runtime must not create required outbound remote-network traffic during local tasks.
+
+**Loopback/local IPC is permitted** for an implementation that uses a local server process. Traffic to `localhost`/loopback or OS-local IPC is not remote egress, but the runtime must not bind a service to non-loopback interfaces by default. Any LAN/public bind requires an explicit user action and must state the exposure.
 
 ### Explicit optional network features
 
-Future features may use network access only when all are true:
+Future features may use remote network access only when all are true:
 
 - the feature is not required for basic MSTR operation;
 - the user explicitly enables/invokes it;
-- destination/purpose is clear before first use;
+- destination/purpose and transmitted data classes are clear before first use;
 - credentials are provided explicitly for that feature;
 - local-only mode remains fully available afterward;
 - enabling one network feature does not silently enable unrelated telemetry or code upload.
@@ -209,7 +218,7 @@ Default rules:
 - generated indexes belong to the selected workspace scope;
 - paths outside the selected workspace require an explicit user action/permission or a separately governed capability.
 
-Detailed agent security/capability policy is deferred to T055/T056, but T002 establishes the privacy default.
+Detailed symlink/path-escape and agent capability enforcement are deferred to T055/T056, but T002 establishes the privacy default.
 
 ## 12. Secrets
 
@@ -314,13 +323,21 @@ If future MSTR versions persist task memory, it must be included in the discover
 
 Before release, the required lanes must prove at least:
 
+### `ANONYMOUS_ARTIFACT_ACQUISITION`
+
+At least one official primary-release path can obtain all required runtime/model artifacts without provider/hosting account creation, API token, or gated model-license click-through.
+
 ### `OFFLINE_FIRST_RUN`
 
-With required artifacts already local and outbound network blocked, install/launch and a fixed local coding smoke prompt succeed.
+With required artifacts already local and outbound remote network blocked, install/launch and a fixed local coding smoke prompt succeed.
 
 ### `ZERO_REQUIRED_EGRESS`
 
-During a fixed local task with network monitoring enabled, no required outbound connection occurs. Any OS noise must be distinguished from the MSTR process tree.
+During a fixed local task with network monitoring enabled, no required outbound remote connection occurs. Loopback/local IPC is permitted and must be distinguished from remote egress; OS noise must be distinguished from the MSTR process tree.
+
+### `LOOPBACK_ONLY_DEFAULT`
+
+If MSTR exposes a local service, it binds only to loopback by default; no LAN/public interface is opened without explicit user action.
 
 ### `NO_ACCOUNT`
 
@@ -349,6 +366,7 @@ T056 may add adversarial privacy/security variants.
 Every tested release artifact must report:
 
 - distribution URL/host only as metadata;
+- whether acquisition required an account/token/click-through gate;
 - artifact SHA256;
 - compressed download bytes;
 - installed bytes;
@@ -357,14 +375,15 @@ Every tested release artifact must report:
 - whether admin/root was required;
 - TTFI_LOCAL under MSTR-MEASURE-v0;
 - number/type of manual user actions required;
-- network activity outcome;
+- remote network activity outcome;
+- local IPC/listen-address outcome;
 - uninstall outcome.
 
-Do not report "one-click" or "zero-config" unless the measured artifact actually demonstrates it.
+Do not report "one-click", "zero-config", or "available to everyone" unless the measured artifact actually demonstrates the corresponding property.
 
 ## 21. Contract change rule
 
-After primary-candidate user testing starts, any change that introduces required login, network access, new system-level prerequisite, telemetry default, remote fallback, or broader workspace access requires:
+After primary-candidate user testing starts, any change that introduces required account/gated acquisition, login, remote network access, new system-level prerequisite, telemetry default, remote fallback, or broader workspace access requires:
 
 1. a versioned `MSTR-DIST` contract change;
 2. explicit founder review;
@@ -377,8 +396,11 @@ The universal-local invariant cannot be weakened silently by implementation conv
 ```text
 T002_RESULT = PASS
 DISTRIBUTION_CONTRACT = MSTR-DIST-v0
+ANONYMOUS_PRIMARY_ARTIFACT_ACQUISITION_PATH = REQUIRED
 LOCAL_ACCOUNTLESS_USE = REQUIRED
 OFFLINE_AFTER_ARTIFACT_ACQUISITION = REQUIRED
+LOOPBACK_LOCAL_IPC = PERMITTED
+NON_LOOPBACK_BIND_DEFAULT = OFF
 TELEMETRY_DEFAULT = OFF
 USER_CODE_UPLOAD_DEFAULT = NEVER
 TRAIN_ON_USER_CODE_DEFAULT = NEVER
