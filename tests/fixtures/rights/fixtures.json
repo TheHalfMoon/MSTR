@@ -1,0 +1,18 @@
+{
+  "permissive": {
+    "decision":"pass_permissive",
+    "license_name":"Apache-2.0",
+    "terms_urls":["https://example.invalid/license"],
+    "personal_use":"yes",
+    "commercial_use":"yes",
+    "modification":"yes",
+    "fine_tuning":"yes",
+    "quantization":"yes",
+    "derivative_redistribution":"yes",
+    "account_gate_required":false,
+    "clickthrough_gate_required":false,
+    "end_user_separate_license_required":false,
+    "field_or_scale_restrictions":[],
+    "rationale":"Fixture evidence supports all required rights."
+  }
+}

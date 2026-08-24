@@ -33,9 +33,9 @@ A checkbox becomes complete only when the stated output exists, required tests/e
 **Prerequisite:** T003.  
 **Independent test:** from a clean Python 3.11+ environment with no model weights and external network blocked, `python -m mstr_qualify validate` validates schemas/fixtures and `pytest -q` passes.
 
-- [ ] T004 [P] Implement strict schema loading/validation and copy design schemas into runtime schema directory → `src/mstr_qualify/schemas.py`, `schemas/*.schema.json`, `tests/contract/test_schemas.py`, `tests/fixtures/schemas/{valid,invalid}/`.
-- [ ] T005 [P] Implement typed qualification errors plus stable ID/SHA-256 helpers → `src/mstr_qualify/errors.py`, `src/mstr_qualify/ids.py`, `tests/unit/test_errors.py`, `tests/unit/test_ids.py`.
-- [ ] T006 Implement fail-closed component/backbone rights evaluation → `src/mstr_qualify/rights.py`, `tests/unit/test_rights.py`, `tests/fixtures/rights/`, `evidence/T006-primary-backbone-rights-gate.md`.
+- [x] T004 [P] Implement strict schema loading/validation and copy design schemas into runtime schema directory → `src/mstr_qualify/schemas.py`, `schemas/*.schema.json`, `tests/contract/test_schemas.py`, `tests/fixtures/schemas/{valid,invalid}/`. Evidence: `evidence/T004-strict-schema-validation.md`.
+- [x] T005 [P] Implement typed qualification errors plus stable ID/SHA-256 helpers → `src/mstr_qualify/errors.py`, `src/mstr_qualify/ids.py`, `tests/unit/test_errors.py`, `tests/unit/test_ids.py`. Evidence: `evidence/T005-errors-ids.md`.
+- [x] T006 Implement fail-closed component/backbone rights evaluation → `src/mstr_qualify/rights.py`, `tests/unit/test_rights.py`, `tests/fixtures/rights/`, `evidence/T006-primary-backbone-rights-gate.md`. Evidence: `evidence/T006-primary-backbone-rights-gate.md`.
 - [ ] T007 Implement immutable/canonical evidence serialization and supersession semantics → `src/mstr_qualify/evidence.py`, `tests/unit/test_evidence.py`, `tests/contract/test_evidence_roundtrip.py`, `tests/fixtures/evidence/`.
 - [ ] T008 Implement task/benchmark/candidate manifest loaders and validation → `src/mstr_qualify/manifests.py`, `tests/unit/test_manifests.py`, `benchmarks/manifests/README.md`, `configs/candidates/README.md`.
 - [ ] T009 Implement score-surface/report comparability rules that reject mismatched protocol/cache/hardware/task conditions → `src/mstr_qualify/reporting.py`, `tests/unit/test_reporting.py`, `tests/fixtures/reporting/`.
