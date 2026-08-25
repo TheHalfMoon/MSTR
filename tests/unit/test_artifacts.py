@@ -208,6 +208,39 @@ class TestVerification:
         with pytest.raises(ArtifactIntegrityError, match="symlinked directories"):
             verify_artifact(_manifest(), root)
 
+    def test_intermediate_directory_symlink_rejected_before_hashing(self, tmp_path: Path) -> None:
+        root = tmp_path / "midroot"
+        root.mkdir()
+        real_dir = tmp_path / "elsewhere"
+        real_dir.mkdir()
+        target_file = real_dir / "alpha.txt"
+        target_file.write_text("alpha artifact payload\n", encoding="utf-8")
+        (root / "sub").symlink_to(real_dir, target_is_directory=True)
+        entry = ArtifactFileEntry(relative_path="sub/alpha.txt", sha256=ALPHA_SHA, size_bytes=None)
+        with pytest.raises(ArtifactIntegrityError, match="symlinked directories"):
+            verify_artifact(_manifest((entry,)), root)
+
+    def test_symlinked_root_rejected(self, tmp_path: Path) -> None:
+        real_dir = tmp_path / "realroot"
+        real_dir.mkdir()
+        (real_dir / "alpha.txt").write_text("alpha artifact payload\n", encoding="utf-8")
+        link_root = tmp_path / "linkroot"
+        link_root.symlink_to(real_dir, target_is_directory=True)
+        with pytest.raises(ArtifactIntegrityError, match="symlinked verification roots"):
+            verify_artifact(_manifest(), link_root)
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "nested//beta.bin",
+            "nested/./beta.bin",
+            "a//b//c.txt",
+        ],
+    )
+    def test_repeated_separators_and_dot_components_rejected_at_load(self, path: str) -> None:
+        with pytest.raises(ArtifactIntegrityError):
+            _entry(path=path)
+
     def test_traversal_escape_via_resolution_rejected(self, tmp_path: Path) -> None:
         # Constructed directly to bypass the load-time guard and prove the
         # resolve-time traversal protection independently.
@@ -238,7 +271,7 @@ class TestVerification:
     def test_directory_in_place_of_file_fails_closed(self, tmp_path: Path) -> None:
         root = tmp_path / "dirroot"
         (root / "alpha.txt").mkdir(parents=True)
-        with pytest.raises(ArtifactIntegrityError, match="regular file|missing"):
+        with pytest.raises(ArtifactIntegrityError, match=r"regular file|missing"):
             verify_artifact(_manifest(), root)
 
 

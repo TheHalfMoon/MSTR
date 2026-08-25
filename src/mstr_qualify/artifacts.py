@@ -104,6 +104,23 @@ class ArtifactManifest:
 
 def _validate_relative_path(value: str) -> None:
     """Reject absolute paths, traversal components, and separator hazards."""
+    # Raw-component checks run before PurePosixPath normalization so that
+    # repeated separators, dot components, and empties cannot collapse into
+    # an apparently valid path.
+    raw_parts = value.split("/")
+    for part in raw_parts:
+        if part in _TRAVERSAL_COMPONENTS:
+            raise _fail(
+                "path traversal components are prohibited in artifact manifests",
+                code="artifact.path_traversal",
+                details={"path": value, "component": part},
+            )
+        if part == "":
+            raise _fail(
+                "empty path components (repeated separators) are prohibited",
+                code="artifact.path_component_empty",
+                details={"path": value},
+            )
     pure = PurePosixPath(value)
     if pure.is_absolute() or value.startswith("/") or value.startswith("\\"):
         raise _fail(
@@ -124,12 +141,6 @@ def _validate_relative_path(value: str) -> None:
             details={"path": value},
         )
     for part in pure.parts:
-        if part in _TRAVERSAL_COMPONENTS:
-            raise _fail(
-                "path traversal components are prohibited in artifact manifests",
-                code="artifact.path_traversal",
-                details={"path": value, "component": part},
-            )
         if not part.strip():
             raise _fail(
                 "empty path components are prohibited",
@@ -281,6 +292,12 @@ def verify_artifact(manifest: ArtifactManifest, root: Path) -> dict[str, Any]:
 
     Returns the verified identity report on success.
     """
+    if root.is_symlink():
+        raise _fail(
+            "symlinked verification roots are prohibited",
+            code="artifact.symlink_rejected",
+            details={"path": str(root)},
+        )
     if not root.is_dir():
         raise _fail(
             "verification root must be an existing directory",
@@ -300,6 +317,7 @@ def verify_artifact(manifest: ArtifactManifest, root: Path) -> dict[str, Any]:
                 details={"path": entry.relative_path},
             )
         _resolve_under_root(root, entry.relative_path)
+        _reject_intermediate_symlinks(root, entry.relative_path)
         if not candidate.is_file():
             raise _fail(
                 "declared artifact file is missing or not a regular file",
@@ -352,6 +370,19 @@ def verify_artifact(manifest: ArtifactManifest, root: Path) -> dict[str, Any]:
         "total_bytes": sum(int(item["size_bytes"]) for item in verified_files),
         "files": verified_files,
     }
+
+
+def _reject_intermediate_symlinks(root: Path, relative_path: str) -> None:
+    """Reject symlinked intermediate directories along a declared file path."""
+    parts = relative_path.split("/")
+    for index in range(1, len(parts)):
+        intermediate = root.joinpath(*parts[:index])
+        if intermediate.is_symlink():
+            raise _fail(
+                "symlinked directories inside artifact trees are prohibited",
+                code="artifact.symlink_rejected",
+                details={"path": "/".join(parts[:index])},
+            )
 
 
 def _hash_file_checked(path: Path, relative_path: str) -> str:
