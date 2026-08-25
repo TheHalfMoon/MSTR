@@ -28,7 +28,7 @@ A checkbox becomes complete only when the stated output exists, required tests/e
 
 ---
 
-## Phase 2 — Foundational Infrastructure — BLOCKS USER-STORY IMPLEMENTATION
+## Phase 2 — Foundational Infrastructure — COMPLETE
 
 **Prerequisite:** T003.  
 **Independent test:** from a clean Python 3.11+ environment with no model weights and external network blocked, `python -m mstr_qualify validate` validates schemas/fixtures and `pytest -q` passes.
@@ -42,7 +42,7 @@ A checkbox becomes complete only when the stated output exists, required tests/e
 - [x] T010 Implement dependency-light offline CLI commands `validate`, `rights`, `candidate static`, `manifest validate` → `src/mstr_qualify/cli.py`, `tests/integration/test_cli_offline.py`.
 - [x] T011 Freeze harness quality gates and baseline test evidence → `evidence/T011-harness-foundation-qualification.md`, `configs/quality.toml`, plus passing `tests/`; add CI workflow only if explicitly chosen and document absence otherwise.
 
-**Checkpoint:** foundational harness ready. User-story work can begin according to dependencies below.
+**Checkpoint:** foundational harness ready — REACHED (T003–T011 canonical). User-story work can begin according to dependencies below.
 
 ---
 
