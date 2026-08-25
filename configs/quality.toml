@@ -1,0 +1,51 @@
+# MSTR-000 Harness Quality Gates — frozen by T011
+#
+# This file freezes the minimum quality gates that the qualification-harness
+# foundation must satisfy before any task may be marked COMPLETE_CANONICAL
+# from T011 onward. Gates are declarative: each names the exact command that
+# must pass on an exact canonical head. Actual run results belong in task
+# evidence files, never in this file.
+
+schema_version = "mstr.quality-gates.v1"
+description = "Frozen quality gates for the MSTR-000 qualification harness foundation."
+
+[environment]
+minimum_python = "3.11"
+# The harness performs local filesystem reads only; outbound network access
+# is prohibited for all offline command families (T010 contract).
+offline_required = true
+
+[gates.test_suite]
+description = "Full repository test suite."
+command = "pytest -q"
+required = true
+
+[gates.lint]
+description = "Ruff over package sources and tests."
+command = "ruff check src tests"
+required = true
+
+[gates.typecheck]
+description = "Mypy strict mode over mstr_qualify."
+command = "mypy"
+required = true
+
+[gates.schema_selfcheck]
+description = "Offline CLI self-check of registered schemas and fixtures."
+command = "python -m mstr_qualify validate"
+exit_code_zero_required = true
+required = true
+
+[dependency_policy]
+# New runtime dependencies require explicit task authority with capability,
+# maintenance, license, security, RAM, startup, and distribution justification.
+runtime_dependency_additions_require_task_authority = true
+approved_runtime_dependencies = ["jsonschema>=4.23,<5"]
+dev_tooling_may_not_become_runtime_dependency = true
+
+[distribution]
+# Model binaries and large artifacts never enter Git (see .gitignore).
+model_weights_in_git = false
+# CI workflows were deliberately not added in MSTR-000 Phase 2; absence is
+# recorded in T011 evidence rather than silently assumed.
+ci_workflows_added = false

@@ -81,7 +81,8 @@ def test_declared_pass_cannot_override_unresolved_condition() -> None:
 def test_missing_terms_evidence_fails_closed() -> None:
     rights = permissive()
     rights["terms_urls"] = []
-    assert "backbone:terms_evidence_missing" in evaluate_component_rights("backbone", rights).reason_codes
+    result = evaluate_component_rights("backbone", rights)
+    assert "backbone:terms_evidence_missing" in result.reason_codes
 
 
 def test_component_failure_blocks_whole_candidate() -> None:
