@@ -1,0 +1,49 @@
+{
+  "schema_version": "mstr.candidate.v1",
+  "candidate_id": "afm-4.5b-base",
+  "upstream_id": "arcee-ai/AFM-4.5B-Base",
+  "upstream_revision": "dab7922f9c868d479b365410304f466b007b1c5a",
+  "candidate_role": "foundation",
+  "status": "static_qualified",
+  "rights": {
+    "decision": "pass_permissive",
+    "license_name": "Apache-2.0",
+    "terms_urls": [
+      "https://huggingface.co/arcee-ai/AFM-4.5B-Base/tree/dab7922f9c868d479b365410304f466b007b1c5a",
+      "https://huggingface.co/arcee-ai/AFM-4.5B-Base/blob/dab7922f9c868d479b365410304f466b007b1c5a/README.md",
+      "https://huggingface.co/api/models/arcee-ai/AFM-4.5B-Base/revision/dab7922f9c868d479b365410304f466b007b1c5a",
+      "https://www.apache.org/licenses/LICENSE-2.0.txt"
+    ],
+    "personal_use": "yes",
+    "commercial_use": "yes",
+    "modification": "yes",
+    "fine_tuning": "yes",
+    "quantization": "yes",
+    "derivative_redistribution": "yes",
+    "account_gate_required": false,
+    "clickthrough_gate_required": false,
+    "end_user_separate_license_required": false,
+    "field_or_scale_restrictions": [],
+    "rationale": "Apache-2.0 declared via README front matter and HF license tags at pinned revision (no standalone LICENSE file in tree; same caveat policy as T014/T016/T017 \u2014 mandatory re-verification before weight access). Discovered by T021 landscape rescan (2026-08-25): new general foundation base from Arcee AI. Component rights (FR-016): tokenizer ships in-repo under identical declared license; no third-party component with independent terms."
+  },
+  "architecture": {
+    "family": "arcee (ArceeForCausalLM, text-only)",
+    "parameter_count_total": 4620000000,
+    "parameter_count_active": null,
+    "tokenizer_id": "arcee-ai/AFM-4.5B-Base tokenizer (BPE fast)",
+    "tokenizer_revision": "dab7922f9c868d479b365410304f466b007b1c5a",
+    "vision_components": [],
+    "fim_capability": "no"
+  },
+  "runtime_support_notes": [
+    "GGUF conversion expected viable via llama.cpp-class runtimes; CPU-only basic operation targeted."
+  ],
+  "quantization_support_notes": [
+    "Q4-class target <=3GB primary artifact budget (FR-003)."
+  ],
+  "source_urls": [
+    "https://huggingface.co/arcee-ai/AFM-4.5B-Base/tree/dab7922f9c868d479b365410304f466b007b1c5a",
+    "https://huggingface.co/arcee-ai/AFM-4.5B-Base/blob/dab7922f9c868d479b365410304f466b007b1c5a/config.json",
+    "https://huggingface.co/api/models/arcee-ai/AFM-4.5B-Base/revision/dab7922f9c868d479b365410304f466b007b1c5a"
+  ]
+}
