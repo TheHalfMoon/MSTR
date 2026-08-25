@@ -84,9 +84,9 @@ All seven Phase-3 static_qualified candidate pins stable/unchanged; landscape sc
 ## Completed in this cycle
 
 ```text
-COMPLETED_TASKS = T010, T011, T012-T020, T021
-CHECKPOINTS_REACHED = PHASE_2_FOUNDATIONAL_HARNESS_READY + PHASE_3_STATIC_ADMISSION_COMPLETE
-REVIEW_FINDINGS_RESOLVED = qodo x4, coderabbitai x5, all on-head with evidence
+COMPLETED_TASKS = T000-T026 (T010-T011 harness foundation; T012-T022 static admission; T023-T026 Phase-4 harness infrastructure)
+CHECKPOINTS_REACHED = PHASE_2_FOUNDATIONAL_HARNESS_READY + PHASE_3_STATIC_ADMISSION_COMPLETE + PHASE_4_HARNESS_INFRASTRUCTURE_READY
+REVIEW_FINDINGS_RESOLVED = qodo x4 + coderabbitai x5 (Phase 2/3) + qodo x2 T023 + x9 T024 + x9 T025 + x6 T026 — all on-head with regression tests and evidence
 PUSH_PROTECTION_BYPASS = one documented false_positive (public HF revision sha matching Mistral key shape)
 ```
 
@@ -182,7 +182,7 @@ When the founder returns after WePLD:
 4. read `docs/canonical/PROGRAM_ROADMAP.md`;
 5. read `docs/canonical/TRAINING_EXECUTION_STRATEGY.md`;
 6. read the full MSTR-000 Spec Kit package;
-7. confirm T010 is still the correct next task;
+7. confirm the correct next task against the ACTIVE_TASK/NEXT_TASKS_ON_RESUME fields at the top of this file (currently T027 preflight; T028 requires separate explicit founder authorization);
 8. start only the exact authorized task on a fresh branch.
 
 Canonical resume handoff: `docs/handoffs/MSTR-RESUME-AFTER-WEPLD.md`.
