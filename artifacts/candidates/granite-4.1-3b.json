@@ -1,0 +1,50 @@
+{
+  "schema_version": "mstr.candidate.v1",
+  "candidate_id": "granite-4.1-3b",
+  "upstream_id": "ibm-granite/granite-4.1-3b-base",
+  "upstream_revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
+  "candidate_role": "foundation",
+  "status": "static_qualified",
+  "rights": {
+    "decision": "pass_permissive",
+    "license_name": "Apache-2.0",
+    "terms_urls": [
+      "https://www.apache.org/licenses/LICENSE-2.0.txt",
+      "https://huggingface.co/ibm-granite/granite-4.1-3b-base/tree/dacb9cb9157bec98e99b09f285c92a4d58405c96",
+      "https://huggingface.co/api/models/ibm-granite/granite-4.1-3b-base"
+    ],
+    "personal_use": "yes",
+    "commercial_use": "yes",
+    "modification": "yes",
+    "fine_tuning": "yes",
+    "quantization": "yes",
+    "derivative_redistribution": "yes",
+    "account_gate_required": false,
+    "clickthrough_gate_required": false,
+    "end_user_separate_license_required": false,
+    "field_or_scale_restrictions": [],
+    "rationale": "Upstream repository publishes the model under Apache-2.0 (machine-readable `license: apache-2.0` metadata in README/model card and HF model tags). Apache-2.0 grants personal/commercial use, modification, fine-tuning, quantization/conversion, and derivative redistribution with notice preservation. CAVEAT: no standalone LICENSE text file exists in the pinned repository tree; the declaration is carried by README front matter and HF license tags at the pinned revision. Exact pinned-revision URLs are cited as terms evidence. Any weight-access task MUST re-verify current terms immediately before acquisition (FR-018/T021 landscape rescan also re-checks this)."
+  },
+  "architecture": {
+    "family": "granite",
+    "parameter_count_total": 3402836480,
+    "parameter_count_active": 3402836480,
+    "tokenizer_id": "ibm-granite/granite-4.1-3b-base tokenizer (GPT2Tokenizer/BPE)",
+    "tokenizer_revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
+    "vision_components": [],
+    "fim_capability": "yes"
+  },
+  "runtime_support_notes": [
+    "GGUF conversion expected viable via llama.cpp-class runtimes (to be proven by later artifact tasks).",
+    "CPU-only basic operation targeted per universal-laptop invariant."
+  ],
+  "quantization_support_notes": [
+    "Q4-class quantization targeted <=3GB primary artifact budget (FR-003); actual viability deferred to measured artifact tasks."
+  ],
+  "source_urls": [
+    "https://huggingface.co/ibm-granite/granite-4.1-3b-base/tree/dacb9cb9157bec98e99b09f285c92a4d58405c96",
+    "https://huggingface.co/ibm-granite/granite-4.1-3b-base/blob/dacb9cb9157bec98e99b09f285c92a4d58405c96/config.json",
+    "https://huggingface.co/ibm-granite/granite-4.1-3b-base/raw/dacb9cb9157bec98e99b09f285c92a4d58405c96/README.md",
+    "https://huggingface.co/api/models/ibm-granite/granite-4.1-3b-base"
+  ]
+}

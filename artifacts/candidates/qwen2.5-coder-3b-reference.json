@@ -1,0 +1,46 @@
+{
+  "schema_version": "mstr.candidate.v1",
+  "candidate_id": "qwen2.5-coder-3b-reference",
+  "upstream_id": "Qwen/Qwen2.5-Coder-3B",
+  "upstream_revision": "09d9bc5d376b0cfa0100a0694ea7de7232525803",
+  "candidate_role": "reference_only",
+  "status": "reference_only",
+  "rights": {
+    "decision": "fail",
+    "license_name": "Qwen Research License Agreement",
+    "terms_urls": [
+      "https://huggingface.co/Qwen/Qwen2.5-Coder-3B/blob/09d9bc5d376b0cfa0100a0694ea7de7232525803/LICENSE",
+      "https://huggingface.co/Qwen/Qwen2.5-Coder-3B/tree/09d9bc5d376b0cfa0100a0694ea7de7232525803"
+    ],
+    "personal_use": "yes",
+    "commercial_use": "no",
+    "modification": "yes",
+    "fine_tuning": "yes",
+    "quantization": "yes",
+    "derivative_redistribution": "no",
+    "account_gate_required": false,
+    "clickthrough_gate_required": false,
+    "end_user_separate_license_required": true,
+    "field_or_scale_restrictions": [
+      "research/non-commercial use only; commercial use requires a separate commercial license from Qwen"
+    ],
+    "rationale": "The pinned LICENSE file is the 'Qwen RESEARCH LICENSE AGREEMENT' (verbatim file at the pinned revision). It restricts use to research/non-commercial purposes and requires a separate commercial license for commercial deployment; derivative redistribution of fine-tuned/quantized artifacts is not freely granted. This fails FR-015/FR-017 fail-closed gates: non-commercial-only and end-user-separate-license restrictions prohibit primary-backbone admission regardless of capability."
+  },
+  "architecture": {
+    "family": "qwen2",
+    "parameter_count_total": 3085938688,
+    "parameter_count_active": 3085938688,
+    "tokenizer_id": "Qwen/Qwen2.5-Coder-3B tokenizer (Qwen2Tokenizer, includes FIM control tokens)",
+    "tokenizer_revision": "09d9bc5d376b0cfa0100a0694ea7de7232525803",
+    "vision_components": [],
+    "fim_capability": "yes"
+  },
+  "runtime_support_notes": [
+    "Reference-only comparison point; never eligible as primary backbone under current exact terms."
+  ],
+  "quantization_support_notes": [],
+  "source_urls": [
+    "https://huggingface.co/Qwen/Qwen2.5-Coder-3B/tree/09d9bc5d376b0cfa0100a0694ea7de7232525803",
+    "https://huggingface.co/Qwen/Qwen2.5-Coder-3B/blob/09d9bc5d376b0cfa0100a0694ea7de7232525803/LICENSE"
+  ]
+}

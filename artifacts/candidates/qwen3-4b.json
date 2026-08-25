@@ -1,0 +1,51 @@
+{
+  "schema_version": "mstr.candidate.v1",
+  "candidate_id": "qwen3-4b",
+  "upstream_id": "Qwen/Qwen3-4B-Base",
+  "upstream_revision": "906bfd4b4dc7f14ee4320094d8b41684abff8539",
+  "candidate_role": "control",
+  "status": "static_qualified",
+  "rights": {
+    "decision": "pass_permissive",
+    "license_name": "Apache-2.0",
+    "terms_urls": [
+      "https://huggingface.co/Qwen/Qwen3-4B-Base/blob/906bfd4b4dc7f14ee4320094d8b41684abff8539/LICENSE",
+      "https://www.apache.org/licenses/LICENSE-2.0.txt",
+      "https://huggingface.co/Qwen/Qwen3-4B-Base/tree/906bfd4b4dc7f14ee4320094d8b41684abff8539",
+      "https://huggingface.co/api/models/Qwen/Qwen3-4B-Base"
+    ],
+    "personal_use": "yes",
+    "commercial_use": "yes",
+    "modification": "yes",
+    "fine_tuning": "yes",
+    "quantization": "yes",
+    "derivative_redistribution": "yes",
+    "account_gate_required": false,
+    "clickthrough_gate_required": false,
+    "end_user_separate_license_required": false,
+    "field_or_scale_restrictions": [],
+    "rationale": "Upstream repository publishes the model under Apache-2.0 (machine-readable `license: apache-2.0` metadata in README/model card and HF model tags). Apache-2.0 grants personal/commercial use, modification, fine-tuning, quantization/conversion, and derivative redistribution with notice preservation. A verbatim Apache-2.0 LICENSE file exists in the pinned repository tree."
+  },
+  "architecture": {
+    "family": "qwen3",
+    "parameter_count_total": 4022468096,
+    "parameter_count_active": 4022468096,
+    "tokenizer_id": "Qwen/Qwen3-4B-Base tokenizer (Qwen2Tokenizer, BPE)",
+    "tokenizer_revision": "906bfd4b4dc7f14ee4320094d8b41684abff8539",
+    "vision_components": [],
+    "fim_capability": "yes"
+  },
+  "runtime_support_notes": [
+    "GGUF conversion expected viable via llama.cpp-class runtimes (to be proven by later artifact tasks).",
+    "CPU-only basic operation targeted per universal-laptop invariant."
+  ],
+  "quantization_support_notes": [
+    "Q4-class quantization targeted <=3GB primary artifact budget (FR-003); actual viability deferred to measured artifact tasks."
+  ],
+  "source_urls": [
+    "https://huggingface.co/Qwen/Qwen3-4B-Base/tree/906bfd4b4dc7f14ee4320094d8b41684abff8539",
+    "https://huggingface.co/Qwen/Qwen3-4B-Base/blob/906bfd4b4dc7f14ee4320094d8b41684abff8539/config.json",
+    "https://huggingface.co/Qwen/Qwen3-4B-Base/raw/906bfd4b4dc7f14ee4320094d8b41684abff8539/README.md",
+    "https://huggingface.co/api/models/Qwen/Qwen3-4B-Base"
+  ]
+}

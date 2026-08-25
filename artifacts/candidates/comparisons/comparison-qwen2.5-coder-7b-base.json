@@ -1,0 +1,46 @@
+{
+  "schema_version": "mstr.candidate.v1",
+  "candidate_id": "comparison-qwen2.5-coder-7b-base",
+  "upstream_id": "Qwen/Qwen2.5-Coder-7B",
+  "upstream_revision": "0396a76181e127dfc13e5c5ec48a8cee09938b02",
+  "candidate_role": "comparison",
+  "status": "discovered",
+  "rights": {
+    "decision": "pass_permissive",
+    "license_name": "Apache-2.0",
+    "terms_urls": [
+      "https://huggingface.co/Qwen/Qwen2.5-Coder-7B/tree/0396a76181e127dfc13e5c5ec48a8cee09938b02",
+      "https://huggingface.co/api/models/Qwen/Qwen2.5-Coder-7B",
+      "https://www.apache.org/licenses/LICENSE-2.0.txt"
+    ],
+    "personal_use": "yes",
+    "commercial_use": "yes",
+    "modification": "yes",
+    "fine_tuning": "yes",
+    "quantization": "yes",
+    "derivative_redistribution": "yes",
+    "account_gate_required": false,
+    "clickthrough_gate_required": false,
+    "end_user_separate_license_required": false,
+    "field_or_scale_restrictions": [],
+    "rationale": "Apache-2.0 declared via HF machine-readable license tags and README at the pinned revision; public ungated repo. Comparison points never become primary backbone candidates; full LICENSE-file verification would be required before any artifact use."
+  },
+  "architecture": {
+    "family": "qwen2",
+    "parameter_count_total": 7615616512,
+    "parameter_count_active": 7615616512,
+    "tokenizer_id": "Qwen2Tokenizer with FIM control tokens",
+    "tokenizer_revision": "0396a76181e127dfc13e5c5ec48a8cee09938b02",
+    "vision_components": [],
+    "fim_capability": "yes"
+  },
+  "runtime_support_notes": [
+    "Comparison purpose: Larger code-specialized sibling of the T018 lower-bound control; shows the capability ceiling of the same code-trained family.",
+    "NOT a foundation winner; recorded for context only."
+  ],
+  "quantization_support_notes": [],
+  "source_urls": [
+    "https://huggingface.co/Qwen/Qwen2.5-Coder-7B/tree/0396a76181e127dfc13e5c5ec48a8cee09938b02",
+    "https://huggingface.co/api/models/Qwen/Qwen2.5-Coder-7B"
+  ]
+}
