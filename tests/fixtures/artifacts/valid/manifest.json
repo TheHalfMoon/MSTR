@@ -1,0 +1,9 @@
+{
+  "schema_version": "mstr.artifact-manifest.v1",
+  "artifact_id": "fixture-artifact-1",
+  "format_name": "fixture-format",
+  "files": [
+    {"path": "nested/beta.bin", "sha256": "761b546759e26ec7df85c45894edbba3bc89e8f70c64d8b7ae045f4ec961259a", "size_bytes": 2048},
+    {"path": "alpha.txt", "sha256": "1956e00312d912f86659c43cb2db601dd4999edaabf77448c6bbe423154c2d5b"}
+  ]
+}
