@@ -31,21 +31,23 @@ T007 = COMPLETE_CANONICAL / IMMUTABLE_EVIDENCE_SERIALIZATION
 T008 = COMPLETE_CANONICAL / LOCAL_MANIFEST_LOADERS
 T009 = COMPLETE_CANONICAL / SCORE_COMPARABILITY
 T010 = COMPLETE_CANONICAL / OFFLINE_CLI_COMMANDS
-T011 = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION / HARNESS_QUALITY_GATES
+T011 = COMPLETE_CANONICAL / HARNESS_QUALITY_GATES
 ```
 
 T009 canonical merge: `7a1cea4c3462fb3d811e8b6c20303ab16cbfd94c`.
 T010 canonical merge: `fe60646a3833d35e7b65db431e5094b704946e72`.
+T011 canonical merge: PR #17 (exact head d0c33acba0f232b218a4eac66555536b1bc90cd0).
 
 ## Active work
 
+None. T011 is canonical. Phase-2 checkpoint reached: foundational harness ready. Next dependency-satisfied tasks are the Phase-3 parallel static candidate qualifications (T012–T020), each requiring exact upstream evidence and fail-closed rights recomputation without weight access.
+
 ```text
-ACTIVE_TASK = T011
-ACTIVE_BRANCH = task/000-t011-quality-gates
-TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
+COMPLETED_IN_THIS_CYCLE = T010 + T011 + PHASE_2_CHECKPOINT
+FROZEN_QUALITY_GATES = configs/quality.toml (pytest full suite, ruff src+tests, strict mypy, offline CLI validate; all required on every future task head)
 ```
 
-T011 freezes harness quality gates in `configs/quality.toml` (`mstr.quality-gates.v1`): full pytest suite, ruff over src and tests, strict mypy, and offline CLI schema self-check are all required on every future task head. Pre-existing lint debt deferred by T009 was repaired; `py.typed` + dev-only `types-jsonschema` enable strict typechecking; `uv.lock` pins the gate toolchain. CI remains deliberately absent per task definition.
+T011 froze harness quality gates in `configs/quality.toml` (`mstr.quality-gates.v1`): full pytest suite, ruff over src and tests, strict mypy, and offline CLI schema self-check are all required on every future task head. Pre-existing lint debt deferred by T009 was repaired; `py.typed` + dev-only `types-jsonschema` enable strict typechecking; `uv.lock` pins the gate toolchain. CI remains deliberately absent per task definition.
 
 Candidate evidence:
 `specs/000-universal-laptop-interaction-contract/evidence/T011-harness-foundation-qualification.md`.
@@ -98,10 +100,10 @@ INTERACTION_CONTRACT = UNFROZEN
 DEFAULT_CONTEXT_ENGINE = UNSELECTED
 LOCAL_RUNTIME_BASELINE = UNSELECTED
 
-MODEL_WEIGHT_ACCESS = NONE / NOT_AUTHORIZED_BY_T011
+MODEL_WEIGHT_ACCESS = NONE / NOT_AUTHORIZED_BEYOND_MSTR-000_STATIC_PHASE
 MODEL_EXECUTION = NONE
 BENCHMARK_EXECUTION = NONE
-NETWORK_SERVICE_ACCESS = NONE_BY_T011
+NETWORK_SERVICE_ACCESS = NONE
 PAID_MODEL_API_EXECUTION = NONE
 GOOGLE_COLAB_EXECUTION = NONE
 UNSLOTH_INSTALL_OR_EXECUTION = NONE

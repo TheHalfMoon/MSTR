@@ -4,6 +4,7 @@
 **Canonical base:** `63eeaa395dfbddc11fc1a210a34a879ed1725948` (post-T010 canonical main)  
 **Branch:** `task/000-t011-quality-gates`  
 **Canonical base (full SHA):** `63eeaa395dfbddc11fc1a210a34a879ed1725948`  
+**Canonical merge:** PR #17 as exact head `d0c33acba0f232b218a4eac66555536b1bc90cd0`  
 **Scope:** freeze harness quality gates (`configs/quality.toml`), repair pre-existing lint debt deferred to this task by T009 evidence, add the PEP 561 typed-package marker and mypy stub dependency for dev tooling, and record baseline gate runs. No model weights, no execution, no benchmark execution, no paid API, no rented compute, no network service access, and no training.
 
 ## Frozen gates (`configs/quality.toml`, `mstr.quality-gates.v1`)
@@ -70,7 +71,9 @@ TRAINING = NONE
 ## Result candidate
 
 ```text
-T011_RESULT = PASS_CANDIDATE
-NEXT_TASK_AFTER_CANONICAL_MERGE = T012 (first Phase-3 static candidate qualification)
+T011_RESULT = COMPLETE_CANONICAL
+CANONICAL_MERGE = d3c3471 (merge of exact head d0c33acba0f232b218a4eac66555536b1bc90cd0)
+REVIEW_FINDINGS = RESOLVED (qodo High x1, coderabbit Major x1 + Minor x1 — all fixed on-head with evidence)
+NEXT_TASKS = T012–T020 (Phase-3 static candidate qualification, [P] parallel-safe)
 CHECKPOINT = FOUNDATIONAL_HARNESS_READY
 ```
