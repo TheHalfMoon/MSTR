@@ -7,12 +7,12 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_AFTER_T022 = f77e213 (merge of exact head ce9edba27cc4371b1cc18e9788b7f7863909c8e0)
-PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / US2_COMPLETE_WEIGHT_ELIGIBLE_SET_SELECTED
+CANONICAL_MAIN_AFTER_T026 = 52d86f0 (T028 gate next; see merge log below)
+PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / PHASE_4_HARNESS_INFRASTRUCTURE_READY
 ACTIVE_SPEC = MSTR-000
 SPEC_KIT_PACKAGE = CANONICAL
-ACTIVE_TASK = NONE
-NEXT_TASKS_ON_RESUME = T023-T026
+ACTIVE_TASK = T027_WEIGHT_ACCESS_PREFLIGHT
+NEXT_TASKS_ON_RESUME = T027 then STOP at T028 explicit gate
 ```
 
 ## Canonical completed history
@@ -35,7 +35,26 @@ T019 = COMPLETE_CANONICAL / REFERENCE_ONLY_RECORD
 T020 = COMPLETE_CANONICAL / POST_TRAINED_COMPARISONS
 T021 = COMPLETE_CANONICAL / LANDSCAPE_RESCAN
 T022 = COMPLETE_CANONICAL / BOUNDED_WEIGHT_ELIGIBLE_SET
+T023 = COMPLETE_CANONICAL / RUNTIME_PLATFORM_ADAPTER_PROTOCOLS
+T024 = COMPLETE_CANONICAL / ARTIFACT_MANIFEST_HASH_VERIFICATION
+T025 = COMPLETE_CANONICAL / CROSS_PLATFORM_MEMORY_PAGING_SAMPLERS
+T026 = COMPLETE_CANONICAL / MEASURE_V0_MONOTONIC_EVENT_LOGIC
 ```
+
+## Phase-4 harness infrastructure merges (2026-08-25)
+
+```text
+T023: PR #25 as fece0f3382ce383ca8e68dd875b48a46d4cc7fba (exact head 85ee543af3ff91e1367356b6c46d32697c1b9756)
+T024: PR #26 as c593fce1655ee857f237b3fd476fc8e14cb836fe (exact head 91e2945a3fba076868120c551f58c04cadf78a34)
+T025: PR #27 as 89a48ba834eb9fa012b1515ec774dae68315ec49 (exact head e70a7c48ec958cb53266349847ab0568ca8d5246)
+T026: PR #28 as 52d86f0c89bd0323d19aae776ae01aa4ebf5bc58 (exact head 858bf428946ce64249f897dd194099267d857236)
+```
+
+Gates on canonical main `52d86f0`: pytest 302 passed; ruff clean; mypy strict clean; offline CLI validate exit 0. All review findings resolved on-head before each merge (qodo x9 T024, qodo x9 T025, qodo x6 T026, qodo x2 T023 — all marked resolved with regression tests).
+
+## Active work
+
+T027 weight-access preflight is the active task (preparation only — freezes the exact acquisition manifest for the separate T028 authorization gate; no downloads).
 
 T022 canonical merge: PR #23 as `f77e213`.
 ```
@@ -51,10 +70,6 @@ Phase-3 static candidate records live-fetched from huggingface.co at exact pinne
 T009 canonical merge: `7a1cea4c3462fb3d811e8b6c20303ab16cbfd94c`.
 T010 canonical merge: `fe60646a3833d35e7b65db431e5094b704946e72`.
 T011 canonical merge: PR #17 (exact head d0c33acba0f232b218a4eac66555536b1bc90cd0).
-
-## Active work
-
-None. With T022 canonical, **US2 closes** (reproducible static candidate admission complete). Next dependency-satisfied tasks are **T023–T026** ([P] parallel-safe Phase-4 harness infrastructure), followed by the T027 weight-access preflight.
 
 ## T022 decision summary
 
