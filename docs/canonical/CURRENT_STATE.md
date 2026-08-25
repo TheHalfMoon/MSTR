@@ -55,7 +55,7 @@ ACTIVE_BRANCH = task/000-t021-landscape-rescan
 TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
 ```
 
-T021 rescan result: all six Phase-3 pins stable/unchanged; landscape scanned org-wide (49 confirmed compact permissive bases); one new control admitted (01-ai/Yi-Coder-1.5B); arcee-ai/AFM-4.5B-Base examined but reclassified to reference_only after its model card documented SFT+RL post-training despite the 'Base' name; three flagged-for-review (allenai/tmax-4b checkpoint-style release, microsoft/Fara1.5-4B, arcee KDA experimental variants). Candidate evidence: `evidence/T021-landscape-rescan.md`.
+T021 rescan result: all seven Phase-3 static_qualified candidate pins stable/unchanged; landscape scanned org-wide (49 confirmed compact permissive bases); one new control admitted (01-ai/Yi-Coder-1.5B); arcee-ai/AFM-4.5B-Base examined but reclassified to reference_only after its model card documented SFT+RL post-training despite the 'Base' name; three flagged-for-review (allenai/tmax-4b checkpoint-style release, microsoft/Fara1.5-4B, arcee KDA experimental variants). Candidate evidence: `evidence/T021-landscape-rescan.md`.
 
 With T021 complete, the next dependency-satisfied task is **T022** (select bounded weight-eligible candidate set from eight static_qualified records without final backbone admission). No weight access occurs before T028's exact authorization.
 

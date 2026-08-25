@@ -7,7 +7,7 @@
 
 ## 1. Pin stability of existing candidates
 
-All six Phase-3 pinned candidates verified UNCHANGED at their recorded revisions (current HF `sha` equals the pinned revision; license tags and gating state unchanged):
+All seven Phase-3 static_qualified pinned candidates verified UNCHANGED at their recorded revisions (current HF `sha` equals the pinned revision; license tags and gating state unchanged):
 
 | candidate | pinned sha | unchanged |
 |---|---|---|
@@ -17,6 +17,7 @@ All six Phase-3 pinned candidates verified UNCHANGED at their recorded revisions
 | Qwen/Qwen3-4B-Base | 906bfd4b… | YES |
 | ibm-granite/granite-4.1-3b-base | dacb9cb9… | YES |
 | HuggingFaceTB/SmolLM3-3B-Base | d78a42f7… | YES |
+| Qwen/Qwen2.5-Coder-1.5B (T018 control) | df3ce67c… | YES |
 
 ## 2. Scan method
 
@@ -31,7 +32,7 @@ Most new entries were domain-specialized or post-trained artifacts NOT eligible 
 1. **arcee-ai/AFM-4.5B-Base** (`dab7922f9c868d479b365410304f466b007b1c5a`) — 4.62B text-only causal LM, Apache-2.0 declared, ungated → `artifacts/candidates/afm-4.5b-base.json` (static_qualified).
 2. **01-ai/Yi-Coder-1.5B** (`00e59e64f47d3c78e4cfbdd345888479797e8109`) — 1.48B code-specialized control, LlamaForCausalLM, Apache-2.0 declared → `artifacts/candidates/yi-coder-1.5b.json` (static_qualified). Adds a second code-oriented control alongside Qwen2.5-Coder-1.5B (FR-019).
 
-Both records schema-valid via offline CLI (exit 0); both carry the missing-LICENSE-file caveat with mandatory re-verification before any weight access.
+Both records schema-valid via offline CLI (exit 0); only Yi-Coder-1.5B carries static_qualified status — AFM was reclassified during review (see above) and contributes no T022 input. Both carry the missing-LICENSE-file caveat with mandatory re-verification before any use.
 
 **Flagged for deeper review before admission (not qualified here):**
 
@@ -41,7 +42,7 @@ Both records schema-valid via offline CLI (exit 0); both carry the missing-LICEN
 
 ## 4. Impact on T022
 
-The weight-eligible candidate set selection (T022, `artifacts/decisions/T022-static-candidate-admission.json`) now draws from NINE static_qualified records: seven from Phase 3 plus AFM-4.5B-Base and Yi-Coder-1.5B. No backbone admission occurs here; no weight files accessed.
+The weight-eligible candidate set selection (T022, `artifacts/decisions/T022-static-candidate-admission.json`) draws from EIGHT static_qualified records: the seven unchanged Phase-3 candidates plus new Yi-Coder-1.5B control. AFM-4.5B-Base was reclassified to reference_only during review and does not contribute. No backbone admission occurs here; no weight files accessed.
 
 ## Authority / safety
 
