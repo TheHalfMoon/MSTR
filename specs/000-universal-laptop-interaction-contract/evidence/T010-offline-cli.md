@@ -3,6 +3,7 @@
 **Task:** MSTR-000 / T010  
 **Canonical base:** `e042b3397af30156a243dc8a981f4f2bda6fa438`  
 **Branch:** `task/000-t010-offline-cli`  
+**Canonical merge:** PR #15 as `fe60646a3833d35e7b65db431e5094b704946e72`  
 **Scope:** offline CLI command families `validate`, `rights`, `candidate static`, `manifest validate` only. No model weights, no candidate execution, no benchmark execution, no paid API, no rented compute, no network service access, and no training.
 
 ## Implemented commands
@@ -65,6 +66,7 @@ TRAINING = NONE
 ## Result candidate
 
 ```text
-T010_RESULT = PASS_CANDIDATE
-NEXT_TASK_AFTER_CANONICAL_MERGE = T011
+T010_RESULT = COMPLETE_CANONICAL
+CANONICAL_MERGE = fe60646a3833d35e7b65db431e5094b704946e72
+NEXT_TASK = T011
 ```
