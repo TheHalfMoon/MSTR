@@ -7,14 +7,14 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_BEFORE_T011 = 63eeaa3
-PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION
+CANONICAL_MAIN_BEFORE_T012_T020 = 1ffa6f9a
+PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / PHASE_3_STATIC_ADMISSION
 ACTIVE_SPEC = MSTR-000
 SPEC_KIT_PACKAGE = CANONICAL
-ACTIVE_TASK = T011
-ACTIVE_BRANCH = task/000-t011-quality-gates
+ACTIVE_TASKS = T012-T020
+ACTIVE_BRANCH = task/000-t012-t020-static-candidates
 TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
-NEXT_TASK_AFTER_T011_CANONICAL = T012
+NEXT_TASKS_AFTER_CANONICAL = T021
 ```
 
 ## Canonical completed history
@@ -32,7 +32,12 @@ T008 = COMPLETE_CANONICAL / LOCAL_MANIFEST_LOADERS
 T009 = COMPLETE_CANONICAL / SCORE_COMPARABILITY
 T010 = COMPLETE_CANONICAL / OFFLINE_CLI_COMMANDS
 T011 = COMPLETE_CANONICAL / HARNESS_QUALITY_GATES
+T012-T018 = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION / SEVEN_STATIC_QUALIFIED_FOUNDATIONS_AND_CONTROLS
+T019 = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION / REFERENCE_ONLY_RECORD
+T020 = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION / POST_TRAINED_COMPARISONS
 ```
+
+Phase-3 static candidate records live-fetched from huggingface.co at exact pinned revisions (metadata-only HTTPS GETs; no weight files). Fail-closed rights recomputation verified live: the research-licensed Qwen2.5-Coder-3B is rejected by the T006 gate as expected.
 
 T009 canonical merge: `7a1cea4c3462fb3d811e8b6c20303ab16cbfd94c`.
 T010 canonical merge: `fe60646a3833d35e7b65db431e5094b704946e72`.
@@ -40,7 +45,19 @@ T011 canonical merge: PR #17 (exact head d0c33acba0f232b218a4eac66555536b1bc90cd
 
 ## Active work
 
-None. T011 is canonical. Phase-2 checkpoint reached: foundational harness ready. Next dependency-satisfied tasks are the Phase-3 parallel static candidate qualifications (T012–T020), each requiring exact upstream evidence and fail-closed rights recomputation without weight access.
+```text
+ACTIVE_TASKS = T012-T020 (parallel-safe sibling tasks, disjoint outputs)
+ACTIVE_BRANCH = task/000-t012-t020-static-candidates
+TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
+```
+
+Seven static-qualified foundation/control candidates (Qwen3.5-2B/4B, Ministral-3-3B, Qwen3-4B control, Granite-4.1-3B, SmolLM3-3B, Qwen2.5-Coder-1.5B control), one reference_only record (Qwen2.5-Coder-3B — Qwen Research License fails FR-015/FR-017), and three post-trained comparison points. Ministral/Granite/SmolLM3 carry an explicit missing-LICENSE-text caveat with mandatory re-verification before any weight access.
+
+Candidate evidence: `evidence/candidates/T012..T020`.
+
+## Prior checkpoint (consumed)
+
+None. Phase-2 checkpoint reached: foundational harness ready. Next dependency-satisfied tasks are the Phase-3 parallel static candidate qualifications (T012–T020), each requiring exact upstream evidence and fail-closed rights recomputation without weight access.
 
 ```text
 COMPLETED_IN_THIS_CYCLE = T010 + T011 + PHASE_2_CHECKPOINT
@@ -100,10 +117,10 @@ INTERACTION_CONTRACT = UNFROZEN
 DEFAULT_CONTEXT_ENGINE = UNSELECTED
 LOCAL_RUNTIME_BASELINE = UNSELECTED
 
-MODEL_WEIGHT_ACCESS = NONE / NOT_AUTHORIZED_BEYOND_MSTR-000_STATIC_PHASE
+MODEL_WEIGHT_ACCESS = NONE / STATIC_METADATA_ONLY_IN_MSTR-000
 MODEL_EXECUTION = NONE
 BENCHMARK_EXECUTION = NONE
-NETWORK_SERVICE_ACCESS = NONE
+NETWORK_SERVICE_ACCESS = METADATA_ONLY_HTTPS_GETS_HUGGINGFACE (API + raw endpoints at pinned revisions; no weight files, no gated-term acceptance)
 PAID_MODEL_API_EXECUTION = NONE
 GOOGLE_COLAB_EXECUTION = NONE
 UNSLOTH_INSTALL_OR_EXECUTION = NONE

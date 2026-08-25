@@ -1,0 +1,46 @@
+{
+  "schema_version": "mstr.candidate.v1",
+  "candidate_id": "comparison-smollm2-1.7b-instruct",
+  "upstream_id": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+  "upstream_revision": "31b70e2e869a7173562077fd711b654946d38674",
+  "candidate_role": "comparison",
+  "status": "discovered",
+  "rights": {
+    "decision": "pass_permissive",
+    "license_name": "Apache-2.0",
+    "terms_urls": [
+      "https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct/tree/31b70e2e869a7173562077fd711b654946d38674",
+      "https://huggingface.co/api/models/HuggingFaceTB/SmolLM2-1.7B-Instruct/revision/31b70e2e869a7173562077fd711b654946d38674",
+      "https://www.apache.org/licenses/LICENSE-2.0.txt"
+    ],
+    "personal_use": "yes",
+    "commercial_use": "yes",
+    "modification": "yes",
+    "fine_tuning": "yes",
+    "quantization": "yes",
+    "derivative_redistribution": "yes",
+    "account_gate_required": false,
+    "clickthrough_gate_required": false,
+    "end_user_separate_license_required": false,
+    "field_or_scale_restrictions": [],
+    "rationale": "Apache-2.0 declared via HF machine-readable license tags and README at the pinned revision; public ungated repo. Comparison points never become primary backbone candidates; full LICENSE-file verification would be required before any artifact use."
+  },
+  "architecture": {
+    "family": "smollm2",
+    "parameter_count_total": 1711376384,
+    "parameter_count_active": 1711376384,
+    "tokenizer_id": "GPT2-style BPE fast tokenizer (PreTrainedTokenizerFast)",
+    "tokenizer_revision": "31b70e2e869a7173562077fd711b654946d38674",
+    "vision_components": [],
+    "fim_capability": "unknown"
+  },
+  "runtime_support_notes": [
+    "Comparison purpose: Post-trained small general model; comparison point for instruction-following at compact scale, predecessor lineage to the SmolLM3 foundation arm.",
+    "NOT a foundation winner; recorded for context only."
+  ],
+  "quantization_support_notes": [],
+  "source_urls": [
+    "https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct/tree/31b70e2e869a7173562077fd711b654946d38674",
+    "https://huggingface.co/api/models/HuggingFaceTB/SmolLM2-1.7B-Instruct/revision/31b70e2e869a7173562077fd711b654946d38674"
+  ]
+}

@@ -52,15 +52,15 @@ A checkbox becomes complete only when the stated output exists, required tests/e
 **Prerequisite:** T003–T011 canonical.  
 **Independent test:** every candidate produces a schema-valid record pinned to an immutable upstream revision; ambiguous/incompatible rights fail closed; no weight files are accessed.
 
-- [ ] T012 [P] [US2] Qualify Qwen3.5-2B → `artifacts/candidates/qwen3.5-2b.json`, `evidence/candidates/T012-qwen3.5-2b.md`.
-- [ ] T013 [P] [US2] Qualify Qwen3.5-4B → `artifacts/candidates/qwen3.5-4b.json`, `evidence/candidates/T013-qwen3.5-4b.md`.
-- [ ] T014 [P] [US2] Qualify Ministral-3-3B → `artifacts/candidates/ministral-3-3b.json`, `evidence/candidates/T014-ministral-3-3b.md`.
-- [ ] T015 [P] [US2] Qualify Qwen3-4B control → `artifacts/candidates/qwen3-4b.json`, `evidence/candidates/T015-qwen3-4b.md`.
-- [ ] T016 [P] [US2] Qualify Granite-4.1-3B including FIM/component rights → `artifacts/candidates/granite-4.1-3b.json`, `evidence/candidates/T016-granite-4.1-3b.md`.
-- [ ] T017 [P] [US2] Qualify SmolLM3-3B → `artifacts/candidates/smollm3-3b.json`, `evidence/candidates/T017-smollm3-3b.md`.
-- [ ] T018 [P] [US2] Qualify Qwen2.5-Coder-1.5B lower-bound control → `artifacts/candidates/qwen2.5-coder-1.5b.json`, `evidence/candidates/T018-qwen2.5-coder-1.5b.md`.
-- [ ] T019 [P] [US2] Record Qwen2.5-Coder-3B as reference-only/ineligible unless exact current terms changed → `artifacts/candidates/qwen2.5-coder-3b-reference.json`, `evidence/candidates/T019-qwen2.5-coder-3b.md`.
-- [ ] T020 [P] [US2] Record useful compact post-trained comparison points without treating them as foundation winners → `artifacts/candidates/comparisons/*.json`, `evidence/candidates/T020-posttrained-comparisons.md`.
+- [x] T012 [P] [US2] Qualify Qwen3.5-2B → `artifacts/candidates/qwen3.5-2b.json`, `evidence/candidates/T012-qwen3.5-2b.md`.
+- [x] T013 [P] [US2] Qualify Qwen3.5-4B → `artifacts/candidates/qwen3.5-4b.json`, `evidence/candidates/T013-qwen3.5-4b.md`.
+- [x] T014 [P] [US2] Qualify Ministral-3-3B → `artifacts/candidates/ministral-3-3b.json`, `evidence/candidates/T014-ministral-3-3b.md`.
+- [x] T015 [P] [US2] Qualify Qwen3-4B control → `artifacts/candidates/qwen3-4b.json`, `evidence/candidates/T015-qwen3-4b.md`.
+- [x] T016 [P] [US2] Qualify Granite-4.1-3B including FIM/component rights → `artifacts/candidates/granite-4.1-3b.json`, `evidence/candidates/T016-granite-4.1-3b.md`.
+- [x] T017 [P] [US2] Qualify SmolLM3-3B → `artifacts/candidates/smollm3-3b.json`, `evidence/candidates/T017-smollm3-3b.md`.
+- [x] T018 [P] [US2] Qualify Qwen2.5-Coder-1.5B lower-bound control → `artifacts/candidates/qwen2.5-coder-1.5b.json`, `evidence/candidates/T018-qwen2.5-coder-1.5b.md`.
+- [x] T019 [P] [US2] Record Qwen2.5-Coder-3B as reference-only/ineligible unless exact current terms changed → `artifacts/candidates/qwen2.5-coder-3b-reference.json`, `evidence/candidates/T019-qwen2.5-coder-3b.md`.
+- [x] T020 [P] [US2] Record useful compact post-trained comparison points without treating them as foundation winners → `artifacts/candidates/comparisons/*.json`, `evidence/candidates/T020-posttrained-comparisons.md`.
 - [ ] T021 [US2] Re-scan current approximately 1B–5B open foundation landscape immediately before first weight-access planning → `evidence/T021-landscape-rescan.md`; any new candidate gets `artifacts/candidates/<id>.json` under the same schema.
 - [ ] T022 [US2] Select bounded weight-eligible candidate set without final backbone admission → `artifacts/decisions/T022-static-candidate-admission.json`, `evidence/T022-static-candidate-admission.md`.
 

@@ -1,0 +1,54 @@
+{
+  "schema_version": "mstr.candidate.v1",
+  "candidate_id": "qwen3.5-2b",
+  "upstream_id": "Qwen/Qwen3.5-2B-Base",
+  "upstream_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+  "candidate_role": "foundation",
+  "status": "static_qualified",
+  "rights": {
+    "decision": "pass_permissive",
+    "license_name": "Apache-2.0",
+    "terms_urls": [
+      "https://huggingface.co/Qwen/Qwen3.5-2B-Base/blob/b1485b2fa6dfa1287294f269f5fb618e03d52d7c/LICENSE",
+      "https://www.apache.org/licenses/LICENSE-2.0.txt",
+      "https://huggingface.co/Qwen/Qwen3.5-2B-Base/tree/b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+      "https://huggingface.co/api/models/Qwen/Qwen3.5-2B-Base/revision/b1485b2fa6dfa1287294f269f5fb618e03d52d7c"
+    ],
+    "personal_use": "yes",
+    "commercial_use": "yes",
+    "modification": "yes",
+    "fine_tuning": "yes",
+    "quantization": "yes",
+    "derivative_redistribution": "yes",
+    "account_gate_required": false,
+    "clickthrough_gate_required": false,
+    "end_user_separate_license_required": false,
+    "field_or_scale_restrictions": [],
+    "rationale": "Upstream repository publishes the model under Apache-2.0 (machine-readable `license: apache-2.0` metadata in README/model card and HF model tags). Apache-2.0 grants personal/commercial use, modification, fine-tuning, quantization/conversion, and derivative redistribution with notice preservation. A verbatim Apache-2.0 LICENSE file exists in the pinned repository tree. Component rights (FR-016): tokenizer files and any vision-encoder weights ship inside the same pinned repository tree and are covered by the identical declared license verified at the pinned revision; no third-party component with independent terms is used. Any weight-access task must re-verify all components at acquisition time."
+  },
+  "architecture": {
+    "family": "qwen3_5",
+    "parameter_count_total": 2274069824,
+    "parameter_count_active": 2274069824,
+    "tokenizer_id": "Qwen/Qwen3.5-2B-Base tokenizer (Qwen2Tokenizer, BPE)",
+    "tokenizer_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+    "vision_components": [
+      "integrated qwen3_5 vision encoder (same repo/LICENSE, Apache-2.0)"
+    ],
+    "fim_capability": "yes"
+  },
+  "runtime_support_notes": [
+    "GGUF conversion expected viable via llama.cpp-class runtimes (to be proven by later artifact tasks).",
+    "CPU-only basic operation targeted per universal-laptop invariant.",
+    "Multimodal architecture: serving may require text-only pathway validation during runtime qualification."
+  ],
+  "quantization_support_notes": [
+    "Q4-class quantization targeted <=3GB primary artifact budget (FR-003); actual viability deferred to measured artifact tasks."
+  ],
+  "source_urls": [
+    "https://huggingface.co/Qwen/Qwen3.5-2B-Base/tree/b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+    "https://huggingface.co/Qwen/Qwen3.5-2B-Base/blob/b1485b2fa6dfa1287294f269f5fb618e03d52d7c/config.json",
+    "https://huggingface.co/Qwen/Qwen3.5-2B-Base/raw/b1485b2fa6dfa1287294f269f5fb618e03d52d7c/README.md",
+    "https://huggingface.co/api/models/Qwen/Qwen3.5-2B-Base/revision/b1485b2fa6dfa1287294f269f5fb618e03d52d7c"
+  ]
+}
