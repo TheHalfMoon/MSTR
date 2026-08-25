@@ -93,6 +93,33 @@ class VerifierOutcome:
 
 
 @dataclass(frozen=True, slots=True)
+class EditLineage:
+    """Durable-edit lineage required by MSTR-MEASURE-v0 section 6."""
+
+    committed_at_ns: int
+    file_hash_before: str
+    file_hash_after: str
+
+    def __post_init__(self) -> None:
+        if not self.file_hash_before or not self.file_hash_after:
+            raise _fail(
+                "edit lineage requires before/after file hashes",
+                code="measurement.lineage_missing_hashes",
+            )
+        if self.file_hash_before == self.file_hash_after:
+            raise _fail(
+                "edit lineage hashes must differ (no-op commit is not a durable edit)",
+                code="measurement.lineage_noop_commit",
+            )
+
+
+class RunFailureKind(Enum):
+    VERIFIER_FAIL = "verifier_fail"
+    MODEL_ERROR = "model_error"
+    TOOL_ERROR = "tool_error"
+
+
+@dataclass(frozen=True, slots=True)
 class MeasurementRecord:
     """Immutable outcome of one measured run."""
 
@@ -104,6 +131,7 @@ class MeasurementRecord:
     ttvc_ms: float | None
     verifier_outcomes: tuple[VerifierOutcome, ...]
     rejected_tool_outputs: int
+    edit_lineage: tuple[EditLineage, ...] = ()
     wall_clock_metadata: dict[str, str] = field(default_factory=dict)
     censor_reason: str | None = None
 
@@ -113,6 +141,13 @@ _NS_PER_MS = 1_000_000
 
 def _to_ms(delta_ns: int) -> float:
     return delta_ns / _NS_PER_MS
+
+
+_FAILURE_KIND_TO_RESULT: dict[RunFailureKind, FinalResultKind] = {
+    RunFailureKind.VERIFIER_FAIL: FinalResultKind.VERIFIER_FAIL,
+    RunFailureKind.MODEL_ERROR: FinalResultKind.MODEL_ERROR,
+    RunFailureKind.TOOL_ERROR: FinalResultKind.TOOL_ERROR,
+}
 
 
 class TaskMeasurementSession:
@@ -149,12 +184,13 @@ class TaskMeasurementSession:
         self._last_event_ns: int | None = None
         self._ttfi_end_ns: int | None = None
         self._ttfa_end_ns: int | None = None
-        self._ttfce_commit_ns: int | None = None
+        self._edit_lineage: list[EditLineage] = []
         self._verifier_passes: dict[str, int] = {}
-        self._verifier_fails: dict[str, int] = {}
+        self._verifier_events: list[VerifierOutcome] = []
         self._terminal: TerminalState | None = None
         self._terminal_ns: int | None = None
         self._terminal_detail: str | None = None
+        self._failure_kind: RunFailureKind = RunFailureKind.VERIFIER_FAIL
         self._rejected_tool_outputs = 0
 
     # -- lifecycle ---------------------------------------------------------
@@ -212,7 +248,8 @@ class TaskMeasurementSession:
         """Stop TTFI on the first complete locally generated smoke response."""
         now = self._advance()
         self._reject_if_terminal()
-        self._ttfi_end_ns = now
+        if self._ttfi_end_ns is None:
+            self._ttfi_end_ns = now
 
     # -- TTFA --------------------------------------------------------------
 
@@ -233,8 +270,18 @@ class TaskMeasurementSession:
 
     # -- TTFCE ---------------------------------------------------------------
 
-    def record_edit_committed(self) -> None:
-        """A durable edit transaction successfully COMMITS to the workspace."""
+    def record_edit_committed(
+        self,
+        *,
+        file_hash_before: str,
+        file_hash_after: str,
+    ) -> None:
+        """A durable edit transaction successfully COMMITS to the workspace.
+
+        Before/after file hashes are mandatory lineage per T001 section 6;
+        numeric TTFCE is reported later only when the contribution survives
+        into the finally verified state.
+        """
         now = self._advance()
         self._reject_if_terminal()
         if not self._requires_edit:
@@ -242,8 +289,13 @@ class TaskMeasurementSession:
                 "edit commit recorded for a no-edit task",
                 code="measurement.edit_on_no_edit_task",
             )
-        if self._ttfce_commit_ns is None:
-            self._ttfce_commit_ns = now
+        self._edit_lineage.append(
+            EditLineage(
+                committed_at_ns=now,
+                file_hash_before=file_hash_before,
+                file_hash_after=file_hash_after,
+            )
+        )
 
     # -- verifiers -----------------------------------------------------------
 
@@ -256,10 +308,14 @@ class TaskMeasurementSession:
                 code="measurement.unknown_verifier",
                 details={"verifier_id": verifier_id},
             )
+        # Latest result governs: a fail after a pass removes the stale pass so
+        # completion can never claim verified status from outdated evidence.
+        self._verifier_passes.pop(verifier_id, None)
         if passed:
             self._verifier_passes[verifier_id] = now
-        else:
-            self._verifier_fails[verifier_id] = self._verifier_fails.get(verifier_id, 0) + 1
+        self._verifier_events.append(
+            VerifierOutcome(verifier_id=verifier_id, passed=passed, at_ns=now)
+        )
 
     # -- terminals -------------------------------------------------------------
 
@@ -271,9 +327,14 @@ class TaskMeasurementSession:
         now = self._advance()
         self._set_terminal(TerminalState.TIMED_OUT, now)
 
-    def fail_run(self, detail: str) -> None:
+    def fail_run(
+        self,
+        detail: str,
+        kind: RunFailureKind = RunFailureKind.VERIFIER_FAIL,
+    ) -> None:
         now = self._advance()
         self._set_terminal(TerminalState.FAILED, now, detail)
+        self._failure_kind = kind
 
     def _set_terminal(
         self,
@@ -313,20 +374,8 @@ class TaskMeasurementSession:
             else _to_ms(self._ttfa_end_ns - started_ns)
         )
 
-        outcomes = [
-            VerifierOutcome(verifier_id=v, passed=True, at_ns=self._verifier_passes[v])
-            for v in self._ordered_required
-            if v in self._verifier_passes
-        ]
+        outcomes = tuple(self._verifier_events)
         missing_passes = sorted(set(self._ordered_required) - set(self._verifier_passes))
-
-        ttfce_ms: float | None
-        if not self._requires_edit:
-            ttfce_ms = None  # N/A rather than zero per T001 section 6
-        elif self._ttfce_commit_ns is None:
-            ttfce_ms = None
-        else:
-            ttfce_ms = _to_ms(self._ttfce_commit_ns - started_ns)
 
         censor_reason: str | None = None
         final_result: FinalResultKind
@@ -336,15 +385,21 @@ class TaskMeasurementSession:
             final_result = FinalResultKind.TIMEOUT
             censor_reason = "timeout budget exhausted before verified completion"
         elif self._terminal is TerminalState.FAILED:
-            final_result = FinalResultKind.VERIFIER_FAIL
+            final_result = _FAILURE_KIND_TO_RESULT[self._failure_kind]
             censor_reason = self._terminal_detail or "run failed"
         elif self._terminal is TerminalState.COMPLETED:
+            elapsed_ns = self._terminal_ns - started_ns
             if missing_passes:
                 final_result = FinalResultKind.VERIFIER_FAIL
                 censor_reason = (
                     "task claimed completed but required verifiers did not pass: "
                     + ",".join(missing_passes)
                 )
+            elif self._timeout_ns is not None and elapsed_ns > self._timeout_ns:
+                # The frozen budget is enforced at finalization even when the
+                # caller claimed completion after the budget had expired.
+                final_result = FinalResultKind.TIMEOUT
+                censor_reason = "frozen timeout budget exceeded despite claimed completion"
             else:
                 last_pass_ns = max(
                     self._verifier_passes[v] for v in self._ordered_required
@@ -353,6 +408,18 @@ class TaskMeasurementSession:
                 ttvc_ms = _to_ms(ttvc_ns)
                 final_result = FinalResultKind.VERIFIED_PASS
 
+        # Numeric TTFCE exists only when the run reached VERIFIED_PASS with the
+        # committed contribution surviving into the verified state (T001 §6);
+        # censored runs keep it undefined rather than reporting a partial value.
+        ttfce_ms: float | None = None
+        if (
+            final_result is FinalResultKind.VERIFIED_PASS
+            and self._requires_edit
+            and self._edit_lineage
+        ):
+            first_commit_ns = min(e.committed_at_ns for e in self._edit_lineage)
+            ttfce_ms = _to_ms(first_commit_ns - started_ns)
+
         return MeasurementRecord(
             censored=censor_reason is not None,
             final_result=final_result,
@@ -360,8 +427,9 @@ class TaskMeasurementSession:
             ttfa_ms=ttfa_ms,
             ttfce_ms=ttfce_ms,
             ttvc_ms=ttvc_ms,
-            verifier_outcomes=tuple(outcomes),
+            verifier_outcomes=outcomes,
             rejected_tool_outputs=self._rejected_tool_outputs,
+            edit_lineage=tuple(self._edit_lineage),
             wall_clock_metadata=dict(self._wall_clock_metadata),
             censor_reason=censor_reason,
         )
@@ -370,12 +438,14 @@ class TaskMeasurementSession:
 __all__ = [
     "PROTOCOL_ID",
     "AcceptedActionKind",
+    "EditLineage",
     "FinalResultKind",
     "ManualClock",
     "MeasurementProtocolError",
     "MeasurementRecord",
     "MonotonicClock",
     "ProtocolViolationError",
+    "RunFailureKind",
     "SystemMonotonicClock",
     "TaskMeasurementSession",
     "TerminalState",

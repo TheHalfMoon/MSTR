@@ -10,6 +10,7 @@ from mstr_qualify.measurement.protocol import (
     AcceptedActionKind,
     FinalResultKind,
     MeasurementRecord,
+    RunFailureKind,
     TaskMeasurementSession,
 )
 
@@ -44,7 +45,7 @@ def _happy_path(clock: MutableClock, session: TaskMeasurementSession) -> None:
     clock.value_ns += 40 * MS
     session.record_accepted_action(AcceptedActionKind.REPOSITORY_SEARCH)
     clock.value_ns += 200 * MS
-    session.record_edit_committed()
+    session.record_edit_committed(file_hash_before="a" * 64, file_hash_after="b" * 64)
     clock.value_ns += 100 * MS
     session.record_verifier_result("v_static", passed=True)
     clock.value_ns += 150 * MS
@@ -94,7 +95,7 @@ class TestTTFA:
         clock.value_ns += 20 * MS
         session.record_accepted_action(AcceptedActionKind.FILE_OR_SYMBOL_READ)
         clock.value_ns += 50 * MS
-        session.record_edit_committed()
+        session.record_edit_committed(file_hash_before="a" * 64, file_hash_after="b" * 64)
         for verifier in ("v_static", "v_tests"):
             clock.value_ns += 10 * MS
             session.record_verifier_result(verifier, passed=True)
@@ -112,7 +113,7 @@ class TestTTFA:
         session.record_accepted_action(AcceptedActionKind.SHELL_BUILD_TEST_START)
         clock.value_ns += 90 * MS
         session.record_accepted_action(AcceptedActionKind.FILE_OR_SYMBOL_READ)
-        session.record_edit_committed()
+        session.record_edit_committed(file_hash_before="a" * 64, file_hash_after="b" * 64)
         for verifier in ("v_static", "v_tests"):
             session.record_verifier_result(verifier, passed=True)
         session.complete_task()
@@ -152,7 +153,7 @@ class TestRepairTimeInsideTTVC:
         session = _session(clock)
         session.start_task()
         session.record_accepted_action(AcceptedActionKind.EDIT_TRANSACTION_START)
-        session.record_edit_committed()
+        session.record_edit_committed(file_hash_before="a" * 64, file_hash_after="b" * 64)
         clock.value_ns += 100 * MS
         session.record_verifier_result("v_static", passed=True)
         clock.value_ns += 100 * MS
@@ -162,9 +163,33 @@ class TestRepairTimeInsideTTVC:
         session.complete_task()
         record = session.finalize()
         assert record.censored is False
-        assert record.verifier_outcomes[1].passed is True
+        # All verifier events (including the failed one) are retained as
+        # evidence; the last event for v_tests is the post-repair PASS.
+        assert len(record.verifier_outcomes) == 3
+        assert record.verifier_outcomes[1].passed is False
+        assert record.verifier_outcomes[2].passed is True
         # Repair time remains inside TTVC: last required PASS at ~700ms.
         assert record.ttvc_ms == pytest.approx(700.0)
+
+    def test_stale_pass_removed_when_verifier_fails_after_passing(self) -> None:
+        clock = MutableClock()
+        session = _session(clock)
+        session.start_task()
+        session.record_accepted_action(AcceptedActionKind.EDIT_TRANSACTION_START)
+        session.record_edit_committed(file_hash_before="a" * 64, file_hash_after="b" * 64)
+        clock.value_ns += 100 * MS
+        session.record_verifier_result("v_tests", passed=True)  # early pass
+        clock.value_ns += 100 * MS
+        session.record_verifier_result("v_static", passed=True)
+        clock.value_ns += 100 * MS
+        session.record_verifier_result("v_tests", passed=False)  # regression!
+        session.complete_task()
+        record = session.finalize()
+        # The stale v_tests pass must NOT yield VERIFIED_PASS.
+        assert record.censored is True
+        assert record.final_result is FinalResultKind.VERIFIER_FAIL
+        assert "v_tests" in (record.censor_reason or "")
+        assert record.ttvc_ms is None
 
 
 class TestCensoring:
@@ -281,3 +306,78 @@ class TestManualClockDeterminism:
             _happy_path(clock, session)
             records.append(session.finalize())
         assert records[0] == records[1]
+
+
+class TestReviewFixRegressions:
+    def test_frozen_timeout_budget_enforced_even_if_completion_claimed(self) -> None:
+        clock = MutableClock()
+        session = TaskMeasurementSession(
+            required_verifiers=("v_static",),
+            requires_edit=False,
+            clock=clock,
+            timeout_ns=1_000 * MS,
+        )
+        session.start_task()
+        session.record_verifier_result("v_static", passed=True)
+        clock.value_ns += 5_000 * MS  # completion claimed far beyond budget
+        session.complete_task()
+        record = session.finalize()
+        assert record.censored is True
+        assert record.final_result is FinalResultKind.TIMEOUT
+        assert record.ttvc_ms is None
+
+    def test_ttfi_first_response_only(self) -> None:
+        clock = MutableClock()
+        session = _session(clock, edit=False)
+        session.start_task()
+        clock.value_ns += 7 * MS
+        session.record_first_local_interaction()
+        clock.value_ns += 90 * MS
+        session.record_first_local_interaction()  # later smoke response ignored
+        for verifier in ("v_static", "v_tests"):
+            session.record_verifier_result(verifier, passed=True)
+        session.complete_task()
+        record = session.finalize()
+        assert record.ttfi_ms == pytest.approx(7.0)
+
+    def test_failure_kinds_map_to_distinct_results(self) -> None:
+        for kind, expected in [
+            (RunFailureKind.MODEL_ERROR, FinalResultKind.MODEL_ERROR),
+            (RunFailureKind.TOOL_ERROR, FinalResultKind.TOOL_ERROR),
+            (RunFailureKind.VERIFIER_FAIL, FinalResultKind.VERIFIER_FAIL),
+        ]:
+            clock = MutableClock()
+            session = _session(clock)
+            session.start_task()
+            session.fail_run("operational failure", kind=kind)
+            record = session.finalize()
+            assert record.final_result is expected
+
+    def test_edit_lineage_required_and_reported(self) -> None:
+        clock = MutableClock()
+        session = _session(clock)
+        session.start_task()
+        session.record_accepted_action(AcceptedActionKind.EDIT_TRANSACTION_START)
+        with pytest.raises(Exception, match="lineage"):
+            session.record_edit_committed(file_hash_before="", file_hash_after="")
+        with pytest.raises(Exception, match="no-op"):
+            session.record_edit_committed(
+                file_hash_before="a" * 64, file_hash_after="a" * 64
+            )
+        session.record_edit_committed(file_hash_before="a" * 64, file_hash_after="b" * 64)
+        for verifier in ("v_static", "v_tests"):
+            session.record_verifier_result(verifier, passed=True)
+        session.complete_task()
+        record = session.finalize()
+        assert len(record.edit_lineage) == 1
+
+    def test_censored_run_does_not_report_numeric_ttfce(self) -> None:
+        clock = MutableClock()
+        session = _session(clock)
+        session.start_task()
+        session.record_accepted_action(AcceptedActionKind.EDIT_TRANSACTION_START)
+        session.record_edit_committed(file_hash_before="a" * 64, file_hash_after="b" * 64)
+        session.mark_timed_out()  # contribution never verified
+        record = session.finalize()
+        assert record.censored is True
+        assert record.ttfce_ms is None

@@ -18,6 +18,11 @@ tests/unit/measurement/test_protocol.py         20 tests
 |---|---|
 | §2 monotonic clock | All durations from `MonotonicClock.now_ns()` (`time.monotonic_ns` in production); wall-clock strings stored as metadata only and provably absent from latency math. |
 | Events never move backward | Every recorded event validates against the last event timestamp; violation raises `measurement.event_backwards` fail-closed. |
+| Frozen timeout budget enforced | Finalization re-checks elapsed time against the frozen budget even when completion was claimed after expiry — censored TIMEOUT, never a fast PASS. |
+| TTFI first-response only | Later smoke responses cannot inflate TTFI; the first complete response wins. |
+| Latest verifier result governs | A verifier failing after passing has its stale pass removed, so claimed completion censors as VERIFIER_FAIL instead of riding outdated evidence. |
+| Failure kinds distinct | `fail_run(kind=...)` maps MODEL_ERROR / TOOL_ERROR / VERIFIER_FAIL to their declared result kinds. |
+| Durable edit lineage (T001 §6) | `record_edit_committed` requires differing before/after file hashes (no-op commits rejected); lineage retained on the record; numeric TTFCE reported ONLY for uncensored VERIFIED_PASS runs where the contribution survived verification; all full verifier events (passes AND failures) are retained as evidence. |
 | Required verifier set frozen before execution | Set captured at construction; post-construction mutation of the caller's list cannot add verifiers; unknown ids rejected; duplicates rejected. |
 | TTFA = first ACCEPTED external action (§5) | `record_accepted_action` stops TTFA on the FIRST accepted action only; `record_rejected_tool_output` explicitly never stops it (counted for reporting). |
 | Malformed/rejected output does not stop TTFA | Covered by explicit rejection counter test — TTFA measured only at the later accepted action. |
@@ -36,7 +41,7 @@ tests/unit/measurement/test_protocol.py         20 tests
 ## Evidence of quality gates (exact head)
 
 ```text
-pytest -q                      -> 296 passed   (276 after T025 + 20 new)
+pytest -q                      -> 302 passed   (276 after T025 + 26 new incl. review-fix regressions)
 ruff check src tests           -> All checks passed!
 mypy (strict)                  -> Success: no issues found in 19 source files
 python -m mstr_qualify validate -> exit 0
