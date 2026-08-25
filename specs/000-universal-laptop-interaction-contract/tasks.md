@@ -77,7 +77,7 @@ A checkbox becomes complete only when the stated output exists, required tests/e
 
 - [x] T023 [P] [US1] Define runtime/platform adapter protocols with dummy implementations → `src/mstr_qualify/runtimes/base.py`, `src/mstr_qualify/measurement/platform.py`, `tests/unit/test_runtime_protocol.py`, `tests/unit/test_platform_sampler.py`.
 - [x] T024 [P] [US1] Implement artifact manifest/hash verification → `src/mstr_qualify/artifacts.py`, `tests/unit/test_artifacts.py`, `tests/fixtures/artifacts/`.
-- [ ] T025 [P] [US1] Implement Windows/Linux/macOS memory/paging samplers and unavailable-metric semantics → `src/mstr_qualify/measurement/{windows,linux,macos}.py`, `tests/unit/measurement/`.
+- [x] T025 [P] [US1] Implement Windows/Linux/macOS memory/paging samplers and unavailable-metric semantics → `src/mstr_qualify/measurement/{windows,linux,macos}.py`, `tests/unit/measurement/`.
 - [ ] T026 [P] [US1] Implement `MSTR-MEASURE-v0` monotonic event/TTFI/TTFA/TTFCE/TTVC logic → `src/mstr_qualify/measurement/protocol.py`, `tests/unit/measurement/test_protocol.py`.
 - [ ] T027 [US1] Freeze exact weight-access/acquisition manifest including candidates/revisions, source URLs, expected integrity checks, storage ceiling, runtime/quantizer, network behavior, cost ceiling, retention/cleanup → `artifacts/manifests/T027-weight-access.json`, `evidence/T027-weight-access-preflight.md`.
 - [ ] T028 [US1] **EXPLICIT WEIGHT ACCESS GATE:** only after separate exact authorization, acquire T027-listed candidate artifacts, verify source/integrity, keep binaries outside Git → `artifacts/manifests/T028-acquired-artifacts.json`, `evidence/T028-weight-acquisition.md`; downloaded files remain ignored/external.
