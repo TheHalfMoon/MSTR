@@ -1,7 +1,8 @@
 # T022 — Bounded Weight-Eligible Candidate Set Selection
 
 **Task:** MSTR-000 / T022
-**Branch:** task/000-t022-static-admission
+**Branch:** task/000-t022-static-admission  
+**Canonical merge:** PR #23 as `f77e213` (exact head ce9edba27cc4371b1cc18e9788b7f7863909c8e0)
 **Decision record:** `artifacts/decisions/T022-static-candidate-admission.json` — canonical T007 immutable envelope (`mstr.evidence-envelope.v1`, record_type `T022-static-candidate-admission`), envelope SHA-256 `8d6cdc6c0e233354bdea0bfb45dc246712969b1a05b1c8706527dd3ff03bec34`, loadable via `load_finalized_evidence`.
 **Scope:** select the bounded set of candidates that may proceed to weight-access planning (T027/T028) — WITHOUT final backbone admission, WITHOUT downloading weights, WITHOUT execution. Metadata only; all facts already canonical from T012–T021.
 
@@ -56,6 +57,7 @@ TRAINING = NONE
 ## Result candidate
 
 ```text
-T022_RESULT = PASS_CANDIDATE
+T022_RESULT = COMPLETE_CANONICAL
+US2_STATUS = CLOSED (checkpoint reached)
 NEXT_TASKS_AFTER_CANONICAL_MERGE = T023-T026 [P] (Phase-4 harness infrastructure), then T027 preflight
 ```
