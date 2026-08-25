@@ -316,6 +316,7 @@ def verify_artifact(manifest: ArtifactManifest, root: Path) -> dict[str, Any]:
                 code="artifact.symlink_rejected",
                 details={"path": entry.relative_path},
             )
+        _reject_intermediate_symlinks(root, entry.relative_path)
         _resolve_under_root(root, entry.relative_path)
         _reject_intermediate_symlinks(root, entry.relative_path)
         if not candidate.is_file():
