@@ -38,7 +38,7 @@ tests/unit/test_platform_sampler.py          12 tests
 ## Evidence of quality gates (exact head, run 2026-08-25)
 
 ```text
-pytest -q                 -> 201 passed   (174 pre-existing + 27 new)
+pytest -q                 -> 205 passed   (174 pre-existing + 31 new after review fixes)
 ruff check src tests      -> All checks passed!
 mypy (strict)             -> Success: no issues found in 14 source files
 python -m mstr_qualify validate -> exit 0 (schema self-check unchanged)
