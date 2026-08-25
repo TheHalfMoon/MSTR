@@ -36,7 +36,7 @@ No fetching of weights or any remote content; `verify_artifact` reads only local
 ## Evidence of quality gates (exact head)
 
 ```text
-pytest -q                      -> 240 passed   (205 after T023 fixes + 35 new, incl. review-fix regressions)
+pytest -q                      -> 245 passed   (205 after T023 fixes + 40 new, incl. review-fix regressions)
 ruff check src tests           -> All checks passed!
 mypy (strict)                  -> Success: no issues found in 15 source files
 python -m mstr_qualify validate -> exit 0
