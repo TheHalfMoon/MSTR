@@ -45,7 +45,7 @@ ACTIVE_BRANCH = task/000-t011-quality-gates
 TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
 ```
 
-T011 freezes harness quality gates in `configs/quality.toml` (`mstr.quality-gates.v1`): full pytest suite, repo-wide ruff, strict mypy, and offline CLI schema self-check are all required on every future task head. Pre-existing lint debt deferred by T009 was repaired; `py.typed` + dev-only `types-jsonschema` enable strict typechecking; `uv.lock` pins the gate toolchain. CI remains deliberately absent per task definition.
+T011 freezes harness quality gates in `configs/quality.toml` (`mstr.quality-gates.v1`): full pytest suite, ruff over src and tests, strict mypy, and offline CLI schema self-check are all required on every future task head. Pre-existing lint debt deferred by T009 was repaired; `py.typed` + dev-only `types-jsonschema` enable strict typechecking; `uv.lock` pins the gate toolchain. CI remains deliberately absent per task definition.
 
 Candidate evidence:
 `specs/000-universal-laptop-interaction-contract/evidence/T011-harness-foundation-qualification.md`.

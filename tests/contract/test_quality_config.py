@@ -1,8 +1,9 @@
 """T011 contract tests: the frozen harness quality-gate configuration.
 
 These tests keep `configs/quality.toml` honest: it must stay parseable,
-declare the four required gates, and preserve the offline/no-CI decisions
-recorded in T011 evidence.
+declare exactly the four required gates with their exact frozen commands,
+preserve the offline / dependency-policy / no-CI decisions recorded in T011
+evidence, and contain no unrecognized gate entries.
 """
 
 from __future__ import annotations
@@ -13,7 +14,14 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 QUALITY_CONFIG = REPO_ROOT / "configs" / "quality.toml"
 
-_REQUIRED_GATES = ("test_suite", "lint", "typecheck", "schema_selfcheck")
+_REQUIRED_GATES: dict[str, str] = {
+    "test_suite": "pytest -q",
+    "lint": "ruff check src tests",
+    "typecheck": "mypy",
+    "schema_selfcheck": "python -m mstr_qualify validate",
+}
+_EXIT_CODE_ZERO_REQUIRED_GATES = frozenset({"schema_selfcheck"})
+_APPROVED_RUNTIME_DEPENDENCIES = ["jsonschema>=4.23,<5"]
 
 
 def load_quality_config() -> dict[str, object]:
@@ -25,20 +33,26 @@ def test_quality_config_is_parseable_toml() -> None:
     assert data["schema_version"] == "mstr.quality-gates.v1"
 
 
-def test_all_required_gates_are_declared_and_required() -> None:
+def test_all_required_gates_match_their_exact_frozen_commands() -> None:
     gates = load_quality_config()["gates"]
     assert isinstance(gates, dict)
-    for name in _REQUIRED_GATES:
+    assert set(gates) == set(_REQUIRED_GATES), "gate set must not silently change"
+    for name, expected_command in _REQUIRED_GATES.items():
         gate = gates[name]
         assert isinstance(gate, dict)
         assert gate["required"] is True, f"gate {name} must remain required"
-        assert isinstance(gate.get("command"), str) and gate["command"].strip()
+        assert gate["command"] == expected_command, f"gate {name} command drifted"
+        expect_exit_zero = name in _EXIT_CODE_ZERO_REQUIRED_GATES
+        assert gate.get("exit_code_zero_required", False) is expect_exit_zero, (
+            f"gate {name} exit_code_zero_required must be {expect_exit_zero}"
+        )
 
 
 def test_offline_discipline_remains_frozen() -> None:
     environment = load_quality_config()["environment"]
     assert isinstance(environment, dict)
     assert environment["offline_required"] is True
+    assert environment["minimum_python"] == "3.11"
 
 
 def test_dependency_policy_stays_fail_closed() -> None:
@@ -46,6 +60,7 @@ def test_dependency_policy_stays_fail_closed() -> None:
     assert isinstance(policy, dict)
     assert policy["runtime_dependency_additions_require_task_authority"] is True
     assert policy["dev_tooling_may_not_become_runtime_dependency"] is True
+    assert policy["approved_runtime_dependencies"] == _APPROVED_RUNTIME_DEPENDENCIES
 
 
 def test_distribution_decisions_match_recorded_evidence() -> None:
@@ -55,13 +70,6 @@ def test_distribution_decisions_match_recorded_evidence() -> None:
     # someone flips the declaration without revisiting that evidence.
     assert distribution["ci_workflows_added"] is False
     assert distribution["model_weights_in_git"] is False
-
-
-def test_schema_selfcheck_gate_requires_exit_zero() -> None:
-    gates = load_quality_config()["gates"]
-    gate = gates["schema_selfcheck"]
-    assert isinstance(gate, dict)
-    assert gate["exit_code_zero_required"] is True
 
 
 def test_declared_gate_commands_run_from_repo_root() -> None:

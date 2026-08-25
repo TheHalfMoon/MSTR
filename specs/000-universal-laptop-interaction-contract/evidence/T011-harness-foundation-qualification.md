@@ -40,8 +40,8 @@ No GitHub Actions workflow was added. The repository has no `.github/workflows/`
 
 ```text
 Python = 3.14.0 (.venv via uv)
-pytest = 9.1.1        → full suite: 175 passed (168 prior + 7 contract/quality-config tests)
-ruff = 0.16.4         → All checks passed (src + tests, zero errors repo-wide)
+pytest = 9.1.1        → full suite: 174 passed (168 prior + 6 contract/quality-config tests)
+ruff = 0.16.4         → All checks passed (zero errors in src and tests, matching the frozen gate scope)
 mypy = 1.20.2         → Success: no issues found in 10 source files (strict)
 python -m mstr_qualify validate → exit 0 (4 schemas self-checked, 4 valid fixtures passed, 4 invalid fixtures rejected)
 jsonschema = 4.26.0 (runtime dep unchanged)
@@ -53,7 +53,7 @@ CI = NO_RUN / NOT_PRESENT (no workflows exist; none claimed)
 
 ## Review finding resolution
 
-qodo-code-review raised one High finding on PR #17: the gate contract tests did not assert `exit_code_zero_required`, did not verify gate-tool runnability, and did not verify the CLI subcommand wiring. Resolved on the same head by extending `tests/contract/test_quality_config.py`: explicit `exit_code_zero_required is True` assertion, importability checks for pytest/ruff/mypy in the active environment, and `build_parser().parse_args` probes for all four command families. Re-run after fix: full suite 175 passed; ruff clean; mypy strict clean.
+qodo-code-review raised one High finding on PR #17: the gate contract tests did not assert `exit_code_zero_required`, did not verify gate-tool runnability, and did not verify the CLI subcommand wiring. Resolved on the same head by extending `tests/contract/test_quality_config.py`: explicit `exit_code_zero_required is True` assertion, importability checks for pytest/ruff/mypy in the active environment, and `build_parser().parse_args` probes for all four command families. Re-run after fix: full suite 175 passed; ruff clean (src + tests); mypy strict clean.
 
 ## Authority / safety
 
