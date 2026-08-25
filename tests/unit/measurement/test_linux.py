@@ -91,7 +91,7 @@ class TestParsers:
 
 
 class TestProcessTreeSampling:
-    def test_core_tree_aggregates_rss_peak_swap(self) -> None:
+    def test_core_tree_aggregates_rss_and_swap_peak_withheld(self) -> None:
         sampler = _sampler(
             {
                 10: _fields(100_000, 150_000, 5_000, 60_000),
@@ -103,11 +103,12 @@ class TestProcessTreeSampling:
         assert sample.scope is MemoryScope.MSTR_CORE_TREE
         assert sample.process_count == 2
         assert sample.rss_bytes.value == (300_000 * 1024)
-        assert sample.peak_rss_bytes.value == (400_000 * 1024)
         assert sample.swap_used_bytes.value == (8_000 * 1024)
         assert sample.private_bytes.name == "rss_anon_bytes"
+        assert sample.peak_rss_bytes.availability is MetricAvailability.UNAVAILABLE
+        assert "overstate" in (sample.peak_rss_bytes.note or "")
         note = sample.private_bytes.note
-        assert note is not None and "not equivalent" in note
+        assert note is not None and "distinct from private working set" in note
 
     def test_tool_tree_and_total_tree_are_distinct_scopes(self) -> None:
         sampler = _sampler(
@@ -132,6 +133,12 @@ class TestProcessTreeSampling:
 
 
 class TestSystemSampling:
+    def test_vmstat_swap_io_surfaces_in_extras(self) -> None:
+        sample = _sampler({}).sample_system_memory()
+        extras = {m.name: m for m in sample.extra_metrics}
+        assert extras["swap_in_total_bytes"].value == 1200 * 4 * 1024
+        assert extras["swap_out_total_bytes"].value == 3400 * 4 * 1024
+
     def test_system_memory_from_meminfo(self) -> None:
         sample = _sampler({}).sample_system_memory()
         assert sample.total_bytes.value == 8_167_300 * 1024

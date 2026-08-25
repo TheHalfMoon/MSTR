@@ -151,6 +151,7 @@ class SystemMemorySample:
     major_page_faults_total: SampledMetric
     pressure_state: SystemMemoryPressure
     notes: tuple[str, ...] = ()
+    extra_metrics: tuple[SampledMetric, ...] = ()
 
     def __post_init__(self) -> None:
         if self.pressure_state is SystemMemoryPressure.UNKNOWN and len(self.notes) == 0:

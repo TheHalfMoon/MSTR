@@ -20,9 +20,9 @@ tests/unit/measurement/test_macos.py     10 tests (mocked collectors)
 
 | OS | RSS headline | Peak RSS | Private identity | Swap identity | Notes |
 |---|---|---|---|---|---|
-| Linux | VmRSS × 1 KiB→bytes | VmHWM | `rss_anon_bytes` (RssAnon — kept as its OWN identity, explicitly NOT equated to Windows private working set) | VmSwap per process; SwapTotal−SwapFree system-wide | PSI pressure left UNKNOWN until thresholds are frozen by a later task |
-| Windows | Working set | Peak working set | PrivateUsage (`private_bytes`) | pagefile backing (Page File Usage) | PageFaultCount is TOTAL faults — never relabeled hard faults; hard-fault deltas need ETW → UNSUPPORTED; dwMemoryLoad percent is NOT converted into a pressure state |
-| macOS | ri_resident_size | UNSUPPORTED (proc_pid_rusage exposes current only) | `phys_footprint_bytes` (own identity) | kern.vm_swapusage parsed (total/used) | available = (free+inactive) estimate, labeled as estimate; memorystatus pressure level needs notification machinery → UNKNOWN with note |
+| Linux | VmRSS × 1 KiB→bytes | WITHHELD — summing per-process lifetime VmHWMs overstates concurrent tree peak; true peak needs harness-side sampling | `rss_anon_bytes` (RssAnon — own identity, never equated to private working set); aggregate withheld if any sampled pid lacks the field | VmSwap per process (withheld if any pid lacks it); SwapTotal−SwapFree system-wide | pswpin/pswpout cumulative byte totals surface in extra_metrics; PSI pressure UNKNOWN until thresholds frozen |
+| Windows | Working set | WITHHELD (same concurrent-peak reasoning as Linux) | PrivateUsage (`private_bytes`) | UNSUPPORTED — MEMORYSTATUSEX pagefile fields are COMMIT limit/charge, reported under `commit_limit_bytes`/`commit_charge_bytes` extras instead | PageFaultCount is TOTAL faults — never relabeled hard faults (ETW needed → UNSUPPORTED); dwMemoryLoad reported raw, NOT mapped to a pressure state |
+| macOS | ri_resident_size | UNSUPPORTED (proc_pid_rusage exposes current only) | `phys_footprint_bytes` (own identity) | kern.vm_swapusage parsed (total/used) | total RAM from hw.memsize sysctl (NEVER from summing page classes); default page size host-queried via SC_PAGE_SIZE; available labeled as (free+inactive) estimate; pageins/pageouts kept raw in extras |
 
 ## Scope distinctions preserved
 
@@ -39,7 +39,7 @@ All three samplers take injected data sources (proc text readers, collector call
 ## Evidence of quality gates (exact head)
 
 ```text
-pytest -q                      -> 271 passed   (245 after T024 + 26 new)
+pytest -q                      -> 276 passed   (245 after T024 + 31 new incl. review-fix regressions)
 ruff check src tests           -> All checks passed!
 mypy (strict)                  -> Success: no issues found in 18 source files
 ```

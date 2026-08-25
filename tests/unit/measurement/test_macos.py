@@ -5,10 +5,10 @@ from __future__ import annotations
 import pytest
 
 from mstr_qualify.measurement.macos import (
-    FakeProcRusage,
-    FakeVmStatistics,
     MacOSPlatformSampler,
     MacOSSamplerOptions,
+    ProcRusageSnapshot,
+    VmStatisticsSnapshot,
     parse_swap_usage_text,
 )
 from mstr_qualify.measurement.platform import (
@@ -20,16 +20,20 @@ from mstr_qualify.measurement.platform import (
 PAGE = 16384
 
 
-def _rusage(pid: int) -> FakeProcRusage:
-    return FakeProcRusage(
+def _rusage(pid: int) -> ProcRusageSnapshot:
+    return ProcRusageSnapshot(
         ri_resident_size=900_000 + pid,
         ri_phys_footprint=1_200_000 + pid,
         ri_pageins=42,
     )
 
 
-def _vm_stats() -> FakeVmStatistics:
-    return FakeVmStatistics(
+def _total_memory() -> int:
+    return 16 * 1024**3
+
+
+def _vm_stats() -> VmStatisticsSnapshot:
+    return VmStatisticsSnapshot(
         free_pages=10_000,
         active_pages=50_000,
         inactive_pages=20_000,
@@ -52,13 +56,14 @@ def _sampler(core: tuple[int, ...] = (7,), tool: tuple[int, ...] = (9,)) -> MacO
         core_pids=core,
         tool_pids=tool,
         page_size_bytes=PAGE,
+        total_physical_bytes=_total_memory,
     )
     return MacOSPlatformSampler(options)
 
 
 class TestProcessTree:
     def test_resident_and_footprint_keep_distinct_identities(self) -> None:
-        sample = _sampler().sample_process_tree(MemoryScope.MSTR_CORE_TREE)
+        sample = _sampler(core=(7,), tool=()).sample_process_tree(MemoryScope.MSTR_CORE_TREE)
         assert sample.rss_bytes.value == 900_007
         assert sample.private_bytes.name == "phys_footprint_bytes"
         assert sample.private_bytes.value == 1_200_007
@@ -75,16 +80,26 @@ class TestProcessTree:
 
 
 class TestSystemMemory:
+    def test_total_comes_from_hw_memsize_collector(self) -> None:
+        # Total RAM must come from hw.memsize, never from summing page classes.
+        sample = _sampler().sample_system_memory()
+        assert sample.total_bytes.value == 16 * 1024**3
+
+    def test_default_page_size_is_host_queried(self) -> None:
+        options = MacOSSamplerOptions(
+            proc_rusage=_rusage,
+            host_vm_statistics=_vm_stats,
+            read_swap_usage=_swap_text,
+            total_physical_bytes=_total_memory,
+        )
+        assert options.page_size_bytes >= 4096
+
     def test_available_is_labeled_estimate(self) -> None:
         sample = _sampler().sample_system_memory()
         assert sample.available_bytes.note is not None
         assert "estimate" in sample.available_bytes.note
         expected = (10_000 + 20_000) * PAGE
         assert sample.available_bytes.value == expected
-
-    def test_total_sums_all_page_classes(self) -> None:
-        sample = _sampler().sample_system_memory()
-        assert sample.total_bytes.value == (10_000 + 50_000 + 20_000 + 30_000 + 8_000) * PAGE
 
     def test_swap_usage_parsed_from_sysctl_text(self) -> None:
         sample = _sampler().sample_system_memory()
