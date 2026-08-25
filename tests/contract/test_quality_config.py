@@ -57,19 +57,30 @@ def test_distribution_decisions_match_recorded_evidence() -> None:
     assert distribution["model_weights_in_git"] is False
 
 
-def test_declared_gate_commands_run_from_repo_root() -> None:
-    """Every declared command must exist as a runnable tool or module entry."""
-
+def test_schema_selfcheck_gate_requires_exit_zero() -> None:
     gates = load_quality_config()["gates"]
-    for name in _REQUIRED_GATES:
-        command = str(gates[name]["command"])
-        if command.startswith("pytest"):
-            import pytest  # noqa: F401
+    gate = gates["schema_selfcheck"]
+    assert isinstance(gate, dict)
+    assert gate["exit_code_zero_required"] is True
 
-            continue
-        if command.startswith("ruff") or command == "mypy":
-            continue  # validated by the T011 evidence run itself
-        if command.endswith("mstr_qualify validate"):
-            from mstr_qualify.__main__ import main as cli_main
 
-            assert callable(cli_main)
+def test_declared_gate_commands_run_from_repo_root() -> None:
+    """Every declared gate must map to a genuinely runnable tool or CLI wiring."""
+
+    from importlib.util import find_spec
+
+    for tool in ("pytest", "ruff", "mypy"):
+        assert find_spec(tool) is not None, f"gate tool {tool} is not runnable in this environment"
+
+    from mstr_qualify.cli import build_parser
+
+    parser = build_parser()
+    probe = {
+        "validate": ["validate"],
+        "rights": ["rights", "x"],
+        "candidate": ["candidate", "static", "x"],
+        "manifest": ["manifest", "validate", "x"],
+    }
+    for subcommand, argv in probe.items():
+        args = parser.parse_args(argv)
+        assert getattr(args, "command", None) == subcommand
