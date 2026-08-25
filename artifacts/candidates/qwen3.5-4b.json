@@ -24,7 +24,7 @@
     "clickthrough_gate_required": false,
     "end_user_separate_license_required": false,
     "field_or_scale_restrictions": [],
-    "rationale": "Upstream repository publishes the model under Apache-2.0 (machine-readable `license: apache-2.0` metadata in README/model card and HF model tags). Apache-2.0 grants personal/commercial use, modification, fine-tuning, quantization/conversion, and derivative redistribution with notice preservation. A verbatim Apache-2.0 LICENSE file exists in the pinned repository tree."
+    "rationale": "Upstream repository publishes the model under Apache-2.0 (machine-readable `license: apache-2.0` metadata in README/model card and HF model tags). Apache-2.0 grants personal/commercial use, modification, fine-tuning, quantization/conversion, and derivative redistribution with notice preservation. A verbatim Apache-2.0 LICENSE file exists in the pinned repository tree. Component rights (FR-016): tokenizer files and any vision-encoder weights ship inside the same pinned repository tree and are covered by the identical declared license verified at the pinned revision; no third-party component with independent terms is used. Any weight-access task must re-verify all components at acquisition time."
   },
   "architecture": {
     "family": "qwen3_5",

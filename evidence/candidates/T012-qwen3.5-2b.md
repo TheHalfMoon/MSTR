@@ -9,7 +9,7 @@
 ```text
 UPSTREAM_ID = Qwen/Qwen3.5-2B-Base
 UPSTREAM_REVISION = b1485b2fa6dfa1287294f269f5fb618e03d52d7c   # HF repo sha at collection time (2026-08-25)
-GATED = false / PUBLIC = true
+GATED = false / PUBLIC = true / UNGATED REPOSITORY
 ```
 
 ## Architecture facts (config.json + safetensors index at pinned revision)
@@ -24,7 +24,7 @@ FIM capability = YES — <|fim_prefix|>, <|fim_suffix|>, <|fim_middle|>, <|fim_p
 
 ## Rights evidence
 
-Verbatim Apache-2.0 LICENSE file present at pinned revision; HF tags license:apache-2.0; ungated=false-gated public repo.
+Verbatim Apache-2.0 LICENSE file present at pinned revision; HF tags license:apache-2.0; public, ungated repository (gated=false).
 
 ## Record
 
