@@ -112,6 +112,13 @@ class TestDeterminism:
         with pytest.raises(AdapterStateError, match="max_new_tokens"):
             adapter.decode(0)
 
+    def test_prefill_failure_leaves_cache_state_unmutated(self) -> None:
+        adapter = DummyRuntimeAdapter()
+        adapter.load(_request())
+        with pytest.raises(AdapterStateError, match="prompt_tokens"):
+            adapter.prefill(-1)
+        assert adapter.cache_state() is PrefixCacheState.EMPTY
+
 
 class TestRequestValidation:
     @pytest.mark.parametrize(
@@ -121,6 +128,9 @@ class TestRequestValidation:
             ("artifact_id", ""),
             ("format_name", " "),
             ("context_length", 0),
+            ("artifact_sha256", "not-a-hash"),
+            ("artifact_sha256", "A" * 64),
+            ("artifact_sha256", "a" * 63),
         ],
     )
     def test_invalid_request_fields_fail_closed(self, field: str, value: object) -> None:

@@ -14,6 +14,7 @@ from enum import Enum
 from typing import Protocol
 
 from ..errors import QualificationError
+from ..ids import validate_sha256
 
 
 class AdapterError(QualificationError):
@@ -65,6 +66,7 @@ class LoadRequest:
                 "artifact_id must be non-empty with no surrounding whitespace",
                 code="runtime.load_request_artifact_id",
             )
+        validate_sha256(self.artifact_sha256)
         if not self.format_name or self.format_name.strip() != self.format_name:
             raise AdapterStateError(
                 "format_name must be non-empty with no surrounding whitespace",
@@ -282,8 +284,12 @@ class DummyRuntimeAdapter:
 
     def prefill(self, prompt_tokens: int) -> PrefillResult:
         require_ready(self._state)
+        result = PrefillResult(
+            prompt_tokens=prompt_tokens,
+            cache_state_after=PrefixCacheState.POPULATED,
+        )
         self._cache_state = PrefixCacheState.POPULATED
-        return PrefillResult(prompt_tokens=prompt_tokens, cache_state_after=self._cache_state)
+        return result
 
     def decode(self, max_new_tokens: int) -> DecodeResult:
         require_ready(self._state)
