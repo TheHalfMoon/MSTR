@@ -7,14 +7,12 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_BEFORE_T021 = 1e8a5b1
-PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / PHASE_3_COMPLETE + PRE_WEIGHT_ACCESS_RESCAN_DONE
+CANONICAL_MAIN_AFTER_T021 = cafcc8d (merge of exact head ccda214164ab14e7493951e2d2e7bc3ba331ad69)
+PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / PRE_WEIGHT_ACCESS_PLANNING
 ACTIVE_SPEC = MSTR-000
 SPEC_KIT_PACKAGE = CANONICAL
-ACTIVE_TASK = T021
-ACTIVE_BRANCH = task/000-t021-landscape-rescan
-TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
-NEXT_TASK_AFTER_T021_CANONICAL = T022
+ACTIVE_TASK = NONE
+NEXT_TASK_ON_RESUME = T022
 ```
 
 ## Canonical completed history
@@ -35,7 +33,10 @@ T011 = COMPLETE_CANONICAL / HARNESS_QUALITY_GATES
 T012-T018 = COMPLETE_CANONICAL / SEVEN_STATIC_QUALIFIED_FOUNDATIONS_AND_CONTROLS
 T019 = COMPLETE_CANONICAL / REFERENCE_ONLY_RECORD
 T020 = COMPLETE_CANONICAL / POST_TRAINED_COMPARISONS
-T021 = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION / LANDSCAPE_RESCAN
+T021 = COMPLETE_CANONICAL / LANDSCAPE_RESCAN
+```
+
+T021 canonical merge: PR #21 as `cafcc8d`.
 ```
 
 Phase-3 canonical merge: PR #19 as `fa647a3`.
@@ -49,20 +50,16 @@ T011 canonical merge: PR #17 (exact head d0c33acba0f232b218a4eac66555536b1bc90cd
 
 ## Active work
 
-```text
-ACTIVE_TASK = T021
-ACTIVE_BRANCH = task/000-t021-landscape-rescan
-TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
-```
+None. The next dependency-satisfied task is **T022** — select the bounded weight-eligible candidate set from the eight static_qualified records without final backbone admission (`artifacts/decisions/T022-static-candidate-admission.json` + `evidence/T022-static-candidate-admission.md`). Weight access itself remains prohibited until T028 with its exact authorization.
 
-T021 rescan result: all seven Phase-3 static_qualified candidate pins stable/unchanged; landscape scanned org-wide (49 confirmed compact permissive bases); one new control admitted (01-ai/Yi-Coder-1.5B); arcee-ai/AFM-4.5B-Base examined but reclassified to reference_only after its model card documented SFT+RL post-training despite the 'Base' name; three flagged-for-review (allenai/tmax-4b checkpoint-style release, microsoft/Fara1.5-4B, arcee KDA experimental variants). Candidate evidence: `evidence/T021-landscape-rescan.md`.
+### T021 rescan summary
 
-With T021 complete, the next dependency-satisfied task is **T022** (select bounded weight-eligible candidate set from eight static_qualified records without final backbone admission). No weight access occurs before T028's exact authorization.
+All seven Phase-3 static_qualified candidate pins stable/unchanged; landscape scanned org-wide (49 confirmed compact permissive bases); one new control admitted (01-ai/Yi-Coder-1.5B); arcee-ai/AFM-4.5B-Base examined but reclassified to reference_only after its model card documented SFT+RL post-training despite the 'Base' name; three flagged-for-review (allenai/tmax-4b checkpoint-style release, microsoft/Fara1.5-4B, arcee KDA experimental variants). Candidate evidence: `evidence/T021-landscape-rescan.md`.
 
 ## Completed in this cycle
 
 ```text
-COMPLETED_TASKS = T010, T011, T012-T020 (+T021 pending canonicalization)
+COMPLETED_TASKS = T010, T011, T012-T020, T021
 CHECKPOINTS_REACHED = PHASE_2_FOUNDATIONAL_HARNESS_READY + PHASE_3_STATIC_ADMISSION_COMPLETE
 REVIEW_FINDINGS_RESOLVED = qodo x4, coderabbitai x5, all on-head with evidence
 PUSH_PROTECTION_BYPASS = one documented false_positive (public HF revision sha matching Mistral key shape)
