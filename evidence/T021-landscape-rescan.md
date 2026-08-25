@@ -1,7 +1,8 @@
 # T021 — Compact Foundation Landscape Rescan (Pre Weight-Access)
 
 **Task:** MSTR-000 / T021
-**Branch:** task/000-t021-landscape-rescan
+**Branch:** task/000-t021-landscape-rescan  
+**Canonical merge:** PR #21 as `cafcc8d` (exact head ccda214164ab14e7493951e2d2e7bc3ba331ad69)
 **Rescan date:** 2026-08-25 (immediately before first weight-access planning, per FR-018)
 **Scope:** live metadata scan of the open compact (~1B–5B) foundation landscape. Metadata-only HTTPS GETs to huggingface.co; no weight access, no execution, no paid API, no training.
 
@@ -58,6 +59,7 @@ TRAINING = NONE
 ## Result candidate
 
 ```text
-T021_RESULT = PASS_CANDIDATE
+T021_RESULT = COMPLETE_CANONICAL
+REVIEW_FINDINGS_RESOLVED = qodo x3 + coderabbitai x4 across two fix rounds, all on-head
 NEXT_TASK_AFTER_CANONICAL_MERGE = T022
 ```
