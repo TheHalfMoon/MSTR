@@ -7,7 +7,7 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_BEFORE_T022 = 90d881f
+CANONICAL_MAIN_BEFORE_T022 = 90d881f (main after T021 feature merge cafcc8d + its docs reconcile PR #22)
 PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / US2_COMPLETE_WEIGHT_ELIGIBLE_SET_SELECTED
 ACTIVE_SPEC = MSTR-000
 SPEC_KIT_PACKAGE = CANONICAL
@@ -59,7 +59,7 @@ ACTIVE_BRANCH = task/000-t022-static-admission
 TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
 ```
 
-T022 admits ALL EIGHT static_qualified records into the bounded weight-eligible set (7 foundations + 2 controls... precisely: 4 foundations, 1 multimodal control, 3 text/multimodal splits per record). Three caveated records (Ministral-3-3B, Granite-4.1-3B, SmolLM3-3B) carry mandatory license re-verification conditions at T027 preflight. This grants NO backbone admission and NO weight access — T031-T034 local qualification and T055 finalist decision remain ahead. Decision record: `artifacts/decisions/T022-static-candidate-admission.json`; evidence: `evidence/T022-static-candidate-admission.md`.
+T022 admits ALL EIGHT static_qualified records into the bounded weight-eligible set: 5 foundations (Qwen3.5-2B, Qwen3.5-4B, Ministral-3-3B, Granite-4.1-3B, SmolLM3-3B) + 3 controls (Qwen3-4B architecture control; Qwen2.5-Coder-1.5B and Yi-Coder-1.5B code controls). Three caveated records (Ministral-3-3B, Granite-4.1-3B, SmolLM3-3B) carry mandatory license re-verification conditions at T027 preflight. This grants NO backbone admission and NO weight access — T031-T034 local qualification and T055 finalist decision remain ahead. Decision record: `artifacts/decisions/T022-static-candidate-admission.json`; evidence: `evidence/T022-static-candidate-admission.md`.
 
 With T022 canonical, US2 closes and the next dependency-satisfied tasks are T023-T026 ([P] parallel-safe Phase-4 harness infrastructure), then T027 weight-access preflight.
 

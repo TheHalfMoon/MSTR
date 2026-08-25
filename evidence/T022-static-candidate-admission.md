@@ -2,6 +2,7 @@
 
 **Task:** MSTR-000 / T022
 **Branch:** task/000-t022-static-admission
+**Decision record:** `artifacts/decisions/T022-static-candidate-admission.json` — canonical T007 immutable envelope (`mstr.evidence-envelope.v1`, record_type `T022-static-candidate-admission`), envelope SHA-256 `8d6cdc6c0e233354bdea0bfb45dc246712969b1a05b1c8706527dd3ff03bec34`, loadable via `load_finalized_evidence`.
 **Scope:** select the bounded set of candidates that may proceed to weight-access planning (T027/T028) — WITHOUT final backbone admission, WITHOUT downloading weights, WITHOUT execution. Metadata only; all facts already canonical from T012–T021.
 
 ## Decision
