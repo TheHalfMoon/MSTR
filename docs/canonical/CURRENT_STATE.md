@@ -7,14 +7,12 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_BEFORE_T012_T020 = 1ffa6f9a
-PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / PHASE_3_STATIC_ADMISSION
+CANONICAL_MAIN_AFTER_T012_T020 = fa647a3 (merge of exact head e987606caeb1d08217c2e8d769e08c3301802875)
+PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / PHASE_3_STATIC_ADMISSION_COMPLETE
 ACTIVE_SPEC = MSTR-000
 SPEC_KIT_PACKAGE = CANONICAL
-ACTIVE_TASKS = T012-T020
-ACTIVE_BRANCH = task/000-t012-t020-static-candidates
-TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
-NEXT_TASKS_AFTER_CANONICAL = T021
+ACTIVE_TASK = NONE
+NEXT_TASK_ON_RESUME = T021
 ```
 
 ## Canonical completed history
@@ -32,9 +30,12 @@ T008 = COMPLETE_CANONICAL / LOCAL_MANIFEST_LOADERS
 T009 = COMPLETE_CANONICAL / SCORE_COMPARABILITY
 T010 = COMPLETE_CANONICAL / OFFLINE_CLI_COMMANDS
 T011 = COMPLETE_CANONICAL / HARNESS_QUALITY_GATES
-T012-T018 = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION / SEVEN_STATIC_QUALIFIED_FOUNDATIONS_AND_CONTROLS
-T019 = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION / REFERENCE_ONLY_RECORD
-T020 = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION / POST_TRAINED_COMPARISONS
+T012-T018 = COMPLETE_CANONICAL / SEVEN_STATIC_QUALIFIED_FOUNDATIONS_AND_CONTROLS
+T019 = COMPLETE_CANONICAL / REFERENCE_ONLY_RECORD
+T020 = COMPLETE_CANONICAL / POST_TRAINED_COMPARISONS
+```
+
+Phase-3 canonical merge: PR #19 as `fa647a3`.
 ```
 
 Phase-3 static candidate records live-fetched from huggingface.co at exact pinned revisions (metadata-only HTTPS GETs; no weight files). Fail-closed rights recomputation verified live: the research-licensed Qwen2.5-Coder-3B is rejected by the T006 gate as expected.
@@ -45,10 +46,15 @@ T011 canonical merge: PR #17 (exact head d0c33acba0f232b218a4eac66555536b1bc90cd
 
 ## Active work
 
+None. Phase-3 static candidate admission is canonical. Next dependency-satisfied task is **T021**: re-scan the current approximately 1B-5B open foundation landscape immediately before first weight-access planning (`evidence/T021-landscape-rescan.md`), then **T22** selects the bounded weight-eligible set. No weight access occurs before T28's exact authorization.
+
+## Completed in this cycle
+
 ```text
-ACTIVE_TASKS = T012-T020 (parallel-safe sibling tasks, disjoint outputs)
-ACTIVE_BRANCH = task/000-t012-t020-static-candidates
-TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
+COMPLETED_TASKS = T010, T011, T012-T020
+CHECKPOINTS_REACHED = PHASE_2_FOUNDATIONAL_HARNESS_READY + PHASE_3_STATIC_ADMISSION_COMPLETE
+REVIEW_FINDINGS_RESOLVED = qodo x4, coderabbitai x5, all on-head with evidence
+PUSH_PROTECTION_BYPASS = one documented false_positive (public HF revision sha matching Mistral key shape)
 ```
 
 Seven static-qualified foundation/control candidates (Qwen3.5-2B/4B, Ministral-3-3B, Qwen3-4B control, Granite-4.1-3B, SmolLM3-3B, Qwen2.5-Coder-1.5B control), one reference_only record (Qwen2.5-Coder-3B — Qwen Research License fails FR-015/FR-017), and three post-trained comparison points. Ministral/Granite/SmolLM3 carry an explicit missing-LICENSE-text caveat with mandatory re-verification before any weight access.

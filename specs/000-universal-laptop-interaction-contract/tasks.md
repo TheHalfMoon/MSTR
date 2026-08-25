@@ -46,7 +46,7 @@ A checkbox becomes complete only when the stated output exists, required tests/e
 
 ---
 
-## Phase 3 — User Story 2: Reproducible Static Candidate Admission (P1)
+## Phase 3 — User Story 2: Reproducible Static Candidate Admission (P1) — COMPLETE
 
 **Goal:** identify compact candidate foundations that are legally/distributably/technically eligible for later local qualification without downloading weights.  
 **Prerequisite:** T003–T011 canonical.  
