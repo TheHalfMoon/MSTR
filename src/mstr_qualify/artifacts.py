@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from .errors import ArtifactIntegrityError
+from .errors import ArtifactIntegrityError, IdentityError
 from .ids import sha256_file, validate_sha256
 
 MANIFEST_SCHEMA_VERSION = "mstr.artifact-manifest.v1"
@@ -24,7 +24,11 @@ MANIFEST_SCHEMA_VERSION = "mstr.artifact-manifest.v1"
 _TRAVERSAL_COMPONENTS = frozenset({".", ".."})
 
 
-def _fail(message: str, code: str, **details: object) -> ArtifactIntegrityError:
+def _fail(
+    message: str,
+    code: str,
+    details: Mapping[str, object] | None = None,
+) -> ArtifactIntegrityError:
     return ArtifactIntegrityError(message, code=code, details=details)
 
 
@@ -37,7 +41,14 @@ class ArtifactFileEntry:
     size_bytes: int | None
 
     def __post_init__(self) -> None:
-        validate_sha256(self.sha256)
+        try:
+            validate_sha256(self.sha256)
+        except IdentityError as exc:
+            raise _fail(
+                "artifact entry sha256 is not a canonical SHA-256 identity",
+                code="artifact.entry_sha256",
+                details={"path": self.relative_path, "reason": str(exc)},
+            ) from exc
         if not self.relative_path or self.relative_path.strip() != self.relative_path:
             raise _fail(
                 "artifact file path must be non-empty with no surrounding whitespace",
@@ -152,6 +163,14 @@ def parse_artifact_manifest(data: Mapping[str, Any]) -> ArtifactManifest:
                 details={"field": field},
             )
 
+    for field in ("artifact_id", "format_name"):
+        if not isinstance(data[field], str):
+            raise _fail(
+                "artifact manifest identity fields must be strings",
+                code="artifact.manifest_field_type",
+                details={"field": field},
+            )
+
     raw_files = data["files"]
     if not isinstance(raw_files, list) or not raw_files:
         raise _fail(
@@ -212,7 +231,7 @@ def load_artifact_manifest(path: Path) -> ArtifactManifest:
         raise _fail(
             "unable to read artifact manifest",
             "artifact.manifest_read",
-            path=str(path),
+            details={"path": str(path)},
         ) from exc
     try:
         decoded = json.loads(raw)
@@ -220,9 +239,7 @@ def load_artifact_manifest(path: Path) -> ArtifactManifest:
         raise _fail(
             "artifact manifest is not valid JSON",
             code="artifact.manifest_json_invalid",
-            path=str(path),
-            line=exc.lineno,
-            column=exc.colno,
+            details={"path": str(path), "line": exc.lineno, "column": exc.colno},
         ) from exc
     if not isinstance(decoded, dict):
         raise _fail("artifact manifest root must be a JSON object", "artifact.manifest_root")
@@ -231,8 +248,15 @@ def load_artifact_manifest(path: Path) -> ArtifactManifest:
 
 def _resolve_under_root(root: Path, relative_path: str) -> Path:
     candidate = root / relative_path
-    resolved_root = root.resolve()
-    resolved_candidate = candidate.resolve()
+    try:
+        resolved_root = root.resolve()
+        resolved_candidate = candidate.resolve()
+    except OSError as exc:
+        raise _fail(
+            "unable to resolve artifact path inside verification root",
+            code="artifact.path_resolve_failed",
+            details={"path": relative_path, "reason": str(exc)},
+        ) from exc
     if resolved_candidate == resolved_root or resolved_root not in resolved_candidate.parents:
         raise _fail(
             "resolved artifact path escapes the verification root",
@@ -261,7 +285,7 @@ def verify_artifact(manifest: ArtifactManifest, root: Path) -> dict[str, Any]:
         raise _fail(
             "verification root must be an existing directory",
             "artifact.root_missing",
-            path=str(root),
+            details={"path": str(root)},
         )
 
     verified_files: list[dict[str, Any]] = []
@@ -273,32 +297,36 @@ def verify_artifact(manifest: ArtifactManifest, root: Path) -> dict[str, Any]:
             raise _fail(
                 "symlinked artifact files are prohibited",
                 code="artifact.symlink_rejected",
-                path=entry.relative_path,
+                details={"path": entry.relative_path},
             )
         _resolve_under_root(root, entry.relative_path)
         if not candidate.is_file():
             raise _fail(
                 "declared artifact file is missing or not a regular file",
                 code="artifact.missing_file",
-                path=entry.relative_path,
+                details={"path": entry.relative_path},
             )
         actual_size = candidate.stat().st_size
         if entry.size_bytes is not None and actual_size != entry.size_bytes:
             raise _fail(
                 "artifact file size mismatch",
                 code="artifact.size_mismatch",
-                path=entry.relative_path,
-                expected=entry.size_bytes,
-                actual=actual_size,
+                details={
+                    "path": entry.relative_path,
+                    "expected": entry.size_bytes,
+                    "actual": actual_size,
+                },
             )
-        actual_sha256 = sha256_file(candidate)
+        actual_sha256 = _hash_file_checked(candidate, entry.relative_path)
         if actual_sha256 != entry.sha256:
             raise _fail(
                 "artifact file SHA-256 mismatch",
                 code="artifact.hash_mismatch",
-                path=entry.relative_path,
-                expected=entry.sha256,
-                actual=actual_sha256,
+                details={
+                    "path": entry.relative_path,
+                    "expected": entry.sha256,
+                    "actual": actual_sha256,
+                },
             )
         verified_files.append(
             {
@@ -313,8 +341,7 @@ def verify_artifact(manifest: ArtifactManifest, root: Path) -> dict[str, Any]:
         raise _fail(
             "unexpected files present in artifact directory",
             code="artifact.unexpected_file",
-            paths=",".join(unexpected[:16]),
-            count=len(unexpected),
+            details={"paths": ",".join(unexpected[:16]), "count": len(unexpected)},
         )
 
     return {
@@ -327,12 +354,33 @@ def verify_artifact(manifest: ArtifactManifest, root: Path) -> dict[str, Any]:
     }
 
 
+def _hash_file_checked(path: Path, relative_path: str) -> str:
+    """Hash a local file, converting identity failures to artifact failures."""
+    try:
+        return sha256_file(path)
+    except IdentityError as exc:
+        raise _fail(
+            "unable to hash declared artifact file",
+            code="artifact.file_hash_read",
+            details={"path": relative_path, "reason": str(exc)},
+        ) from exc
+
+
 def _discover_relative_files(root: Path) -> set[str]:
     found: list[str] = []
     for dirpath, dirnames, filenames in os.walk(root):
         # Deterministic ordering regardless of OS directory enumeration.
         dirnames.sort()
         base = Path(dirpath)
+        # Explicit policy: directory symlinks are rejected too; os.walk with
+        # followlinks=False lists them here so they can never be traversed.
+        for name in sorted(dirnames):
+            if (base / name).is_symlink():
+                raise _fail(
+                    "symlinked directories inside artifact trees are prohibited",
+                    code="artifact.symlink_rejected",
+                    details={"path": (base / name).relative_to(root).as_posix()},
+                )
         for name in sorted(filenames):
             absolute = base / name
             relative = absolute.relative_to(root).as_posix()
@@ -340,7 +388,7 @@ def _discover_relative_files(root: Path) -> set[str]:
                 raise _fail(
                     "symlinked artifact files are prohibited",
                     code="artifact.symlink_rejected",
-                    path=relative,
+                    details={"path": relative},
                 )
             found.append(relative)
     return set(found)

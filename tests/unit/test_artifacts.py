@@ -104,6 +104,40 @@ class TestManifestLoading:
         with pytest.raises(ArtifactIntegrityError, match="missing required fields"):
             parse_artifact_manifest(data)
 
+    @pytest.mark.parametrize("field", ["artifact_id", "format_name"])
+    def test_non_string_identity_fields_rejected(self, field: str) -> None:
+        data = {
+            "schema_version": MANIFEST_SCHEMA_VERSION,
+            "artifact_id": "a",
+            "format_name": "f",
+            "files": [{"path": "p.bin", "sha256": "a" * 64}],
+        }
+        data[field] = 12345
+        with pytest.raises(ArtifactIntegrityError, match="must be strings"):
+            parse_artifact_manifest(data)
+
+    def test_error_details_are_top_level_not_nested(self) -> None:
+        data = {
+            "schema_version": MANIFEST_SCHEMA_VERSION,
+            "artifact_id": 12345,
+            "format_name": "f",
+            "files": [],
+        }
+        with pytest.raises(ArtifactIntegrityError) as excinfo:
+            parse_artifact_manifest(data)
+        assert excinfo.value.details["field"] == "artifact_id"
+        assert "details" not in excinfo.value.details
+
+    def test_invalid_entry_sha256_rejected_with_artifact_error(self) -> None:
+        data = {
+            "schema_version": MANIFEST_SCHEMA_VERSION,
+            "artifact_id": "a",
+            "format_name": "f",
+            "files": [{"path": "p.bin", "sha256": "nothex"}],
+        }
+        with pytest.raises(ArtifactIntegrityError, match="canonical SHA-256"):
+            parse_artifact_manifest(data)
+
 
 class TestPathSafetyAtLoadTime:
     @pytest.mark.parametrize(
@@ -163,6 +197,15 @@ class TestVerification:
         root.mkdir()
         os.symlink(real_dir / "alpha.txt", root / "alpha.txt")
         with pytest.raises(ArtifactIntegrityError, match="symlink"):
+            verify_artifact(_manifest(), root)
+
+    def test_symlinked_directory_rejected_during_discovery(self, tmp_path: Path) -> None:
+        root = _make_tree(tmp_path)
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (outside / "secret.txt").write_text("secret\n", encoding="utf-8")
+        (root / "linked-dir").symlink_to(outside)
+        with pytest.raises(ArtifactIntegrityError, match="symlinked directories"):
             verify_artifact(_manifest(), root)
 
     def test_traversal_escape_via_resolution_rejected(self, tmp_path: Path) -> None:
