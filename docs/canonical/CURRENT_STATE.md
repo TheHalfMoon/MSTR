@@ -14,7 +14,7 @@ SPEC_KIT_PACKAGE = CANONICAL
 ACTIVE_TASK = T021
 ACTIVE_BRANCH = task/000-t021-landscape-rescan
 TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
-NEXT_TASK_AFTER_T021_CANONICAL = T22
+NEXT_TASK_AFTER_T021_CANONICAL = T022
 ```
 
 ## Canonical completed history
@@ -57,9 +57,7 @@ TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
 
 T021 rescan result: all six Phase-3 pins stable/unchanged; landscape scanned org-wide (49 confirmed compact permissive bases); two new candidates admitted under the same schema (arcee-ai/AFM-4.5B-Base foundation; 01-ai/Yi-Coder-1.5B coder control); three flagged-for-review (allenai/tmax-4b checkpoint-style release, microsoft/Fara1.5-4B, arcee KDA experimental variants). Candidate evidence: `evidence/T021-landscape-rescan.md`.
 
-## Prior checkpoint (consumed)
-
-None. Phase-3 static candidate admission is canonical. Next dependency-satisfied task is **T021**: re-scan the current approximately 1B-5B open foundation landscape immediately before first weight-access planning (`evidence/T021-landscape-rescan.md`), then **T22** selects the bounded weight-eligible set. No weight access occurs before T28's exact authorization.
+With T021 complete, the next dependency-satisfied task is **T022** (select bounded weight-eligible candidate set without final backbone admission). No weight access occurs before T028's exact authorization.
 
 ## Completed in this cycle
 

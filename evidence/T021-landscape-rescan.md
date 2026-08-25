@@ -39,9 +39,9 @@ Both records schema-valid via offline CLI (exit 0); both carry the missing-LICEN
 - **microsoft/Fara1.5-4B** — very recent (2026-07); appears agent-oriented rather than a plain coding base; needs review.
 - **arcee-ai AFM KDA variants** (KDA-Only/KDA-NoPE/Pre-Anneal) — architecture-experimental checkpoints; not clean foundations.
 
-## 4. Impact on T22
+## 4. Impact on T022
 
-The weight-eligible candidate set selection (T22) now draws from NINE static_qualified records: seven from Phase 3 plus AFM-4.5B-Base and Yi-Coder-1.5B. No backbone admission occurs here; no weight files accessed.
+The weight-eligible candidate set selection (T022, `artifacts/decisions/T022-static-candidate-admission.json`) now draws from NINE static_qualified records: seven from Phase 3 plus AFM-4.5B-Base and Yi-Coder-1.5B. No backbone admission occurs here; no weight files accessed.
 
 ## Authority / safety
 
@@ -58,5 +58,5 @@ TRAINING = NONE
 
 ```text
 T021_RESULT = PASS_CANDIDATE
-NEXT_TASK_AFTER_CANONICAL_MERGE = T22
+NEXT_TASK_AFTER_CANONICAL_MERGE = T022
 ```
