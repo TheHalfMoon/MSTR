@@ -21,6 +21,17 @@ def test_no_argument_bootstrap_is_offline_safe(capsys: pytest.CaptureFixture[str
 
 
 def test_unimplemented_command_fails_closed() -> None:
+    # T010 implements validate/rights/candidate static/manifest validate.
+    # Later-task command families (e.g. measurement) must still fail closed.
     with pytest.raises(SystemExit) as excinfo:
-        main(["validate"])
+        main(["measure"])
     assert excinfo.value.code == 2
+
+
+def test_help_mentions_offline_command_families(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        main(["--help"])
+    assert excinfo.value.code == 0
+    captured = capsys.readouterr()
+    for family in ("validate", "rights", "candidate", "manifest"):
+        assert family in captured.out

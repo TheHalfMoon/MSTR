@@ -39,7 +39,7 @@ A checkbox becomes complete only when the stated output exists, required tests/e
 - [x] T007 Implement immutable/canonical evidence serialization and supersession semantics → `src/mstr_qualify/evidence.py`, `tests/unit/test_evidence.py`, `tests/contract/test_evidence_roundtrip.py`, `tests/fixtures/evidence/`. Evidence: `evidence/T007-immutable-evidence-serialization.md`.
 - [x] T008 Implement task/benchmark/candidate manifest loaders and validation → `src/mstr_qualify/manifests.py`, `tests/unit/test_manifests.py`, `benchmarks/manifests/README.md`, `configs/candidates/README.md`. Evidence: `evidence/T008-manifest-loaders.md`.
 - [x] T009 Implement score-surface/report comparability rules that reject mismatched protocol/cache/hardware/task conditions → `src/mstr_qualify/reporting.py`, `tests/unit/test_reporting.py`, `tests/fixtures/reporting/`. Evidence: `evidence/T009-comparability.md`.
-- [ ] T010 Implement dependency-light offline CLI commands `validate`, `rights`, `candidate static`, `manifest validate` → `src/mstr_qualify/cli.py`, `tests/integration/test_cli_offline.py`.
+- [x] T010 Implement dependency-light offline CLI commands `validate`, `rights`, `candidate static`, `manifest validate` → `src/mstr_qualify/cli.py`, `tests/integration/test_cli_offline.py`.
 - [ ] T011 Freeze harness quality gates and baseline test evidence → `evidence/T011-harness-foundation-qualification.md`, `configs/quality.toml`, plus passing `tests/`; add CI workflow only if explicitly chosen and document absence otherwise.
 
 **Checkpoint:** foundational harness ready. User-story work can begin according to dependencies below.

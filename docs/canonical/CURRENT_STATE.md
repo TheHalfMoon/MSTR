@@ -7,15 +7,14 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_BEFORE_PLAN_FINALIZATION = 7a1cea4c3462fb3d811e8b6c20303ab16cbfd94c
+CANONICAL_MAIN_BEFORE_T010 = e042b3397af30156a243dc8a981f4f2bda6fa438
 PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION
-PROJECT_STATE = PAUSED_BY_FOUNDER_AFTER_PLAN_FINALIZATION
 ACTIVE_SPEC = MSTR-000
 SPEC_KIT_PACKAGE = CANONICAL
-ACTIVE_TASK = NONE
-NEXT_TASK_ON_RESUME = T010
-RESUME_REQUIRES = EXPLICIT_FOUNDER_DIRECTION + LIVE_GITHUB_REVALIDATION
-PAUSE_REASON = FINISH_WEPLD_FIRST
+ACTIVE_TASK = T010
+ACTIVE_BRANCH = task/000-t010-offline-cli
+TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
+NEXT_TASK_AFTER_T010_CANONICAL = T011
 ```
 
 ## Canonical completed history
@@ -31,15 +30,27 @@ T006 = COMPLETE_CANONICAL / FAIL_CLOSED_RIGHTS_GATE
 T007 = COMPLETE_CANONICAL / IMMUTABLE_EVIDENCE_SERIALIZATION
 T008 = COMPLETE_CANONICAL / LOCAL_MANIFEST_LOADERS
 T009 = COMPLETE_CANONICAL / SCORE_COMPARABILITY
+T010 = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION / OFFLINE_CLI_COMMANDS
 ```
 
 T009 canonical merge: `7a1cea4c3462fb3d811e8b6c20303ab16cbfd94c`.
 
-## Pause boundary
+## Active work
 
-No MSTR task is active during the pause. T010 remains the next dependency-ordered task, but it is **not authorized to start** until the founder explicitly resumes MSTR after WePLD and live repository truth is revalidated.
+```text
+ACTIVE_TASK = T010
+ACTIVE_BRANCH = task/000-t010-offline-cli
+TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
+```
 
-Do not infer resume authority from old messages, generic automation, or stale handoffs.
+T010 implements the dependency-light offline CLI families `validate`, `rights`, `candidate static`, and `manifest validate` in `src/mstr_qualify/cli.py`. All commands are local-filesystem-only, deterministic JSON output, with a documented 0/1/2 exit-code contract. Offline discipline is enforced by socket-blocking integration tests. No weights, no execution, no network, no paid compute.
+
+Candidate evidence:
+`specs/000-universal-laptop-interaction-contract/evidence/T010-offline-cli.md`.
+
+## Resume boundary (consumed 2026-08-24)
+
+The founder explicitly resumed MSTR after WePLD via direct founder direction. Live GitHub main was revalidated at `e042b3397af30156a243dc8a981f4f2bda6fa438` before any mutation; open PRs were empty; no checks were pending. T010 was confirmed as the next dependency-satisfied task and started under the governed workflow.
 
 ## Product invariant
 
@@ -78,9 +89,10 @@ INTERACTION_CONTRACT = UNFROZEN
 DEFAULT_CONTEXT_ENGINE = UNSELECTED
 LOCAL_RUNTIME_BASELINE = UNSELECTED
 
-MODEL_WEIGHT_ACCESS = NONE / NOT_CURRENTLY_AUTHORIZED
+MODEL_WEIGHT_ACCESS = NONE / NOT_AUTHORIZED_BY_T010
 MODEL_EXECUTION = NONE
 BENCHMARK_EXECUTION = NONE
+NETWORK_SERVICE_ACCESS = NONE_BY_T010
 PAID_MODEL_API_EXECUTION = NONE
 GOOGLE_COLAB_EXECUTION = NONE
 UNSLOTH_INSTALL_OR_EXECUTION = NONE
