@@ -64,7 +64,7 @@ A checkbox becomes complete only when the stated output exists, required tests/e
 - [x] T021 [US2] Re-scan current approximately 1B–5B open foundation landscape immediately before first weight-access planning → `evidence/T021-landscape-rescan.md`; any new candidate gets `artifacts/candidates/<id>.json` under the same schema.
 - [x] T022 [US2] Select bounded weight-eligible candidate set without final backbone admission → `artifacts/decisions/T022-static-candidate-admission.json`, `evidence/T022-static-candidate-admission.md`.
 
-**Checkpoint:** US2 independently demonstrable; weight-eligible set exists without any model acquisition.
+**Checkpoint:** US2 independently demonstrable; weight-eligible set exists without any model acquisition — **REACHED (T012–T022 canonical)**.
 
 ---
 

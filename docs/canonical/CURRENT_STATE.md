@@ -7,14 +7,12 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_BEFORE_T022 = 90d881f (main after T021 feature merge cafcc8d + its docs reconcile PR #22)
+CANONICAL_MAIN_AFTER_T022 = f77e213 (merge of exact head ce9edba27cc4371b1cc18e9788b7f7863909c8e0)
 PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / US2_COMPLETE_WEIGHT_ELIGIBLE_SET_SELECTED
 ACTIVE_SPEC = MSTR-000
 SPEC_KIT_PACKAGE = CANONICAL
-ACTIVE_TASK = T022
-ACTIVE_BRANCH = task/000-t022-static-admission
-TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
-NEXT_TASKS_AFTER_T022_CANONICAL = T023-T026
+ACTIVE_TASK = NONE
+NEXT_TASKS_ON_RESUME = T023-T026
 ```
 
 ## Canonical completed history
@@ -36,7 +34,10 @@ T012-T018 = COMPLETE_CANONICAL / SEVEN_STATIC_QUALIFIED_FOUNDATIONS_AND_CONTROLS
 T019 = COMPLETE_CANONICAL / REFERENCE_ONLY_RECORD
 T020 = COMPLETE_CANONICAL / POST_TRAINED_COMPARISONS
 T021 = COMPLETE_CANONICAL / LANDSCAPE_RESCAN
-T022 = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION / BOUNDED_WEIGHT_ELIGIBLE_SET
+T022 = COMPLETE_CANONICAL / BOUNDED_WEIGHT_ELIGIBLE_SET
+```
+
+T022 canonical merge: PR #23 as `f77e213`.
 ```
 
 T021 canonical merge: PR #21 as `cafcc8d`.
@@ -53,11 +54,9 @@ T011 canonical merge: PR #17 (exact head d0c33acba0f232b218a4eac66555536b1bc90cd
 
 ## Active work
 
-```text
-ACTIVE_TASK = T022
-ACTIVE_BRANCH = task/000-t022-static-admission
-TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
-```
+None. With T022 canonical, **US2 closes** (reproducible static candidate admission complete). Next dependency-satisfied tasks are **T023–T026** ([P] parallel-safe Phase-4 harness infrastructure), followed by the T027 weight-access preflight.
+
+## T022 decision summary
 
 T022 admits ALL EIGHT static_qualified records into the bounded weight-eligible set: 5 foundations (Qwen3.5-2B, Qwen3.5-4B, Ministral-3-3B, Granite-4.1-3B, SmolLM3-3B) + 3 controls (Qwen3-4B architecture control; Qwen2.5-Coder-1.5B and Yi-Coder-1.5B code controls). Three caveated records (Ministral-3-3B, Granite-4.1-3B, SmolLM3-3B) carry mandatory license re-verification conditions at T027 preflight. This grants NO backbone admission and NO weight access — T031-T034 local qualification and T055 finalist decision remain ahead. Decision record: `artifacts/decisions/T022-static-candidate-admission.json`; evidence: `evidence/T022-static-candidate-admission.md`.
 
