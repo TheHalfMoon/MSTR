@@ -7,12 +7,14 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_AFTER_T021 = cafcc8d (merge of exact head ccda214164ab14e7493951e2d2e7bc3ba331ad69)
-PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / PRE_WEIGHT_ACCESS_PLANNING
+CANONICAL_MAIN_BEFORE_T022 = 90d881f
+PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / US2_COMPLETE_WEIGHT_ELIGIBLE_SET_SELECTED
 ACTIVE_SPEC = MSTR-000
 SPEC_KIT_PACKAGE = CANONICAL
-ACTIVE_TASK = NONE
-NEXT_TASK_ON_RESUME = T022
+ACTIVE_TASK = T022
+ACTIVE_BRANCH = task/000-t022-static-admission
+TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
+NEXT_TASKS_AFTER_T022_CANONICAL = T023-T026
 ```
 
 ## Canonical completed history
@@ -34,6 +36,7 @@ T012-T018 = COMPLETE_CANONICAL / SEVEN_STATIC_QUALIFIED_FOUNDATIONS_AND_CONTROLS
 T019 = COMPLETE_CANONICAL / REFERENCE_ONLY_RECORD
 T020 = COMPLETE_CANONICAL / POST_TRAINED_COMPARISONS
 T021 = COMPLETE_CANONICAL / LANDSCAPE_RESCAN
+T022 = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION / BOUNDED_WEIGHT_ELIGIBLE_SET
 ```
 
 T021 canonical merge: PR #21 as `cafcc8d`.
@@ -50,7 +53,15 @@ T011 canonical merge: PR #17 (exact head d0c33acba0f232b218a4eac66555536b1bc90cd
 
 ## Active work
 
-None. The next dependency-satisfied task is **T022** — select the bounded weight-eligible candidate set from the eight static_qualified records without final backbone admission (`artifacts/decisions/T022-static-candidate-admission.json` + `evidence/T022-static-candidate-admission.md`). Weight access itself remains prohibited until T028 with its exact authorization.
+```text
+ACTIVE_TASK = T022
+ACTIVE_BRANCH = task/000-t022-static-admission
+TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
+```
+
+T022 admits ALL EIGHT static_qualified records into the bounded weight-eligible set (7 foundations + 2 controls... precisely: 4 foundations, 1 multimodal control, 3 text/multimodal splits per record). Three caveated records (Ministral-3-3B, Granite-4.1-3B, SmolLM3-3B) carry mandatory license re-verification conditions at T027 preflight. This grants NO backbone admission and NO weight access — T031-T034 local qualification and T055 finalist decision remain ahead. Decision record: `artifacts/decisions/T022-static-candidate-admission.json`; evidence: `evidence/T022-static-candidate-admission.md`.
+
+With T022 canonical, US2 closes and the next dependency-satisfied tasks are T023-T026 ([P] parallel-safe Phase-4 harness infrastructure), then T027 weight-access preflight.
 
 ### T021 rescan summary
 
