@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -82,7 +83,17 @@ def test_existing_content_addressed_path_cannot_be_overwritten(tmp_path: Path) -
 
 def test_load_rejects_noncanonical_json(tmp_path: Path) -> None:
     path = tmp_path / "pretty.json"
-    path.write_text('{"schema_version": "mstr.evidence-envelope.v1", "record_type":"x", "supersedes":null, "supersession_reason":null, "payload":{}}\n', encoding="utf-8")
+    canonical = json.dumps(
+        {
+            "schema_version": "mstr.evidence-envelope.v1",
+            "record_type": "x",
+            "supersedes": None,
+            "supersession_reason": None,
+            "payload": {},
+        },
+        indent=2,
+    )
+    path.write_text(canonical + "\n", encoding="utf-8")
     with pytest.raises(ArtifactIntegrityError, match="evidence.not_canonical"):
         load_finalized_evidence(path)
 

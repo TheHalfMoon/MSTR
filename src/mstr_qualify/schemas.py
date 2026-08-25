@@ -43,7 +43,9 @@ def _reject_external_refs(schema: Mapping[str, Any]) -> None:
         if key != "$ref":
             continue
         if not isinstance(value, str):
-            raise SchemaValidationError("schema $ref values must be strings", code="schema.ref_type")
+            raise SchemaValidationError(
+                "schema $ref values must be strings", code="schema.ref_type"
+            )
         if not value.startswith("#"):
             raise SchemaValidationError(
                 "external schema reference is prohibited",

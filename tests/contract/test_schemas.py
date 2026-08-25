@@ -44,7 +44,9 @@ def test_valid_fixture_passes(schema_name: str) -> None:
 @pytest.mark.parametrize("schema_name", sorted(SCHEMA_FILES))
 def test_invalid_fixture_fails_closed(schema_name: str) -> None:
     with pytest.raises(ValueError, match="validation failed"):
-        validate_instance(schema_name, _fixture("invalid", schema_name), schema_dir=ROOT / "schemas")
+        validate_instance(
+            schema_name, _fixture("invalid", schema_name), schema_dir=ROOT / "schemas"
+        )
 
 
 def test_unknown_schema_name_fails_closed() -> None:

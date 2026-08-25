@@ -264,7 +264,7 @@ def write_finalized_evidence(directory: Path, evidence: FinalizedEvidence) -> Pa
                 "content-addressed evidence path already contains different bytes",
                 code="evidence.immutable_conflict",
                 details={"path": str(target)},
-            )
+            ) from None
         return target
     except OSError as exc:
         raise ArtifactIntegrityError(

@@ -7,12 +7,14 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_AFTER_T010 = fe60646a3833d35e7b65db431e5094b704946e72
+CANONICAL_MAIN_BEFORE_T011 = 63eeaa3
 PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION
 ACTIVE_SPEC = MSTR-000
 SPEC_KIT_PACKAGE = CANONICAL
-ACTIVE_TASK = NONE
-NEXT_TASK_ON_RESUME = T011
+ACTIVE_TASK = T011
+ACTIVE_BRANCH = task/000-t011-quality-gates
+TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
+NEXT_TASK_AFTER_T011_CANONICAL = T012
 ```
 
 ## Canonical completed history
@@ -29,6 +31,7 @@ T007 = COMPLETE_CANONICAL / IMMUTABLE_EVIDENCE_SERIALIZATION
 T008 = COMPLETE_CANONICAL / LOCAL_MANIFEST_LOADERS
 T009 = COMPLETE_CANONICAL / SCORE_COMPARABILITY
 T010 = COMPLETE_CANONICAL / OFFLINE_CLI_COMMANDS
+T011 = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION / HARNESS_QUALITY_GATES
 ```
 
 T009 canonical merge: `7a1cea4c3462fb3d811e8b6c20303ab16cbfd94c`.
@@ -36,11 +39,18 @@ T010 canonical merge: `fe60646a3833d35e7b65db431e5094b704946e72`.
 
 ## Active work
 
-None. T010 is canonical; the next dependency-satisfied task is T011 (freeze harness quality gates and baseline test evidence → configs/quality.toml + evidence/T011-harness-foundation-qualification.md). Repository-wide ruff/mypy closeout belongs to that task per its definition and prior evidence notes.
-
 ```text
-COMPLETED_IN_THIS_CYCLE = T010
+ACTIVE_TASK = T011
+ACTIVE_BRANCH = task/000-t011-quality-gates
+TASK_STATE = COMPLETE_CANDIDATE_PENDING_PR_CANONICALIZATION
 ```
+
+T011 freezes harness quality gates in `configs/quality.toml` (`mstr.quality-gates.v1`): full pytest suite, ruff over src and tests, strict mypy, and offline CLI schema self-check are all required on every future task head. Pre-existing lint debt deferred by T009 was repaired; `py.typed` + dev-only `types-jsonschema` enable strict typechecking; `uv.lock` pins the gate toolchain. CI remains deliberately absent per task definition.
+
+Candidate evidence:
+`specs/000-universal-laptop-interaction-contract/evidence/T011-harness-foundation-qualification.md`.
+
+## T010 record
 
 T010 implements the dependency-light offline CLI families `validate`, `rights`, `candidate static`, and `manifest validate` in `src/mstr_qualify/cli.py`. All commands are local-filesystem-only, deterministic JSON output, with a documented 0/1/2 exit-code contract. Offline discipline is enforced by socket-blocking integration tests. No weights, no execution, no network, no paid compute.
 
@@ -88,10 +98,10 @@ INTERACTION_CONTRACT = UNFROZEN
 DEFAULT_CONTEXT_ENGINE = UNSELECTED
 LOCAL_RUNTIME_BASELINE = UNSELECTED
 
-MODEL_WEIGHT_ACCESS = NONE / NOT_AUTHORIZED_BY_T010_CANONICAL
+MODEL_WEIGHT_ACCESS = NONE / NOT_AUTHORIZED_BY_T011
 MODEL_EXECUTION = NONE
 BENCHMARK_EXECUTION = NONE
-NETWORK_SERVICE_ACCESS = NONE_BY_T010
+NETWORK_SERVICE_ACCESS = NONE_BY_T011
 PAID_MODEL_API_EXECUTION = NONE
 GOOGLE_COLAB_EXECUTION = NONE
 UNSLOTH_INSTALL_OR_EXECUTION = NONE
