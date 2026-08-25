@@ -10,7 +10,7 @@
     "license_name": "Apache-2.0",
     "terms_urls": [
       "https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct/tree/31b70e2e869a7173562077fd711b654946d38674",
-      "https://huggingface.co/api/models/HuggingFaceTB/SmolLM2-1.7B-Instruct",
+      "https://huggingface.co/api/models/HuggingFaceTB/SmolLM2-1.7B-Instruct/revision/31b70e2e869a7173562077fd711b654946d38674",
       "https://www.apache.org/licenses/LICENSE-2.0.txt"
     ],
     "personal_use": "yes",
@@ -41,6 +41,6 @@
   "quantization_support_notes": [],
   "source_urls": [
     "https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct/tree/31b70e2e869a7173562077fd711b654946d38674",
-    "https://huggingface.co/api/models/HuggingFaceTB/SmolLM2-1.7B-Instruct"
+    "https://huggingface.co/api/models/HuggingFaceTB/SmolLM2-1.7B-Instruct/revision/31b70e2e869a7173562077fd711b654946d38674"
   ]
 }

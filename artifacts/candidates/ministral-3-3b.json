@@ -11,7 +11,7 @@
     "terms_urls": [
       "https://www.apache.org/licenses/LICENSE-2.0.txt",
       "https://huggingface.co/mistralai/Ministral-3-3B-Base-2512/tree/6f9c4b12a95b139af68670a6713616b757923735",
-      "https://huggingface.co/api/models/mistralai/Ministral-3-3B-Base-2512"
+      "https://huggingface.co/api/models/mistralai/Ministral-3-3B-Base-2512/revision/6f9c4b12a95b139af68670a6713616b757923735"
     ],
     "personal_use": "yes",
     "commercial_use": "yes",
@@ -48,6 +48,6 @@
     "https://huggingface.co/mistralai/Ministral-3-3B-Base-2512/tree/6f9c4b12a95b139af68670a6713616b757923735",
     "https://huggingface.co/mistralai/Ministral-3-3B-Base-2512/blob/6f9c4b12a95b139af68670a6713616b757923735/config.json",
     "https://huggingface.co/mistralai/Ministral-3-3B-Base-2512/raw/6f9c4b12a95b139af68670a6713616b757923735/README.md",
-    "https://huggingface.co/api/models/mistralai/Ministral-3-3B-Base-2512"
+    "https://huggingface.co/api/models/mistralai/Ministral-3-3B-Base-2512/revision/6f9c4b12a95b139af68670a6713616b757923735"
   ]
 }

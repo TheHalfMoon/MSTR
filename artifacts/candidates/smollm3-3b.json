@@ -11,7 +11,7 @@
     "terms_urls": [
       "https://www.apache.org/licenses/LICENSE-2.0.txt",
       "https://huggingface.co/HuggingFaceTB/SmolLM3-3B-Base/tree/d78a42f79198603e614095753484a04c10c2b940",
-      "https://huggingface.co/api/models/HuggingFaceTB/SmolLM3-3B-Base"
+      "https://huggingface.co/api/models/HuggingFaceTB/SmolLM3-3B-Base/revision/d78a42f79198603e614095753484a04c10c2b940"
     ],
     "personal_use": "yes",
     "commercial_use": "yes",
@@ -45,6 +45,6 @@
     "https://huggingface.co/HuggingFaceTB/SmolLM3-3B-Base/tree/d78a42f79198603e614095753484a04c10c2b940",
     "https://huggingface.co/HuggingFaceTB/SmolLM3-3B-Base/blob/d78a42f79198603e614095753484a04c10c2b940/config.json",
     "https://huggingface.co/HuggingFaceTB/SmolLM3-3B-Base/raw/d78a42f79198603e614095753484a04c10c2b940/README.md",
-    "https://huggingface.co/api/models/HuggingFaceTB/SmolLM3-3B-Base"
+    "https://huggingface.co/api/models/HuggingFaceTB/SmolLM3-3B-Base/revision/d78a42f79198603e614095753484a04c10c2b940"
   ]
 }

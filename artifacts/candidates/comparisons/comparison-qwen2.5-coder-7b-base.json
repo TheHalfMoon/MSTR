@@ -10,7 +10,7 @@
     "license_name": "Apache-2.0",
     "terms_urls": [
       "https://huggingface.co/Qwen/Qwen2.5-Coder-7B/tree/0396a76181e127dfc13e5c5ec48a8cee09938b02",
-      "https://huggingface.co/api/models/Qwen/Qwen2.5-Coder-7B",
+      "https://huggingface.co/api/models/Qwen/Qwen2.5-Coder-7B/revision/0396a76181e127dfc13e5c5ec48a8cee09938b02",
       "https://www.apache.org/licenses/LICENSE-2.0.txt"
     ],
     "personal_use": "yes",
@@ -41,6 +41,6 @@
   "quantization_support_notes": [],
   "source_urls": [
     "https://huggingface.co/Qwen/Qwen2.5-Coder-7B/tree/0396a76181e127dfc13e5c5ec48a8cee09938b02",
-    "https://huggingface.co/api/models/Qwen/Qwen2.5-Coder-7B"
+    "https://huggingface.co/api/models/Qwen/Qwen2.5-Coder-7B/revision/0396a76181e127dfc13e5c5ec48a8cee09938b02"
   ]
 }

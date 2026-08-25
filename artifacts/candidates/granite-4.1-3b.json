@@ -11,7 +11,7 @@
     "terms_urls": [
       "https://www.apache.org/licenses/LICENSE-2.0.txt",
       "https://huggingface.co/ibm-granite/granite-4.1-3b-base/tree/dacb9cb9157bec98e99b09f285c92a4d58405c96",
-      "https://huggingface.co/api/models/ibm-granite/granite-4.1-3b-base"
+      "https://huggingface.co/api/models/ibm-granite/granite-4.1-3b-base/revision/dacb9cb9157bec98e99b09f285c92a4d58405c96"
     ],
     "personal_use": "yes",
     "commercial_use": "yes",
@@ -45,6 +45,6 @@
     "https://huggingface.co/ibm-granite/granite-4.1-3b-base/tree/dacb9cb9157bec98e99b09f285c92a4d58405c96",
     "https://huggingface.co/ibm-granite/granite-4.1-3b-base/blob/dacb9cb9157bec98e99b09f285c92a4d58405c96/config.json",
     "https://huggingface.co/ibm-granite/granite-4.1-3b-base/raw/dacb9cb9157bec98e99b09f285c92a4d58405c96/README.md",
-    "https://huggingface.co/api/models/ibm-granite/granite-4.1-3b-base"
+    "https://huggingface.co/api/models/ibm-granite/granite-4.1-3b-base/revision/dacb9cb9157bec98e99b09f285c92a4d58405c96"
   ]
 }

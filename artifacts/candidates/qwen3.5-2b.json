@@ -12,7 +12,7 @@
       "https://huggingface.co/Qwen/Qwen3.5-2B-Base/blob/b1485b2fa6dfa1287294f269f5fb618e03d52d7c/LICENSE",
       "https://www.apache.org/licenses/LICENSE-2.0.txt",
       "https://huggingface.co/Qwen/Qwen3.5-2B-Base/tree/b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
-      "https://huggingface.co/api/models/Qwen/Qwen3.5-2B-Base"
+      "https://huggingface.co/api/models/Qwen/Qwen3.5-2B-Base/revision/b1485b2fa6dfa1287294f269f5fb618e03d52d7c"
     ],
     "personal_use": "yes",
     "commercial_use": "yes",
@@ -49,6 +49,6 @@
     "https://huggingface.co/Qwen/Qwen3.5-2B-Base/tree/b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
     "https://huggingface.co/Qwen/Qwen3.5-2B-Base/blob/b1485b2fa6dfa1287294f269f5fb618e03d52d7c/config.json",
     "https://huggingface.co/Qwen/Qwen3.5-2B-Base/raw/b1485b2fa6dfa1287294f269f5fb618e03d52d7c/README.md",
-    "https://huggingface.co/api/models/Qwen/Qwen3.5-2B-Base"
+    "https://huggingface.co/api/models/Qwen/Qwen3.5-2B-Base/revision/b1485b2fa6dfa1287294f269f5fb618e03d52d7c"
   ]
 }
