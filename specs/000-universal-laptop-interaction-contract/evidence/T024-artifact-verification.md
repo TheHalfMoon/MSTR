@@ -25,7 +25,7 @@ tests/fixtures/artifacts/valid/          manifest.json + alpha.txt + nested/beta
 | Unexpected-file handling | Strict completeness: any extra on-disk file → `artifact.unexpected_file` with count + sample paths. |
 | Malformed manifest failure | Invalid JSON / wrong root type / wrong `schema_version` / missing fields / wrong field types each get distinct fail-closed codes. |
 | Path traversal protection | Two independent layers: load-time validation (absolute paths, `..`, leading `./`, backslashes/NUL, empty components) and verify-time resolution check that the resolved file stays inside the root (`artifact.path_escape`). |
-| Symlink behavior explicitly defined | Symlinks are rejected outright, never followed: declared-file symlink → `artifact.symlink_rejected`; symlinked files discovered in the tree also rejected; resolution escape via directory symlinks caught by the escape layer. |
+| Symlink behavior explicitly defined | Symlinks are rejected outright, never followed: declared-file symlink → `artifact.symlink_rejected`; file AND directory symlinks discovered in the tree rejected; resolution escape via directory symlinks caught by the containment layer. |
 | Duplicate identity failure | Duplicate entry paths rejected at both parse time and dataclass construction (`artifact.duplicate_entry`). |
 | Fail-closed mismatch semantics | Any failure raises `ArtifactIntegrityError`; there is no code path that normalizes a bad artifact into PASS. |
 
@@ -36,7 +36,7 @@ No fetching of weights or any remote content; `verify_artifact` reads only local
 ## Evidence of quality gates (exact head)
 
 ```text
-pytest -q                      -> 235 passed   (205 after T023 fixes + 30 new)
+pytest -q                      -> 240 passed   (205 after T023 fixes + 35 new, incl. review-fix regressions)
 ruff check src tests           -> All checks passed!
 mypy (strict)                  -> Success: no issues found in 15 source files
 python -m mstr_qualify validate -> exit 0
