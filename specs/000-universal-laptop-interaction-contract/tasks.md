@@ -61,7 +61,7 @@ A checkbox becomes complete only when the stated output exists, required tests/e
 - [x] T018 [P] [US2] Qualify Qwen2.5-Coder-1.5B lower-bound control → `artifacts/candidates/qwen2.5-coder-1.5b.json`, `evidence/candidates/T018-qwen2.5-coder-1.5b.md`.
 - [x] T019 [P] [US2] Record Qwen2.5-Coder-3B as reference-only/ineligible unless exact current terms changed → `artifacts/candidates/qwen2.5-coder-3b-reference.json`, `evidence/candidates/T019-qwen2.5-coder-3b.md`.
 - [x] T020 [P] [US2] Record useful compact post-trained comparison points without treating them as foundation winners → `artifacts/candidates/comparisons/*.json`, `evidence/candidates/T020-posttrained-comparisons.md`.
-- [ ] T021 [US2] Re-scan current approximately 1B–5B open foundation landscape immediately before first weight-access planning → `evidence/T021-landscape-rescan.md`; any new candidate gets `artifacts/candidates/<id>.json` under the same schema.
+- [x] T021 [US2] Re-scan current approximately 1B–5B open foundation landscape immediately before first weight-access planning → `evidence/T021-landscape-rescan.md`; any new candidate gets `artifacts/candidates/<id>.json` under the same schema.
 - [ ] T022 [US2] Select bounded weight-eligible candidate set without final backbone admission → `artifacts/decisions/T022-static-candidate-admission.json`, `evidence/T022-static-candidate-admission.md`.
 
 **Checkpoint:** US2 independently demonstrable; weight-eligible set exists without any model acquisition.

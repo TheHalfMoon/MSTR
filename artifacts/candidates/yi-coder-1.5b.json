@@ -1,0 +1,49 @@
+{
+  "schema_version": "mstr.candidate.v1",
+  "candidate_id": "yi-coder-1.5b",
+  "upstream_id": "01-ai/Yi-Coder-1.5B",
+  "upstream_revision": "00e59e64f47d3c78e4cfbdd345888479797e8109",
+  "candidate_role": "control",
+  "status": "static_qualified",
+  "rights": {
+    "decision": "pass_permissive",
+    "license_name": "Apache-2.0",
+    "terms_urls": [
+      "https://huggingface.co/01-ai/Yi-Coder-1.5B/tree/00e59e64f47d3c78e4cfbdd345888479797e8109",
+      "https://huggingface.co/01-ai/Yi-Coder-1.5B/blob/00e59e64f47d3c78e4cfbdd345888479797e8109/README.md",
+      "https://huggingface.co/api/models/01-ai/Yi-Coder-1.5B/revision/00e59e64f47d3c78e4cfbdd345888479797e8109",
+      "https://www.apache.org/licenses/LICENSE-2.0.txt"
+    ],
+    "personal_use": "yes",
+    "commercial_use": "yes",
+    "modification": "yes",
+    "fine_tuning": "yes",
+    "quantization": "yes",
+    "derivative_redistribution": "yes",
+    "account_gate_required": false,
+    "clickthrough_gate_required": false,
+    "end_user_separate_license_required": false,
+    "field_or_scale_restrictions": [],
+    "rationale": "Apache-2.0 declared via README front matter and HF license tags at pinned revision (no standalone LICENSE file in tree; same caveat policy as T014/T016/T017 \u2014 mandatory re-verification before weight access). Discovered by T021 landscape rescan: compact code-specialized control candidate alongside Qwen2.5-Coder-1.5B lower bound. Component rights (FR-016): tokenizer ships in-repo under identical declared license; no third-party component with independent terms."
+  },
+  "architecture": {
+    "family": "llama (LlamaForCausalLM, text-only)",
+    "parameter_count_total": 1480000000,
+    "parameter_count_active": null,
+    "tokenizer_id": "01-ai/Yi-Coder-1.5B tokenizer (SentencePiece via tokenizer.model)",
+    "tokenizer_revision": "00e59e64f47d3c78e4cfbdd345888479797e8109",
+    "vision_components": [],
+    "fim_capability": "no"
+  },
+  "runtime_support_notes": [
+    "GGUF conversion expected viable via llama.cpp-class runtimes; CPU-only basic operation targeted."
+  ],
+  "quantization_support_notes": [
+    "Q4-class target <=3GB primary artifact budget (FR-003)."
+  ],
+  "source_urls": [
+    "https://huggingface.co/01-ai/Yi-Coder-1.5B/tree/00e59e64f47d3c78e4cfbdd345888479797e8109",
+    "https://huggingface.co/01-ai/Yi-Coder-1.5B/blob/00e59e64f47d3c78e4cfbdd345888479797e8109/config.json",
+    "https://huggingface.co/api/models/01-ai/Yi-Coder-1.5B/revision/00e59e64f47d3c78e4cfbdd345888479797e8109"
+  ]
+}
