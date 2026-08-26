@@ -1,0 +1,153 @@
+{
+  "schema_version": "mstr.acquisition-report.v1",
+  "task_id": "MSTR-000 / T028",
+  "runner_environment": "ephemeral-runner/python-urllib",
+  "resource_cost": "USD 0.00 (unauthenticated public artifact fetch)",
+  "result_classification": "ACQUIRED_VERIFIED",
+  "files": [
+    {
+      "candidate_id": "ministral-3-3b",
+      "filename": "README.md",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "0729eb8f38fca5aa4885684550d7f6e8f1338970a6c7b9834acec9e417c91233",
+      "size_bytes": 11604,
+      "model_repo": "mistralai/Ministral-3-3B-Base-2512",
+      "model_revision": "6f9c4b12a95b139af68670a6713616b757923735",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "ministral-3-3b",
+      "filename": "config.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "c89d1a0b4f237d2892ce911d1fe03e9e5a4834579f7149ebc715a4c3fa564214",
+      "size_bytes": 1579,
+      "model_repo": "mistralai/Ministral-3-3B-Base-2512",
+      "model_revision": "6f9c4b12a95b139af68670a6713616b757923735",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "ministral-3-3b",
+      "filename": "generation_config.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "e0923390059f84a9180b00e5501778acc45ea9856cd7f2fd68208b360927c677",
+      "size_bytes": 131,
+      "model_repo": "mistralai/Ministral-3-3B-Base-2512",
+      "model_revision": "6f9c4b12a95b139af68670a6713616b757923735",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "ministral-3-3b",
+      "filename": "model-00001-of-00002.safetensors",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "0494c0a285767920a5e469af9710b499115667f84e17c225a956a5155459249f",
+      "size_bytes": 4967581832,
+      "model_repo": "mistralai/Ministral-3-3B-Base-2512",
+      "model_revision": "6f9c4b12a95b139af68670a6713616b757923735",
+      "redirect_hosts": [
+        "us.aws.cdn.hf.co"
+      ]
+    },
+    {
+      "candidate_id": "ministral-3-3b",
+      "filename": "model-00002-of-00002.safetensors",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "3cd41d76f1d8e7b2fa64668d69177358dffdbd15231ccf6177798bca9de1a797",
+      "size_bytes": 2730659224,
+      "model_repo": "mistralai/Ministral-3-3B-Base-2512",
+      "model_revision": "6f9c4b12a95b139af68670a6713616b757923735",
+      "redirect_hosts": [
+        "us.aws.cdn.hf.co"
+      ]
+    },
+    {
+      "candidate_id": "ministral-3-3b",
+      "filename": "model.safetensors.index.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "7829dcf0040e34f1172b401563fcbb27cc3c5a0244ef01e6af18b7a64d63a81e",
+      "size_bytes": 45577,
+      "model_repo": "mistralai/Ministral-3-3B-Base-2512",
+      "model_revision": "6f9c4b12a95b139af68670a6713616b757923735",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "ministral-3-3b",
+      "filename": "params.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "d15587c57574d2a92c66ff2552c6db5173d4c440ad47f7454dc51bad0ecaeb59",
+      "size_bytes": 1096,
+      "model_repo": "mistralai/Ministral-3-3B-Base-2512",
+      "model_revision": "6f9c4b12a95b139af68670a6713616b757923735",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "ministral-3-3b",
+      "filename": "processor_config.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "ece2373c2ae391bce18785a1810543bc6173a1f28b6767cffab2c35dbea5f002",
+      "size_bytes": 976,
+      "model_repo": "mistralai/Ministral-3-3B-Base-2512",
+      "model_revision": "6f9c4b12a95b139af68670a6713616b757923735",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "ministral-3-3b",
+      "filename": "special_tokens_map.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "486a0ad6c426d698f63d5332a78923f0529789f6f0a32fbc86433cd7dcc14693",
+      "size_bytes": 147085,
+      "model_repo": "mistralai/Ministral-3-3B-Base-2512",
+      "model_revision": "6f9c4b12a95b139af68670a6713616b757923735",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "ministral-3-3b",
+      "filename": "tekken.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "e29d19ea32eb7e26e6c0572d57cb7f9eca0f4420e0e0fe6ae1cf3be94da1c0d6",
+      "size_bytes": 16753777,
+      "model_repo": "mistralai/Ministral-3-3B-Base-2512",
+      "model_revision": "6f9c4b12a95b139af68670a6713616b757923735",
+      "redirect_hosts": [
+        "us.aws.cdn.hf.co"
+      ]
+    },
+    {
+      "candidate_id": "ministral-3-3b",
+      "filename": "tokenizer.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "577575622324b2e099e2648be26bdeb5e5815ffe66d7004e9e3ddbf421db6bf1",
+      "size_bytes": 17078110,
+      "model_repo": "mistralai/Ministral-3-3B-Base-2512",
+      "model_revision": "6f9c4b12a95b139af68670a6713616b757923735",
+      "redirect_hosts": [
+        "us.aws.cdn.hf.co"
+      ]
+    },
+    {
+      "candidate_id": "ministral-3-3b",
+      "filename": "tokenizer_config.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "f3a437d1214f6b61c8eae19d1256b0ebbf567793f6dcc1f63f4a30b829f85235",
+      "size_bytes": 198076,
+      "model_repo": "mistralai/Ministral-3-3B-Base-2512",
+      "model_revision": "6f9c4b12a95b139af68670a6713616b757923735",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    }
+  ]
+}

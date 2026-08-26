@@ -1,0 +1,52 @@
+{
+  "schema_version": "mstr.artifact-manifest.v1",
+  "artifact_id": "mstr-t028-qwen3.5-2b",
+  "format_name": "huggingface-safetensors-pinned-revision",
+  "files": [
+    {
+      "path": "qwen3.5-2b/LICENSE",
+      "sha256": "50cbab8a892c5f2993b8c7351a99182507472def3b1374558308605d99b86b32",
+      "size_bytes": 11343
+    },
+    {
+      "path": "qwen3.5-2b/README.md",
+      "sha256": "50ca45b87d976d9850de95ad00e76fba77e105c2cdef1093b8e3bb261d9a1787",
+      "size_bytes": 3721
+    },
+    {
+      "path": "qwen3.5-2b/config.json",
+      "sha256": "ed1c1723241f23f7f4e23430759cbd7dcfb4103cbdfe052bfe7626b57c2615b4",
+      "size_bytes": 2908
+    },
+    {
+      "path": "qwen3.5-2b/merges.txt",
+      "sha256": "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d",
+      "size_bytes": 3353259
+    },
+    {
+      "path": "qwen3.5-2b/model.safetensors-00001-of-00001.safetensors",
+      "sha256": "928acbf11878c32185bbd863514d191769285065ab9ea14fbfe431303f5fdf2d",
+      "size_bytes": 4548221488
+    },
+    {
+      "path": "qwen3.5-2b/model.safetensors.index.json",
+      "sha256": "74d2ddfe79f10f35b27b498632f02b97b60dd9ec39b35d7c5a890c399284e319",
+      "size_bytes": 64460
+    },
+    {
+      "path": "qwen3.5-2b/tokenizer.json",
+      "sha256": "fe000e3ed39ed12b8d2481d527d44f93c65d37e87645d2dcc80d1bf9d50d2927",
+      "size_bytes": 12807196
+    },
+    {
+      "path": "qwen3.5-2b/tokenizer_config.json",
+      "sha256": "e611fbccc7c29ef3b1cafb1cb7ea548d189968632901d678fd62be68c47885de",
+      "size_bytes": 16712
+    },
+    {
+      "path": "qwen3.5-2b/vocab.json",
+      "sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003",
+      "size_bytes": 6722759
+    }
+  ]
+}

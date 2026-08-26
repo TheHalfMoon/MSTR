@@ -1,0 +1,141 @@
+{
+  "schema_version": "mstr.acquisition-report.v1",
+  "task_id": "MSTR-000 / T028",
+  "runner_environment": "ephemeral-runner/python-urllib",
+  "resource_cost": "USD 0.00 (unauthenticated public artifact fetch)",
+  "result_classification": "ACQUIRED_VERIFIED",
+  "files": [
+    {
+      "candidate_id": "granite-4.1-3b",
+      "filename": "README.md",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "6fe5a89323370ac421f4264ccf0a51347a2d79a0af43e7360b025bf80c0792e3",
+      "size_bytes": 28221,
+      "model_repo": "ibm-granite/granite-4.1-3b-base",
+      "model_revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "granite-4.1-3b",
+      "filename": "config.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "9a0e589b69e7d3ad9fb9fb2c844aa7d7156e052cb7ea4211de7de48ab7c8525c",
+      "size_bytes": 801,
+      "model_repo": "ibm-granite/granite-4.1-3b-base",
+      "model_revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "granite-4.1-3b",
+      "filename": "generation_config.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "9117fb03fed79dbb459373edeef9a3eec966bce52a1842e03a6716e83117f0d1",
+      "size_bytes": 147,
+      "model_repo": "ibm-granite/granite-4.1-3b-base",
+      "model_revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "granite-4.1-3b",
+      "filename": "merges.txt",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "b6fe424e334903f7fb84d3a106d9730455f4744b9fe3c21ee136d97a00e72502",
+      "size_bytes": 916646,
+      "model_repo": "ibm-granite/granite-4.1-3b-base",
+      "model_revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "granite-4.1-3b",
+      "filename": "model-00001-of-00002.safetensors",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "6f689cdf8d8bcde2d8ea60eb1d767d56f8dcbdb243cecde92ff9f8836de2645f",
+      "size_bytes": 4918153128,
+      "model_repo": "ibm-granite/granite-4.1-3b-base",
+      "model_revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
+      "redirect_hosts": [
+        "us.aws.cdn.hf.co"
+      ]
+    },
+    {
+      "candidate_id": "granite-4.1-3b",
+      "filename": "model-00002-of-00002.safetensors",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "f9e80cae16101f1c6dd83a746056334286d82cf260e5f0020601bd304ec73b7e",
+      "size_bytes": 1887561680,
+      "model_repo": "ibm-granite/granite-4.1-3b-base",
+      "model_revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
+      "redirect_hosts": [
+        "us.aws.cdn.hf.co"
+      ]
+    },
+    {
+      "candidate_id": "granite-4.1-3b",
+      "filename": "model.safetensors.index.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "e3d0b72ed352de6c07bc24179158ad71b9eb434cad1132bb0c101d3f78d13863",
+      "size_bytes": 29834,
+      "model_repo": "ibm-granite/granite-4.1-3b-base",
+      "model_revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "granite-4.1-3b",
+      "filename": "special_tokens_map.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "c08676c49fd7969a3130f72be6d4bf34da66aa484a6e21dffe359893a1bd5f2e",
+      "size_bytes": 579,
+      "model_repo": "ibm-granite/granite-4.1-3b-base",
+      "model_revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "granite-4.1-3b",
+      "filename": "tokenizer.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "e2bad66439538cb4d5a7580680932432ed9ece9d3b8577e675512bdf11599253",
+      "size_bytes": 7153421,
+      "model_repo": "ibm-granite/granite-4.1-3b-base",
+      "model_revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "granite-4.1-3b",
+      "filename": "tokenizer_config.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "a5ec5daab12ba090a90f3dd169c8f9c275557013a87b9c1258dc7cb497a35c86",
+      "size_bytes": 17659,
+      "model_repo": "ibm-granite/granite-4.1-3b-base",
+      "model_revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "granite-4.1-3b",
+      "filename": "vocab.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "8af71076de8b0b626eed0f4c984faf0a7c062479164b2a31308a948524d4f69c",
+      "size_bytes": 1612704,
+      "model_repo": "ibm-granite/granite-4.1-3b-base",
+      "model_revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    }
+  ]
+}

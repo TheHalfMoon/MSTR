@@ -1,0 +1,47 @@
+{
+  "schema_version": "mstr.artifact-manifest.v1",
+  "artifact_id": "mstr-t028-yi-coder-1.5b",
+  "format_name": "huggingface-safetensors-pinned-revision",
+  "files": [
+    {
+      "path": "yi-coder-1.5b/README.md",
+      "sha256": "9a8ee77cf77175edfd8df3b0786fd6e67e3baac11f0e8a2ad44dc41d29f54548",
+      "size_bytes": 5096
+    },
+    {
+      "path": "yi-coder-1.5b/config.json",
+      "sha256": "eb89cf6432c7914e60887bca1b0797615d296d04b25957a9bac525246d6b5265",
+      "size_bytes": 682
+    },
+    {
+      "path": "yi-coder-1.5b/generation_config.json",
+      "sha256": "fd13175799de9fb776d4dcd603f1344863da0f581dcbac71209fe9a126ecfca4",
+      "size_bytes": 132
+    },
+    {
+      "path": "yi-coder-1.5b/model.safetensors",
+      "sha256": "8739bb63ec22de1cad21ca59b6c16245d16cdbdeaa3a406d3c646ba77979970e",
+      "size_bytes": 2953016024
+    },
+    {
+      "path": "yi-coder-1.5b/special_tokens_map.json",
+      "sha256": "1f758131582e2df1391a2a0dc54a230bc54825aeff13498c1d2a48f1700e42eb",
+      "size_bytes": 573
+    },
+    {
+      "path": "yi-coder-1.5b/tokenizer.json",
+      "sha256": "18da9ff3421e5c878bd223ce42316058c0bdf688c114aa57e469ed5b91b4c3bc",
+      "size_bytes": 3560486
+    },
+    {
+      "path": "yi-coder-1.5b/tokenizer.model",
+      "sha256": "386c49cf943d71aa110361135338c50e38beeff0a66593480421f37b319e1a39",
+      "size_bytes": 1033105
+    },
+    {
+      "path": "yi-coder-1.5b/tokenizer_config.json",
+      "sha256": "d17bc695273ea8fde443524a79a39caadb548b40912fcfc0ab2bfc58eb690d9b",
+      "size_bytes": 953
+    }
+  ]
+}

@@ -7,12 +7,12 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_AFTER_T027 = 15b691c (T028 explicit founder gate is next; see merge log below)
-PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / ZERO_ARTIFACT_STORAGE_ARCHITECTURE_CANONICAL_T028_EXECUTION_PENDING
+CANONICAL_MAIN_AFTER_T028 = see merge log below (zero-large-artifact architecture canonical; T029 next)
+PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / T028_ACQUISITION_COMPLETE_ALL_VERIFIED
 ACTIVE_SPEC = MSTR-000
 SPEC_KIT_PACKAGE = CANONICAL
-ACTIVE_TASK = T028_WEIGHT_ACQUISITION (founder-authorized; zero-artifact storage architecture canonical)
-NEXT_TASKS_ON_RESUME = execute T028 through approved ephemeral cloud runners, then continue non-gated tasks to T052; STOP before T053
+ACTIVE_TASK = T029_Q4_PROFILE_QUANTIZATION_QUALIFICATION
+NEXT_TASKS_ON_RESUME = continue non-gated tasks T029→T052 in canonical order; STOP at T053 (separate founder gate required)
 ```
 
 ## Canonical completed history
@@ -40,6 +40,7 @@ T024 = COMPLETE_CANONICAL / ARTIFACT_MANIFEST_HASH_VERIFICATION
 T025 = COMPLETE_CANONICAL / CROSS_PLATFORM_MEMORY_PAGING_SAMPLERS
 T026 = COMPLETE_CANONICAL / MEASURE_V0_MONOTONIC_EVENT_LOGIC
 T027 = COMPLETE_CANONICAL / WEIGHT_ACCESS_ACQUISITION_PREFLIGHT (preparation only; no weight access granted)
+T028 = COMPLETE_CANONICAL / WEIGHT_ACQUISITION_ALL_EIGHT_ACQUIRED_VERIFIED
 ```
 
 ## Phase-4 harness infrastructure merges (2026-08-25)
@@ -50,6 +51,8 @@ T024: PR #26 as c593fce1655ee857f237b3fd476fc8e14cb836fe (exact head 91e2945a3fb
 T025: PR #27 as 89a48ba834eb9fa012b1515ec774dae68315ec49 (exact head e70a7c48ec958cb53266349847ab0568ca8d5246)
 T026: PR #28 as 52d86f0c89bd0323d19aae776ae01aa4ebf5bc58 (exact head 858bf428946ce64249f897dd194099267d857236)
 T027: PR #30 as 15b691cdf27103a632c5d982b822563859cf0094 (exact head 6e0426ef970336875675122b475b938c394e4bfb)
+Storage-architecture amendment: PR #33 (zero-large-artifact canonical)
+T028 acquisition: all eight ACQUIRED_VERIFIED via ephemeral Actions runners; aggregate manifest artifacts/manifests/T028-acquired-artifacts.json
 ```
 
 Gates on canonical main `15b691c` (T027 head `6e0426e`): pytest 344 passed; ruff clean; mypy strict clean; offline CLI validate exit 0. All review findings resolved on-head before merge (qodo x5 + CodeRabbit x3 on PR #30 — llamafile license identity corrected to Apache-2.0 project license with MIT-derived components, safe_relative_path hardened with minLength/trailing-separator rejection in both byte-identical schema copies, missing-LICENSE risk entries pinned to exact candidate IDs; all with regression tests and all threads resolved).

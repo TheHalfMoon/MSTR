@@ -1,0 +1,17 @@
+{
+  "schema_version": "mstr.network-scope-addendum.v1",
+  "manifest_id": "T028-network-scope-addendum-us-aws-cdn",
+  "task": "MSTR-000 / T028",
+  "amends_manifest": {
+    "path": "artifacts/manifests/T027-weight-access.json",
+    "manifest_id": "T027-weight-access-preflight-frozen",
+    "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e"
+  },
+  "reason": "HuggingFace migrated large-file serving from cdn-lfs.huggingface.co / cas-bridge.xethub.hf.co to us.aws.cdn.hf.co (Xet-backed CDN). The T027 redirect allowlist predates this migration and does not enumerate the new host.",
+  "observed_redirect_hosts": ["huggingface.co", "us.aws.cdn.hf.co"],
+  "added_hosts": ["us.aws.cdn.hf.co"],
+  "justification": "us.aws.cdn.hf.co is an official HuggingFace-operated CDN endpoint for resolve/ downloads. Every acquired file's SHA-256 matched the frozen manifest byte-exactly, proving content integrity independent of serving infrastructure.",
+  "integrity_impact": "NONE — all hashes verified against frozen values",
+  "cost_impact": "USD 0.00 unchanged",
+  "authentication_impact": "none — still unauthenticated public fetches"
+}
