@@ -8,6 +8,7 @@
     "schema_version",
     "loop_id",
     "interaction_contract_id",
+    "goal_policy",
     "tool_surface_id",
     "context_policy_id",
     "edit_policy_id",
@@ -36,6 +37,7 @@
     "goal_policy": {
       "type": "object",
       "additionalProperties": false,
+      "required": ["ambiguity_behavior", "require_acceptance_criteria"],
       "properties": {
         "ambiguity_behavior": {"enum": ["clarify", "escalate", "bounded_inference"]},
         "require_acceptance_criteria": {"type": "boolean"}
@@ -44,17 +46,26 @@
     "stop_policy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["success_requires_independent_verifier", "success_terminal_class"],
+      "required": [
+        "success_requires_independent_verifier",
+        "success_terminal_classes",
+        "allow_escalation"
+      ],
       "properties": {
         "success_requires_independent_verifier": {"const": true},
-        "success_terminal_class": {"const": "VERIFIED_SUCCESS"},
+        "success_terminal_classes": {
+          "const": ["VERIFIED_SUCCESS", "RECOVERED_SUCCESS"]
+        },
         "allow_escalation": {"type": "boolean"}
       }
     },
     "recovery_policy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["retry_same_failed_action_without_new_evidence"],
+      "required": [
+        "retry_same_failed_action_without_new_evidence",
+        "require_failure_classification"
+      ],
       "properties": {
         "retry_same_failed_action_without_new_evidence": {"const": false},
         "require_failure_classification": {"type": "boolean"}
