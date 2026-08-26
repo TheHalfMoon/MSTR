@@ -229,13 +229,13 @@
   "storage-amendment": {
     "wrong_schema_version": {
       "schema_version": "mstr.weight-access-manifest.v1",
-      "manifest_id": "t028-storage-amendment-fixture",
+      "manifest_id": "T028-storage-amendment-fixture",
       "task": "MSTR-000 / T028",
       "canonical_base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "amends_manifest": {
         "path": "artifacts/manifests/T027-weight-access.json",
         "manifest_id": "T027-weight-access-preflight-frozen",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e",
         "unchanged_fields": [
           "candidates",
           "exact_model_ids",
@@ -277,11 +277,20 @@
         "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
         "fetch_method": "HTTPS_GET_ONLY",
         "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
-        "report_requirement": "MACHINE_VERIFIABLE_PER_FILE_STATUS_REPORT_IS_THE_DURABLE_OUTPUT",
+        "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
         "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
         "substitute_revisions_allowed": false,
         "latest_refs_allowed": false,
-        "unrelated_files_allowed": false
+        "unrelated_files_allowed": false,
+        "required_report_identity": {
+          "model_repo": "example/model",
+          "model_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "task_id": "MSTR-000 / T028",
+          "runner_environment": "ubuntu-24.04/py3.11",
+          "per_file_results": "map",
+          "result_classification": "ACQUIRED_VERIFIED",
+          "resource_cost": "USD 0.00"
+        }
       },
       "mac_receives": [
         "SOURCE_CODE",
@@ -305,13 +314,13 @@
     },
     "bad_canonical_base": {
       "schema_version": "mstr.storage-amendment.v1",
-      "manifest_id": "t028-storage-amendment-fixture",
+      "manifest_id": "T028-storage-amendment-fixture",
       "task": "MSTR-000 / T028",
       "canonical_base": "latest",
       "amends_manifest": {
         "path": "artifacts/manifests/T027-weight-access.json",
         "manifest_id": "T027-weight-access-preflight-frozen",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e",
         "unchanged_fields": [
           "candidates",
           "exact_model_ids",
@@ -353,11 +362,20 @@
         "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
         "fetch_method": "HTTPS_GET_ONLY",
         "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
-        "report_requirement": "MACHINE_VERIFIABLE_PER_FILE_STATUS_REPORT_IS_THE_DURABLE_OUTPUT",
+        "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
         "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
         "substitute_revisions_allowed": false,
         "latest_refs_allowed": false,
-        "unrelated_files_allowed": false
+        "unrelated_files_allowed": false,
+        "required_report_identity": {
+          "model_repo": "example/model",
+          "model_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "task_id": "MSTR-000 / T028",
+          "runner_environment": "ubuntu-24.04/py3.11",
+          "per_file_results": "map",
+          "result_classification": "ACQUIRED_VERIFIED",
+          "resource_cost": "USD 0.00"
+        }
       },
       "mac_receives": [
         "SOURCE_CODE",
@@ -457,13 +475,13 @@
     },
     "wrong_amended_path": {
       "schema_version": "mstr.storage-amendment.v1",
-      "manifest_id": "t028-storage-amendment-fixture",
+      "manifest_id": "T028-storage-amendment-fixture",
       "task": "MSTR-000 / T028",
       "canonical_base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "amends_manifest": {
         "path": "artifacts/manifests/other.json",
         "manifest_id": "T027-weight-access-preflight-frozen",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e",
         "unchanged_fields": [
           "candidates",
           "exact_model_ids",
@@ -505,11 +523,20 @@
         "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
         "fetch_method": "HTTPS_GET_ONLY",
         "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
-        "report_requirement": "MACHINE_VERIFIABLE_PER_FILE_STATUS_REPORT_IS_THE_DURABLE_OUTPUT",
+        "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
         "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
         "substitute_revisions_allowed": false,
         "latest_refs_allowed": false,
-        "unrelated_files_allowed": false
+        "unrelated_files_allowed": false,
+        "required_report_identity": {
+          "model_repo": "example/model",
+          "model_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "task_id": "MSTR-000 / T028",
+          "runner_environment": "ubuntu-24.04/py3.11",
+          "per_file_results": "map",
+          "result_classification": "ACQUIRED_VERIFIED",
+          "resource_cost": "USD 0.00"
+        }
       },
       "mac_receives": [
         "SOURCE_CODE",
@@ -533,13 +560,13 @@
     },
     "missing_unchanged_fields": {
       "schema_version": "mstr.storage-amendment.v1",
-      "manifest_id": "t028-storage-amendment-fixture",
+      "manifest_id": "T028-storage-amendment-fixture",
       "task": "MSTR-000 / T028",
       "canonical_base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "amends_manifest": {
         "path": "artifacts/manifests/T027-weight-access.json",
         "manifest_id": "T027-weight-access-preflight-frozen",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e",
         "unchanged_fields": [
           "candidates"
         ]
@@ -574,11 +601,20 @@
         "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
         "fetch_method": "HTTPS_GET_ONLY",
         "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
-        "report_requirement": "MACHINE_VERIFIABLE_PER_FILE_STATUS_REPORT_IS_THE_DURABLE_OUTPUT",
+        "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
         "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
         "substitute_revisions_allowed": false,
         "latest_refs_allowed": false,
-        "unrelated_files_allowed": false
+        "unrelated_files_allowed": false,
+        "required_report_identity": {
+          "model_repo": "example/model",
+          "model_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "task_id": "MSTR-000 / T028",
+          "runner_environment": "ubuntu-24.04/py3.11",
+          "per_file_results": "map",
+          "result_classification": "ACQUIRED_VERIFIED",
+          "resource_cost": "USD 0.00"
+        }
       },
       "mac_receives": [
         "SOURCE_CODE",
@@ -602,13 +638,13 @@
     },
     "nonzero_mac_artifacts": {
       "schema_version": "mstr.storage-amendment.v1",
-      "manifest_id": "t028-storage-amendment-fixture",
+      "manifest_id": "T028-storage-amendment-fixture",
       "task": "MSTR-000 / T028",
       "canonical_base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "amends_manifest": {
         "path": "artifacts/manifests/T027-weight-access.json",
         "manifest_id": "T027-weight-access-preflight-frozen",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e",
         "unchanged_fields": [
           "candidates",
           "exact_model_ids",
@@ -650,11 +686,20 @@
         "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
         "fetch_method": "HTTPS_GET_ONLY",
         "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
-        "report_requirement": "MACHINE_VERIFIABLE_PER_FILE_STATUS_REPORT_IS_THE_DURABLE_OUTPUT",
+        "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
         "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
         "substitute_revisions_allowed": false,
         "latest_refs_allowed": false,
-        "unrelated_files_allowed": false
+        "unrelated_files_allowed": false,
+        "required_report_identity": {
+          "model_repo": "example/model",
+          "model_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "task_id": "MSTR-000 / T028",
+          "runner_environment": "ubuntu-24.04/py3.11",
+          "per_file_results": "map",
+          "result_classification": "ACQUIRED_VERIFIED",
+          "resource_cost": "USD 0.00"
+        }
       },
       "mac_receives": [
         "SOURCE_CODE",
@@ -678,13 +723,13 @@
     },
     "retention_not_superseded": {
       "schema_version": "mstr.storage-amendment.v1",
-      "manifest_id": "t028-storage-amendment-fixture",
+      "manifest_id": "T028-storage-amendment-fixture",
       "task": "MSTR-000 / T028",
       "canonical_base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "amends_manifest": {
         "path": "artifacts/manifests/T027-weight-access.json",
         "manifest_id": "T027-weight-access-preflight-frozen",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e",
         "unchanged_fields": [
           "candidates",
           "exact_model_ids",
@@ -726,11 +771,20 @@
         "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
         "fetch_method": "HTTPS_GET_ONLY",
         "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
-        "report_requirement": "MACHINE_VERIFIABLE_PER_FILE_STATUS_REPORT_IS_THE_DURABLE_OUTPUT",
+        "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
         "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
         "substitute_revisions_allowed": false,
         "latest_refs_allowed": false,
-        "unrelated_files_allowed": false
+        "unrelated_files_allowed": false,
+        "required_report_identity": {
+          "model_repo": "example/model",
+          "model_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "task_id": "MSTR-000 / T028",
+          "runner_environment": "ubuntu-24.04/py3.11",
+          "per_file_results": "map",
+          "result_classification": "ACQUIRED_VERIFIED",
+          "resource_cost": "USD 0.00"
+        }
       },
       "mac_receives": [
         "SOURCE_CODE",
@@ -754,13 +808,13 @@
     },
     "executor_paid": {
       "schema_version": "mstr.storage-amendment.v1",
-      "manifest_id": "t028-storage-amendment-fixture",
+      "manifest_id": "T028-storage-amendment-fixture",
       "task": "MSTR-000 / T028",
       "canonical_base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "amends_manifest": {
         "path": "artifacts/manifests/T027-weight-access.json",
         "manifest_id": "T027-weight-access-preflight-frozen",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e",
         "unchanged_fields": [
           "candidates",
           "exact_model_ids",
@@ -802,11 +856,20 @@
         "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
         "fetch_method": "HTTPS_GET_ONLY",
         "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
-        "report_requirement": "MACHINE_VERIFIABLE_PER_FILE_STATUS_REPORT_IS_THE_DURABLE_OUTPUT",
+        "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
         "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
         "substitute_revisions_allowed": false,
         "latest_refs_allowed": false,
-        "unrelated_files_allowed": false
+        "unrelated_files_allowed": false,
+        "required_report_identity": {
+          "model_repo": "example/model",
+          "model_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "task_id": "MSTR-000 / T028",
+          "runner_environment": "ubuntu-24.04/py3.11",
+          "per_file_results": "map",
+          "result_classification": "ACQUIRED_VERIFIED",
+          "resource_cost": "USD 0.00"
+        }
       },
       "mac_receives": [
         "SOURCE_CODE",
@@ -830,13 +893,13 @@
     },
     "auth_required_executor": {
       "schema_version": "mstr.storage-amendment.v1",
-      "manifest_id": "t028-storage-amendment-fixture",
+      "manifest_id": "T028-storage-amendment-fixture",
       "task": "MSTR-000 / T028",
       "canonical_base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "amends_manifest": {
         "path": "artifacts/manifests/T027-weight-access.json",
         "manifest_id": "T027-weight-access-preflight-frozen",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e",
         "unchanged_fields": [
           "candidates",
           "exact_model_ids",
@@ -878,11 +941,20 @@
         "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
         "fetch_method": "HTTPS_GET_ONLY",
         "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
-        "report_requirement": "MACHINE_VERIFIABLE_PER_FILE_STATUS_REPORT_IS_THE_DURABLE_OUTPUT",
+        "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
         "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
         "substitute_revisions_allowed": false,
         "latest_refs_allowed": false,
-        "unrelated_files_allowed": false
+        "unrelated_files_allowed": false,
+        "required_report_identity": {
+          "model_repo": "example/model",
+          "model_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "task_id": "MSTR-000 / T028",
+          "runner_environment": "ubuntu-24.04/py3.11",
+          "per_file_results": "map",
+          "result_classification": "ACQUIRED_VERIFIED",
+          "resource_cost": "USD 0.00"
+        }
       },
       "mac_receives": [
         "SOURCE_CODE",
@@ -906,13 +978,13 @@
     },
     "wrong_network_scope": {
       "schema_version": "mstr.storage-amendment.v1",
-      "manifest_id": "t028-storage-amendment-fixture",
+      "manifest_id": "T028-storage-amendment-fixture",
       "task": "MSTR-000 / T028",
       "canonical_base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "amends_manifest": {
         "path": "artifacts/manifests/T027-weight-access.json",
         "manifest_id": "T027-weight-access-preflight-frozen",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e",
         "unchanged_fields": [
           "candidates",
           "exact_model_ids",
@@ -954,11 +1026,20 @@
         "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
         "fetch_method": "HTTPS_GET_ONLY",
         "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
-        "report_requirement": "MACHINE_VERIFIABLE_PER_FILE_STATUS_REPORT_IS_THE_DURABLE_OUTPUT",
+        "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
         "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
         "substitute_revisions_allowed": false,
         "latest_refs_allowed": false,
-        "unrelated_files_allowed": false
+        "unrelated_files_allowed": false,
+        "required_report_identity": {
+          "model_repo": "example/model",
+          "model_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "task_id": "MSTR-000 / T028",
+          "runner_environment": "ubuntu-24.04/py3.11",
+          "per_file_results": "map",
+          "result_classification": "ACQUIRED_VERIFIED",
+          "resource_cost": "USD 0.00"
+        }
       },
       "mac_receives": [
         "SOURCE_CODE",
@@ -982,13 +1063,13 @@
     },
     "missing_reports_in_mac_receives": {
       "schema_version": "mstr.storage-amendment.v1",
-      "manifest_id": "t028-storage-amendment-fixture",
+      "manifest_id": "T028-storage-amendment-fixture",
       "task": "MSTR-000 / T028",
       "canonical_base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "amends_manifest": {
         "path": "artifacts/manifests/T027-weight-access.json",
         "manifest_id": "T027-weight-access-preflight-frozen",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e",
         "unchanged_fields": [
           "candidates",
           "exact_model_ids",
@@ -1030,11 +1111,20 @@
         "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
         "fetch_method": "HTTPS_GET_ONLY",
         "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
-        "report_requirement": "MACHINE_VERIFIABLE_PER_FILE_STATUS_REPORT_IS_THE_DURABLE_OUTPUT",
+        "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
         "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
         "substitute_revisions_allowed": false,
         "latest_refs_allowed": false,
-        "unrelated_files_allowed": false
+        "unrelated_files_allowed": false,
+        "required_report_identity": {
+          "model_repo": "example/model",
+          "model_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "task_id": "MSTR-000 / T028",
+          "runner_environment": "ubuntu-24.04/py3.11",
+          "per_file_results": "map",
+          "result_classification": "ACQUIRED_VERIFIED",
+          "resource_cost": "USD 0.00"
+        }
       },
       "mac_receives": [
         "SOURCE_CODE",
@@ -1053,13 +1143,13 @@
     },
     "no_prohibitions": {
       "schema_version": "mstr.storage-amendment.v1",
-      "manifest_id": "t028-storage-amendment-fixture",
+      "manifest_id": "T028-storage-amendment-fixture",
       "task": "MSTR-000 / T028",
       "canonical_base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "amends_manifest": {
         "path": "artifacts/manifests/T027-weight-access.json",
         "manifest_id": "T027-weight-access-preflight-frozen",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e",
         "unchanged_fields": [
           "candidates",
           "exact_model_ids",
@@ -1101,7 +1191,340 @@
         "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
         "fetch_method": "HTTPS_GET_ONLY",
         "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
-        "report_requirement": "MACHINE_VERIFIABLE_PER_FILE_STATUS_REPORT_IS_THE_DURABLE_OUTPUT",
+        "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
+        "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
+        "substitute_revisions_allowed": false,
+        "latest_refs_allowed": false,
+        "unrelated_files_allowed": false,
+        "required_report_identity": {
+          "model_repo": "example/model",
+          "model_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "task_id": "MSTR-000 / T028",
+          "runner_environment": "ubuntu-24.04/py3.11",
+          "per_file_results": "map",
+          "result_classification": "ACQUIRED_VERIFIED",
+          "resource_cost": "USD 0.00"
+        }
+      },
+      "mac_receives": [
+        "SOURCE_CODE",
+        "CONFIGS",
+        "MANIFESTS",
+        "HASHES",
+        "METRICS",
+        "EVIDENCE",
+        "REPORTS"
+      ],
+      "prohibitions": [],
+      "cost_ceiling": {
+        "acquisition_cost": "USD 0.00",
+        "runner_cost_policy": "zero marginal cost only"
+      }
+    },
+    "nonpinned_t027_sha": {
+      "schema_version": "mstr.storage-amendment.v1",
+      "manifest_id": "T028-storage-amendment-fixture",
+      "task": "MSTR-000 / T028",
+      "canonical_base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "amends_manifest": {
+        "path": "artifacts/manifests/T027-weight-access.json",
+        "manifest_id": "T027-weight-access-preflight-frozen",
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "unchanged_fields": [
+          "candidates",
+          "exact_model_ids",
+          "exact_revisions",
+          "expected_file_integrity",
+          "rights_decisions",
+          "network_allowlist",
+          "gating_status",
+          "cost_ceiling"
+        ]
+      },
+      "policy": {
+        "founder_mac_large_artifacts": "ZERO",
+        "mac_receives_only": [
+          "SOURCE_CODE",
+          "CONFIGS",
+          "MANIFESTS",
+          "HASHES",
+          "METRICS",
+          "EVIDENCE",
+          "REPORTS"
+        ],
+        "supersedes_local_retention_clause": true,
+        "persistence_for_originals": "UPSTREAM_HUGGINGFACE_IMMUTABLE_PINNED_REVISIONS",
+        "persistence_for_derived": "REGENERATE_ON_DEMAND_IN_EPHEMERAL_RUNNERS_IDENTITY_RECORDED_IN_GIT"
+      },
+      "approved_executors": [
+        {
+          "executor_id": "fixture-colab-runner",
+          "kind": "EPHEMERAL_CLOUD_RUNNER",
+          "driver": "colab/notebook.ipynb",
+          "role": "interactive primary",
+          "network_scope": "HTTPS_GET_ONLY_PER_T027_ALLOWLIST",
+          "authentication_required": false,
+          "monetary_cost": "USD 0.00"
+        }
+      ],
+      "ephemeral_runner_contract": {
+        "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
+        "fetch_method": "HTTPS_GET_ONLY",
+        "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
+        "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
+        "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
+        "substitute_revisions_allowed": false,
+        "latest_refs_allowed": false,
+        "unrelated_files_allowed": false,
+        "required_report_identity": {
+          "model_repo": "example/model",
+          "model_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "task_id": "MSTR-000 / T028",
+          "runner_environment": "ubuntu-24.04/py3.11",
+          "per_file_results": "map",
+          "result_classification": "ACQUIRED_VERIFIED",
+          "resource_cost": "USD 0.00"
+        }
+      },
+      "mac_receives": [
+        "SOURCE_CODE",
+        "CONFIGS",
+        "MANIFESTS",
+        "HASHES",
+        "METRICS",
+        "EVIDENCE",
+        "REPORTS"
+      ],
+      "prohibitions": [
+        "MODEL_BINARIES_ON_FOUNDER_MAC",
+        "MODEL_BINARIES_IN_GIT",
+        "AUTHENTICATION_OR_GATED_TERMS",
+        "PAID_ACCESS"
+      ],
+      "cost_ceiling": {
+        "acquisition_cost": "USD 0.00",
+        "runner_cost_policy": "zero marginal cost only"
+      }
+    },
+    "executor_missing_cost": {
+      "schema_version": "mstr.storage-amendment.v1",
+      "manifest_id": "T028-storage-amendment-fixture",
+      "task": "MSTR-000 / T028",
+      "canonical_base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "amends_manifest": {
+        "path": "artifacts/manifests/T027-weight-access.json",
+        "manifest_id": "T027-weight-access-preflight-frozen",
+        "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e",
+        "unchanged_fields": [
+          "candidates",
+          "exact_model_ids",
+          "exact_revisions",
+          "expected_file_integrity",
+          "rights_decisions",
+          "network_allowlist",
+          "gating_status",
+          "cost_ceiling"
+        ]
+      },
+      "policy": {
+        "founder_mac_large_artifacts": "ZERO",
+        "mac_receives_only": [
+          "SOURCE_CODE",
+          "CONFIGS",
+          "MANIFESTS",
+          "HASHES",
+          "METRICS",
+          "EVIDENCE",
+          "REPORTS"
+        ],
+        "supersedes_local_retention_clause": true,
+        "persistence_for_originals": "UPSTREAM_HUGGINGFACE_IMMUTABLE_PINNED_REVISIONS",
+        "persistence_for_derived": "REGENERATE_ON_DEMAND_IN_EPHEMERAL_RUNNERS_IDENTITY_RECORDED_IN_GIT"
+      },
+      "approved_executors": [
+        {
+          "executor_id": "fixture-colab-runner",
+          "kind": "EPHEMERAL_CLOUD_RUNNER",
+          "driver": "colab/notebook.ipynb",
+          "role": "interactive primary",
+          "network_scope": "HTTPS_GET_ONLY_PER_T027_ALLOWLIST",
+          "authentication_required": false
+        }
+      ],
+      "ephemeral_runner_contract": {
+        "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
+        "fetch_method": "HTTPS_GET_ONLY",
+        "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
+        "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
+        "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
+        "substitute_revisions_allowed": false,
+        "latest_refs_allowed": false,
+        "unrelated_files_allowed": false,
+        "required_report_identity": {
+          "model_repo": "example/model",
+          "model_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "task_id": "MSTR-000 / T028",
+          "runner_environment": "ubuntu-24.04/py3.11",
+          "per_file_results": "map",
+          "result_classification": "ACQUIRED_VERIFIED",
+          "resource_cost": "USD 0.00"
+        }
+      },
+      "mac_receives": [
+        "SOURCE_CODE",
+        "CONFIGS",
+        "MANIFESTS",
+        "HASHES",
+        "METRICS",
+        "EVIDENCE",
+        "REPORTS"
+      ],
+      "prohibitions": [
+        "MODEL_BINARIES_ON_FOUNDER_MAC",
+        "MODEL_BINARIES_IN_GIT",
+        "AUTHENTICATION_OR_GATED_TERMS",
+        "PAID_ACCESS"
+      ],
+      "cost_ceiling": {
+        "acquisition_cost": "USD 0.00",
+        "runner_cost_policy": "zero marginal cost only"
+      }
+    },
+    "missing_deny_flag": {
+      "schema_version": "mstr.storage-amendment.v1",
+      "manifest_id": "T028-storage-amendment-fixture",
+      "task": "MSTR-000 / T028",
+      "canonical_base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "amends_manifest": {
+        "path": "artifacts/manifests/T027-weight-access.json",
+        "manifest_id": "T027-weight-access-preflight-frozen",
+        "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e",
+        "unchanged_fields": [
+          "candidates",
+          "exact_model_ids",
+          "exact_revisions",
+          "expected_file_integrity",
+          "rights_decisions",
+          "network_allowlist",
+          "gating_status",
+          "cost_ceiling"
+        ]
+      },
+      "policy": {
+        "founder_mac_large_artifacts": "ZERO",
+        "mac_receives_only": [
+          "SOURCE_CODE",
+          "CONFIGS",
+          "MANIFESTS",
+          "HASHES",
+          "METRICS",
+          "EVIDENCE",
+          "REPORTS"
+        ],
+        "supersedes_local_retention_clause": true,
+        "persistence_for_originals": "UPSTREAM_HUGGINGFACE_IMMUTABLE_PINNED_REVISIONS",
+        "persistence_for_derived": "REGENERATE_ON_DEMAND_IN_EPHEMERAL_RUNNERS_IDENTITY_RECORDED_IN_GIT"
+      },
+      "approved_executors": [
+        {
+          "executor_id": "fixture-colab-runner",
+          "kind": "EPHEMERAL_CLOUD_RUNNER",
+          "driver": "colab/notebook.ipynb",
+          "role": "interactive primary",
+          "network_scope": "HTTPS_GET_ONLY_PER_T027_ALLOWLIST",
+          "authentication_required": false,
+          "monetary_cost": "USD 0.00"
+        }
+      ],
+      "ephemeral_runner_contract": {
+        "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
+        "fetch_method": "HTTPS_GET_ONLY",
+        "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
+        "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
+        "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
+        "substitute_revisions_allowed": false,
+        "unrelated_files_allowed": false,
+        "required_report_identity": {
+          "model_repo": "example/model",
+          "model_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "task_id": "MSTR-000 / T028",
+          "runner_environment": "ubuntu-24.04/py3.11",
+          "per_file_results": "map",
+          "result_classification": "ACQUIRED_VERIFIED",
+          "resource_cost": "USD 0.00"
+        }
+      },
+      "mac_receives": [
+        "SOURCE_CODE",
+        "CONFIGS",
+        "MANIFESTS",
+        "HASHES",
+        "METRICS",
+        "EVIDENCE",
+        "REPORTS"
+      ],
+      "prohibitions": [
+        "MODEL_BINARIES_ON_FOUNDER_MAC",
+        "MODEL_BINARIES_IN_GIT",
+        "AUTHENTICATION_OR_GATED_TERMS",
+        "PAID_ACCESS"
+      ],
+      "cost_ceiling": {
+        "acquisition_cost": "USD 0.00",
+        "runner_cost_policy": "zero marginal cost only"
+      }
+    },
+    "missing_report_identity": {
+      "schema_version": "mstr.storage-amendment.v1",
+      "manifest_id": "T028-storage-amendment-fixture",
+      "task": "MSTR-000 / T028",
+      "canonical_base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "amends_manifest": {
+        "path": "artifacts/manifests/T027-weight-access.json",
+        "manifest_id": "T027-weight-access-preflight-frozen",
+        "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e",
+        "unchanged_fields": [
+          "candidates",
+          "exact_model_ids",
+          "exact_revisions",
+          "expected_file_integrity",
+          "rights_decisions",
+          "network_allowlist",
+          "gating_status",
+          "cost_ceiling"
+        ]
+      },
+      "policy": {
+        "founder_mac_large_artifacts": "ZERO",
+        "mac_receives_only": [
+          "SOURCE_CODE",
+          "CONFIGS",
+          "MANIFESTS",
+          "HASHES",
+          "METRICS",
+          "EVIDENCE",
+          "REPORTS"
+        ],
+        "supersedes_local_retention_clause": true,
+        "persistence_for_originals": "UPSTREAM_HUGGINGFACE_IMMUTABLE_PINNED_REVISIONS",
+        "persistence_for_derived": "REGENERATE_ON_DEMAND_IN_EPHEMERAL_RUNNERS_IDENTITY_RECORDED_IN_GIT"
+      },
+      "approved_executors": [
+        {
+          "executor_id": "fixture-colab-runner",
+          "kind": "EPHEMERAL_CLOUD_RUNNER",
+          "driver": "colab/notebook.ipynb",
+          "role": "interactive primary",
+          "network_scope": "HTTPS_GET_ONLY_PER_T027_ALLOWLIST",
+          "authentication_required": false,
+          "monetary_cost": "USD 0.00"
+        }
+      ],
+      "ephemeral_runner_contract": {
+        "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
+        "fetch_method": "HTTPS_GET_ONLY",
+        "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
+        "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
         "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
         "substitute_revisions_allowed": false,
         "latest_refs_allowed": false,
@@ -1116,7 +1539,12 @@
         "EVIDENCE",
         "REPORTS"
       ],
-      "prohibitions": [],
+      "prohibitions": [
+        "MODEL_BINARIES_ON_FOUNDER_MAC",
+        "MODEL_BINARIES_IN_GIT",
+        "AUTHENTICATION_OR_GATED_TERMS",
+        "PAID_ACCESS"
+      ],
       "cost_ceiling": {
         "acquisition_cost": "USD 0.00",
         "runner_cost_policy": "zero marginal cost only"

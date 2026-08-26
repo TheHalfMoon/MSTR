@@ -33,7 +33,12 @@ def amendment() -> dict:
 
 
 def test_amendment_binds_to_exact_frozen_t027_manifest_bytes(amendment: dict) -> None:
-    """The recorded T027 SHA-256 must equal the on-disk manifest hash."""
+    """Schema pins the exact frozen bytes; instance must equal the on-disk hash."""
+    from mstr_qualify.schemas import load_schema
+
+    schema = load_schema("storage-amendment")
+    pinned = schema["properties"]["amends_manifest"]["properties"]["sha256"]["const"]
+    assert amendment["amends_manifest"]["sha256"] == pinned
     actual = hashlib.sha256(T027_PATH.read_bytes()).hexdigest()
     assert amendment["amends_manifest"]["sha256"] == actual
     assert amendment["amends_manifest"]["path"] == str(
@@ -108,7 +113,7 @@ def test_canonical_base_is_immutable_pin(amendment: dict) -> None:
     [
         (lambda m: m.update(schema_version="mstr.weight-access-manifest.v1"), "schema_version"),
         (lambda m: m.update(canonical_base="latest"), "canonical_base"),
-        (lambda m: m["amends_manifest"].update(sha256="zz" + "b" * 62), "sha256"),
+        (lambda m: m["amends_manifest"].update(sha256="c" * 64), "sha256"),
         (
             lambda m: m["amends_manifest"].update(
                 path="artifacts/manifests/other.json"
@@ -118,6 +123,10 @@ def test_canonical_base_is_immutable_pin(amendment: dict) -> None:
         (
             lambda m: m["policy"].update(founder_mac_large_artifacts="SOME"),
             "founder_mac_large_artifacts",
+        ),
+        (
+            lambda m: m["ephemeral_runner_contract"].pop("required_report_identity"),
+            "required_report_identity",
         ),
         (lambda m: m["approved_executors"][0].update(monetary_cost="USD 5.00"), "monetary_cost"),
         (lambda m: m["ephemeral_runner_contract"].update(fetch_method="ANY_HTTP"), "fetch_method"),

@@ -57,11 +57,20 @@
     "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
     "fetch_method": "HTTPS_GET_ONLY",
     "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
-    "report_requirement": "MACHINE_VERIFIABLE_PER_FILE_STATUS_REPORT_IS_THE_DURABLE_OUTPUT",
+    "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
     "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
     "substitute_revisions_allowed": false,
     "latest_refs_allowed": false,
-    "unrelated_files_allowed": false
+    "unrelated_files_allowed": false,
+    "required_report_identity": {
+      "model_repo": "upstream repository id (e.g. Qwen/Qwen3.5-2B-Base)",
+      "model_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+      "task_id": "MSTR-000 / T028 (+ candidate id)",
+      "runner_environment": "executor_id + OS/python/tool versions",
+      "per_file_results": "filename -> {status, size_bytes, sha256}",
+      "result_classification": "ACQUIRED_VERIFIED | EXCLUDED_* fail-closed status",
+      "resource_cost": "USD 0.00 confirmation"
+    }
   },
   "mac_receives": [
     "SOURCE_CODE",

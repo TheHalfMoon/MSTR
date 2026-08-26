@@ -184,7 +184,7 @@ When the founder returns after WePLD:
 4. read `docs/canonical/PROGRAM_ROADMAP.md`;
 5. read `docs/canonical/TRAINING_EXECUTION_STRATEGY.md`;
 6. read the full MSTR-000 Spec Kit package;
-7. confirm the correct next task against the ACTIVE_TASK/NEXT_TASKS_ON_RESUME fields at the top of this file (currently NONE_ACTIVE: T027 preflight is COMPLETE_CANONICAL; T028 requires separate explicit founder authorization);
+7. confirm the correct next task against the ACTIVE_TASK/NEXT_TASKS_ON_RESUME fields at the top of this file (T028 is founder-AUTHORIZED and active under the zero-large-artifact storage architecture; T053 remains separately gated);
 8. start only the exact authorized task on a fresh branch.
 
 Canonical resume handoff: `docs/handoffs/MSTR-RESUME-AFTER-WEPLD.md`.

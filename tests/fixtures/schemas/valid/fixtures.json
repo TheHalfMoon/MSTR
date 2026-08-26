@@ -331,7 +331,7 @@
     "amends_manifest": {
       "path": "artifacts/manifests/T027-weight-access.json",
       "manifest_id": "T027-weight-access-preflight-frozen",
-      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e",
       "unchanged_fields": [
         "candidates",
         "exact_model_ids",
@@ -373,11 +373,20 @@
       "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
       "fetch_method": "HTTPS_GET_ONLY",
       "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
-      "report_requirement": "MACHINE_VERIFIABLE_PER_FILE_STATUS_REPORT_IS_THE_DURABLE_OUTPUT",
+      "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
       "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
       "substitute_revisions_allowed": false,
       "latest_refs_allowed": false,
-      "unrelated_files_allowed": false
+      "unrelated_files_allowed": false,
+      "required_report_identity": {
+        "model_repo": "example/model",
+        "model_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "task_id": "MSTR-000 / T028",
+        "runner_environment": "ubuntu-24.04/py3.11",
+        "per_file_results": "map",
+        "result_classification": "ACQUIRED_VERIFIED",
+        "resource_cost": "USD 0.00"
+      }
     },
     "mac_receives": [
       "SOURCE_CODE",
@@ -392,7 +401,10 @@
       "MODEL_BINARIES_ON_FOUNDER_MAC",
       "MODEL_BINARIES_IN_GIT",
       "AUTHENTICATION_OR_GATED_TERMS",
-      "PAID_ACCESS"
+      "PAID_ACCESS",
+      "TRAINING",
+      "SUBSTITUTE_MODELS_OR_REVISIONS",
+      "UNRELATED_ARTIFACTS"
     ],
     "cost_ceiling": {
       "acquisition_cost": "USD 0.00",
