@@ -21,17 +21,19 @@ contracts/serialization
 -> event log + replay
 -> AgentState projection/compaction
 -> Build Loop state machine
+-> protected verifier/finalizer boundary
 -> neutral harness
 -> MSTR native harness
--> verifier/finalizer boundary
+-> WePLD adapter + CapabilityProfile
 -> environment admission MVP
 -> Direction-to-Done task/eval surface
 -> failure taxonomy + trajectory recorder
--> WePLD adapter
 -> harness tournament
 -> research loop
 -> downstream task reconciliation
 ```
+
+The protected verifier/finalizer boundary is defined before harness implementations because every harness must invoke the same independent success-authority contract rather than inventing its own completion semantics.
 
 ## Baseline Run
 
