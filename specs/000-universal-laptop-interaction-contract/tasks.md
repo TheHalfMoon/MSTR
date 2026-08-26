@@ -92,10 +92,32 @@ A checkbox becomes complete only when the stated output exists, required tests/e
 
 ---
 
+## Mandatory Interposition Gate — MSTR-000A Verified Agent Harness + Direction-to-Done Foundation
+
+**Entry prerequisite:** T034 `COMPLETE_CANONICAL`.  
+**Package:** `specs/001-agent-harness-verified-loop-foundation/`.  
+**Authority:** this gate does not authorize weight-changing training.
+
+After T034, **every legacy MSTR-000 task T035–T090 is blocked until MSTR-000A is `COMPLETE_CANONICAL` and its A021/A022 reconciliation has produced the exact ownership/supersession map for the legacy interaction, tournament, environment, verifier, and training-preflight tasks below.**
+
+```text
+T034_COMPLETE_CANONICAL
+-> MSTR_000A_A001..A024
+-> MSTR_000A_COMPLETE_CANONICAL
+-> LEGACY_TASK_RECONCILIATION_MAP_CANONICAL
+-> resume only the legacy tasks explicitly retained by that map
+```
+
+No lower phase prerequisite in this file may be interpreted as bypassing this gate. In particular, T035–T052 may not execute under their historical ordering before MSTR-000A closeout, and T053 remains separately founder-authorized even after MSTR-000A closes.
+
+This interposition also prevents duplicate execution of T065–T072: MSTR-000A A022 must classify those tasks as consumed, superseded, or expansion/hardening work before any of them resumes.
+
+---
+
 ## Phase 5 — User Story 3: Stable Interaction + Deterministic Edit Contract (P1)
 
 **Goal:** freeze a trainable/servable prompt-tool-edit contract before material post-training.  
-**Prerequisite:** T034.  
+**Prerequisite:** T034 + MSTR-000A `COMPLETE_CANONICAL` + canonical A021/A022 reconciliation map retaining the task.  
 **Independent test:** canonical fixtures are deterministic; malformed calls fail explicitly; stale hashes cannot overwrite; Interaction v0 validates against schema.
 
 - [ ] T035 [P] [US3] Implement prompt/stable-prefix representation and canonical hashing → `src/mstr_qualify/interaction/prompt.py`, `configs/interaction/prompt-arms/*.json`, `tests/contract/test_prompt_prefix.py`.
@@ -114,7 +136,7 @@ A checkbox becomes complete only when the stated output exists, required tests/e
 ## Phase 6 — User Story 4: Verified Candidate Selection + Equivalent Bounded Adaptation (P1)
 
 **Goal:** select the strongest local foundation using comparable verified evidence rather than one leaderboard.  
-**Prerequisite:** T042.  
+**Prerequisite:** MSTR-000A `COMPLETE_CANONICAL`, retained task ownership from A021/A022, and T042 where retained.  
 **Independent test:** regenerate raw/neutral/full-system scorecards from exact evidence; failed seeds remain visible; finalists receive equivalent bounded adaptation.
 
 - [ ] T043 [US4] Freeze tournament task/seed/sampling/verifier/timeout/cache manifest before scoring → `benchmarks/manifests/T043-candidate-tournament.json`, `evidence/T043-tournament-freeze.md`.
@@ -138,7 +160,7 @@ A checkbox becomes complete only when the stated output exists, required tests/e
 ## Phase 7 — User Story 5: Smallest Useful Context Engine (P2)
 
 **Goal:** select the smallest repository-context system that earns its resource cost.  
-**Prerequisite:** Foundational T011; final quality-facing comparison uses T042+ and the frozen task surface.  
+**Prerequisite:** MSTR-000A `COMPLETE_CANONICAL` and its reconciliation map; final quality-facing comparison uses the retained frozen interaction/task surface.  
 **Independent test:** each arm reports localization/solve-rate/tokens/TTVC/RAM/disk/build/update under a common manifest; default is the smallest Pareto-efficient arm.
 
 - [ ] T056 [US5] Implement `ContextProvider` and exact/ripgrep baseline → `src/mstr_qualify/context/base.py`, `src/mstr_qualify/context/exact.py`, `tests/unit/context/test_exact.py`, `configs/context/exact.json`.
@@ -157,9 +179,9 @@ A checkbox becomes complete only when the stated output exists, required tests/e
 
 ## Phase 8 — User Story 6: Verifiable Environment / Verifier Factory MVP (P2)
 
-**Goal:** prove MSTR can construct trustworthy executable tasks before any large-scale RL plan.  
-**Prerequisite:** T003–T011.  
-**Independent test:** a fixture task passes its known-good solution, fails no-op/unsolved, rejects canonical reward shortcuts, resets reproducibly, and exposes reset/storage/CPU cost.
+**Goal:** preserve the legacy environment/verifier expansion tasks without duplicating the MSTR-000A pre-training MVP.  
+**Prerequisite:** MSTR-000A `COMPLETE_CANONICAL` + canonical A022 mapping that explicitly retains each task below as expansion/hardening work.  
+**Independent test:** a retained fixture task passes its known-good solution, fails no-op/unsolved, rejects canonical reward shortcuts, resets reproducibly, and exposes reset/storage/CPU cost.
 
 - [ ] T065 [P] [US6] Implement `EnvironmentTask`/`VerifierDefinition` records and validation → `src/mstr_qualify/environment/models.py`, `src/mstr_qualify/verifier/models.py`, `schemas/environment-task.schema.json`, `schemas/verifier.schema.json`, `tests/contract/test_environment_schemas.py`.
 - [ ] T066 [P] [US6] Implement deterministic workspace reset/snapshot abstraction with clean-hash verification → `src/mstr_qualify/environment/workspace.py`, `tests/integration/test_workspace_reset.py`.
@@ -170,14 +192,14 @@ A checkbox becomes complete only when the stated output exists, required tests/e
 - [ ] T071 [US6] Measure task yield/reset/startup/CPU/storage/failure/reproducibility on MVP fixtures → `artifacts/results/environment/T071.json`, `evidence/T071-environment-throughput.md`.
 - [ ] T072 [US6] Freeze downstream MSTR-003 environment/verifier contract requirements; do not imply MSTR-003 execution authority → `artifacts/decisions/T072-environment-requirements.json`, `evidence/T072-environment-requirements.md`.
 
-**Checkpoint:** US6 independently proves environment/verifier readiness requirements for the later RL workstream.
+**Checkpoint:** US6 independently proves environment/verifier expansion/hardening requirements for the later RL workstream without duplicating MSTR-000A.
 
 ---
 
 ## Phase 9 — User Story 7: Security, Privacy, Provenance, and Evaluation Integrity (P2)
 
 **Goal:** make the entire qualification chain auditable and fail closed against malicious repository input, leakage, and incompatible provenance.  
-**Prerequisite:** T003–T011.  
+**Prerequisite:** MSTR-000A `COMPLETE_CANONICAL` + canonical reconciliation map retaining the task.  
 **Independent test:** malicious repository fixtures cannot elevate instructions, escape workspace scope, exfiltrate secrets/network by default, or bypass benchmark leakage/provenance audit rules.
 
 - [ ] T073 [P] [US7] Define repository-content authority/trust model and prompt-injection fixtures → `docs/security/REPOSITORY_TRUST_MODEL.md`, `tests/security/fixtures/prompt_injection/`, `tests/security/test_prompt_injection.py`.
@@ -197,7 +219,7 @@ A checkbox becomes complete only when the stated output exists, required tests/e
 ## Phase 10 — User Story 8: MSTR-000 Closeout and Buildable Next-Stage Decision (P1, Dependency-Final)
 
 **Goal:** close MSTR-000 only when a new agent can execute the next workstream without reopening settled architecture questions.  
-**Prerequisite:** mandatory evidence from T034, T055, T064, T072, T081 and every blocking implementation-readiness item.  
+**Prerequisite:** MSTR-000A `COMPLETE_CANONICAL`, canonical task reconciliation, mandatory retained evidence from T034/T055/T064/T072/T081, and every blocking implementation-readiness item.  
 **Independent test:** a new agent can reconstruct selected hardware/distribution/runtime/interaction/context/backbone decisions and exact MSTR-001 authority from repository files only.
 
 - [ ] T082 [US8] Freeze measured universal-laptop hardware/OS floor and default context → `artifacts/decisions/T082-hardware-floor.json`, `evidence/T082-hardware-floor.md`.
@@ -224,27 +246,28 @@ Phase 0 canonical history
     -> Phase 2 Foundational (T004-T011)
     -> US2 static admission (T012-T022)
     -> US1 local artifact qualification (T023-T034)
-    -> US3 interaction contract (T035-T042)
-    -> US4 quality/adaptation decision (T043-T055)
+    -> MSTR-000A A001-A024 COMPLETE_CANONICAL
+    -> canonical legacy-task reconciliation map
+    -> retained US3 interaction work
+    -> retained US4 quality/adaptation preflight
+    -> separate founder gate before any T053/equivalent weight change
 
-After Foundational, these P2 stories may advance in parallel where their own prerequisites allow:
-    US5 context (T056-T064)
-    US6 environment/verifier (T065-T072)
-    US7 security/provenance (T073-T081)
+Legacy P2 phases US5/US6/US7 are also blocked after T034 until MSTR-000A closeout classifies their overlap/ownership. They may resume only where the A021/A022 mapping explicitly retains them.
 
-US8 closeout waits for US1/US4/US5/US6/US7 blocking decisions.
+US8 closeout waits for MSTR-000A plus every retained blocking decision.
 ```
 
 ### User Story Dependencies
 
 - **US2 (P1):** first current user-story phase because US1 local qualification needs an admitted candidate set.
 - **US1 (P1):** depends on US2 static admission.
-- **US3 (P1):** depends on US1 local-qualified candidates.
-- **US4 (P1):** depends on US3 Interaction v0.
-- **US5 (P2):** can prototype after Foundational; final quality decision uses the frozen interaction/task surface.
-- **US6 (P2):** can begin after Foundational and proceeds independently of model-weight acquisition.
-- **US7 (P2):** can begin after Foundational and provides cross-cutting gates.
-- **US8 (P1 dependency-final):** closes only after required outputs from all blocking stories.
+- **MSTR-000A:** depends on US1/T034 and is the mandatory interposition before all legacy T035+ work.
+- **US3 (P1):** depends on MSTR-000A closeout and explicit retention/reconciliation of the historical interaction tasks.
+- **US4 (P1):** depends on MSTR-000A closeout plus the retained/frozen interaction contract.
+- **US5 (P2):** resumes only after MSTR-000A reconciliation; final quality decision uses the frozen interaction/task surface.
+- **US6 (P2):** MSTR-000A owns the pre-training MVP; legacy US6 tasks resume only as explicitly retained expansion/hardening work.
+- **US7 (P2):** resumes only after MSTR-000A reconciliation so security/evaluation contracts do not diverge from the new loop/event/verifier authority.
+- **US8 (P1 dependency-final):** closes only after MSTR-000A and all required retained outputs are canonical.
 
 ### Parallel Opportunities
 
@@ -252,42 +275,6 @@ US8 closeout waits for US1/US4/US5/US6/US7 blocking decisions.
 - Foundational: T004 and T005 can run in parallel; subsequent foundation tasks use their contracts/helpers.
 - US2: T012–T020 can be assigned to separate reviewers/agents after the common rights/schema gate is ready.
 - US1: T023–T026 can run in parallel before the T027 acquisition preflight.
-- US3: T035–T038 and T040 can run in parallel; T039/T041/T042 converge them.
-- US4: T044 and T045 can run in parallel after T043.
-- US5: T059–T062 experimental arms can run in parallel after the common baseline/interface work.
-- US6: T065 and T066 can run in parallel.
-- US7: T073, T074, T075, and T077 can run in parallel after Foundational.
+- MSTR-000A parallelism is defined only by `specs/001-agent-harness-verified-loop-foundation/tasks.md`.
+- After MSTR-000A closeout, only legacy tasks explicitly retained by the reconciliation map may use their historical `[P]` opportunities.
 - US8 is mostly sequential convergence and should not be parallelized in ways that race canonical decisions.
-
-## Implementation Strategy
-
-### MVP 1 — Zero-Weight Qualification Harness
-
-Complete T003–T022. Deliverable: an offline, tested harness that can fail-closed on rights and produce a canonical weight-eligible candidate set **without accessing model weights**. This is the first useful implementation checkpoint.
-
-### MVP 2 — Universal-Laptop Candidate Qualification
-
-Complete T023–T034 after separate T028 authority. Deliverable: local Q4/runtime evidence and a local-qualified candidate set.
-
-### MVP 3 — Stable Train/Serve Contract + Candidate Decision
-
-Complete T035–T055, with separate T053 authority only if bounded adaptation is executed. Deliverable: Interaction v0 and top-one/top-two backbone decision.
-
-### MVP 4 — Context + Environment + Security Readiness
-
-Complete T056–T081. Deliverable: minimal context decision, trustworthy environment/verifier requirements, and auditable security/provenance boundaries.
-
-### Closeout
-
-Complete T082–T090. Deliverable: repository-only reconstruction of all MSTR-000 decisions and a bounded MSTR-001 Data Engine + Code/FIM Mid-Training input package.
-
-## External-Effect Gates
-
-```text
-T027 = acquisition preflight only
-T028 = first possible explicitly authorized model-weight acquisition
-T052 = bounded adaptation preflight only
-T053 = explicitly authorized bounded equivalent micro-adaptation only
-```
-
-No MSTR-000 task authorizes long training, large-scale RL, large-corpus ingestion, production release, or generic paid/cloud execution.

@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mstr.local/schemas/mstr-trajectory-manifest-v0.json",
+  "title": "MSTR Trajectory Manifest v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "trajectory_id",
+    "run_identity",
+    "event_log_sha256",
+    "terminal_class",
+    "verifier_result_identity",
+    "failure_classes",
+    "recovery_count",
+    "authority_violations",
+    "contamination_status",
+    "training_admission",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {"const": "mstr.trajectory-manifest.v0"},
+    "trajectory_id": {"type": "string", "minLength": 1},
+    "run_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "task_manifest_id",
+        "repository_revision",
+        "environment_manifest_id",
+        "model_id",
+        "model_revision",
+        "artifact_sha256",
+        "runtime_id",
+        "interaction_contract_id",
+        "loop_contract_id",
+        "harness_profile_id",
+        "verifier_manifest_id",
+        "sampling_config",
+        "seed",
+        "timeout_seconds",
+        "cache_state",
+        "hardware_profile_id"
+      ],
+      "properties": {
+        "run_id": {"type": "string", "minLength": 1},
+        "task_manifest_id": {"type": "string", "minLength": 1},
+        "repository_revision": {"type": "string", "minLength": 1},
+        "environment_manifest_id": {"type": "string", "minLength": 1},
+        "model_id": {"type": "string", "minLength": 1},
+        "model_revision": {"type": "string", "minLength": 1},
+        "artifact_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "runtime_id": {"type": "string", "minLength": 1},
+        "interaction_contract_id": {"type": "string", "minLength": 1},
+        "loop_contract_id": {"type": "string", "minLength": 1},
+        "harness_profile_id": {"type": "string", "minLength": 1},
+        "verifier_manifest_id": {"type": "string", "minLength": 1},
+        "sampling_config": {"type": "object"},
+        "seed": {"type": ["integer", "string"]},
+        "timeout_seconds": {"type": "integer", "minimum": 1},
+        "cache_state": {"type": "string", "minLength": 1},
+        "hardware_profile_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "event_log_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "terminal_class": {
+      "enum": [
+        "VERIFIED_SUCCESS",
+        "RECOVERED_SUCCESS",
+        "FAILED_VALID",
+        "TIMEOUT_VALID",
+        "INVALID_ENVIRONMENT",
+        "INVALID_VERIFIER",
+        "CONTAMINATED",
+        "LEAKAGE_DETECTED",
+        "AUTHORITY_VIOLATION"
+      ]
+    },
+    "verifier_result_identity": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "failure_classes": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "recovery_count": {"type": "integer", "minimum": 0},
+    "authority_violations": {"type": "array", "items": {"type": "string"}},
+    "contamination_status": {"enum": ["CLEAR", "SUSPECT", "REJECTED"]},
+    "training_admission": {"enum": ["ADMITTED_SFT", "ADMITTED_PREFERENCE", "ADMITTED_RL_EVIDENCE", "EVAL_ONLY", "REJECTED"]},
+    "training_labels": {"type": "object"},
+    "provenance": {"type": "object"}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "terminal_class": {"enum": ["VERIFIED_SUCCESS", "RECOVERED_SUCCESS"]}
+        },
+        "required": ["terminal_class"]
+      },
+      "then": {
+        "properties": {
+          "contamination_status": {"const": "CLEAR"},
+          "verifier_result_identity": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "training_admission": {"const": "ADMITTED_SFT"}
+        },
+        "required": ["training_admission"]
+      },
+      "then": {
+        "properties": {
+          "terminal_class": {"enum": ["VERIFIED_SUCCESS", "RECOVERED_SUCCESS"]},
+          "contamination_status": {"const": "CLEAR"},
+          "verifier_result_identity": {"type": "string", "minLength": 1},
+          "authority_violations": {"maxItems": 0}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "terminal_class": {"enum": ["FAILED_VALID", "TIMEOUT_VALID"]}
+        },
+        "required": ["terminal_class"]
+      },
+      "then": {
+        "properties": {
+          "training_admission": {
+            "enum": ["ADMITTED_PREFERENCE", "ADMITTED_RL_EVIDENCE", "EVAL_ONLY", "REJECTED"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "terminal_class": {
+            "enum": [
+              "INVALID_ENVIRONMENT",
+              "INVALID_VERIFIER",
+              "CONTAMINATED",
+              "LEAKAGE_DETECTED",
+              "AUTHORITY_VIOLATION"
+            ]
+          }
+        },
+        "required": ["terminal_class"]
+      },
+      "then": {
+        "properties": {
+          "training_admission": {"const": "REJECTED"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "contamination_status": {"enum": ["SUSPECT", "REJECTED"]}
+        },
+        "required": ["contamination_status"]
+      },
+      "then": {
+        "properties": {
+          "training_admission": {"const": "REJECTED"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "authority_violations": {"minItems": 1}
+        },
+        "required": ["authority_violations"]
+      },
+      "then": {
+        "properties": {
+          "training_admission": {"const": "REJECTED"}
+        }
+      }
+    }
+  ]
+}
