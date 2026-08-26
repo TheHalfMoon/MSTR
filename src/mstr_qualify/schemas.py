@@ -25,6 +25,8 @@ SCHEMA_FILES: Mapping[str, str] = {
     # T027 weight-access preparation manifest. No remote refs; no external
     # network boundary; validated fully offline once registered.
     "weight-access-manifest": "weight-access-manifest.schema.json",
+    # Zero-large-artifact founder-environment storage amendment (T028).
+    "storage-amendment": "storage-amendment.schema.json",
 }
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]

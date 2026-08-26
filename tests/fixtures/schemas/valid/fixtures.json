@@ -184,7 +184,7 @@
         ],
         "post_download_sha256_verification_requirement": "Every downloaded weight file MUST hash-match its declared LFS OID SHA-256 from expected_file_integrity before admission to T028 verification; mismatch quarantines the file and fails that candidate closed.",
         "artifact_manifest_verification_method": "T028 emits an mstr.artifact.v1 manifest (ArtifactFileEntry: relative_path+sha256+size) verified offline via mstr_qualify.artifacts.verify_artifact against the acquired external directory.",
-        "T024_verifier_compatibility": "COMPATIBLE \u2014 T024 verify_artifact accepts exact per-file SHA-256 + size identity; expected_file_integrity supplies the upstream side of that comparison.",
+        "T024_verifier_compatibility": "COMPATIBLE — T024 verify_artifact accepts exact per-file SHA-256 + size identity; expected_file_integrity supplies the upstream side of that comparison.",
         "runtime_candidates": [
           "llama.cpp-GGUF-class CPU runtime",
           "llamafile-portable-class runner"
@@ -217,12 +217,12 @@
         "cache_policy": "No shared provider cache is populated; direct-to-final-path streaming keeps peak storage equal to final storage.",
         "artifact_location_policy": "All binaries live outside Git under artifacts/external/<candidate_id>/ (gitignored); manifests and evidence stay inside Git.",
         "git_exclusion_policy": "artifacts/external/, models/, downloads/, *.safetensors, *.gguf, *.pt, *.pth, *.onnx are already covered by .gitignore; T028 must not weaken these rules.",
-        "cost_ceiling": "USD 0.00 \u2014 any payment requirement aborts toward T028 with PAID_ACCESS_REQUIRES_NEW_FOUNDER_DECISION.",
+        "cost_ceiling": "USD 0.00 — any payment requirement aborts toward T028 with PAID_ACCESS_REQUIRES_NEW_FOUNDER_DECISION.",
         "expected_monetary_cost": "USD 0.00",
         "expected_download_storage_aggregate": "4,571,203,846 bytes download / 4,571,203,846 bytes final on disk (~4.26 GiB); optional files add 776 bytes",
         "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
         "recommendation": "READY_FOR_T028",
-        "runtime_quantizer_license_notes": "Runtime candidates: llama.cpp-GGUF-class CPU runtime and llamafile-portable-class runner \u2014 both are MIT-licensed open-source tools with unrestricted commercial use; quantizer candidates: llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe (MIT, same project identity). Preliminary dependency-rights record: binding evaluation deferred to T029/T030, where exact upstream source, pinned build/version, verified license text, and commercial-use determination for each tool are evaluated independently. No runtime or quantizer is selected here."
+        "runtime_quantizer_license_notes": "Runtime candidates: llama.cpp-GGUF-class CPU runtime and llamafile-portable-class runner — both are MIT-licensed open-source tools with unrestricted commercial use; quantizer candidates: llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe (MIT, same project identity). Preliminary dependency-rights record: binding evaluation deferred to T029/T030, where exact upstream source, pinned build/version, verified license text, and commercial-use determination for each tool are evaluated independently. No runtime or quantizer is selected here."
       }
     ],
     "network": {
@@ -317,10 +317,86 @@
     },
     "unresolved_risks": [
       "Ministral-3-3B, Granite-4.1-3B, SmolLM3-3B lack a standalone LICENSE text file at their pinned revisions; rights rest on consistent machine-readable tag plus explicit README declarations at the same revision. Mitigation: preserve each README as the notice artifact and re-check before any redistribution.",
-      "Aggregate download/final footprint ~45.4 GiB exceeds single-laptop comfort for some machines; the founder may approve a bounded subset at T028 time \u2014 this manifest permits subset selection without editing candidate entries.",
+      "Aggregate download/final footprint ~45.4 GiB exceeds single-laptop comfort for some machines; the founder may approve a bounded subset at T028 time — this manifest permits subset selection without editing candidate entries.",
       "Qwen3.5 family ships vision-encoder weights inside the same shards; text-only serving validation is deferred to runtime qualification (T030), not resolved here.",
       "CDN redirect targets are documented from current observation but may evolve upstream; T028 must pin observed redirect hosts in its own evidence before downloading."
     ],
     "excluded_pending_rights_clarification": []
+  },
+  "storage-amendment": {
+    "schema_version": "mstr.storage-amendment.v1",
+    "manifest_id": "T028-storage-amendment-fixture",
+    "task": "MSTR-000 / T028",
+    "canonical_base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "amends_manifest": {
+      "path": "artifacts/manifests/T027-weight-access.json",
+      "manifest_id": "T027-weight-access-preflight-frozen",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "unchanged_fields": [
+        "candidates",
+        "exact_model_ids",
+        "exact_revisions",
+        "expected_file_integrity",
+        "rights_decisions",
+        "network_allowlist",
+        "gating_status",
+        "cost_ceiling"
+      ]
+    },
+    "policy": {
+      "founder_mac_large_artifacts": "ZERO",
+      "mac_receives_only": [
+        "SOURCE_CODE",
+        "CONFIGS",
+        "MANIFESTS",
+        "HASHES",
+        "METRICS",
+        "EVIDENCE",
+        "REPORTS"
+      ],
+      "supersedes_local_retention_clause": true,
+      "persistence_for_originals": "UPSTREAM_HUGGINGFACE_IMMUTABLE_PINNED_REVISIONS",
+      "persistence_for_derived": "REGENERATE_ON_DEMAND_IN_EPHEMERAL_RUNNERS_IDENTITY_RECORDED_IN_GIT"
+    },
+    "approved_executors": [
+      {
+        "executor_id": "fixture-colab-runner",
+        "kind": "EPHEMERAL_CLOUD_RUNNER",
+        "driver": "colab/notebook.ipynb",
+        "role": "interactive primary",
+        "network_scope": "HTTPS_GET_ONLY_PER_T027_ALLOWLIST",
+        "authentication_required": false,
+        "monetary_cost": "USD 0.00"
+      }
+    ],
+    "ephemeral_runner_contract": {
+      "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
+      "fetch_method": "HTTPS_GET_ONLY",
+      "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
+      "report_requirement": "MACHINE_VERIFIABLE_PER_FILE_STATUS_REPORT_IS_THE_DURABLE_OUTPUT",
+      "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
+      "substitute_revisions_allowed": false,
+      "latest_refs_allowed": false,
+      "unrelated_files_allowed": false
+    },
+    "mac_receives": [
+      "SOURCE_CODE",
+      "CONFIGS",
+      "MANIFESTS",
+      "HASHES",
+      "METRICS",
+      "EVIDENCE",
+      "REPORTS"
+    ],
+    "prohibitions": [
+      "MODEL_BINARIES_ON_FOUNDER_MAC",
+      "MODEL_BINARIES_IN_GIT",
+      "AUTHENTICATION_OR_GATED_TERMS",
+      "PAID_ACCESS"
+    ],
+    "cost_ceiling": {
+      "acquisition_cost": "USD 0.00",
+      "runner_cost_policy": "zero marginal cost only"
+    }
   }
 }
