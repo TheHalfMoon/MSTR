@@ -64,8 +64,12 @@ def download_pinned(repo: str, revision: str, filename: str, dest: Path) -> dict
 
 
 def run(cmd: list[str], **kw) -> tuple[int, str]:
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=kw.pop("timeout", 7200), **kw)
-    return r.returncode, (r.stdout + r.stderr)[-2000:]
+    timeout = kw.pop("timeout", 7200)
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, **kw)
+        return r.returncode, (r.stdout + r.stderr)[-2000:]
+    except subprocess.TimeoutExpired:
+        return 124, f"TIMEOUT after {timeout}s: {' '.join(str(c) for c in cmd)}"
 
 
 def main() -> int:
@@ -84,8 +88,31 @@ def main() -> int:
     t027 = json.loads(args.t027_manifest.read_text(encoding="utf-8"))
     cand = next((c for c in t027["candidates"] if c["candidate_id"] == args.candidate), None)
     if not cand:
+        report = {
+            "schema_version": "mstr.quantization-report.v1",
+            "candidate_id": args.candidate,
+            "result_classification": "Q4_INTEGRITY_FAILURE",
+            "error": f"candidate id {args.candidate!r} not found in T027 manifest",
+        }
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(f"FAIL CLOSED: unknown candidate {args.candidate}", file=sys.stderr)
         return 2
+
+    # Fail-closed rights gate (T006 discipline): refuse to download unless
+    # the frozen manifest explicitly declares this candidate READY_FOR_T028.
+    if cand.get("rights_decision") != "READY_FOR_T028":
+        report = {
+            "schema_version": "mstr.quantization-report.v1",
+            "candidate_id": args.candidate,
+            "result_classification": "Q4_INTEGRITY_FAILURE",
+            "error": f"rights_decision={cand.get('rights_decision')!r}; refusing to acquire",
+        }
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        shutil.rmtree(workdir, ignore_errors=True)
+        print(json.dumps({"classification": "Q4_INTEGRITY_FAILURE"}))
+        return 1
 
     repo = cand["exact_model_id"]
     revision = cand["exact_revision"]
@@ -103,7 +130,15 @@ def main() -> int:
             if not ok:
                 result["status"] = "EXCLUDED_INTEGRITY_FAILURE"
         elif actual_sha is not None and not entry.get("upstream_sha256"):
-            result["verified"] = True  # non-weight file; size check only
+            expected_size = entry.get("expected_size_bytes")
+            if expected_size is not None:
+                actual_size = (src_dir / fn).stat().st_size
+                result["verified"] = actual_size == expected_size
+                if not result["verified"]:
+                    result["status"] = "EXCLUDED_INTEGRITY_FAILURE"
+                    result["size_bytes"] = actual_size
+            else:
+                result["verified"] = True
         acquired.append(result)
 
     failed = [a for a in acquired if "EXCLUDED" in a.get("status", "")]
@@ -160,7 +195,7 @@ def main() -> int:
     conv_dur = round(time.monotonic() - conv_start, 1)
     if rc != 0 or not gguf_f16.is_file():
         unsupported_markers = ["not supported", "unsupported", "unknown model architecture",
-                               "trust_remote_code", "NotImplementedError"]
+                               "trust_remote_code", "notimplementederror"]
         is_unsupported = any(m in conv_out.lower() for m in unsupported_markers)
         classification = "Q4_CONVERSION_UNSUPPORTED" if is_unsupported else "Q4_INTEGRITY_FAILURE"
         report = {"schema_version": "mstr.quantization-report.v1",
@@ -240,10 +275,16 @@ def main() -> int:
             "exact_commit": actual_commit,
             "license": "MIT (llama.cpp component); project Apache-2.0 overall",
         },
+        "tokenizer_license_note": (
+            "Tokenizer/config files are part of the pinned model tree and inherit "
+            "the model's Apache-2.0 license; no separate third-party tokenizer "
+            "runtime dependency was introduced."
+        ),
         "build_environment": {
-            "python": sys.version.split()[0],
-            "cpu_count": os.cpu_count(),
+            "python": sys.version,
             "platform": sys.platform,
+            "cpu_count": os.cpu_count(),
+            "runner_identity": os.environ.get("RUNNER_NAME", "local/colab"),
         },
         "build_duration_s": build_dur,
         "conversion": {

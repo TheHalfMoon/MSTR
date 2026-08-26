@@ -52,6 +52,7 @@ jobs:
             --report "reports/t029-$CANDIDATE.json"
 
       - name: Upload durable manifest only (binaries never leave the runner)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: t029-q4-${{ inputs.candidate }}
