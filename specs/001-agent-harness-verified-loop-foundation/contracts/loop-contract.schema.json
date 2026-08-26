@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://halfmoon.invalid/mstr/contracts/mstr-loop-contract-v0.schema.json",
+  "title": "MSTR Loop Contract v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "loop_id",
+    "interaction_contract_id",
+    "tool_surface_id",
+    "context_policy_id",
+    "edit_policy_id",
+    "verifier_policy_id",
+    "stop_policy",
+    "recovery_policy",
+    "max_steps",
+    "max_tool_calls",
+    "max_repairs",
+    "timeout_seconds",
+    "effect_envelope_id"
+  ],
+  "properties": {
+    "schema_version": {"const": "mstr.loop-contract.v0"},
+    "loop_id": {"type": "string", "minLength": 1},
+    "interaction_contract_id": {"type": "string", "minLength": 1},
+    "tool_surface_id": {"type": "string", "minLength": 1},
+    "context_policy_id": {"type": "string", "minLength": 1},
+    "edit_policy_id": {"type": "string", "minLength": 1},
+    "verifier_policy_id": {"type": "string", "minLength": 1},
+    "effect_envelope_id": {"type": "string", "minLength": 1},
+    "max_steps": {"type": "integer", "minimum": 1},
+    "max_tool_calls": {"type": "integer", "minimum": 1},
+    "max_repairs": {"type": "integer", "minimum": 0},
+    "timeout_seconds": {"type": "integer", "minimum": 1},
+    "goal_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ambiguity_behavior": {"enum": ["clarify", "escalate", "bounded_inference"]},
+        "require_acceptance_criteria": {"type": "boolean"}
+      }
+    },
+    "stop_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success_requires_independent_verifier", "success_terminal_class"],
+      "properties": {
+        "success_requires_independent_verifier": {"const": true},
+        "success_terminal_class": {"const": "VERIFIED_SUCCESS"},
+        "allow_escalation": {"type": "boolean"}
+      }
+    },
+    "recovery_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["retry_same_failed_action_without_new_evidence"],
+      "properties": {
+        "retry_same_failed_action_without_new_evidence": {"const": false},
+        "require_failure_classification": {"type": "boolean"}
+      }
+    }
+  }
+}
