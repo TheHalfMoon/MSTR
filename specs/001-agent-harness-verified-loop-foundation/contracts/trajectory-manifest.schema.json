@@ -13,6 +13,7 @@
     "verifier_result_identity",
     "failure_classes",
     "recovery_count",
+    "authority_violations",
     "contamination_status",
     "training_admission",
     "provenance"
@@ -106,6 +107,37 @@
     {
       "if": {
         "properties": {
+          "training_admission": {"const": "ADMITTED_SFT"}
+        },
+        "required": ["training_admission"]
+      },
+      "then": {
+        "properties": {
+          "terminal_class": {"enum": ["VERIFIED_SUCCESS", "RECOVERED_SUCCESS"]},
+          "contamination_status": {"const": "CLEAR"},
+          "verifier_result_identity": {"type": "string", "minLength": 1},
+          "authority_violations": {"maxItems": 0}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "terminal_class": {"enum": ["FAILED_VALID", "TIMEOUT_VALID"]}
+        },
+        "required": ["terminal_class"]
+      },
+      "then": {
+        "properties": {
+          "training_admission": {
+            "enum": ["ADMITTED_PREFERENCE", "ADMITTED_RL_EVIDENCE", "EVAL_ONLY", "REJECTED"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
           "terminal_class": {
             "enum": [
               "INVALID_ENVIRONMENT",
@@ -130,6 +162,19 @@
           "contamination_status": {"enum": ["SUSPECT", "REJECTED"]}
         },
         "required": ["contamination_status"]
+      },
+      "then": {
+        "properties": {
+          "training_admission": {"const": "REJECTED"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "authority_violations": {"minItems": 1}
+        },
+        "required": ["authority_violations"]
       },
       "then": {
         "properties": {
