@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://halfmoon.invalid/mstr/contracts/mstr-trajectory-manifest-v0.schema.json",
+  "$id": "https://mstr.local/schemas/mstr-trajectory-manifest-v0.json",
   "title": "MSTR Trajectory Manifest v0",
   "type": "object",
   "additionalProperties": false,
