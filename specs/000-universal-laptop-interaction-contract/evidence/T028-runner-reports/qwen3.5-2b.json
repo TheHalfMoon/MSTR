@@ -1,0 +1,117 @@
+{
+  "schema_version": "mstr.acquisition-report.v1",
+  "task_id": "MSTR-000 / T028",
+  "runner_environment": "ephemeral-runner/python-urllib",
+  "resource_cost": "USD 0.00 (unauthenticated public artifact fetch)",
+  "result_classification": "ACQUIRED_VERIFIED",
+  "files": [
+    {
+      "candidate_id": "qwen3.5-2b",
+      "filename": "LICENSE",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "50cbab8a892c5f2993b8c7351a99182507472def3b1374558308605d99b86b32",
+      "size_bytes": 11343,
+      "model_repo": "Qwen/Qwen3.5-2B-Base",
+      "model_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "qwen3.5-2b",
+      "filename": "README.md",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "50ca45b87d976d9850de95ad00e76fba77e105c2cdef1093b8e3bb261d9a1787",
+      "size_bytes": 3721,
+      "model_repo": "Qwen/Qwen3.5-2B-Base",
+      "model_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "qwen3.5-2b",
+      "filename": "config.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "ed1c1723241f23f7f4e23430759cbd7dcfb4103cbdfe052bfe7626b57c2615b4",
+      "size_bytes": 2908,
+      "model_repo": "Qwen/Qwen3.5-2B-Base",
+      "model_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "qwen3.5-2b",
+      "filename": "merges.txt",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d",
+      "size_bytes": 3353259,
+      "model_repo": "Qwen/Qwen3.5-2B-Base",
+      "model_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "qwen3.5-2b",
+      "filename": "model.safetensors-00001-of-00001.safetensors",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "928acbf11878c32185bbd863514d191769285065ab9ea14fbfe431303f5fdf2d",
+      "size_bytes": 4548221488,
+      "model_repo": "Qwen/Qwen3.5-2B-Base",
+      "model_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+      "redirect_hosts": [
+        "us.aws.cdn.hf.co"
+      ]
+    },
+    {
+      "candidate_id": "qwen3.5-2b",
+      "filename": "model.safetensors.index.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "74d2ddfe79f10f35b27b498632f02b97b60dd9ec39b35d7c5a890c399284e319",
+      "size_bytes": 64460,
+      "model_repo": "Qwen/Qwen3.5-2B-Base",
+      "model_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "qwen3.5-2b",
+      "filename": "tokenizer.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "fe000e3ed39ed12b8d2481d527d44f93c65d37e87645d2dcc80d1bf9d50d2927",
+      "size_bytes": 12807196,
+      "model_repo": "Qwen/Qwen3.5-2B-Base",
+      "model_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+      "redirect_hosts": [
+        "us.aws.cdn.hf.co"
+      ]
+    },
+    {
+      "candidate_id": "qwen3.5-2b",
+      "filename": "tokenizer_config.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "e611fbccc7c29ef3b1cafb1cb7ea548d189968632901d678fd62be68c47885de",
+      "size_bytes": 16712,
+      "model_repo": "Qwen/Qwen3.5-2B-Base",
+      "model_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    },
+    {
+      "candidate_id": "qwen3.5-2b",
+      "filename": "vocab.json",
+      "status": "ACQUIRED_VERIFIED",
+      "sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003",
+      "size_bytes": 6722759,
+      "model_repo": "Qwen/Qwen3.5-2B-Base",
+      "model_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+      "redirect_hosts": [
+        "huggingface.co"
+      ]
+    }
+  ]
+}

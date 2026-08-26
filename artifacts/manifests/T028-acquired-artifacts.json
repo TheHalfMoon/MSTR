@@ -77,5 +77,74 @@
     "no auth/gated terms",
     "USD 0.00",
     "no training"
-  ]
+  ],
+  "runner_report_bindings": [
+    {
+      "candidate_id": "granite-4.1-3b",
+      "report_path": "specs/000-universal-laptop-interaction-contract/evidence/T028-runner-reports/granite-4.1-3b.json",
+      "report_sha256": "51704c0c3845d10100299973ab62629d92ecc94a099569f27e284cb94bd2242e",
+      "actions_run_id": "32944009961",
+      "result_classification": "ACQUIRED_VERIFIED"
+    },
+    {
+      "candidate_id": "ministral-3-3b",
+      "report_path": "specs/000-universal-laptop-interaction-contract/evidence/T028-runner-reports/ministral-3-3b.json",
+      "report_sha256": "964df7e3583771e331c47d1cca977743b8368f6eb7e0df8ecb13bfb0a38a813a",
+      "actions_run_id": "32943999319",
+      "result_classification": "ACQUIRED_VERIFIED"
+    },
+    {
+      "candidate_id": "qwen2.5-coder-1.5b",
+      "report_path": "specs/000-universal-laptop-interaction-contract/evidence/T028-runner-reports/qwen2.5-coder-1.5b.json",
+      "report_sha256": "cc7c5c6355f18ea67cd34081a054f48de9f50a0f72ce469f56b5e8a30763a387",
+      "actions_run_id": "32944021067",
+      "result_classification": "ACQUIRED_VERIFIED"
+    },
+    {
+      "candidate_id": "qwen3-4b",
+      "report_path": "specs/000-universal-laptop-interaction-contract/evidence/T028-runner-reports/qwen3-4b.json",
+      "report_sha256": "059b0dd7abb0455fd8e58c35f22e9f4328d38c090b10f3b0466d8e4e1663d2f4",
+      "actions_run_id": "32944004821",
+      "result_classification": "ACQUIRED_VERIFIED"
+    },
+    {
+      "candidate_id": "qwen3.5-2b",
+      "report_path": "specs/000-universal-laptop-interaction-contract/evidence/T028-runner-reports/qwen3.5-2b.json",
+      "report_sha256": "611aa75c0691e19a44586b17042e3b41b5fcb801acd7bab76b90870f6b40e854",
+      "actions_run_id": "32943987827",
+      "result_classification": "ACQUIRED_VERIFIED"
+    },
+    {
+      "candidate_id": "qwen3.5-4b",
+      "report_path": "specs/000-universal-laptop-interaction-contract/evidence/T028-runner-reports/qwen3.5-4b.json",
+      "report_sha256": "6555204c271d78f05d1a9b6110c7d079a2fc4bbd700bf0e19843ee5ea21e93fc",
+      "actions_run_id": "32943993927",
+      "result_classification": "ACQUIRED_VERIFIED"
+    },
+    {
+      "candidate_id": "smollm3-3b",
+      "report_path": "specs/000-universal-laptop-interaction-contract/evidence/T028-runner-reports/smollm3-3b.json",
+      "report_sha256": "43394c0eb17bae70891895838ac5fccf9ff8cbddf0d9d68179f4343ea0fdcba2",
+      "actions_run_id": "32944015584",
+      "result_classification": "ACQUIRED_VERIFIED"
+    },
+    {
+      "candidate_id": "yi-coder-1.5b",
+      "report_path": "specs/000-universal-laptop-interaction-contract/evidence/T028-runner-reports/yi-coder-1.5b.json",
+      "report_sha256": "690ad20c9a888e6058a2ffb93783697daf88718f1232fd6e839a774acb5dfca0",
+      "actions_run_id": "32944026401",
+      "result_classification": "ACQUIRED_VERIFIED"
+    }
+  ],
+  "observed_network": {
+    "redirect_hosts_seen": [
+      "huggingface.co",
+      "us.aws.cdn.hf.co"
+    ],
+    "within_t027_allowlist": false,
+    "outside_allowlist_hosts": [
+      "us.aws.cdn.hf.co"
+    ],
+    "note": "us.aws.cdn.hf.co is the current HuggingFace Xet-backed CDN; it was not enumerated in the frozen T027 allowlist (which lists cdn-lfs/cas-bridge/transfer hosts). Every file's SHA-256 verified byte-exact against frozen values, so integrity is cryptographically proven regardless of serving CDN. A network-scope addendum is filed for governance."
+  }
 }

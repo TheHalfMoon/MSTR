@@ -18,7 +18,13 @@ BINARIES_IN_GIT = ZERO (reports/manifests only)
 
 Each candidate was acquired in a dedicated ephemeral GitHub Actions public-repo runner job (USD 0.00, unauthenticated, HTTPS GET to huggingface.co only per the T027 allowlist). The runner streamed each pinned file, verified size + SHA-256 per file against the frozen manifest, emitted a machine-verifiable report as its durable output, and deleted local binary copies before exit. VM reclamation enforces final deletion.
 
-Run IDs (all `workflow_dispatch` on canonical main):
+**Network scope note:** observed redirect hosts were `huggingface.co` + `us.aws.cdn.hf.co` (the current HF Xet-backed CDN, not enumerated in the frozen T027 allowlist which predates the migration from cdn-lfs/cas-bridge). All SHA-256s verified byte-exact against frozen values — integrity is cryptographically proven regardless of serving CDN. A network-scope addendum (`artifacts/manifests/T028-network-scope-addendum.json`) records this for governance.
+
+Runner reports (durable full-identity outputs) are persisted at
+`specs/000-universal-laptop-interaction-contract/evidence/T028-runner-reports/<candidate_id>.json`
+with SHA-256 bindings in `artifacts/manifests/T028-acquired-artifacts.json`.
+
+Run IDs (second pass on docs branch with rights-gate + redirect-capture code):
 
 | candidate | Actions run |
 |---|---|

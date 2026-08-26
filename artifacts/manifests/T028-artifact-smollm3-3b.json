@@ -1,55 +1,55 @@
 {
-  "schema_version": "mstr.artifact.v1",
-  "manifest_id": "T028-smollm3-3b-acquired",
-  "source": "T027 frozen manifest (ephemeral runner acquisition)",
-  "entries": [
+  "schema_version": "mstr.artifact-manifest.v1",
+  "artifact_id": "mstr-t028-smollm3-3b",
+  "format_name": "huggingface-safetensors-pinned-revision",
+  "files": [
     {
-      "relative_path": "smollm3-3b/README.md",
+      "path": "smollm3-3b/README.md",
       "sha256": "9bb1fff003df8f9497d2589c345b80817af6864a39938c14edc5207bc5717009",
       "size_bytes": 12340
     },
     {
-      "relative_path": "smollm3-3b/config.json",
+      "path": "smollm3-3b/config.json",
       "sha256": "e8336e843aecb733691a043ad4209168e1730158b5e03c2672591cc946036a47",
       "size_bytes": 943
     },
     {
-      "relative_path": "smollm3-3b/generation_config.json",
+      "path": "smollm3-3b/generation_config.json",
       "sha256": "7d830c1a274c4484a50eb34ed68cdbd3611a4981fd4d539c7ec1fed67e01cec4",
       "size_bytes": 126
     },
     {
-      "relative_path": "smollm3-3b/model-00001-of-00002.safetensors",
+      "path": "smollm3-3b/model-00001-of-00002.safetensors",
       "sha256": "7e270ac568ee1880ddbadad66ccdcd9906d52415e8904e2f300c75250b9c7d49",
       "size_bytes": 4966315264
     },
     {
-      "relative_path": "smollm3-3b/model-00002-of-00002.safetensors",
+      "path": "smollm3-3b/model-00002-of-00002.safetensors",
       "sha256": "c6a6e7690a66dcc386a6a9b456686e7c308d45cba884d116c928dafa7fa987ae",
       "size_bytes": 1183919744
     },
     {
-      "relative_path": "smollm3-3b/model.safetensors.index.json",
+      "path": "smollm3-3b/model.safetensors.index.json",
       "sha256": "e3a7254c086c4a78f95ad5864f435d165ffed1ed8998326ce5107b4423c15b76",
       "size_bytes": 26899
     },
     {
-      "relative_path": "smollm3-3b/notebook.ipynb",
+      "path": "smollm3-3b/notebook.ipynb",
       "sha256": "2ecd8333659d597e1a75da6de90c33a62a445742796bf2a24c513696be87cdcd",
       "size_bytes": 317457
     },
     {
-      "relative_path": "smollm3-3b/special_tokens_map.json",
+      "path": "smollm3-3b/special_tokens_map.json",
       "sha256": "9faaa15579bbf433176493a621142ff580ae2d13d81bf4702cb72f4d6902dc62",
       "size_bytes": 151
     },
     {
-      "relative_path": "smollm3-3b/tokenizer.json",
+      "path": "smollm3-3b/tokenizer.json",
       "sha256": "ab4da6b2aa68247e9c0fa9b97fc7fcc796505038d01f7e144522a65ce0dbd2e5",
       "size_bytes": 17208861
     },
     {
-      "relative_path": "smollm3-3b/tokenizer_config.json",
+      "path": "smollm3-3b/tokenizer_config.json",
       "sha256": "f398d9edb0184aac1c9fd1b1bdcd3a5a1527ae560fd847719635a66e2b54e9cd",
       "size_bytes": 50405
     }
