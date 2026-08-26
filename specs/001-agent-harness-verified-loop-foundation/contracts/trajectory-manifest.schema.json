@@ -20,7 +20,48 @@
   "properties": {
     "schema_version": {"const": "mstr.trajectory-manifest.v0"},
     "trajectory_id": {"type": "string", "minLength": 1},
-    "run_identity": {"type": "object"},
+    "run_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "task_manifest_id",
+        "repository_revision",
+        "environment_manifest_id",
+        "model_id",
+        "model_revision",
+        "artifact_sha256",
+        "runtime_id",
+        "interaction_contract_id",
+        "loop_contract_id",
+        "harness_profile_id",
+        "verifier_manifest_id",
+        "sampling_config",
+        "seed",
+        "timeout_seconds",
+        "cache_state",
+        "hardware_profile_id"
+      ],
+      "properties": {
+        "run_id": {"type": "string", "minLength": 1},
+        "task_manifest_id": {"type": "string", "minLength": 1},
+        "repository_revision": {"type": "string", "minLength": 1},
+        "environment_manifest_id": {"type": "string", "minLength": 1},
+        "model_id": {"type": "string", "minLength": 1},
+        "model_revision": {"type": "string", "minLength": 1},
+        "artifact_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "runtime_id": {"type": "string", "minLength": 1},
+        "interaction_contract_id": {"type": "string", "minLength": 1},
+        "loop_contract_id": {"type": "string", "minLength": 1},
+        "harness_profile_id": {"type": "string", "minLength": 1},
+        "verifier_manifest_id": {"type": "string", "minLength": 1},
+        "sampling_config": {"type": "object"},
+        "seed": {"type": ["integer", "string"]},
+        "timeout_seconds": {"type": "integer", "minimum": 1},
+        "cache_state": {"type": "string", "minLength": 1},
+        "hardware_profile_id": {"type": "string", "minLength": 1}
+      }
+    },
     "event_log_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "terminal_class": {
       "enum": [
@@ -35,7 +76,10 @@
         "AUTHORITY_VIOLATION"
       ]
     },
-    "verifier_result_identity": {"type": "string", "minLength": 1},
+    "verifier_result_identity": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
     "failure_classes": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
     "recovery_count": {"type": "integer", "minimum": 0},
     "authority_violations": {"type": "array", "items": {"type": "string"}},
@@ -47,12 +91,49 @@
   "allOf": [
     {
       "if": {
-        "properties": {"terminal_class": {"const": "VERIFIED_SUCCESS"}},
+        "properties": {
+          "terminal_class": {"enum": ["VERIFIED_SUCCESS", "RECOVERED_SUCCESS"]}
+        },
         "required": ["terminal_class"]
       },
       "then": {
         "properties": {
-          "contamination_status": {"const": "CLEAR"}
+          "contamination_status": {"const": "CLEAR"},
+          "verifier_result_identity": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "terminal_class": {
+            "enum": [
+              "INVALID_ENVIRONMENT",
+              "INVALID_VERIFIER",
+              "CONTAMINATED",
+              "LEAKAGE_DETECTED",
+              "AUTHORITY_VIOLATION"
+            ]
+          }
+        },
+        "required": ["terminal_class"]
+      },
+      "then": {
+        "properties": {
+          "training_admission": {"const": "REJECTED"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "contamination_status": {"enum": ["SUSPECT", "REJECTED"]}
+        },
+        "required": ["contamination_status"]
+      },
+      "then": {
+        "properties": {
+          "training_admission": {"const": "REJECTED"}
         }
       }
     }
