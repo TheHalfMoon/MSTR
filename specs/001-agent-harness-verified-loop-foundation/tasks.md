@@ -125,6 +125,7 @@ T029–T034 in MSTR-000 remain active and are NOT blocked by this package. MSTR-
 
 - [ ] **A024 Final Constitution Check + MSTR-000A closeout.**  
   Freeze exact versions, unresolved risks, task supersession map, harness winner/default (if evidence supports one), Direction-to-Done v0 identity, environment/verifier MVP identity, and training-readiness statement.  
+  Must include a pinned RAW_MODEL scorecard for every eligible cell (or a recorded `N/A` reason per cell explaining why raw measurement is not meaningful), distinguishing model improvement from harness-only gains per constitution III.  
   Must leave weight-changing training under its separate founder gate.
 
 ## Hard Gates

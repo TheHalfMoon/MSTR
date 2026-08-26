@@ -12,12 +12,22 @@
     "logical_time",
     "payload",
     "model_visible",
-    "source"
+    "source",
+    "prev_event_sha256"
   ],
   "properties": {
-    "schema_version": {"const": "mstr.run-event.v0"},
-    "run_id": {"type": "string", "minLength": 1},
-    "seq": {"type": "integer", "minimum": 0},
+    "schema_version": {
+      "const": "mstr.run-event.v0"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Zero-based sequence number; must be contiguous within a run (no gaps, no duplicates)."
+    },
     "event_type": {
       "enum": [
         "run.started",
@@ -40,34 +50,90 @@
         "run.escalated"
       ]
     },
-    "logical_time": {"type": "integer", "minimum": 0},
-    "step_id": {"type": ["string", "null"]},
-    "payload": {"type": "object"},
-    "model_visible": {"type": "boolean"},
-    "source": {
-      "enum": ["user", "model", "harness", "tool", "verifier", "environment", "system"]
+    "logical_time": {
+      "type": "integer",
+      "minimum": 0
     },
-    "sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"}
+    "step_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "payload": {
+      "type": "object"
+    },
+    "model_visible": {
+      "type": "boolean"
+    },
+    "source": {
+      "enum": [
+        "user",
+        "model",
+        "harness",
+        "tool",
+        "verifier",
+        "environment",
+        "system"
+      ]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 of canonical event bytes; mandatory for deterministic replay integrity."
+    },
+    "prev_event_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 of the immediately preceding event in the run; null only for seq=0. Enables chain-integrity verification."
+    }
   },
   "allOf": [
     {
       "if": {
-        "properties": {"event_type": {"const": "run.completed"}},
-        "required": ["event_type"]
+        "properties": {
+          "event_type": {
+            "const": "run.completed"
+          }
+        },
+        "required": [
+          "event_type"
+        ]
       },
       "then": {
         "properties": {
-          "source": {"enum": ["harness", "verifier", "system"]},
+          "source": {
+            "enum": [
+              "harness",
+              "verifier",
+              "system"
+            ]
+          },
           "payload": {
             "type": "object",
-            "required": ["verifier_result_identity", "terminal_class"],
+            "required": [
+              "verifier_result_identity",
+              "terminal_class"
+            ],
             "properties": {
-              "verifier_result_identity": {"type": "string", "minLength": 1},
-              "terminal_class": {"enum": ["VERIFIED_SUCCESS", "RECOVERED_SUCCESS"]}
+              "verifier_result_identity": {
+                "type": "string",
+                "minLength": 1
+              },
+              "terminal_class": {
+                "enum": [
+                  "VERIFIED_SUCCESS",
+                  "RECOVERED_SUCCESS"
+                ]
+              }
             }
           }
         }
       }
     }
-  ]
+  ],
+  "description": "MSTR Run Event v0 — append-oriented event with mandatory SHA-256 integrity hash and optional predecessor binding. Replay MUST reject missing hashes, duplicates, gaps, reordered or substituted events, and broken predecessor chains."
 }

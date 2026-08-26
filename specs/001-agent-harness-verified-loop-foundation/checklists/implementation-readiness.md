@@ -50,6 +50,7 @@
 
 - [ ] Direction-to-Done v0 frozen.
 - [ ] Successful and failed trajectories replay deterministically.
+- [ ] Event integrity: every event carries a non-null SHA-256; replay rejects missing hashes, duplicate/gap/reordered/substituted events, and broken predecessor chains.
 - [ ] Training trajectory admission contract frozen.
 - [ ] Research Loop v0 baseline/keep/discard/crash behavior proven.
 - [ ] Existing T035–T052 sequencing reconciled.
@@ -57,3 +58,5 @@
 - [ ] MSTR-001/002/003 entry contracts updated or explicitly queued for update.
 - [ ] T053 or successor remains a separate explicit founder weight-changing gate.
 - [ ] Final Constitution Check rerun.
+
+- RAW_MODEL scorecard required for every eligible tournament cell (or recorded N/A reason) before MSTR-000A closeout.

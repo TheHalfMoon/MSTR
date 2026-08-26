@@ -147,7 +147,11 @@ MSTR_PLUS_WEPLD
 
 Harness-only gains MUST NOT be attributed to model weights.
 
-**Exit gate:** Build Loop, event/replay, harness arms, environment/verifier MVP, Direction-to-Done v0, trajectory contract, research loop, and downstream sequence reconciliation are canonical and training-ready.
+**Event integrity:** every run event carries a non-null SHA-256 with optional predecessor binding; replay MUST reject missing hashes, duplicates, gaps, reordered/substituted events, and broken chains.
+
+**Raw-model evidence:** closeout requires a pinned RAW_MODEL scorecard for every eligible tournament cell (or a recorded `N/A` reason) to distinguish model improvement from harness-only gains.
+
+**Exit gate:** Build Loop, event/replay (with mandatory hash integrity), harness arms, environment/verifier MVP, Direction-to-Done v0, trajectory contract, research loop, and downstream sequence reconciliation are canonical and training-ready.
 
 MSTR-000A grants NO weight-changing training authority.
 
