@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://halfmoon.invalid/mstr/contracts/mstr-loop-contract-v0.schema.json",
+  "$id": "https://mstr.local/schemas/mstr-loop-contract-v0.json",
   "title": "MSTR Loop Contract v0",
   "type": "object",
   "additionalProperties": false,
