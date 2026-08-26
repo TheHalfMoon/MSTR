@@ -7,12 +7,12 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_AFTER_T026 = 52d86f0 (T028 gate next; see merge log below)
-PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / PHASE_4_HARNESS_INFRASTRUCTURE_READY
+CANONICAL_MAIN_AFTER_T027 = 15b691c (T028 explicit founder gate is next; see merge log below)
+PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / T027_PREFLIGHT_COMPLETE_AWAITING_T028_AUTHORIZATION
 ACTIVE_SPEC = MSTR-000
 SPEC_KIT_PACKAGE = CANONICAL
-ACTIVE_TASK = T027_WEIGHT_ACCESS_PREFLIGHT
-NEXT_TASKS_ON_RESUME = T027 then STOP at T028 explicit gate
+ACTIVE_TASK = NONE_ACTIVE / T028_EXPLICIT_FOUNDER_GATE_PENDING
+NEXT_TASKS_ON_RESUME = STOP — T028 requires separate exact founder authorization naming the frozen T027 manifest
 ```
 
 ## Canonical completed history
@@ -39,6 +39,7 @@ T023 = COMPLETE_CANONICAL / RUNTIME_PLATFORM_ADAPTER_PROTOCOLS
 T024 = COMPLETE_CANONICAL / ARTIFACT_MANIFEST_HASH_VERIFICATION
 T025 = COMPLETE_CANONICAL / CROSS_PLATFORM_MEMORY_PAGING_SAMPLERS
 T026 = COMPLETE_CANONICAL / MEASURE_V0_MONOTONIC_EVENT_LOGIC
+T027 = COMPLETE_CANONICAL / WEIGHT_ACCESS_ACQUISITION_PREFLIGHT (preparation only; no weight access granted)
 ```
 
 ## Phase-4 harness infrastructure merges (2026-08-25)
@@ -48,13 +49,14 @@ T023: PR #25 as fece0f3382ce383ca8e68dd875b48a46d4cc7fba (exact head 85ee543af3f
 T024: PR #26 as c593fce1655ee857f237b3fd476fc8e14cb836fe (exact head 91e2945a3fba076868120c551f58c04cadf78a34)
 T025: PR #27 as 89a48ba834eb9fa012b1515ec774dae68315ec49 (exact head e70a7c48ec958cb53266349847ab0568ca8d5246)
 T026: PR #28 as 52d86f0c89bd0323d19aae776ae01aa4ebf5bc58 (exact head 858bf428946ce64249f897dd194099267d857236)
+T027: PR #30 as 15b691cdf27103a632c5d982b822563859cf0094 (exact head 6e0426ef970336875675122b475b938c394e4bfb)
 ```
 
-Gates on canonical main `52d86f0`: pytest 302 passed; ruff clean; mypy strict clean; offline CLI validate exit 0. All review findings resolved on-head before each merge (qodo x9 T024, qodo x9 T025, qodo x6 T026, qodo x2 T023 — all marked resolved with regression tests).
+Gates on canonical main `15b691c` (T027 head `6e0426e`): pytest 344 passed; ruff clean; mypy strict clean; offline CLI validate exit 0. All review findings resolved on-head before merge (qodo x5 + CodeRabbit x3 on PR #30 — llamafile license identity corrected to Apache-2.0 project license with MIT-derived components, safe_relative_path hardened with minLength/trailing-separator rejection in both byte-identical schema copies, missing-LICENSE risk entries pinned to exact candidate IDs; all with regression tests and all threads resolved).
 
 ## Active work
 
-T027 weight-access preflight is the active task (preparation only — freezes the exact acquisition manifest for the separate T028 authorization gate; no downloads).
+None active. T027 weight-access acquisition preflight is COMPLETE_CANONICAL (preparation only — froze the exact acquisition manifest for the separate T028 authorization gate; no downloads occurred). The repository now sits at the T028 EXPLICIT WEIGHT ACCESS GATE: no task may proceed until the founder issues separate exact authorization naming manifest id `mstr.weight-access-manifest.v1` / `artifacts/manifests/T027-weight-access.json`. MODEL_WEIGHT_ACCESS remains NOT_YET_AUTHORIZED.
 
 T022 canonical merge: PR #23 as `f77e213`.
 ```
