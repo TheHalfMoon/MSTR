@@ -1,0 +1,1288 @@
+{
+  "schema_version": "mstr.weight-access-manifest.v1",
+  "manifest_id": "T027-weight-access-preflight-frozen",
+  "generated_at": "2026-08-26T04:00:00Z",
+  "task": "MSTR-000 / T027",
+  "canonical_base": "6b5ce9599e4985182113c98f53e8c9566f3b1864",
+  "bound": {
+    "scope": "Preflight only: freeze exact acquisition identity, integrity expectations, byte budgets, network surface, gating status, retention/cleanup, and cost ceiling for the eight T022-admitted candidates. No weight bodies are fetched, no execution occurs, no runtime/quantizer winner is selected.",
+    "do_not": [
+      "download .safetensors/.bin/GGUF/checkpoint/adapter weight bodies",
+      "execute any model, quantizer, runtime, Colab session, or Unsloth install",
+      "accept gated terms or authenticate to any model provider",
+      "select a canonical runtime or final quantizer (T029/T030 own that)",
+      "start T028 without separate explicit founder authorization"
+    ]
+  },
+  "candidates": [
+    {
+      "candidate_id": "qwen3.5-2b",
+      "role": "foundation",
+      "upstream_repository": "https://huggingface.co/Qwen/Qwen3.5-2B-Base",
+      "exact_model_id": "Qwen/Qwen3.5-2B-Base",
+      "exact_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+      "revision_verified_at": "2026-08-26T04:00:00Z (live metadata HTTPS GET during T027 preflight)",
+      "artifact_source_hosts": [
+        "huggingface.co"
+      ],
+      "required_artifact_files": [
+        "LICENSE",
+        "README.md",
+        "config.json",
+        "merges.txt",
+        "model.safetensors-00001-of-00001.safetensors",
+        "model.safetensors.index.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "vocab.json"
+      ],
+      "optional_artifact_files": [
+        "preprocessor_config.json",
+        "video_preprocessor_config.json"
+      ],
+      "explicitly_forbidden_artifacts": [
+        "*.gguf",
+        "*.pt",
+        "*.pth",
+        "*.ckpt",
+        "adapter_model.*",
+        "training checkpoints"
+      ],
+      "tokenizer_files": [
+        "merges.txt",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "vocab.json"
+      ],
+      "processor_or_config_files": [
+        "config.json",
+        "model.safetensors.index.json",
+        "preprocessor_config.json",
+        "video_preprocessor_config.json"
+      ],
+      "weight_format": "bf16 safetensors (sharded per model.safetensors.index.json where present)",
+      "expected_total_download_bytes": 4571203846,
+      "expected_total_storage_bytes": 4571203846,
+      "temporary_storage_ceiling": 4571203846,
+      "expected_file_integrity": [
+        {
+          "file": "LICENSE",
+          "expected_size_bytes": 11343,
+          "upstream_sha256": null
+        },
+        {
+          "file": "README.md",
+          "expected_size_bytes": 3721,
+          "upstream_sha256": null
+        },
+        {
+          "file": "config.json",
+          "expected_size_bytes": 2908,
+          "upstream_sha256": null
+        },
+        {
+          "file": "merges.txt",
+          "expected_size_bytes": 3353259,
+          "upstream_sha256": null
+        },
+        {
+          "file": "model.safetensors-00001-of-00001.safetensors",
+          "expected_size_bytes": 4548221488,
+          "upstream_sha256": "928acbf11878c32185bbd863514d191769285065ab9ea14fbfe431303f5fdf2d"
+        },
+        {
+          "file": "model.safetensors.index.json",
+          "expected_size_bytes": 64460,
+          "upstream_sha256": null
+        },
+        {
+          "file": "tokenizer.json",
+          "expected_size_bytes": 12807196,
+          "upstream_sha256": "fe000e3ed39ed12b8d2481d527d44f93c65d37e87645d2dcc80d1bf9d50d2927"
+        },
+        {
+          "file": "tokenizer_config.json",
+          "expected_size_bytes": 16712,
+          "upstream_sha256": null
+        },
+        {
+          "file": "vocab.json",
+          "expected_size_bytes": 6722759,
+          "upstream_sha256": null
+        }
+      ],
+      "post_download_sha256_verification_requirement": "Every downloaded weight file MUST hash-match its declared LFS OID SHA-256 from expected_file_integrity before admission to T028 verification; mismatch quarantines the file and fails that candidate closed.",
+      "artifact_manifest_verification_method": "T028 emits an mstr.artifact.v1 manifest (ArtifactFileEntry: relative_path+sha256+size) verified offline via mstr_qualify.artifacts.verify_artifact against the acquired external directory.",
+      "T024_verifier_compatibility": "COMPATIBLE \u2014 T024 verify_artifact accepts exact per-file SHA-256 + size identity; expected_file_integrity supplies the upstream side of that comparison.",
+      "runtime_candidates": [
+        "llama.cpp-GGUF-class CPU runtime",
+        "llamafile-portable-class runner"
+      ],
+      "quantizer_candidates": [
+        "llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe"
+      ],
+      "runtime_quantizer_status": "CANDIDATE_ONLY_NEEDS_T029_T030",
+      "network_hosts_required_for_acquisition": [
+        "huggingface.co"
+      ],
+      "network_method": "HTTPS_GET_ONLY",
+      "authentication_required": false,
+      "account_required": false,
+      "gated_access": false,
+      "clickthrough_required": false,
+      "terms_acceptance_required": false,
+      "license_identity": "Apache-2.0 (declared at pinned revision)",
+      "license_evidence_url": "https://huggingface.co/Qwen/Qwen3.5-2B-Base/blob/b1485b2fa6dfa1287294f269f5fb618e03d52d7c/README.md",
+      "rights_decision": "READY_FOR_T028",
+      "rights_decision_evidence": "Apache-2.0 confirmed live at pinned revision: HF tag 'license:apache-2.0', README front matter, and verbatim LICENSE file present in tree.",
+      "license_reverification_timestamp": "2026-08-26T04:00:00Z",
+      "storage_budget": {
+        "download_bytes_expected": 4571203846,
+        "on_disk_bytes_expected": 4571203846,
+        "temporary_bytes_expected": 0
+      },
+      "retention_policy": "Acquired artifacts persist in the external acquisition directory until T034 local-artifact admission closes; candidates rejected at T034 are retained only if referenced by open review evidence, else deleted.",
+      "cleanup_policy": "Any partial or integrity-failed download is deleted immediately; successful artifacts are never mutated in place (re-acquire instead).",
+      "cache_policy": "No shared provider cache is populated; direct-to-final-path streaming keeps peak storage equal to final storage.",
+      "artifact_location_policy": "All binaries live outside Git under artifacts/external/<candidate_id>/ (gitignored); manifests and evidence stay inside Git.",
+      "git_exclusion_policy": "artifacts/external/, models/, downloads/, *.safetensors, *.gguf, *.pt, *.pth, *.onnx are already covered by .gitignore; T028 must not weaken these rules.",
+      "cost_ceiling": "USD 0.00 \u2014 any payment requirement aborts toward T028 with PAID_ACCESS_REQUIRES_NEW_FOUNDER_DECISION.",
+      "expected_monetary_cost": "USD 0.00",
+      "expected_download_storage_aggregate": "4,571,203,846 bytes download / 4,571,203,846 bytes final on disk (~4.26 GiB); optional files add 776 bytes",
+      "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
+      "recommendation": "READY_FOR_T028"
+    },
+    {
+      "candidate_id": "qwen3.5-4b",
+      "role": "foundation",
+      "upstream_repository": "https://huggingface.co/Qwen/Qwen3.5-4B-Base",
+      "exact_model_id": "Qwen/Qwen3.5-4B-Base",
+      "exact_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+      "revision_verified_at": "2026-08-26T04:00:00Z (live metadata HTTPS GET during T027 preflight)",
+      "artifact_source_hosts": [
+        "huggingface.co"
+      ],
+      "required_artifact_files": [
+        "LICENSE",
+        "README.md",
+        "config.json",
+        "merges.txt",
+        "model.safetensors-00001-of-00002.safetensors",
+        "model.safetensors-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "vocab.json"
+      ],
+      "optional_artifact_files": [
+        "preprocessor_config.json",
+        "video_preprocessor_config.json"
+      ],
+      "explicitly_forbidden_artifacts": [
+        "*.gguf",
+        "*.pt",
+        "*.pth",
+        "*.ckpt",
+        "adapter_model.*",
+        "training checkpoints"
+      ],
+      "tokenizer_files": [
+        "merges.txt",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "vocab.json"
+      ],
+      "processor_or_config_files": [
+        "config.json",
+        "model.safetensors.index.json",
+        "preprocessor_config.json",
+        "video_preprocessor_config.json"
+      ],
+      "weight_format": "bf16 safetensors (sharded per model.safetensors.index.json where present)",
+      "expected_total_download_bytes": 9342822405,
+      "expected_total_storage_bytes": 9342822405,
+      "temporary_storage_ceiling": 9342822405,
+      "expected_file_integrity": [
+        {
+          "file": "LICENSE",
+          "expected_size_bytes": 11343,
+          "upstream_sha256": null
+        },
+        {
+          "file": "README.md",
+          "expected_size_bytes": 3722,
+          "upstream_sha256": null
+        },
+        {
+          "file": "config.json",
+          "expected_size_bytes": 3161,
+          "upstream_sha256": null
+        },
+        {
+          "file": "merges.txt",
+          "expected_size_bytes": 3353259,
+          "upstream_sha256": null
+        },
+        {
+          "file": "model.safetensors-00001-of-00002.safetensors",
+          "expected_size_bytes": 5329398712,
+          "upstream_sha256": "df547074dce70532a0493e5433152bd17a65efb89088cfabc2e7e2371a93d712"
+        },
+        {
+          "file": "model.safetensors-00002-of-00002.safetensors",
+          "expected_size_bytes": 3990429344,
+          "upstream_sha256": "590fbaac095dd31db886c322d9d2f7df47777966391acf306ddddc3e4e3a15ef"
+        },
+        {
+          "file": "model.safetensors.index.json",
+          "expected_size_bytes": 76196,
+          "upstream_sha256": null
+        },
+        {
+          "file": "tokenizer.json",
+          "expected_size_bytes": 12807196,
+          "upstream_sha256": "fe000e3ed39ed12b8d2481d527d44f93c65d37e87645d2dcc80d1bf9d50d2927"
+        },
+        {
+          "file": "tokenizer_config.json",
+          "expected_size_bytes": 16713,
+          "upstream_sha256": null
+        },
+        {
+          "file": "vocab.json",
+          "expected_size_bytes": 6722759,
+          "upstream_sha256": null
+        }
+      ],
+      "post_download_sha256_verification_requirement": "Every downloaded weight file MUST hash-match its declared LFS OID SHA-256 from expected_file_integrity before admission to T028 verification; mismatch quarantines the file and fails that candidate closed.",
+      "artifact_manifest_verification_method": "T028 emits an mstr.artifact.v1 manifest (ArtifactFileEntry: relative_path+sha256+size) verified offline via mstr_qualify.artifacts.verify_artifact against the acquired external directory.",
+      "T024_verifier_compatibility": "COMPATIBLE \u2014 T024 verify_artifact accepts exact per-file SHA-256 + size identity; expected_file_integrity supplies the upstream side of that comparison.",
+      "runtime_candidates": [
+        "llama.cpp-GGUF-class CPU runtime",
+        "llamafile-portable-class runner"
+      ],
+      "quantizer_candidates": [
+        "llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe"
+      ],
+      "runtime_quantizer_status": "CANDIDATE_ONLY_NEEDS_T029_T030",
+      "network_hosts_required_for_acquisition": [
+        "huggingface.co"
+      ],
+      "network_method": "HTTPS_GET_ONLY",
+      "authentication_required": false,
+      "account_required": false,
+      "gated_access": false,
+      "clickthrough_required": false,
+      "terms_acceptance_required": false,
+      "license_identity": "Apache-2.0 (declared at pinned revision)",
+      "license_evidence_url": "https://huggingface.co/Qwen/Qwen3.5-4B-Base/blob/1001bb4d826a52d1f399e183466143f4da7b741b/README.md",
+      "rights_decision": "READY_FOR_T028",
+      "rights_decision_evidence": "Apache-2.0 confirmed live at pinned revision: HF tag 'license:apache-2.0', README front matter, and verbatim LICENSE file present in tree.",
+      "license_reverification_timestamp": "2026-08-26T04:00:00Z",
+      "storage_budget": {
+        "download_bytes_expected": 9342822405,
+        "on_disk_bytes_expected": 9342822405,
+        "temporary_bytes_expected": 0
+      },
+      "retention_policy": "Acquired artifacts persist in the external acquisition directory until T034 local-artifact admission closes; candidates rejected at T034 are retained only if referenced by open review evidence, else deleted.",
+      "cleanup_policy": "Any partial or integrity-failed download is deleted immediately; successful artifacts are never mutated in place (re-acquire instead).",
+      "cache_policy": "No shared provider cache is populated; direct-to-final-path streaming keeps peak storage equal to final storage.",
+      "artifact_location_policy": "All binaries live outside Git under artifacts/external/<candidate_id>/ (gitignored); manifests and evidence stay inside Git.",
+      "git_exclusion_policy": "artifacts/external/, models/, downloads/, *.safetensors, *.gguf, *.pt, *.pth, *.onnx are already covered by .gitignore; T028 must not weaken these rules.",
+      "cost_ceiling": "USD 0.00 \u2014 any payment requirement aborts toward T028 with PAID_ACCESS_REQUIRES_NEW_FOUNDER_DECISION.",
+      "expected_monetary_cost": "USD 0.00",
+      "expected_download_storage_aggregate": "9,342,822,405 bytes download / 9,342,822,405 bytes final on disk (~8.70 GiB); optional files add 776 bytes",
+      "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
+      "recommendation": "READY_FOR_T028"
+    },
+    {
+      "candidate_id": "ministral-3-3b",
+      "role": "foundation",
+      "upstream_repository": "https://huggingface.co/mistralai/Ministral-3-3B-Base-2512",
+      "exact_model_id": "mistralai/Ministral-3-3B-Base-2512",
+      "exact_revision": "6f9c4b12a95b139af68670a6713616b757923735",
+      "revision_verified_at": "2026-08-26T04:00:00Z (live metadata HTTPS GET during T027 preflight)",
+      "artifact_source_hosts": [
+        "huggingface.co"
+      ],
+      "required_artifact_files": [
+        "README.md",
+        "config.json",
+        "generation_config.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "params.json",
+        "processor_config.json",
+        "special_tokens_map.json",
+        "tekken.json",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "optional_artifact_files": [],
+      "explicitly_forbidden_artifacts": [
+        "*.gguf",
+        "*.pt",
+        "*.pth",
+        "*.ckpt",
+        "adapter_model.*",
+        "training checkpoints",
+        "consolidated.safetensors (duplicate full-precision variant of the sharded set bound by model.safetensors.index.json)"
+      ],
+      "tokenizer_files": [
+        "special_tokens_map.json",
+        "tekken.json",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "processor_or_config_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors.index.json",
+        "params.json",
+        "processor_config.json"
+      ],
+      "weight_format": "bf16 safetensors (sharded per model.safetensors.index.json where present)",
+      "expected_total_download_bytes": 7732479067,
+      "expected_total_storage_bytes": 7732479067,
+      "temporary_storage_ceiling": 7732479067,
+      "expected_file_integrity": [
+        {
+          "file": "README.md",
+          "expected_size_bytes": 11604,
+          "upstream_sha256": null
+        },
+        {
+          "file": "config.json",
+          "expected_size_bytes": 1579,
+          "upstream_sha256": null
+        },
+        {
+          "file": "generation_config.json",
+          "expected_size_bytes": 131,
+          "upstream_sha256": null
+        },
+        {
+          "file": "model-00001-of-00002.safetensors",
+          "expected_size_bytes": 4967581832,
+          "upstream_sha256": "0494c0a285767920a5e469af9710b499115667f84e17c225a956a5155459249f"
+        },
+        {
+          "file": "model-00002-of-00002.safetensors",
+          "expected_size_bytes": 2730659224,
+          "upstream_sha256": "3cd41d76f1d8e7b2fa64668d69177358dffdbd15231ccf6177798bca9de1a797"
+        },
+        {
+          "file": "model.safetensors.index.json",
+          "expected_size_bytes": 45577,
+          "upstream_sha256": null
+        },
+        {
+          "file": "params.json",
+          "expected_size_bytes": 1096,
+          "upstream_sha256": null
+        },
+        {
+          "file": "processor_config.json",
+          "expected_size_bytes": 976,
+          "upstream_sha256": null
+        },
+        {
+          "file": "special_tokens_map.json",
+          "expected_size_bytes": 147085,
+          "upstream_sha256": null
+        },
+        {
+          "file": "tekken.json",
+          "expected_size_bytes": 16753777,
+          "upstream_sha256": "e29d19ea32eb7e26e6c0572d57cb7f9eca0f4420e0e0fe6ae1cf3be94da1c0d6"
+        },
+        {
+          "file": "tokenizer.json",
+          "expected_size_bytes": 17078110,
+          "upstream_sha256": "577575622324b2e099e2648be26bdeb5e5815ffe66d7004e9e3ddbf421db6bf1"
+        },
+        {
+          "file": "tokenizer_config.json",
+          "expected_size_bytes": 198076,
+          "upstream_sha256": null
+        }
+      ],
+      "post_download_sha256_verification_requirement": "Every downloaded weight file MUST hash-match its declared LFS OID SHA-256 from expected_file_integrity before admission to T028 verification; mismatch quarantines the file and fails that candidate closed.",
+      "artifact_manifest_verification_method": "T028 emits an mstr.artifact.v1 manifest (ArtifactFileEntry: relative_path+sha256+size) verified offline via mstr_qualify.artifacts.verify_artifact against the acquired external directory.",
+      "T024_verifier_compatibility": "COMPATIBLE \u2014 T024 verify_artifact accepts exact per-file SHA-256 + size identity; expected_file_integrity supplies the upstream side of that comparison.",
+      "runtime_candidates": [
+        "llama.cpp-GGUF-class CPU runtime",
+        "llamafile-portable-class runner"
+      ],
+      "quantizer_candidates": [
+        "llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe"
+      ],
+      "runtime_quantizer_status": "CANDIDATE_ONLY_NEEDS_T029_T030",
+      "network_hosts_required_for_acquisition": [
+        "huggingface.co"
+      ],
+      "network_method": "HTTPS_GET_ONLY",
+      "authentication_required": false,
+      "account_required": false,
+      "gated_access": false,
+      "clickthrough_required": false,
+      "terms_acceptance_required": false,
+      "license_identity": "Apache-2.0 (declared at pinned revision)",
+      "license_evidence_url": "https://huggingface.co/mistralai/Ministral-3-3B-Base-2512/blob/6f9c4b12a95b139af68670a6713616b757923735/README.md",
+      "rights_decision": "READY_FOR_T028",
+      "rights_decision_evidence": "Re-verified live at pinned revision: HF license tag 'license:apache-2.0', README front-matter 'license: apache-2.0', and explicit card body statement that Apache 2.0 allows usage/modification for commercial AND non-commercial purposes. No standalone LICENSE text file exists at this revision; the Apache-2.0 notice obligation is satisfied by preserving README.md. extra_gated_description is a privacy-policy disclosure only; the API reports gated=false so no access gate exists.",
+      "license_reverification_timestamp": "2026-08-26T04:00:00Z",
+      "storage_budget": {
+        "download_bytes_expected": 7732479067,
+        "on_disk_bytes_expected": 7732479067,
+        "temporary_bytes_expected": 0
+      },
+      "retention_policy": "Acquired artifacts persist in the external acquisition directory until T034 local-artifact admission closes; candidates rejected at T034 are retained only if referenced by open review evidence, else deleted.",
+      "cleanup_policy": "Any partial or integrity-failed download is deleted immediately; successful artifacts are never mutated in place (re-acquire instead).",
+      "cache_policy": "No shared provider cache is populated; direct-to-final-path streaming keeps peak storage equal to final storage.",
+      "artifact_location_policy": "All binaries live outside Git under artifacts/external/<candidate_id>/ (gitignored); manifests and evidence stay inside Git.",
+      "git_exclusion_policy": "artifacts/external/, models/, downloads/, *.safetensors, *.gguf, *.pt, *.pth, *.onnx are already covered by .gitignore; T028 must not weaken these rules.",
+      "cost_ceiling": "USD 0.00 \u2014 any payment requirement aborts toward T028 with PAID_ACCESS_REQUIRES_NEW_FOUNDER_DECISION.",
+      "expected_monetary_cost": "USD 0.00",
+      "expected_download_storage_aggregate": "7,732,479,067 bytes download / 7,732,479,067 bytes final on disk (~7.20 GiB)",
+      "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
+      "recommendation": "READY_FOR_T028"
+    },
+    {
+      "candidate_id": "qwen3-4b",
+      "role": "architecture_control",
+      "upstream_repository": "https://huggingface.co/Qwen/Qwen3-4B-Base",
+      "exact_model_id": "Qwen/Qwen3-4B-Base",
+      "exact_revision": "906bfd4b4dc7f14ee4320094d8b41684abff8539",
+      "revision_verified_at": "2026-08-26T04:00:00Z (live metadata HTTPS GET during T027 preflight)",
+      "artifact_source_hosts": [
+        "huggingface.co"
+      ],
+      "required_artifact_files": [
+        "LICENSE",
+        "README.md",
+        "config.json",
+        "generation_config.json",
+        "merges.txt",
+        "model-00001-of-00003.safetensors",
+        "model-00002-of-00003.safetensors",
+        "model-00003-of-00003.safetensors",
+        "model.safetensors.index.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "vocab.json"
+      ],
+      "optional_artifact_files": [],
+      "explicitly_forbidden_artifacts": [
+        "*.gguf",
+        "*.pt",
+        "*.pth",
+        "*.ckpt",
+        "adapter_model.*",
+        "training checkpoints"
+      ],
+      "tokenizer_files": [
+        "merges.txt",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "vocab.json"
+      ],
+      "processor_or_config_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors.index.json"
+      ],
+      "weight_format": "bf16 safetensors (sharded per model.safetensors.index.json where present)",
+      "expected_total_download_bytes": 8056519973,
+      "expected_total_storage_bytes": 8056519973,
+      "temporary_storage_ceiling": 8056519973,
+      "expected_file_integrity": [
+        {
+          "file": "LICENSE",
+          "expected_size_bytes": 11343,
+          "upstream_sha256": null
+        },
+        {
+          "file": "README.md",
+          "expected_size_bytes": 2937,
+          "upstream_sha256": null
+        },
+        {
+          "file": "config.json",
+          "expected_size_bytes": 727,
+          "upstream_sha256": null
+        },
+        {
+          "file": "generation_config.json",
+          "expected_size_bytes": 138,
+          "upstream_sha256": null
+        },
+        {
+          "file": "merges.txt",
+          "expected_size_bytes": 1671853,
+          "upstream_sha256": null
+        },
+        {
+          "file": "model-00001-of-00003.safetensors",
+          "expected_size_bytes": 3957900840,
+          "upstream_sha256": "4c807e2503d68ae373d508689d00a41f4b33f33c2536da97ab81a20caddc1241"
+        },
+        {
+          "file": "model-00002-of-00003.safetensors",
+          "expected_size_bytes": 3987450520,
+          "upstream_sha256": "f4707585548b2fc75a6b1d732e8465c62040a8699903c32850781beeb9b27826"
+        },
+        {
+          "file": "model-00003-of-00003.safetensors",
+          "expected_size_bytes": 99630640,
+          "upstream_sha256": "c7b1aa8fb672de2e00423c99876926022e50b18d4f0d140670788510a27f9965"
+        },
+        {
+          "file": "model.safetensors.index.json",
+          "expected_size_bytes": 32819,
+          "upstream_sha256": null
+        },
+        {
+          "file": "tokenizer.json",
+          "expected_size_bytes": 7031645,
+          "upstream_sha256": null
+        },
+        {
+          "file": "tokenizer_config.json",
+          "expected_size_bytes": 9678,
+          "upstream_sha256": null
+        },
+        {
+          "file": "vocab.json",
+          "expected_size_bytes": 2776833,
+          "upstream_sha256": null
+        }
+      ],
+      "post_download_sha256_verification_requirement": "Every downloaded weight file MUST hash-match its declared LFS OID SHA-256 from expected_file_integrity before admission to T028 verification; mismatch quarantines the file and fails that candidate closed.",
+      "artifact_manifest_verification_method": "T028 emits an mstr.artifact.v1 manifest (ArtifactFileEntry: relative_path+sha256+size) verified offline via mstr_qualify.artifacts.verify_artifact against the acquired external directory.",
+      "T024_verifier_compatibility": "COMPATIBLE \u2014 T024 verify_artifact accepts exact per-file SHA-256 + size identity; expected_file_integrity supplies the upstream side of that comparison.",
+      "runtime_candidates": [
+        "llama.cpp-GGUF-class CPU runtime",
+        "llamafile-portable-class runner"
+      ],
+      "quantizer_candidates": [
+        "llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe"
+      ],
+      "runtime_quantizer_status": "CANDIDATE_ONLY_NEEDS_T029_T030",
+      "network_hosts_required_for_acquisition": [
+        "huggingface.co"
+      ],
+      "network_method": "HTTPS_GET_ONLY",
+      "authentication_required": false,
+      "account_required": false,
+      "gated_access": false,
+      "clickthrough_required": false,
+      "terms_acceptance_required": false,
+      "license_identity": "Apache-2.0 (declared at pinned revision)",
+      "license_evidence_url": "https://huggingface.co/Qwen/Qwen3-4B-Base/blob/906bfd4b4dc7f14ee4320094d8b41684abff8539/README.md",
+      "rights_decision": "READY_FOR_T028",
+      "rights_decision_evidence": "Apache-2.0 confirmed live at pinned revision: HF tag 'license:apache-2.0', README front matter, and verbatim LICENSE file present in tree.",
+      "license_reverification_timestamp": "2026-08-26T04:00:00Z",
+      "storage_budget": {
+        "download_bytes_expected": 8056519973,
+        "on_disk_bytes_expected": 8056519973,
+        "temporary_bytes_expected": 0
+      },
+      "retention_policy": "Acquired artifacts persist in the external acquisition directory until T034 local-artifact admission closes; candidates rejected at T034 are retained only if referenced by open review evidence, else deleted.",
+      "cleanup_policy": "Any partial or integrity-failed download is deleted immediately; successful artifacts are never mutated in place (re-acquire instead).",
+      "cache_policy": "No shared provider cache is populated; direct-to-final-path streaming keeps peak storage equal to final storage.",
+      "artifact_location_policy": "All binaries live outside Git under artifacts/external/<candidate_id>/ (gitignored); manifests and evidence stay inside Git.",
+      "git_exclusion_policy": "artifacts/external/, models/, downloads/, *.safetensors, *.gguf, *.pt, *.pth, *.onnx are already covered by .gitignore; T028 must not weaken these rules.",
+      "cost_ceiling": "USD 0.00 \u2014 any payment requirement aborts toward T028 with PAID_ACCESS_REQUIRES_NEW_FOUNDER_DECISION.",
+      "expected_monetary_cost": "USD 0.00",
+      "expected_download_storage_aggregate": "8,056,519,973 bytes download / 8,056,519,973 bytes final on disk (~7.50 GiB)",
+      "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
+      "recommendation": "READY_FOR_T028"
+    },
+    {
+      "candidate_id": "granite-4.1-3b",
+      "role": "foundation",
+      "upstream_repository": "https://huggingface.co/ibm-granite/granite-4.1-3b-base",
+      "exact_model_id": "ibm-granite/granite-4.1-3b-base",
+      "exact_revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
+      "revision_verified_at": "2026-08-26T04:00:00Z (live metadata HTTPS GET during T027 preflight)",
+      "artifact_source_hosts": [
+        "huggingface.co"
+      ],
+      "required_artifact_files": [
+        "README.md",
+        "config.json",
+        "generation_config.json",
+        "merges.txt",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "special_tokens_map.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "vocab.json"
+      ],
+      "optional_artifact_files": [
+        "model.sig"
+      ],
+      "explicitly_forbidden_artifacts": [
+        "*.gguf",
+        "*.pt",
+        "*.pth",
+        "*.ckpt",
+        "adapter_model.*",
+        "training checkpoints"
+      ],
+      "tokenizer_files": [
+        "merges.txt",
+        "special_tokens_map.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "vocab.json"
+      ],
+      "processor_or_config_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors.index.json"
+      ],
+      "weight_format": "bf16 safetensors (sharded per model.safetensors.index.json where present)",
+      "expected_total_download_bytes": 6815474820,
+      "expected_total_storage_bytes": 6815474820,
+      "temporary_storage_ceiling": 6815474820,
+      "expected_file_integrity": [
+        {
+          "file": "README.md",
+          "expected_size_bytes": 28221,
+          "upstream_sha256": null
+        },
+        {
+          "file": "config.json",
+          "expected_size_bytes": 801,
+          "upstream_sha256": null
+        },
+        {
+          "file": "generation_config.json",
+          "expected_size_bytes": 147,
+          "upstream_sha256": null
+        },
+        {
+          "file": "merges.txt",
+          "expected_size_bytes": 916646,
+          "upstream_sha256": null
+        },
+        {
+          "file": "model-00001-of-00002.safetensors",
+          "expected_size_bytes": 4918153128,
+          "upstream_sha256": "6f689cdf8d8bcde2d8ea60eb1d767d56f8dcbdb243cecde92ff9f8836de2645f"
+        },
+        {
+          "file": "model-00002-of-00002.safetensors",
+          "expected_size_bytes": 1887561680,
+          "upstream_sha256": "f9e80cae16101f1c6dd83a746056334286d82cf260e5f0020601bd304ec73b7e"
+        },
+        {
+          "file": "model.safetensors.index.json",
+          "expected_size_bytes": 29834,
+          "upstream_sha256": null
+        },
+        {
+          "file": "special_tokens_map.json",
+          "expected_size_bytes": 579,
+          "upstream_sha256": null
+        },
+        {
+          "file": "tokenizer.json",
+          "expected_size_bytes": 7153421,
+          "upstream_sha256": null
+        },
+        {
+          "file": "tokenizer_config.json",
+          "expected_size_bytes": 17659,
+          "upstream_sha256": null
+        },
+        {
+          "file": "vocab.json",
+          "expected_size_bytes": 1612704,
+          "upstream_sha256": null
+        }
+      ],
+      "post_download_sha256_verification_requirement": "Every downloaded weight file MUST hash-match its declared LFS OID SHA-256 from expected_file_integrity before admission to T028 verification; mismatch quarantines the file and fails that candidate closed.",
+      "artifact_manifest_verification_method": "T028 emits an mstr.artifact.v1 manifest (ArtifactFileEntry: relative_path+sha256+size) verified offline via mstr_qualify.artifacts.verify_artifact against the acquired external directory.",
+      "T024_verifier_compatibility": "COMPATIBLE \u2014 T024 verify_artifact accepts exact per-file SHA-256 + size identity; expected_file_integrity supplies the upstream side of that comparison.",
+      "runtime_candidates": [
+        "llama.cpp-GGUF-class CPU runtime",
+        "llamafile-portable-class runner"
+      ],
+      "quantizer_candidates": [
+        "llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe"
+      ],
+      "runtime_quantizer_status": "CANDIDATE_ONLY_NEEDS_T029_T030",
+      "network_hosts_required_for_acquisition": [
+        "huggingface.co"
+      ],
+      "network_method": "HTTPS_GET_ONLY",
+      "authentication_required": false,
+      "account_required": false,
+      "gated_access": false,
+      "clickthrough_required": false,
+      "terms_acceptance_required": false,
+      "license_identity": "Apache-2.0 (declared at pinned revision)",
+      "license_evidence_url": "https://huggingface.co/ibm-granite/granite-4.1-3b-base/blob/dacb9cb9157bec98e99b09f285c92a4d58405c96/README.md",
+      "rights_decision": "READY_FOR_T028",
+      "rights_decision_evidence": "Re-verified live at pinned revision: HF license tag 'license:apache-2.0', README front-matter 'license: apache-2.0', and explicit card body 'License: Apache 2.0' linking apache.org. No standalone LICENSE text file exists at this revision; notice obligation satisfied by preserving README.md.",
+      "license_reverification_timestamp": "2026-08-26T04:00:00Z",
+      "storage_budget": {
+        "download_bytes_expected": 6815474820,
+        "on_disk_bytes_expected": 6815474820,
+        "temporary_bytes_expected": 0
+      },
+      "retention_policy": "Acquired artifacts persist in the external acquisition directory until T034 local-artifact admission closes; candidates rejected at T034 are retained only if referenced by open review evidence, else deleted.",
+      "cleanup_policy": "Any partial or integrity-failed download is deleted immediately; successful artifacts are never mutated in place (re-acquire instead).",
+      "cache_policy": "No shared provider cache is populated; direct-to-final-path streaming keeps peak storage equal to final storage.",
+      "artifact_location_policy": "All binaries live outside Git under artifacts/external/<candidate_id>/ (gitignored); manifests and evidence stay inside Git.",
+      "git_exclusion_policy": "artifacts/external/, models/, downloads/, *.safetensors, *.gguf, *.pt, *.pth, *.onnx are already covered by .gitignore; T028 must not weaken these rules.",
+      "cost_ceiling": "USD 0.00 \u2014 any payment requirement aborts toward T028 with PAID_ACCESS_REQUIRES_NEW_FOUNDER_DECISION.",
+      "expected_monetary_cost": "USD 0.00",
+      "expected_download_storage_aggregate": "6,815,474,820 bytes download / 6,815,474,820 bytes final on disk (~6.35 GiB); optional files add 10,233 bytes",
+      "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
+      "recommendation": "READY_FOR_T028"
+    },
+    {
+      "candidate_id": "smollm3-3b",
+      "role": "foundation",
+      "upstream_repository": "https://huggingface.co/HuggingFaceTB/SmolLM3-3B-Base",
+      "exact_model_id": "HuggingFaceTB/SmolLM3-3B-Base",
+      "exact_revision": "d78a42f79198603e614095753484a04c10c2b940",
+      "revision_verified_at": "2026-08-26T04:00:00Z (live metadata HTTPS GET during T027 preflight)",
+      "artifact_source_hosts": [
+        "huggingface.co"
+      ],
+      "required_artifact_files": [
+        "README.md",
+        "config.json",
+        "generation_config.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "notebook.ipynb",
+        "special_tokens_map.json",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "optional_artifact_files": [],
+      "explicitly_forbidden_artifacts": [
+        "*.gguf",
+        "*.pt",
+        "*.pth",
+        "*.ckpt",
+        "adapter_model.*",
+        "training checkpoints",
+        "onnx/** (redundant pre-quantized export suite excluded to avoid duplicate precision variants)"
+      ],
+      "tokenizer_files": [
+        "special_tokens_map.json",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "processor_or_config_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors.index.json"
+      ],
+      "weight_format": "bf16 safetensors (sharded per model.safetensors.index.json where present)",
+      "expected_total_download_bytes": 6167852190,
+      "expected_total_storage_bytes": 6167852190,
+      "temporary_storage_ceiling": 6167852190,
+      "expected_file_integrity": [
+        {
+          "file": "README.md",
+          "expected_size_bytes": 12340,
+          "upstream_sha256": null
+        },
+        {
+          "file": "config.json",
+          "expected_size_bytes": 943,
+          "upstream_sha256": null
+        },
+        {
+          "file": "generation_config.json",
+          "expected_size_bytes": 126,
+          "upstream_sha256": null
+        },
+        {
+          "file": "model-00001-of-00002.safetensors",
+          "expected_size_bytes": 4966315264,
+          "upstream_sha256": "7e270ac568ee1880ddbadad66ccdcd9906d52415e8904e2f300c75250b9c7d49"
+        },
+        {
+          "file": "model-00002-of-00002.safetensors",
+          "expected_size_bytes": 1183919744,
+          "upstream_sha256": "c6a6e7690a66dcc386a6a9b456686e7c308d45cba884d116c928dafa7fa987ae"
+        },
+        {
+          "file": "model.safetensors.index.json",
+          "expected_size_bytes": 26899,
+          "upstream_sha256": null
+        },
+        {
+          "file": "notebook.ipynb",
+          "expected_size_bytes": 317457,
+          "upstream_sha256": null
+        },
+        {
+          "file": "special_tokens_map.json",
+          "expected_size_bytes": 151,
+          "upstream_sha256": null
+        },
+        {
+          "file": "tokenizer.json",
+          "expected_size_bytes": 17208861,
+          "upstream_sha256": "ab4da6b2aa68247e9c0fa9b97fc7fcc796505038d01f7e144522a65ce0dbd2e5"
+        },
+        {
+          "file": "tokenizer_config.json",
+          "expected_size_bytes": 50405,
+          "upstream_sha256": null
+        }
+      ],
+      "post_download_sha256_verification_requirement": "Every downloaded weight file MUST hash-match its declared LFS OID SHA-256 from expected_file_integrity before admission to T028 verification; mismatch quarantines the file and fails that candidate closed.",
+      "artifact_manifest_verification_method": "T028 emits an mstr.artifact.v1 manifest (ArtifactFileEntry: relative_path+sha256+size) verified offline via mstr_qualify.artifacts.verify_artifact against the acquired external directory.",
+      "T024_verifier_compatibility": "COMPATIBLE \u2014 T024 verify_artifact accepts exact per-file SHA-256 + size identity; expected_file_integrity supplies the upstream side of that comparison.",
+      "runtime_candidates": [
+        "llama.cpp-GGUF-class CPU runtime",
+        "llamafile-portable-class runner"
+      ],
+      "quantizer_candidates": [
+        "llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe"
+      ],
+      "runtime_quantizer_status": "CANDIDATE_ONLY_NEEDS_T029_T030",
+      "network_hosts_required_for_acquisition": [
+        "huggingface.co"
+      ],
+      "network_method": "HTTPS_GET_ONLY",
+      "authentication_required": false,
+      "account_required": false,
+      "gated_access": false,
+      "clickthrough_required": false,
+      "terms_acceptance_required": false,
+      "license_identity": "Apache-2.0 (declared at pinned revision)",
+      "license_evidence_url": "https://huggingface.co/HuggingFaceTB/SmolLM3-3B-Base/blob/d78a42f79198603e614095753484a04c10c2b940/README.md",
+      "rights_decision": "READY_FOR_T028",
+      "rights_decision_evidence": "Re-verified live at pinned revision: HF license tag 'license:apache-2.0', README front-matter 'license: apache-2.0', and a dedicated card License section. No standalone LICENSE text file exists at this revision; notice obligation satisfied by preserving README.md.",
+      "license_reverification_timestamp": "2026-08-26T04:00:00Z",
+      "storage_budget": {
+        "download_bytes_expected": 6167852190,
+        "on_disk_bytes_expected": 6167852190,
+        "temporary_bytes_expected": 0
+      },
+      "retention_policy": "Acquired artifacts persist in the external acquisition directory until T034 local-artifact admission closes; candidates rejected at T034 are retained only if referenced by open review evidence, else deleted.",
+      "cleanup_policy": "Any partial or integrity-failed download is deleted immediately; successful artifacts are never mutated in place (re-acquire instead).",
+      "cache_policy": "No shared provider cache is populated; direct-to-final-path streaming keeps peak storage equal to final storage.",
+      "artifact_location_policy": "All binaries live outside Git under artifacts/external/<candidate_id>/ (gitignored); manifests and evidence stay inside Git.",
+      "git_exclusion_policy": "artifacts/external/, models/, downloads/, *.safetensors, *.gguf, *.pt, *.pth, *.onnx are already covered by .gitignore; T028 must not weaken these rules.",
+      "cost_ceiling": "USD 0.00 \u2014 any payment requirement aborts toward T028 with PAID_ACCESS_REQUIRES_NEW_FOUNDER_DECISION.",
+      "expected_monetary_cost": "USD 0.00",
+      "expected_download_storage_aggregate": "6,167,852,190 bytes download / 6,167,852,190 bytes final on disk (~5.74 GiB)",
+      "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
+      "recommendation": "READY_FOR_T028"
+    },
+    {
+      "candidate_id": "qwen2.5-coder-1.5b",
+      "role": "coder_control",
+      "upstream_repository": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B",
+      "exact_model_id": "Qwen/Qwen2.5-Coder-1.5B",
+      "exact_revision": "df3ce67c0e24480f20468b6ef2894622d69eb73b",
+      "revision_verified_at": "2026-08-26T04:00:00Z (live metadata HTTPS GET during T027 preflight)",
+      "artifact_source_hosts": [
+        "huggingface.co"
+      ],
+      "required_artifact_files": [
+        "LICENSE",
+        "README.md",
+        "config.json",
+        "generation_config.json",
+        "merges.txt",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "vocab.json"
+      ],
+      "optional_artifact_files": [],
+      "explicitly_forbidden_artifacts": [
+        "*.gguf",
+        "*.pt",
+        "*.pth",
+        "*.ckpt",
+        "adapter_model.*",
+        "training checkpoints"
+      ],
+      "tokenizer_files": [
+        "merges.txt",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "vocab.json"
+      ],
+      "processor_or_config_files": [
+        "config.json",
+        "generation_config.json"
+      ],
+      "weight_format": "bf16 safetensors (sharded per model.safetensors.index.json where present)",
+      "expected_total_download_bytes": 3098970942,
+      "expected_total_storage_bytes": 3098970942,
+      "temporary_storage_ceiling": 3098970942,
+      "expected_file_integrity": [
+        {
+          "file": "LICENSE",
+          "expected_size_bytes": 11343,
+          "upstream_sha256": null
+        },
+        {
+          "file": "README.md",
+          "expected_size_bytes": 4053,
+          "upstream_sha256": null
+        },
+        {
+          "file": "config.json",
+          "expected_size_bytes": 660,
+          "upstream_sha256": null
+        },
+        {
+          "file": "generation_config.json",
+          "expected_size_bytes": 117,
+          "upstream_sha256": null
+        },
+        {
+          "file": "merges.txt",
+          "expected_size_bytes": 1671839,
+          "upstream_sha256": null
+        },
+        {
+          "file": "model.safetensors",
+          "expected_size_bytes": 3087467144,
+          "upstream_sha256": "535485b26038ac24f4e8a86e1a73ed417d8992e3192f6305b7fcc4fb92efa210"
+        },
+        {
+          "file": "tokenizer.json",
+          "expected_size_bytes": 7031645,
+          "upstream_sha256": null
+        },
+        {
+          "file": "tokenizer_config.json",
+          "expected_size_bytes": 7308,
+          "upstream_sha256": null
+        },
+        {
+          "file": "vocab.json",
+          "expected_size_bytes": 2776833,
+          "upstream_sha256": null
+        }
+      ],
+      "post_download_sha256_verification_requirement": "Every downloaded weight file MUST hash-match its declared LFS OID SHA-256 from expected_file_integrity before admission to T028 verification; mismatch quarantines the file and fails that candidate closed.",
+      "artifact_manifest_verification_method": "T028 emits an mstr.artifact.v1 manifest (ArtifactFileEntry: relative_path+sha256+size) verified offline via mstr_qualify.artifacts.verify_artifact against the acquired external directory.",
+      "T024_verifier_compatibility": "COMPATIBLE \u2014 T024 verify_artifact accepts exact per-file SHA-256 + size identity; expected_file_integrity supplies the upstream side of that comparison.",
+      "runtime_candidates": [
+        "llama.cpp-GGUF-class CPU runtime",
+        "llamafile-portable-class runner"
+      ],
+      "quantizer_candidates": [
+        "llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe"
+      ],
+      "runtime_quantizer_status": "CANDIDATE_ONLY_NEEDS_T029_T030",
+      "network_hosts_required_for_acquisition": [
+        "huggingface.co"
+      ],
+      "network_method": "HTTPS_GET_ONLY",
+      "authentication_required": false,
+      "account_required": false,
+      "gated_access": false,
+      "clickthrough_required": false,
+      "terms_acceptance_required": false,
+      "license_identity": "Apache-2.0 (declared at pinned revision)",
+      "license_evidence_url": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B/blob/df3ce67c0e24480f20468b6ef2894622d69eb73b/README.md",
+      "rights_decision": "READY_FOR_T028",
+      "rights_decision_evidence": "Apache-2.0 confirmed live at pinned revision: HF tag 'license:apache-2.0', README front matter, and verbatim LICENSE file present in tree.",
+      "license_reverification_timestamp": "2026-08-26T04:00:00Z",
+      "storage_budget": {
+        "download_bytes_expected": 3098970942,
+        "on_disk_bytes_expected": 3098970942,
+        "temporary_bytes_expected": 0
+      },
+      "retention_policy": "Acquired artifacts persist in the external acquisition directory until T034 local-artifact admission closes; candidates rejected at T034 are retained only if referenced by open review evidence, else deleted.",
+      "cleanup_policy": "Any partial or integrity-failed download is deleted immediately; successful artifacts are never mutated in place (re-acquire instead).",
+      "cache_policy": "No shared provider cache is populated; direct-to-final-path streaming keeps peak storage equal to final storage.",
+      "artifact_location_policy": "All binaries live outside Git under artifacts/external/<candidate_id>/ (gitignored); manifests and evidence stay inside Git.",
+      "git_exclusion_policy": "artifacts/external/, models/, downloads/, *.safetensors, *.gguf, *.pt, *.pth, *.onnx are already covered by .gitignore; T028 must not weaken these rules.",
+      "cost_ceiling": "USD 0.00 \u2014 any payment requirement aborts toward T028 with PAID_ACCESS_REQUIRES_NEW_FOUNDER_DECISION.",
+      "expected_monetary_cost": "USD 0.00",
+      "expected_download_storage_aggregate": "3,098,970,942 bytes download / 3,098,970,942 bytes final on disk (~2.89 GiB)",
+      "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
+      "recommendation": "READY_FOR_T028"
+    },
+    {
+      "candidate_id": "yi-coder-1.5b",
+      "role": "coder_control",
+      "upstream_repository": "https://huggingface.co/01-ai/Yi-Coder-1.5B",
+      "exact_model_id": "01-ai/Yi-Coder-1.5B",
+      "exact_revision": "00e59e64f47d3c78e4cfbdd345888479797e8109",
+      "revision_verified_at": "2026-08-26T04:00:00Z (live metadata HTTPS GET during T027 preflight)",
+      "artifact_source_hosts": [
+        "huggingface.co"
+      ],
+      "required_artifact_files": [
+        "README.md",
+        "config.json",
+        "generation_config.json",
+        "model.safetensors",
+        "special_tokens_map.json",
+        "tokenizer.json",
+        "tokenizer.model",
+        "tokenizer_config.json"
+      ],
+      "optional_artifact_files": [],
+      "explicitly_forbidden_artifacts": [
+        "*.gguf",
+        "*.pt",
+        "*.pth",
+        "*.ckpt",
+        "adapter_model.*",
+        "training checkpoints"
+      ],
+      "tokenizer_files": [
+        "special_tokens_map.json",
+        "tokenizer.json",
+        "tokenizer.model",
+        "tokenizer_config.json"
+      ],
+      "processor_or_config_files": [
+        "config.json",
+        "generation_config.json"
+      ],
+      "weight_format": "bf16 safetensors (sharded per model.safetensors.index.json where present)",
+      "expected_total_download_bytes": 2957617051,
+      "expected_total_storage_bytes": 2957617051,
+      "temporary_storage_ceiling": 2957617051,
+      "expected_file_integrity": [
+        {
+          "file": "README.md",
+          "expected_size_bytes": 5096,
+          "upstream_sha256": null
+        },
+        {
+          "file": "config.json",
+          "expected_size_bytes": 682,
+          "upstream_sha256": null
+        },
+        {
+          "file": "generation_config.json",
+          "expected_size_bytes": 132,
+          "upstream_sha256": null
+        },
+        {
+          "file": "model.safetensors",
+          "expected_size_bytes": 2953016024,
+          "upstream_sha256": "8739bb63ec22de1cad21ca59b6c16245d16cdbdeaa3a406d3c646ba77979970e"
+        },
+        {
+          "file": "special_tokens_map.json",
+          "expected_size_bytes": 573,
+          "upstream_sha256": null
+        },
+        {
+          "file": "tokenizer.json",
+          "expected_size_bytes": 3560486,
+          "upstream_sha256": null
+        },
+        {
+          "file": "tokenizer.model",
+          "expected_size_bytes": 1033105,
+          "upstream_sha256": "386c49cf943d71aa110361135338c50e38beeff0a66593480421f37b319e1a39"
+        },
+        {
+          "file": "tokenizer_config.json",
+          "expected_size_bytes": 953,
+          "upstream_sha256": null
+        }
+      ],
+      "post_download_sha256_verification_requirement": "Every downloaded weight file MUST hash-match its declared LFS OID SHA-256 from expected_file_integrity before admission to T028 verification; mismatch quarantines the file and fails that candidate closed.",
+      "artifact_manifest_verification_method": "T028 emits an mstr.artifact.v1 manifest (ArtifactFileEntry: relative_path+sha256+size) verified offline via mstr_qualify.artifacts.verify_artifact against the acquired external directory.",
+      "T024_verifier_compatibility": "COMPATIBLE \u2014 T024 verify_artifact accepts exact per-file SHA-256 + size identity; expected_file_integrity supplies the upstream side of that comparison.",
+      "runtime_candidates": [
+        "llama.cpp-GGUF-class CPU runtime",
+        "llamafile-portable-class runner"
+      ],
+      "quantizer_candidates": [
+        "llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe"
+      ],
+      "runtime_quantizer_status": "CANDIDATE_ONLY_NEEDS_T029_T030",
+      "network_hosts_required_for_acquisition": [
+        "huggingface.co"
+      ],
+      "network_method": "HTTPS_GET_ONLY",
+      "authentication_required": false,
+      "account_required": false,
+      "gated_access": false,
+      "clickthrough_required": false,
+      "terms_acceptance_required": false,
+      "license_identity": "Apache-2.0 (declared at pinned revision)",
+      "license_evidence_url": "https://huggingface.co/01-ai/Yi-Coder-1.5B/blob/00e59e64f47d3c78e4cfbdd345888479797e8109/README.md",
+      "rights_decision": "READY_FOR_T028",
+      "rights_decision_evidence": "Apache-2.0 confirmed live at pinned revision: HF tag 'license:apache-2.0', README front matter, and verbatim LICENSE file present in tree.",
+      "license_reverification_timestamp": "2026-08-26T04:00:00Z",
+      "storage_budget": {
+        "download_bytes_expected": 2957617051,
+        "on_disk_bytes_expected": 2957617051,
+        "temporary_bytes_expected": 0
+      },
+      "retention_policy": "Acquired artifacts persist in the external acquisition directory until T034 local-artifact admission closes; candidates rejected at T034 are retained only if referenced by open review evidence, else deleted.",
+      "cleanup_policy": "Any partial or integrity-failed download is deleted immediately; successful artifacts are never mutated in place (re-acquire instead).",
+      "cache_policy": "No shared provider cache is populated; direct-to-final-path streaming keeps peak storage equal to final storage.",
+      "artifact_location_policy": "All binaries live outside Git under artifacts/external/<candidate_id>/ (gitignored); manifests and evidence stay inside Git.",
+      "git_exclusion_policy": "artifacts/external/, models/, downloads/, *.safetensors, *.gguf, *.pt, *.pth, *.onnx are already covered by .gitignore; T028 must not weaken these rules.",
+      "cost_ceiling": "USD 0.00 \u2014 any payment requirement aborts toward T028 with PAID_ACCESS_REQUIRES_NEW_FOUNDER_DECISION.",
+      "expected_monetary_cost": "USD 0.00",
+      "expected_download_storage_aggregate": "2,957,617,051 bytes download / 2,957,617,051 bytes final on disk (~2.75 GiB)",
+      "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
+      "recommendation": "READY_FOR_T028"
+    }
+  ],
+  "network": {
+    "method": "HTTPS_GET_ONLY",
+    "allowlist_hosts": [
+      "huggingface.co"
+    ],
+    "redirects_cdns": [
+      "cdn-lfs.huggingface.co",
+      "cdn-lfs-us-1.huggingface.co",
+      "cas-bridge.xethub.hf.co",
+      "transfer.xethub.hf.co",
+      "transfer.xethub.hf.com"
+    ],
+    "unauthorized_categories": [
+      "arbitrary web browsing beyond the allowlist",
+      "package installation or index hosts (pypi/npm)",
+      "provider inference APIs",
+      "telemetry endpoints",
+      "unrelated CDN hosts",
+      "git protocol endpoints (no git-lfs clone; HTTPS range GETs only)"
+    ]
+  },
+  "storage_budget": {
+    "per_candidate": [
+      {
+        "candidate_id": "qwen3.5-2b",
+        "download_bytes_expected": 4571203846,
+        "on_disk_bytes_expected": 4571203846,
+        "temporary_bytes_expected": 0
+      },
+      {
+        "candidate_id": "qwen3.5-4b",
+        "download_bytes_expected": 9342822405,
+        "on_disk_bytes_expected": 9342822405,
+        "temporary_bytes_expected": 0
+      },
+      {
+        "candidate_id": "ministral-3-3b",
+        "download_bytes_expected": 7732479067,
+        "on_disk_bytes_expected": 7732479067,
+        "temporary_bytes_expected": 0
+      },
+      {
+        "candidate_id": "qwen3-4b",
+        "download_bytes_expected": 8056519973,
+        "on_disk_bytes_expected": 8056519973,
+        "temporary_bytes_expected": 0
+      },
+      {
+        "candidate_id": "granite-4.1-3b",
+        "download_bytes_expected": 6815474820,
+        "on_disk_bytes_expected": 6815474820,
+        "temporary_bytes_expected": 0
+      },
+      {
+        "candidate_id": "smollm3-3b",
+        "download_bytes_expected": 6167852190,
+        "on_disk_bytes_expected": 6167852190,
+        "temporary_bytes_expected": 0
+      },
+      {
+        "candidate_id": "qwen2.5-coder-1.5b",
+        "download_bytes_expected": 3098970942,
+        "on_disk_bytes_expected": 3098970942,
+        "temporary_bytes_expected": 0
+      },
+      {
+        "candidate_id": "yi-coder-1.5b",
+        "download_bytes_expected": 2957617051,
+        "on_disk_bytes_expected": 2957617051,
+        "temporary_bytes_expected": 0
+      }
+    ],
+    "aggregate": {
+      "total_download_bytes": 48742940294,
+      "total_final_storage_bytes": 48742940294,
+      "total_peak_storage_bytes": 48742940294
+    },
+    "tier": "ABOVE_UNIVERSAL_LAPTOP_TIER"
+  },
+  "cost": {
+    "expected_monetary_cost": "USD 0.00",
+    "expected_storage_cost": "local disk only; peak 45.40 GiB across all eight candidates",
+    "expected_compute_cost": "none (downloads only)",
+    "policy": "EXPECTED_ACQUISITION_COST = 0. Any artifact requiring payment stops with PAID_ACCESS_REQUIRES_NEW_FOUNDER_DECISION. No paid Colab, no rented GPU, no inference API."
+  },
+  "retention_cleanup": {
+    "retention_policy": "Artifacts persist in the external acquisition directory through T028-T034 qualification; after T034 closes, candidates absent from its admission decision are deletable on founder approval.",
+    "cleanup_policy": "Partial downloads are deleted on first failure; verified artifacts are immutable (re-download rather than patch); cleanup actions are logged in evidence.",
+    "cache_policy": "No provider cache population; direct-to-final streaming keeps peak storage equal to final storage.",
+    "artifact_location_policy": "Binaries under gitignored artifacts/external/<candidate_id>/; only manifests, hashes, and evidence enter Git.",
+    "git_exclusion_summary": ".gitignore already blocks models/, weights/, downloads/, data/raw/, artifacts/external/, artifacts/tmp/, *.safetensors, *.gguf, *.pt, *.pth, *.onnx."
+  },
+  "git_exclusion": {
+    "weights_ignored": [
+      "*.safetensors",
+      "*.gguf",
+      "*.pt",
+      "*.pth",
+      "*.onnx"
+    ],
+    "gitignore_covers": [
+      "models/",
+      "weights/",
+      "downloads/",
+      "data/raw/",
+      "artifacts/external/",
+      "artifacts/tmp/",
+      "*.log"
+    ],
+    "verification": "T028 must run `git status --ignored` after acquisition and assert zero untracked weight files; a violation fails T028 closed."
+  },
+  "proposed_t028_authority_envelope": {
+    "stays_blocked_until": "Separate explicit founder authorization naming manifest id T027-weight-access-preflight-frozen and the approved candidate subset.",
+    "explicitly_required_for": [
+      "HTTPS GET of exactly the required_artifact_files listed per approved candidate",
+      "SHA-256 verification against expected_file_integrity",
+      "emission of artifacts/manifests/T028-acquired-artifacts.json and evidence/T028-weight-acquisition.md"
+    ],
+    "what_T028_does": [
+      "stream-download pinned artifacts over the declared host allowlist",
+      "verify per-file size + SHA-256 identity",
+      "record acquisition outcome per candidate (acquired / EXCLUDED_*)"
+    ],
+    "what_T028_does_not": [
+      "run any model, quantizer, runtime, or training step",
+      "quantize anything (that is T029)",
+      "install Unsloth or open Colab sessions",
+      "fetch revisions not listed in this manifest",
+      "grant backbone, finalist, or local_qualified status (T034/T050/T055)"
+    ],
+    "post_T028_does_not_automatically_open": "Completing T028 opens nothing beyond recording acquisition evidence; T029 quantization profile work remains separate with its own scope."
+  },
+  "unresolved_risks": [
+    "Ministral-3-3B, Granite-4.1-3B, SmolLM3-3B lack a standalone LICENSE text file at their pinned revisions; rights rest on consistent machine-readable tag plus explicit README declarations at the same revision. Mitigation: preserve each README as the notice artifact and re-check before any redistribution.",
+    "Aggregate download/final footprint ~45.4 GiB exceeds single-laptop comfort for some machines; the founder may approve a bounded subset at T028 time \u2014 this manifest permits subset selection without editing candidate entries.",
+    "Qwen3.5 family ships vision-encoder weights inside the same shards; text-only serving validation is deferred to runtime qualification (T030), not resolved here.",
+    "CDN redirect targets are documented from current observation but may evolve upstream; T028 must pin observed redirect hosts in its own evidence before downloading."
+  ],
+  "excluded_pending_rights_clarification": []
+}

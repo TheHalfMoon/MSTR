@@ -1,6 +1,325 @@
 {
-  "candidate-record": {"schema_version":"mstr.candidate.v1","candidate_id":"fixture-model","upstream_id":"example/model","upstream_revision":"0123456789abcdef","candidate_role":"foundation","status":"discovered","rights":{"decision":"pass_permissive","license_name":"Apache-2.0","terms_urls":["https://example.invalid/license"],"personal_use":"yes","commercial_use":"yes","modification":"yes","fine_tuning":"yes","quantization":"yes","derivative_redistribution":"yes","account_gate_required":false,"clickthrough_gate_required":false,"end_user_separate_license_required":false,"field_or_scale_restrictions":[],"rationale":"Fixture only."},"architecture":{"family":"dense","parameter_count_total":2000000000,"parameter_count_active":2000000000,"tokenizer_id":"example/tokenizer","tokenizer_revision":"0123456789abcdef","vision_components":[],"fim_capability":"unknown"},"runtime_support_notes":[],"quantization_support_notes":[],"source_urls":["https://example.invalid/model"]},
-  "task-manifest": {"schema_version":"mstr.task.v1","task_id":"fixture-task","repository":"example/repo","base_revision":"0123456789abcdef","task_text":"Fix the fixture.","workspace_scope":["."],"required_verifiers":["fixture-test"],"timeout_seconds":60,"seed":1,"sampling":{},"tool_budget":10,"network_policy":"disabled","network_allowlist":[],"future_history_policy":"blocked","hidden_artifact_ids":[],"benchmark_exclusion_class":null,"notes":[]},
-  "run-evidence": {"schema_version":"mstr.run.v1","run_id":"run-1","measurement_protocol":"MSTR-MEASURE-v0","benchmark_manifest_id":null,"task_id":"fixture-task","task_manifest_revision":"rev-1","candidate_id":"fixture-model","model_revision":"rev-model","artifact_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","tokenizer_revision":"rev-tokenizer","quantization_method":"Q4","quantizer_version":"quantizer-1","runtime_id":"runtime-1","runtime_build_flags":[],"hardware_id":"hardware-1","interaction_contract_version":"interaction-0","context_length":8192,"cache_state":"process_cold","seed":1,"sampling_config":{},"verifier_set_id":"verifiers-1","timings_ms":{"cold_load":1.0,"ttfi":null,"ttfa":2.0,"ttfce":3.0,"ttvc":4.0},"memory":{},"throughput":{},"sustained_ratio":1.0,"editor_responsiveness_p95_ms":100.0,"verifier_results":[],"final_result":"verified_pass","invalidation_reason":null,"logs":[]},
-  "interaction-contract": {"schema_version":"mstr.interaction.v1","contract_version":"0","tokenizer":{"id":"example/tokenizer","revision":"rev"},"prompt_template":"fixture","stable_prefix_hash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","fim":{},"tool_grammar":"fixture","tool_result_serialization":"fixture","edit_grammar":"fixture","stale_write_semantics":"reject","context_order":["system","task"],"task_state_schema":null,"network_semantics":"disabled","runtime_cache_semantics":"none","fixture_revision":"fixture-1"}
+  "candidate-record": {
+    "schema_version": "mstr.candidate.v1",
+    "candidate_id": "fixture-model",
+    "upstream_id": "example/model",
+    "upstream_revision": "0123456789abcdef",
+    "candidate_role": "foundation",
+    "status": "discovered",
+    "rights": {
+      "decision": "pass_permissive",
+      "license_name": "Apache-2.0",
+      "terms_urls": [
+        "https://example.invalid/license"
+      ],
+      "personal_use": "yes",
+      "commercial_use": "yes",
+      "modification": "yes",
+      "fine_tuning": "yes",
+      "quantization": "yes",
+      "derivative_redistribution": "yes",
+      "account_gate_required": false,
+      "clickthrough_gate_required": false,
+      "end_user_separate_license_required": false,
+      "field_or_scale_restrictions": [],
+      "rationale": "Fixture only."
+    },
+    "architecture": {
+      "family": "dense",
+      "parameter_count_total": 2000000000,
+      "parameter_count_active": 2000000000,
+      "tokenizer_id": "example/tokenizer",
+      "tokenizer_revision": "0123456789abcdef",
+      "vision_components": [],
+      "fim_capability": "unknown"
+    },
+    "runtime_support_notes": [],
+    "quantization_support_notes": [],
+    "source_urls": [
+      "https://example.invalid/model"
+    ]
+  },
+  "task-manifest": {
+    "schema_version": "mstr.task.v1",
+    "task_id": "fixture-task",
+    "repository": "example/repo",
+    "base_revision": "0123456789abcdef",
+    "task_text": "Fix the fixture.",
+    "workspace_scope": [
+      "."
+    ],
+    "required_verifiers": [
+      "fixture-test"
+    ],
+    "timeout_seconds": 60,
+    "seed": 1,
+    "sampling": {},
+    "tool_budget": 10,
+    "network_policy": "disabled",
+    "network_allowlist": [],
+    "future_history_policy": "blocked",
+    "hidden_artifact_ids": [],
+    "benchmark_exclusion_class": null,
+    "notes": []
+  },
+  "run-evidence": {
+    "schema_version": "mstr.run.v1",
+    "run_id": "run-1",
+    "measurement_protocol": "MSTR-MEASURE-v0",
+    "benchmark_manifest_id": null,
+    "task_id": "fixture-task",
+    "task_manifest_revision": "rev-1",
+    "candidate_id": "fixture-model",
+    "model_revision": "rev-model",
+    "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "tokenizer_revision": "rev-tokenizer",
+    "quantization_method": "Q4",
+    "quantizer_version": "quantizer-1",
+    "runtime_id": "runtime-1",
+    "runtime_build_flags": [],
+    "hardware_id": "hardware-1",
+    "interaction_contract_version": "interaction-0",
+    "context_length": 8192,
+    "cache_state": "process_cold",
+    "seed": 1,
+    "sampling_config": {},
+    "verifier_set_id": "verifiers-1",
+    "timings_ms": {
+      "cold_load": 1.0,
+      "ttfi": null,
+      "ttfa": 2.0,
+      "ttfce": 3.0,
+      "ttvc": 4.0
+    },
+    "memory": {},
+    "throughput": {},
+    "sustained_ratio": 1.0,
+    "editor_responsiveness_p95_ms": 100.0,
+    "verifier_results": [],
+    "final_result": "verified_pass",
+    "invalidation_reason": null,
+    "logs": []
+  },
+  "interaction-contract": {
+    "schema_version": "mstr.interaction.v1",
+    "contract_version": "0",
+    "tokenizer": {
+      "id": "example/tokenizer",
+      "revision": "rev"
+    },
+    "prompt_template": "fixture",
+    "stable_prefix_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "fim": {},
+    "tool_grammar": "fixture",
+    "tool_result_serialization": "fixture",
+    "edit_grammar": "fixture",
+    "stale_write_semantics": "reject",
+    "context_order": [
+      "system",
+      "task"
+    ],
+    "task_state_schema": null,
+    "network_semantics": "disabled",
+    "runtime_cache_semantics": "none",
+    "fixture_revision": "fixture-1"
+  },
+  "weight-access-manifest": {
+    "schema_version": "mstr.weight-access-manifest.v1",
+    "manifest_id": "T027-weight-access-preflight-frozen",
+    "generated_at": "2026-08-26T04:00:00Z",
+    "task": "MSTR-000 / T027",
+    "canonical_base": "6b5ce9599e4985182113c98f53e8c9566f3b1864",
+    "bound": {
+      "scope": "Preflight only: freeze exact acquisition identity, integrity expectations, byte budgets, network surface, gating status, retention/cleanup, and cost ceiling for the eight T022-admitted candidates. No weight bodies are fetched, no execution occurs, no runtime/quantizer winner is selected.",
+      "do_not": [
+        "download .safetensors/.bin/GGUF/checkpoint/adapter weight bodies",
+        "execute any model, quantizer, runtime, Colab session, or Unsloth install",
+        "accept gated terms or authenticate to any model provider",
+        "select a canonical runtime or final quantizer (T029/T030 own that)",
+        "start T028 without separate explicit founder authorization"
+      ]
+    },
+    "candidates": [
+      {
+        "candidate_id": "qwen3.5-2b",
+        "role": "foundation",
+        "upstream_repository": "https://huggingface.co/Qwen/Qwen3.5-2B-Base",
+        "exact_model_id": "Qwen/Qwen3.5-2B-Base",
+        "exact_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+        "revision_verified_at": "2026-08-26T04:00:00Z (live metadata HTTPS GET during T027 preflight)",
+        "artifact_source_hosts": [
+          "huggingface.co"
+        ],
+        "required_artifact_files": [
+          "model.safetensors-00001-of-00001.safetensors"
+        ],
+        "optional_artifact_files": [
+          "preprocessor_config.json",
+          "video_preprocessor_config.json"
+        ],
+        "explicitly_forbidden_artifacts": [
+          "*.gguf",
+          "*.pt",
+          "*.pth",
+          "*.ckpt",
+          "adapter_model.*",
+          "training checkpoints"
+        ],
+        "tokenizer_files": [
+          "merges.txt"
+        ],
+        "processor_or_config_files": [
+          "config.json"
+        ],
+        "weight_format": "bf16 safetensors (sharded per model.safetensors.index.json where present)",
+        "expected_total_download_bytes": 4571203846,
+        "expected_total_storage_bytes": 4571203846,
+        "temporary_storage_ceiling": 4571203846,
+        "expected_file_integrity": [
+          {
+            "file": "model.safetensors-00001-of-00001.safetensors",
+            "expected_size_bytes": 4548221488,
+            "upstream_sha256": "928acbf11878c32185bbd863514d191769285065ab9ea14fbfe431303f5fdf2d"
+          }
+        ],
+        "post_download_sha256_verification_requirement": "Every downloaded weight file MUST hash-match its declared LFS OID SHA-256 from expected_file_integrity before admission to T028 verification; mismatch quarantines the file and fails that candidate closed.",
+        "artifact_manifest_verification_method": "T028 emits an mstr.artifact.v1 manifest (ArtifactFileEntry: relative_path+sha256+size) verified offline via mstr_qualify.artifacts.verify_artifact against the acquired external directory.",
+        "T024_verifier_compatibility": "COMPATIBLE \u2014 T024 verify_artifact accepts exact per-file SHA-256 + size identity; expected_file_integrity supplies the upstream side of that comparison.",
+        "runtime_candidates": [
+          "llama.cpp-GGUF-class CPU runtime",
+          "llamafile-portable-class runner"
+        ],
+        "quantizer_candidates": [
+          "llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe"
+        ],
+        "runtime_quantizer_status": "CANDIDATE_ONLY_NEEDS_T029_T030",
+        "network_hosts_required_for_acquisition": [
+          "huggingface.co"
+        ],
+        "network_method": "HTTPS_GET_ONLY",
+        "authentication_required": false,
+        "account_required": false,
+        "gated_access": false,
+        "clickthrough_required": false,
+        "terms_acceptance_required": false,
+        "license_identity": "Apache-2.0 (declared at pinned revision)",
+        "license_evidence_url": "https://huggingface.co/Qwen/Qwen3.5-2B-Base/blob/b1485b2fa6dfa1287294f269f5fb618e03d52d7c/README.md",
+        "rights_decision": "READY_FOR_T028",
+        "rights_decision_evidence": "Apache-2.0 confirmed live at pinned revision: HF tag 'license:apache-2.0', README front matter, and verbatim LICENSE file present in tree.",
+        "license_reverification_timestamp": "2026-08-26T04:00:00Z",
+        "storage_budget": {
+          "download_bytes_expected": 4571203846,
+          "on_disk_bytes_expected": 4571203846,
+          "temporary_bytes_expected": 0
+        },
+        "retention_policy": "Acquired artifacts persist in the external acquisition directory until T034 local-artifact admission closes; candidates rejected at T034 are retained only if referenced by open review evidence, else deleted.",
+        "cleanup_policy": "Any partial or integrity-failed download is deleted immediately; successful artifacts are never mutated in place (re-acquire instead).",
+        "cache_policy": "No shared provider cache is populated; direct-to-final-path streaming keeps peak storage equal to final storage.",
+        "artifact_location_policy": "All binaries live outside Git under artifacts/external/<candidate_id>/ (gitignored); manifests and evidence stay inside Git.",
+        "git_exclusion_policy": "artifacts/external/, models/, downloads/, *.safetensors, *.gguf, *.pt, *.pth, *.onnx are already covered by .gitignore; T028 must not weaken these rules.",
+        "cost_ceiling": "USD 0.00 \u2014 any payment requirement aborts toward T028 with PAID_ACCESS_REQUIRES_NEW_FOUNDER_DECISION.",
+        "expected_monetary_cost": "USD 0.00",
+        "expected_download_storage_aggregate": "4,571,203,846 bytes download / 4,571,203,846 bytes final on disk (~4.26 GiB); optional files add 776 bytes",
+        "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
+        "recommendation": "READY_FOR_T028"
+      }
+    ],
+    "network": {
+      "method": "HTTPS_GET_ONLY",
+      "allowlist_hosts": [
+        "huggingface.co"
+      ],
+      "redirects_cdns": [
+        "cdn-lfs.huggingface.co",
+        "cdn-lfs-us-1.huggingface.co",
+        "cas-bridge.xethub.hf.co",
+        "transfer.xethub.hf.co",
+        "transfer.xethub.hf.com"
+      ],
+      "unauthorized_categories": [
+        "arbitrary web browsing beyond the allowlist",
+        "package installation or index hosts (pypi/npm)",
+        "provider inference APIs",
+        "telemetry endpoints",
+        "unrelated CDN hosts",
+        "git protocol endpoints (no git-lfs clone; HTTPS range GETs only)"
+      ]
+    },
+    "storage_budget": {
+      "per_candidate": [
+        {
+          "candidate_id": "qwen3.5-2b",
+          "download_bytes_expected": 4571203846,
+          "on_disk_bytes_expected": 4571203846,
+          "temporary_bytes_expected": 0
+        }
+      ],
+      "aggregate": {
+        "total_download_bytes": 4571203846,
+        "total_final_storage_bytes": 4571203846,
+        "total_peak_storage_bytes": 4571203846
+      },
+      "tier": "ABOVE_UNIVERSAL_LAPTOP_TIER"
+    },
+    "cost": {
+      "expected_monetary_cost": "USD 0.00",
+      "expected_storage_cost": "local disk only; peak 45.40 GiB across all eight candidates",
+      "expected_compute_cost": "none (downloads only)",
+      "policy": "EXPECTED_ACQUISITION_COST = 0. Any artifact requiring payment stops with PAID_ACCESS_REQUIRES_NEW_FOUNDER_DECISION. No paid Colab, no rented GPU, no inference API."
+    },
+    "retention_cleanup": {
+      "retention_policy": "Artifacts persist in the external acquisition directory through T028-T034 qualification; after T034 closes, candidates absent from its admission decision are deletable on founder approval.",
+      "cleanup_policy": "Partial downloads are deleted on first failure; verified artifacts are immutable (re-download rather than patch); cleanup actions are logged in evidence.",
+      "cache_policy": "No provider cache population; direct-to-final streaming keeps peak storage equal to final storage.",
+      "artifact_location_policy": "Binaries under gitignored artifacts/external/<candidate_id>/; only manifests, hashes, and evidence enter Git.",
+      "git_exclusion_summary": ".gitignore already blocks models/, weights/, downloads/, data/raw/, artifacts/external/, artifacts/tmp/, *.safetensors, *.gguf, *.pt, *.pth, *.onnx."
+    },
+    "git_exclusion": {
+      "weights_ignored": [
+        "*.safetensors",
+        "*.gguf",
+        "*.pt",
+        "*.pth",
+        "*.onnx"
+      ],
+      "gitignore_covers": [
+        "models/",
+        "weights/",
+        "downloads/",
+        "data/raw/",
+        "artifacts/external/",
+        "artifacts/tmp/",
+        "*.log"
+      ],
+      "verification": "T028 must run `git status --ignored` after acquisition and assert zero untracked weight files; a violation fails T028 closed."
+    },
+    "proposed_t028_authority_envelope": {
+      "stays_blocked_until": "Separate explicit founder authorization naming manifest id T027-weight-access-preflight-frozen and the approved candidate subset.",
+      "explicitly_required_for": [
+        "HTTPS GET of exactly the required_artifact_files listed per approved candidate",
+        "SHA-256 verification against expected_file_integrity",
+        "emission of artifacts/manifests/T028-acquired-artifacts.json and evidence/T028-weight-acquisition.md"
+      ],
+      "what_T028_does": [
+        "stream-download pinned artifacts over the declared host allowlist",
+        "verify per-file size + SHA-256 identity",
+        "record acquisition outcome per candidate (acquired / EXCLUDED_*)"
+      ],
+      "what_T028_does_not": [
+        "run any model, quantizer, runtime, or training step",
+        "quantize anything (that is T029)",
+        "install Unsloth or open Colab sessions",
+        "fetch revisions not listed in this manifest",
+        "grant backbone, finalist, or local_qualified status (T034/T050/T055)"
+      ],
+      "post_T028_does_not_automatically_open": "Completing T028 opens nothing beyond recording acquisition evidence; T029 quantization profile work remains separate with its own scope."
+    },
+    "unresolved_risks": [
+      "Ministral-3-3B, Granite-4.1-3B, SmolLM3-3B lack a standalone LICENSE text file at their pinned revisions; rights rest on consistent machine-readable tag plus explicit README declarations at the same revision. Mitigation: preserve each README as the notice artifact and re-check before any redistribution.",
+      "Aggregate download/final footprint ~45.4 GiB exceeds single-laptop comfort for some machines; the founder may approve a bounded subset at T028 time \u2014 this manifest permits subset selection without editing candidate entries.",
+      "Qwen3.5 family ships vision-encoder weights inside the same shards; text-only serving validation is deferred to runtime qualification (T030), not resolved here.",
+      "CDN redirect targets are documented from current observation but may evolve upstream; T028 must pin observed redirect hosts in its own evidence before downloading."
+    ],
+    "excluded_pending_rights_clarification": []
+  }
 }
