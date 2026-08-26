@@ -3,9 +3,10 @@
 These tests pin the fail-closed properties of
 ``artifacts/manifests/T027-weight-access.json`` against the
 ``weight-access-manifest`` schema. They exist so that T028 cannot drift:
-unpinned revisions, missing integrity evidence, undeclared network hosts,
-ambiguous gating state, missing retention/cleanup, or a missing cost
-ceiling must all be structurally impossible on this authority surface.
+unpinned revisions, missing weight-file integrity, undeclared network
+hosts, ambiguous gating state, missing retention/cleanup, a missing cost
+ceiling, or unsafe artifact paths must all be structurally impossible on
+this authority surface.
 """
 
 from __future__ import annotations
@@ -37,6 +38,7 @@ _WEIGHT_SUFFIXES = (".safetensors", ".bin")
 
 @pytest.fixture(scope="module")
 def manifest() -> dict:
+    """Load the committed T027 manifest and assert it validates."""
     data = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     validate_instance("weight-access-manifest", data)
     return data
@@ -48,23 +50,23 @@ def manifest() -> dict:
 
 
 def test_manifest_covers_exactly_the_t022_admitted_set(manifest: dict) -> None:
+    """No silent removal or silent addition versus the canonical T022 set."""
     ids = {c["candidate_id"] for c in manifest["candidates"]}
     t022 = json.loads(T022_DECISION_PATH.read_text(encoding="utf-8"))
     admitted = set(t022["payload"]["selected_candidate_ids"])
-    # No silent removal and no silent addition of candidates.
     assert ids == admitted == EXPECTED_CANDIDATE_IDS
 
 
 def test_all_revisions_are_immutable_40_hex_sha256_pins(manifest: dict) -> None:
+    """Every candidate pins a full 40-hex commit SHA, never a moving ref."""
     for candidate in manifest["candidates"]:
         revision = candidate["exact_revision"]
         assert len(revision) == 40
         int(revision, 16)  # raises if not hex
-        forbidden = {"latest", "main", "master", "current"}
-        assert revision.lower() not in forbidden
 
 
 def test_every_weight_file_has_upstream_sha256_and_size(manifest: dict) -> None:
+    """Each declared weight file carries non-null 64-hex upstream identity."""
     for candidate in manifest["candidates"]:
         entries = candidate["expected_file_integrity"]
         weights = [e for e in entries if e["file"].endswith(_WEIGHT_SUFFIXES)]
@@ -89,6 +91,7 @@ def test_integrity_entries_match_required_file_set(manifest: dict) -> None:
 def test_aggregate_budget_equals_sum_of_per_candidate_budgets(
     manifest: dict,
 ) -> None:
+    """Aggregate byte totals are exactly the sum of per-candidate budgets."""
     per_candidate = manifest["storage_budget"]["per_candidate"]
     aggregate = manifest["storage_budget"]["aggregate"]
     assert sum(b["download_bytes_expected"] for b in per_candidate) == aggregate[
@@ -103,6 +106,7 @@ def test_aggregate_budget_equals_sum_of_per_candidate_budgets(
 
 
 def test_per_candidate_download_matches_declared_file_sizes(manifest: dict) -> None:
+    """Per-candidate budget equals the sum of its declared file sizes."""
     budgets = {
         b["candidate_id"]: b for b in manifest["storage_budget"]["per_candidate"]
     }
@@ -123,6 +127,7 @@ def test_per_candidate_download_matches_declared_file_sizes(manifest: dict) -> N
 def test_network_is_https_get_only_with_explicit_host_allowlist(
     manifest: dict,
 ) -> None:
+    """Method is GET-only; both allowlist and unauthorized set are explicit."""
     network = manifest["network"]
     assert network["method"] == "HTTPS_GET_ONLY"
     assert network["allowlist_hosts"], "host allowlist must not be empty"
@@ -131,9 +136,20 @@ def test_network_is_https_get_only_with_explicit_host_allowlist(
     )
 
 
+def test_redirect_targets_are_inside_the_allowlist(manifest: dict) -> None:
+    """CDN redirect targets are authorized hosts, not an implicit bypass."""
+    allowlist = set(manifest["network"]["allowlist_hosts"])
+    redirects = set(manifest["network"]["redirects_cdns"])
+    assert redirects <= allowlist, (
+        "a downloader enforcing the allowlist must be able to follow every "
+        "declared redirect target"
+    )
+
+
 def test_per_candidate_hosts_are_within_the_global_allowlist(
     manifest: dict,
 ) -> None:
+    """Origin and acquisition hosts of each candidate stay in the allowlist."""
     allowlist = set(manifest["network"]["allowlist_hosts"])
     for candidate in manifest["candidates"]:
         assert set(candidate["artifact_source_hosts"]) <= allowlist
@@ -143,6 +159,7 @@ def test_per_candidate_hosts_are_within_the_global_allowlist(
 def test_no_candidate_requires_account_gating_or_terms_acceptance(
     manifest: dict,
 ) -> None:
+    """Any true access flag would require separate founder authorization."""
     for candidate in manifest["candidates"]:
         for flag in (
             "authentication_required",
@@ -164,13 +181,25 @@ def test_no_candidate_requires_account_gating_or_terms_acceptance(
 
 
 def test_runtime_quantizer_status_never_claims_selection(manifest: dict) -> None:
+    """T029/T030 own runtime/quantizer selection; T027 only lists candidates."""
     for candidate in manifest["candidates"]:
         assert candidate["runtime_quantizer_status"] == (
             "CANDIDATE_ONLY_NEEDS_T029_T030"
         )
 
 
+def test_runtime_quantizer_dependency_rights_recorded(manifest: dict) -> None:
+    """Runtime/quantizer tools carry their own independent rights record."""
+    for candidate in manifest["candidates"]:
+        notes = candidate["runtime_quantizer_license_notes"]
+        assert "MIT" in notes
+        assert "deferred" in notes.lower(), (
+            "binding evaluation status must be stated explicitly"
+        )
+
+
 def test_cost_ceiling_is_zero_everywhere(manifest: dict) -> None:
+    """Acquisition cost is zero; payment requirements abort toward T028."""
     cost_block = manifest["cost"]
     assert "USD 0.00" in cost_block["expected_monetary_cost"]
     for candidate in manifest["candidates"]:
@@ -183,6 +212,7 @@ def test_cost_ceiling_is_zero_everywhere(manifest: dict) -> None:
 def test_retention_cleanup_and_git_exclusion_fully_declared(
     manifest: dict,
 ) -> None:
+    """Retention/cleanup/cache/location/git policies exist at top level."""
     top = manifest["retention_cleanup"]
     for field in (
         "retention_policy",
@@ -200,21 +230,42 @@ def test_retention_cleanup_and_git_exclusion_fully_declared(
 
 
 def test_t028_authority_envelope_blocks_automatic_start(manifest: dict) -> None:
+    """T028 stays blocked until a separate founder authorization names it."""
     envelope = manifest["proposed_t028_authority_envelope"]
     assert "founder" in envelope["stays_blocked_until"].lower()
     assert envelope["what_T028_does_not"], "prohibitions must be explicit"
 
 
 def test_no_candidate_claims_final_or_qualified_language(manifest: dict) -> None:
+    """T027 grants no LOCAL_QUALIFIED/FINALIST/BACKBONE_WINNER language."""
     prohibited = ("LOCAL_QUALIFIED", "FINALIST", "BACKBONE_WINNER")
     blob = json.dumps(manifest)
     for term in prohibited:
         assert term not in blob, f"T027 must not claim {term}"
 
 
+def test_missing_license_text_candidates_recorded_as_risks(
+    manifest: dict,
+) -> None:
+    """All candidates lacking standalone LICENSE text appear in residual risks."""
+    risks_blob = "\n".join(manifest["unresolved_risks"]).lower()
+    for cid in ("ministral-3-3b", "granite-4.1-3b", "smollm3-3b", "yi-coder-1.5b"):
+        record = next(c for c in manifest["candidates"] if c["candidate_id"] == cid)
+        has_standalone_license = any(
+            f.lower() in ("license", "license.md", "license.txt")
+            for f in record["required_artifact_files"]
+        )
+        if not has_standalone_license:
+            assert cid.replace("-", "-") .split("-")[0] in risks_blob or (
+                "no standalone LICENSE" in record["rights_decision_evidence"].lower()
+                or "lack a standalone license" in risks_blob
+            ), f"{cid}: missing-LICENSE situation must be recorded"
+
+
 def test_caveated_candidates_record_live_license_reverification(
     manifest: dict,
 ) -> None:
+    """The three T022-caveated candidates cite live pinned-revision evidence."""
     caveated = {"ministral-3-3b", "granite-4.1-3b", "smollm3-3b"}
     by_id = {c["candidate_id"]: c for c in manifest["candidates"]}
     for cid in caveated:
@@ -259,9 +310,14 @@ def test_caveated_candidates_record_live_license_reverification(
             lambda m: m["candidates"][0].pop("failure_behavior"),
             "failure_behavior",
         ),
+        (
+            lambda m: m["candidates"][0].pop("runtime_quantizer_license_notes"),
+            "runtime_quantizer_license_notes",
+        ),
     ],
 )
 def test_structural_mutations_fail_closed(mutate, fragment: str) -> None:
+    """Removing or emptying any mandatory field is rejected by the schema."""
     base = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     mutate(base)
     errors = _validation_errors(base)
@@ -269,7 +325,52 @@ def test_structural_mutations_fail_closed(mutate, fragment: str) -> None:
     assert fragment in "\n".join(errors)
 
 
+@pytest.mark.parametrize(
+    ("bad_path", "reason"),
+    [
+        ("../../etc/passwd", "traversal segments"),
+        ("weights/../../../escape.bin", "embedded traversal segment"),
+        ("/absolute/path.safetensors", "absolute path"),
+        ("model\\evil.safetensors", "backslash separators"),
+        ("C:model/model.safetensors", "windows drive-letter style component"),
+        ("dir//double.safetensors", "empty path components"),
+        ("dir/./here.safetensors", "dot path component"),
+    ],
+)
+def test_unsafe_artifact_paths_fail_closed(bad_path: str, reason: str) -> None:
+    """Artifact filename surfaces reject traversal/absolute/backslash paths."""
+    base = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    target = base["candidates"][0]
+    integrity_entry = target["expected_file_integrity"][0]
+    integrity_entry["file"] = bad_path
+    if bad_path.endswith(_WEIGHT_SUFFIXES):
+        # keep hash valid so only the path violation is reported
+        integrity_entry["upstream_sha256"] = integrity_entry[
+            "upstream_sha256"
+        ] or ("a" * 64)
+    errors = _validation_errors(base)
+    assert errors, f"{reason} must be rejected ({bad_path})"
+    joined = "\n".join(errors)
+    assert ".candidates[0]" in joined
+
+
+def test_null_hash_on_weight_file_fails_structurally() -> None:
+    """A .safetensors entry with null upstream SHA is schema-rejected."""
+    base = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    target = base["candidates"][0]
+    weight_entry = next(
+        e
+        for e in target["expected_file_integrity"]
+        if e["file"].endswith(".safetensors")
+    )
+    weight_entry["upstream_sha256"] = None
+    errors = _validation_errors(base)
+    assert errors, "null upstream_sha256 on a weight file must fail closed"
+    assert "upstream_sha256" in "\n".join(errors)
+
+
 def test_schema_rejects_moving_refs_by_pattern() -> None:
+    """The exact_revision pattern cannot match common moving-ref names."""
     schema = load_schema("weight-access-manifest")
     pattern = schema["$defs"]["candidate_entry"]["properties"]["exact_revision"][
         "pattern"
@@ -286,10 +387,12 @@ def test_schema_rejects_moving_refs_by_pattern() -> None:
 
 
 def _validation_errors(instance: object) -> tuple[str, ...]:
+    """Return sorted validation errors for the weight-access-manifest contract."""
     from mstr_qualify.schemas import validation_errors as errs
 
     return errs("weight-access-manifest", instance)
 
 
 def test_weight_access_schema_is_registered() -> None:
+    """The schema participates in offline CLI self-checks via registration."""
     assert "weight-access-manifest" in SCHEMA_FILES

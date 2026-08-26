@@ -221,7 +221,8 @@
         "expected_monetary_cost": "USD 0.00",
         "expected_download_storage_aggregate": "4,571,203,846 bytes download / 4,571,203,846 bytes final on disk (~4.26 GiB); optional files add 776 bytes",
         "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
-        "recommendation": "READY_FOR_T028"
+        "recommendation": "READY_FOR_T028",
+        "runtime_quantizer_license_notes": "Runtime candidates: llama.cpp-GGUF-class CPU runtime and llamafile-portable-class runner \u2014 both are MIT-licensed open-source tools with unrestricted commercial use; quantizer candidates: llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe (MIT, same project identity). Preliminary dependency-rights record: binding evaluation deferred to T029/T030, where exact upstream source, pinned build/version, verified license text, and commercial-use determination for each tool are evaluated independently. No runtime or quantizer is selected here."
       }
     ],
     "network": {

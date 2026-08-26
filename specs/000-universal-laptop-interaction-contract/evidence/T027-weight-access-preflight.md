@@ -27,9 +27,9 @@ All eight pinned revisions were re-resolved live via metadata-only HTTPS GET to 
 | granite-4.1-3b | foundation | `dacb9cb9…05c96` | ✅ exact | no | **Re-verified**: tag + front matter + card body "License: Apache 2.0" linking apache.org. No standalone LICENSE file → README is the notice artifact | READY_FOR_T028 |
 | smollm3-3b | foundation | `d78a42f7…c2b940` | ✅ exact | no | **Re-verified**: tag + front matter + dedicated card License section. No standalone LICENSE file → README is the notice artifact | READY_FOR_T028 |
 | qwen2.5-coder-1.5b | coder control | `df3ce67c…eb73b` | ✅ exact | no | Apache-2.0 confirmed (tag + front matter + LICENSE file) | READY_FOR_T028 |
-| yi-coder-1.5b | coder control | `00e59e64…e8109` | ✅ exact | no | Apache-2.0 confirmed (tag + front matter; no standalone LICENSE file — recorded as residual note even though not flagged at T022) | READY_FOR_T028 |
+| yi-coder-1.5b | coder control | `00e59e64…e8109` | ✅ exact | no | **Re-verified**: tag `license:apache-2.0` + README front matter only; **no standalone LICENSE file** at this revision → README is the notice artifact, recorded as residual risk | READY_FOR_T028 |
 
-Fail-closed discipline: rights were resolved from the exact pinned revision using two independent declaration surfaces (machine-readable HF tag AND repository README text), never from a badge alone or a related model's license. No candidate required rescue-by-interpretation; the three caveated candidates passed because their declarations are consistent across surfaces at the identical revision. Rights dimensions per candidate (personal/commercial use, modification, fine-tuning, quantization/conversion, derivative redistribution): all YES under Apache-2.0. No field-of-use restriction, no MAU/revenue threshold, no account requirement, no click-through, no separate commercial license, attribution/notice satisfied by Apache-2.0 §4 with README preservation where no standalone LICENSE exists. Tokenizer/processor components ship inside each pinned tree under the same declared license.
+Fail-closed discipline: rights were resolved from the exact pinned revision using two independent declaration surfaces (machine-readable HF tag AND repository README text), never from a badge alone or a related model's license. No candidate required rescue-by-interpretation; the three caveated candidates passed because their declarations are consistent across surfaces at the identical revision. Rights dimensions per candidate (personal/commercial use, modification, fine-tuning, quantization/conversion, derivative redistribution): all YES under Apache-2.0. No field-of-use restriction, no MAU/revenue threshold, no account requirement, no click-through, no separate commercial license, attribution/notice satisfied by Apache-2.0 §4 with README preservation where no standalone LICENSE exists. Yi-Coder-1.5B was found to share the missing-LICENSE-text situation of the three caveated candidates (caught during review of this PR) and is now recorded identically: tag + README declarations at the pinned revision, README-as-notice mitigation, explicit residual-risk entry. Tokenizer/processor components ship inside each pinned tree under the same declared license.
 
 ## 5–6. Acquisition file set + source/revision identity
 
@@ -67,9 +67,12 @@ Aggregate math is enforced by contract tests (sum-of-parts == aggregate; per-can
 
 ```text
 METHOD = HTTPS_GET_ONLY
-ALLOWLIST_HOSTS   = huggingface.co
-DOCUMENTED CDNs   = cdn-lfs.huggingface.co, cdn-lfs-us-1.huggingface.co,
-                    cas-bridge.xethub.hf.co, transfer.xethub.hf.co, transfer.xethub.hf.com
+ALLOWLIST_HOSTS   = huggingface.co, cdn-lfs.huggingface.co,
+                    cdn-lfs-us-1.huggingface.co, cas-bridge.xethub.hf.co,
+                    transfer.xethub.hf.co, transfer.xethub.hf.com
+REDIRECT POLICY   = every documented redirect/CDN target is a member of the
+                    allowlist (contract-tested subset), so an allowlist-enforcing
+                    downloader can follow the full redirect chain
 UNAUTHORIZED      = arbitrary browsing, package indexes (pypi/npm), provider inference APIs,
                     telemetry endpoints, unrelated CDNs, git protocol endpoints
 ```
@@ -84,6 +87,8 @@ ALL EIGHT candidates: `authentication_required=false`, `account_required=false`,
 
 Runtime candidates: llama.cpp-GGUF-class CPU runtime, llamafile-portable-class runner. Quantizer candidates: llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe. Status on every candidate: `CANDIDATE_ONLY_NEEDS_T029_T030`. No CANONICAL_RUNTIME or FINAL_QUANTIZER claim appears anywhere (contract-tested).
 
+Per constitution IV, runtime/quantizer dependency rights are recorded independently per candidate (`runtime_quantizer_license_notes`, schema-required): llama.cpp / llamafile tooling identified as MIT with unrestricted commercial use as a *preliminary* record, with binding evaluation explicitly deferred to T029/T030 when exact builds are pinned.
+
 ## 12–13. Retention / cleanup / cost
 
 Retention: artifacts persist in the external acquisition directory through T028→T034; post-T034 rejects are deletable on founder approval. Cleanup: partial/integrity-failed downloads deleted immediately; verified artifacts immutable. Cache: no provider cache population. Location: binaries under gitignored `artifacts/external/<candidate_id>/`; only manifests/hashes/evidence enter Git. Git exclusion verified against existing `.gitignore` coverage (`*.safetensors`, `*.gguf`, `models/`, `artifacts/external/`, …); T028 must assert zero untracked weight files post-acquisition. Cost: `EXPECTED_ACQUISITION_COST = USD 0.00`; any payment requirement aborts with PAID_ACCESS_REQUIRES_NEW_FOUNDER_DECISION.
@@ -94,7 +99,7 @@ Qwen2.5-Coder-3B remains REFERENCE_ONLY (research license fails closed); AFM-4.5
 
 ## 15. Unresolved risks
 
-1. Three candidates lack a standalone LICENSE text file at their pinned revisions; rights rest on consistent tag+README declarations (documented above). Mitigation: preserve README as notice artifact; re-check before redistribution.
+1. Four candidates (Ministral-3-3B, Granite-4.1-3B, SmolLM3-3B, Yi-Coder-1.5B) lack a standalone LICENSE text file at their pinned revisions; rights rest on consistent tag+README declarations (documented above). Mitigation: preserve README as notice artifact; re-check before redistribution.
 2. Aggregate 45.4 GiB may exceed a founder-approved comfort zone; the manifest explicitly permits a bounded subset authorization at T028 without editing candidate entries.
 3. Qwen3.5 vision-encoder weights ship inside shared shards; text-only serving validation defers to T030.
 4. CDN redirect hosts may evolve upstream; T028 must pin observed redirects.
@@ -106,7 +111,7 @@ T028 stays blocked until separate explicit founder authorization naming `T027-we
 ## Gates on exact head
 
 ```text
-pytest -q                        → 330 passed (was 302; +28 T027 contract/fixture tests)
+pytest -q                        → 342 passed (was 302; +40 T027 contract/fixture tests incl. review-driven hardening)
 ruff check src tests             → All checks passed!
 mypy                             → Success: no issues found in 19 source files
 python -m mstr_qualify validate  → exit 0; 5 schemas checked; 5 valid fixtures passed; 5 invalid rejected

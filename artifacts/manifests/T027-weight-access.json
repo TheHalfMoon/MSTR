@@ -150,7 +150,8 @@
       "expected_monetary_cost": "USD 0.00",
       "expected_download_storage_aggregate": "4,571,203,846 bytes download / 4,571,203,846 bytes final on disk (~4.26 GiB); optional files add 776 bytes",
       "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
-      "recommendation": "READY_FOR_T028"
+      "recommendation": "READY_FOR_T028",
+      "runtime_quantizer_license_notes": "Runtime candidates: llama.cpp-GGUF-class CPU runtime and llamafile-portable-class runner \u2014 both are MIT-licensed open-source tools with unrestricted commercial use; quantizer candidates: llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe (MIT, same project identity). Preliminary dependency-rights record: binding evaluation deferred to T029/T030, where exact upstream source, pinned build/version, verified license text, and commercial-use determination for each tool are evaluated independently. No runtime or quantizer is selected here."
     },
     {
       "candidate_id": "qwen3.5-4b",
@@ -293,7 +294,8 @@
       "expected_monetary_cost": "USD 0.00",
       "expected_download_storage_aggregate": "9,342,822,405 bytes download / 9,342,822,405 bytes final on disk (~8.70 GiB); optional files add 776 bytes",
       "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
-      "recommendation": "READY_FOR_T028"
+      "recommendation": "READY_FOR_T028",
+      "runtime_quantizer_license_notes": "Runtime candidates: llama.cpp-GGUF-class CPU runtime and llamafile-portable-class runner \u2014 both are MIT-licensed open-source tools with unrestricted commercial use; quantizer candidates: llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe (MIT, same project identity). Preliminary dependency-rights record: binding evaluation deferred to T029/T030, where exact upstream source, pinned build/version, verified license text, and commercial-use determination for each tool are evaluated independently. No runtime or quantizer is selected here."
     },
     {
       "candidate_id": "ministral-3-3b",
@@ -447,7 +449,8 @@
       "expected_monetary_cost": "USD 0.00",
       "expected_download_storage_aggregate": "7,732,479,067 bytes download / 7,732,479,067 bytes final on disk (~7.20 GiB)",
       "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
-      "recommendation": "READY_FOR_T028"
+      "recommendation": "READY_FOR_T028",
+      "runtime_quantizer_license_notes": "Runtime candidates: llama.cpp-GGUF-class CPU runtime and llamafile-portable-class runner \u2014 both are MIT-licensed open-source tools with unrestricted commercial use; quantizer candidates: llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe (MIT, same project identity). Preliminary dependency-rights record: binding evaluation deferred to T029/T030, where exact upstream source, pinned build/version, verified license text, and commercial-use determination for each tool are evaluated independently. No runtime or quantizer is selected here."
     },
     {
       "candidate_id": "qwen3-4b",
@@ -598,7 +601,8 @@
       "expected_monetary_cost": "USD 0.00",
       "expected_download_storage_aggregate": "8,056,519,973 bytes download / 8,056,519,973 bytes final on disk (~7.50 GiB)",
       "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
-      "recommendation": "READY_FOR_T028"
+      "recommendation": "READY_FOR_T028",
+      "runtime_quantizer_license_notes": "Runtime candidates: llama.cpp-GGUF-class CPU runtime and llamafile-portable-class runner \u2014 both are MIT-licensed open-source tools with unrestricted commercial use; quantizer candidates: llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe (MIT, same project identity). Preliminary dependency-rights record: binding evaluation deferred to T029/T030, where exact upstream source, pinned build/version, verified license text, and commercial-use determination for each tool are evaluated independently. No runtime or quantizer is selected here."
     },
     {
       "candidate_id": "granite-4.1-3b",
@@ -746,7 +750,8 @@
       "expected_monetary_cost": "USD 0.00",
       "expected_download_storage_aggregate": "6,815,474,820 bytes download / 6,815,474,820 bytes final on disk (~6.35 GiB); optional files add 10,233 bytes",
       "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
-      "recommendation": "READY_FOR_T028"
+      "recommendation": "READY_FOR_T028",
+      "runtime_quantizer_license_notes": "Runtime candidates: llama.cpp-GGUF-class CPU runtime and llamafile-portable-class runner \u2014 both are MIT-licensed open-source tools with unrestricted commercial use; quantizer candidates: llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe (MIT, same project identity). Preliminary dependency-rights record: binding evaluation deferred to T029/T030, where exact upstream source, pinned build/version, verified license text, and commercial-use determination for each tool are evaluated independently. No runtime or quantizer is selected here."
     },
     {
       "candidate_id": "smollm3-3b",
@@ -885,7 +890,8 @@
       "expected_monetary_cost": "USD 0.00",
       "expected_download_storage_aggregate": "6,167,852,190 bytes download / 6,167,852,190 bytes final on disk (~5.74 GiB)",
       "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
-      "recommendation": "READY_FOR_T028"
+      "recommendation": "READY_FOR_T028",
+      "runtime_quantizer_license_notes": "Runtime candidates: llama.cpp-GGUF-class CPU runtime and llamafile-portable-class runner \u2014 both are MIT-licensed open-source tools with unrestricted commercial use; quantizer candidates: llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe (MIT, same project identity). Preliminary dependency-rights record: binding evaluation deferred to T029/T030, where exact upstream source, pinned build/version, verified license text, and commercial-use determination for each tool are evaluated independently. No runtime or quantizer is selected here."
     },
     {
       "candidate_id": "qwen2.5-coder-1.5b",
@@ -1017,7 +1023,8 @@
       "expected_monetary_cost": "USD 0.00",
       "expected_download_storage_aggregate": "3,098,970,942 bytes download / 3,098,970,942 bytes final on disk (~2.89 GiB)",
       "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
-      "recommendation": "READY_FOR_T028"
+      "recommendation": "READY_FOR_T028",
+      "runtime_quantizer_license_notes": "Runtime candidates: llama.cpp-GGUF-class CPU runtime and llamafile-portable-class runner \u2014 both are MIT-licensed open-source tools with unrestricted commercial use; quantizer candidates: llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe (MIT, same project identity). Preliminary dependency-rights record: binding evaluation deferred to T029/T030, where exact upstream source, pinned build/version, verified license text, and commercial-use determination for each tool are evaluated independently. No runtime or quantizer is selected here."
     },
     {
       "candidate_id": "yi-coder-1.5b",
@@ -1127,7 +1134,7 @@
       "license_identity": "Apache-2.0 (declared at pinned revision)",
       "license_evidence_url": "https://huggingface.co/01-ai/Yi-Coder-1.5B/blob/00e59e64f47d3c78e4cfbdd345888479797e8109/README.md",
       "rights_decision": "READY_FOR_T028",
-      "rights_decision_evidence": "Apache-2.0 confirmed live at pinned revision: HF tag 'license:apache-2.0', README front matter, and verbatim LICENSE file present in tree.",
+      "rights_decision_evidence": "Re-verified live at pinned revision: HF license tag 'license:apache-2.0' plus README front-matter 'license: apache-2.0'. No standalone LICENSE text file exists at this revision (same situation as the three T022-caveated candidates); the Apache-2.0 notice obligation is satisfied by preserving README.md. Flagged in unresolved_risks accordingly.",
       "license_reverification_timestamp": "2026-08-26T04:00:00Z",
       "storage_budget": {
         "download_bytes_expected": 2957617051,
@@ -1143,13 +1150,19 @@
       "expected_monetary_cost": "USD 0.00",
       "expected_download_storage_aggregate": "2,957,617,051 bytes download / 2,957,617,051 bytes final on disk (~2.75 GiB)",
       "failure_behavior": "A failed or integrity-mismatched download halts only that candidate, deletes partials, records EXCLUDED_ARTIFACT_UNRESOLVED in T028 output; other candidates proceed. No substitute revision is ever fetched silently.",
-      "recommendation": "READY_FOR_T028"
+      "recommendation": "READY_FOR_T028",
+      "runtime_quantizer_license_notes": "Runtime candidates: llama.cpp-GGUF-class CPU runtime and llamafile-portable-class runner \u2014 both are MIT-licensed open-source tools with unrestricted commercial use; quantizer candidates: llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe (MIT, same project identity). Preliminary dependency-rights record: binding evaluation deferred to T029/T030, where exact upstream source, pinned build/version, verified license text, and commercial-use determination for each tool are evaluated independently. No runtime or quantizer is selected here."
     }
   ],
   "network": {
     "method": "HTTPS_GET_ONLY",
     "allowlist_hosts": [
-      "huggingface.co"
+      "huggingface.co",
+      "cdn-lfs.huggingface.co",
+      "cdn-lfs-us-1.huggingface.co",
+      "cas-bridge.xethub.hf.co",
+      "transfer.xethub.hf.co",
+      "transfer.xethub.hf.com"
     ],
     "redirects_cdns": [
       "cdn-lfs.huggingface.co",
@@ -1279,7 +1292,7 @@
     "post_T028_does_not_automatically_open": "Completing T028 opens nothing beyond recording acquisition evidence; T029 quantization profile work remains separate with its own scope."
   },
   "unresolved_risks": [
-    "Ministral-3-3B, Granite-4.1-3B, SmolLM3-3B lack a standalone LICENSE text file at their pinned revisions; rights rest on consistent machine-readable tag plus explicit README declarations at the same revision. Mitigation: preserve each README as the notice artifact and re-check before any redistribution.",
+    "Ministral-3-3B, Granite-4.1-3B, SmolLM3-3B, and Yi-Coder-1.5B lack a standalone LICENSE text file at their pinned revisions; rights rest on consistent machine-readable tag plus explicit README declarations at the same revision. Mitigation: preserve each README as the notice artifact and re-check before any redistribution.",
     "Aggregate download/final footprint ~45.4 GiB exceeds single-laptop comfort for some machines; the founder may approve a bounded subset at T028 time \u2014 this manifest permits subset selection without editing candidate entries.",
     "Qwen3.5 family ships vision-encoder weights inside the same shards; text-only serving validation is deferred to runtime qualification (T030), not resolved here.",
     "CDN redirect targets are documented from current observation but may evolve upstream; T028 must pin observed redirect hosts in its own evidence before downloading."

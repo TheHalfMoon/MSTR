@@ -89,7 +89,8 @@
           "minItems": 1,
           "items": {
             "type": "string"
-          }
+          },
+          "description": "Complete outbound HTTPS host set authorized during acquisition: origin API/blob hosts AND every redirect/CDN target the downloader may follow. redirects_cdns MUST be a subset of this list."
         },
         "redirects_cdns": {
           "type": "array",
@@ -352,6 +353,7 @@
         "T024_verifier_compatibility",
         "runtime_candidates",
         "quantizer_candidates",
+        "runtime_quantizer_license_notes",
         "runtime_quantizer_status",
         "network_hosts_required_for_acquisition",
         "network_method",
@@ -417,13 +419,13 @@
           "type": "array",
           "minItems": 1,
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/safe_relative_path"
           }
         },
         "optional_artifact_files": {
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/safe_relative_path"
           }
         },
         "explicitly_forbidden_artifacts": {
@@ -437,14 +439,14 @@
           "type": "array",
           "minItems": 1,
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/safe_relative_path"
           }
         },
         "processor_or_config_files": {
           "type": "array",
           "minItems": 1,
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/safe_relative_path"
           }
         },
         "weight_format": {
@@ -632,8 +634,7 @@
             ],
             "properties": {
               "file": {
-                "type": "string",
-                "minLength": 1
+                "$ref": "#/$defs/safe_relative_path"
               },
               "expected_size_bytes": {
                 "type": "integer",
@@ -650,11 +651,45 @@
                   }
                 ]
               }
-            }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "file": {
+                      "type": "string",
+                      "pattern": "\\.(safetensors|bin|gguf)$"
+                    }
+                  },
+                  "required": [
+                    "file"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "upstream_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  }
+                }
+              }
+            ],
+            "description": "Per-file upstream integrity evidence captured from the provider at the pinned revision (LFS OID SHA-256 plus exact byte size). Files ending in .safetensors/.bin/.gguf MUST carry a non-null 64-hex upstream SHA-256 (structurally enforced); tiny non-LFS text files may carry null."
           },
           "description": "Per-file upstream integrity evidence captured from the provider at the pinned revision (LFS OID SHA-256 plus exact byte size). Weight files MUST carry a non-null upstream SHA-256; tiny non-LFS text files may carry null."
+        },
+        "runtime_quantizer_license_notes": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Independent dependency-rights record for the named runtime and quantizer candidates: source identity, license identity, commercial-use status, and whether binding evaluation is deferred to T029/T030 pinning."
         }
       }
+    },
+    "safe_relative_path": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))[^\\x00\\\\:]*$",
+      "description": "Relative POSIX path under the candidate acquisition directory. Rejects absolute paths, empty/dot/traversal segments, backslashes, colons, and NUL so a manifest cannot direct a downloader outside artifacts/external/<candidate_id>."
     }
   }
 }
