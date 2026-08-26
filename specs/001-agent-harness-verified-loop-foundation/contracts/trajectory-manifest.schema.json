@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://halfmoon.invalid/mstr/contracts/mstr-trajectory-manifest-v0.schema.json",
+  "title": "MSTR Trajectory Manifest v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "trajectory_id",
+    "run_identity",
+    "event_log_sha256",
+    "terminal_class",
+    "verifier_result_identity",
+    "failure_classes",
+    "recovery_count",
+    "contamination_status",
+    "training_admission",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {"const": "mstr.trajectory-manifest.v0"},
+    "trajectory_id": {"type": "string", "minLength": 1},
+    "run_identity": {"type": "object"},
+    "event_log_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "terminal_class": {
+      "enum": [
+        "VERIFIED_SUCCESS",
+        "RECOVERED_SUCCESS",
+        "FAILED_VALID",
+        "TIMEOUT_VALID",
+        "INVALID_ENVIRONMENT",
+        "INVALID_VERIFIER",
+        "CONTAMINATED",
+        "LEAKAGE_DETECTED",
+        "AUTHORITY_VIOLATION"
+      ]
+    },
+    "verifier_result_identity": {"type": "string", "minLength": 1},
+    "failure_classes": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "recovery_count": {"type": "integer", "minimum": 0},
+    "authority_violations": {"type": "array", "items": {"type": "string"}},
+    "contamination_status": {"enum": ["CLEAR", "SUSPECT", "REJECTED"]},
+    "training_admission": {"enum": ["ADMITTED_SFT", "ADMITTED_PREFERENCE", "ADMITTED_RL_EVIDENCE", "EVAL_ONLY", "REJECTED"]},
+    "training_labels": {"type": "object"},
+    "provenance": {"type": "object"}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"terminal_class": {"const": "VERIFIED_SUCCESS"}},
+        "required": ["terminal_class"]
+      },
+      "then": {
+        "properties": {
+          "contamination_status": {"const": "CLEAR"}
+        }
+      }
+    }
+  ]
+}
