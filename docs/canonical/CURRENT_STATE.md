@@ -1,21 +1,70 @@
 # MSTR Current State
 
-**Checkpoint:** 2026-08-25 Asia/Riyadh
+**Checkpoint:** 2026-08-26 Asia/Riyadh
 
 ## Repository
 
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_AFTER_T028 = see merge log below (zero-large-artifact architecture canonical; T029 next)
-PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / T028_ACQUISITION_COMPLETE_ALL_VERIFIED
+CANONICAL_MAIN_AT_MSTR_000A_PLANNING_BASE = e21d72df6d928310257ec15fcad26dbe780cb7e5
+PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / T029_Q4_QUANTIZATION_ACTIVE
 ACTIVE_SPEC = MSTR-000
 SPEC_KIT_PACKAGE = CANONICAL
 ACTIVE_TASK = T029_Q4_PROFILE_QUANTIZATION_QUALIFICATION
-NEXT_TASKS_ON_RESUME = continue non-gated tasks T029→T052 in canonical order; STOP at T053 (separate founder gate required)
+OPEN_PR_AT_CHECKPOINT = #35 feat(mstr-000): implement T029 ephemeral Q4 quantization runner
+OPEN_PR_HEAD_AT_CHECKPOINT = 7ece09ca2b32f1a375382ce277978888e028f786
 ```
 
-## Canonical completed history
+Live GitHub truth overrides this snapshot if any state moved after the checkpoint.
+
+## Founder Product Objective
+
+```text
+PRIMARY_PURPOSE = SOFTWARE_DIRECTION_TO_VERIFIED_WORKING_CODE
+PRIMARY_QUALITY_METRIC = DVCR / DIRECTION_TO_VERIFIED_COMPLETION_RATE
+PRIMARY_SPEED_METRIC = TTVC / TIME_TO_VERIFIED_COMPLETION
+```
+
+MSTR is a code-specialized builder as its primary optimization target. General reasoning is retained where it improves software planning, implementation, debugging, verification, and safe execution.
+
+## Mandatory Sequence Amendment
+
+The founder-directed Agent Harness / Direction-to-Done package is:
+
+`specs/001-agent-harness-verified-loop-foundation/`
+
+Canonical strategy:
+
+`docs/canonical/AGENT_HARNESS_AND_RESEARCH_LOOP_STRATEGY.md`
+
+The execution sequence is:
+
+```text
+T029 -> T030 -> T031 -> T032 -> T033 -> T034
+                                      |
+                                      v
+MSTR-000A VERIFIED AGENT HARNESS + DIRECTION-TO-DONE FOUNDATION
+                                      |
+                                      v
+reconcile/finalize interaction + tournament + data/training preflight
+                                      |
+                                      v
+SEPARATE EXPLICIT WEIGHT-CHANGING TRAINING GATE
+```
+
+Therefore:
+
+```text
+T029-T034 = CONTINUE
+MSTR_000A_IMPLEMENTATION_ENTRY = AFTER_T034_COMPLETE_CANONICAL
+POST_T034_BYPASS_TO_TRAINING = PROHIBITED
+WEIGHT_CHANGING_TRAINING = SEPARATELY_GATED
+```
+
+The package does not block completion of T029–T034.
+
+## Canonical Completed History
 
 ```text
 T000 = COMPLETE_CANONICAL / UNIVERSAL_LAPTOP_MATRIX
@@ -39,92 +88,92 @@ T023 = COMPLETE_CANONICAL / RUNTIME_PLATFORM_ADAPTER_PROTOCOLS
 T024 = COMPLETE_CANONICAL / ARTIFACT_MANIFEST_HASH_VERIFICATION
 T025 = COMPLETE_CANONICAL / CROSS_PLATFORM_MEMORY_PAGING_SAMPLERS
 T026 = COMPLETE_CANONICAL / MEASURE_V0_MONOTONIC_EVENT_LOGIC
-T027 = COMPLETE_CANONICAL / WEIGHT_ACCESS_ACQUISITION_PREFLIGHT (preparation only; no weight access granted)
+T027 = COMPLETE_CANONICAL / WEIGHT_ACCESS_ACQUISITION_PREFLIGHT
 T028 = COMPLETE_CANONICAL / WEIGHT_ACQUISITION_ALL_EIGHT_ACQUIRED_VERIFIED
 ```
 
-## Phase-4 harness infrastructure merges (2026-08-25)
+## Phase-4 / T028 Merge Record
 
 ```text
-T023: PR #25 as fece0f3382ce383ca8e68dd875b48a46d4cc7fba (exact head 85ee543af3ff91e1367356b6c46d32697c1b9756)
-T024: PR #26 as c593fce1655ee857f237b3fd476fc8e14cb836fe (exact head 91e2945a3fba076868120c551f58c04cadf78a34)
-T025: PR #27 as 89a48ba834eb9fa012b1515ec774dae68315ec49 (exact head e70a7c48ec958cb53266349847ab0568ca8d5246)
-T026: PR #28 as 52d86f0c89bd0323d19aae776ae01aa4ebf5bc58 (exact head 858bf428946ce64249f897dd194099267d857236)
-T027: PR #30 as 15b691cdf27103a632c5d982b822563859cf0094 (exact head 6e0426ef970336875675122b475b938c394e4bfb)
-Storage-architecture amendment: PR #33 (zero-large-artifact canonical)
-T028 acquisition: all eight ACQUIRED_VERIFIED via ephemeral Actions runners; aggregate manifest artifacts/manifests/T028-acquired-artifacts.json
+T023: PR #25 -> fece0f3382ce383ca8e68dd875b48a46d4cc7fba
+T024: PR #26 -> c593fce1655ee857f237b3fd476fc8e14cb836fe
+T025: PR #27 -> 89a48ba834eb9fa012b1515ec774dae68315ec49
+T026: PR #28 -> 52d86f0c89bd0323d19aae776ae01aa4ebf5bc58
+T027: PR #30 -> 15b691cdf27103a632c5d982b822563859cf0094
+STORAGE_ARCHITECTURE: PR #33 -> zero-large-artifact policy canonical
+T028: PR #34 -> e21d72df6d928310257ec15fcad26dbe780cb7e5 canonical state after acquisition
 ```
 
-Gates on canonical main `15b691c` (T027 head `6e0426e`): pytest 344 passed; ruff clean; mypy strict clean; offline CLI validate exit 0. All review findings resolved on-head before merge (qodo x5 + CodeRabbit x3 on PR #30 — llamafile license identity corrected to Apache-2.0 project license with MIT-derived components, safe_relative_path hardened with minLength/trailing-separator rejection in both byte-identical schema copies, missing-LICENSE risk entries pinned to exact candidate IDs; all with regression tests and all threads resolved).
-
-## Active work
-
-T028 is founder-AUTHORIZED against the frozen T027 manifest (`mstr.weight-access-manifest.v1`, SHA-256 68f514ab…55e1e, byte-for-byte unchanged). The founder has additionally decreed a ZERO-LARGE-ARTIFACT environment: no model binaries on the founder Mac or in Git. Canonical policy: `docs/canonical/STORAGE_ARCHITECTURE.md`; machine record: `artifacts/manifests/T028-storage-amendment.json` (binds to the exact T027 bytes by SHA-256). Acquisition executes inside approved ephemeral cloud runners (Colab notebook + autonomous GitHub Actions runner, both USD 0.00, HTTPS GET only, hash-verified, report-as-durable-output); local copies die with the VM after evidence is finalized.
-
-T022 canonical merge: PR #23 as `f77e213`.
-```
-
-T021 canonical merge: PR #21 as `cafcc8d`.
-```
-
-Phase-3 canonical merge: PR #19 as `fa647a3`.
-```
-
-Phase-3 static candidate records live-fetched from huggingface.co at exact pinned revisions (metadata-only HTTPS GETs; no weight files). Fail-closed rights recomputation verified live: the research-licensed Qwen2.5-Coder-3B is rejected by the T006 gate as expected.
-
-T009 canonical merge: `7a1cea4c3462fb3d811e8b6c20303ab16cbfd94c`.
-T010 canonical merge: `fe60646a3833d35e7b65db431e5094b704946e72`.
-T011 canonical merge: PR #17 (exact head d0c33acba0f232b218a4eac66555536b1bc90cd0).
-
-## T022 decision summary
-
-T022 admits ALL EIGHT static_qualified records into the bounded weight-eligible set: 5 foundations (Qwen3.5-2B, Qwen3.5-4B, Ministral-3-3B, Granite-4.1-3B, SmolLM3-3B) + 3 controls (Qwen3-4B architecture control; Qwen2.5-Coder-1.5B and Yi-Coder-1.5B code controls). Three caveated records (Ministral-3-3B, Granite-4.1-3B, SmolLM3-3B) carry mandatory license re-verification conditions at T027 preflight. This grants NO backbone admission and NO weight access — T031-T034 local qualification and T055 finalist decision remain ahead. Decision record: `artifacts/decisions/T022-static-candidate-admission.json`; evidence: `evidence/T022-static-candidate-admission.md`.
-
-With T022 canonical, US2 closes and the next dependency-satisfied tasks are T023-T026 ([P] parallel-safe Phase-4 harness infrastructure), then T027 weight-access preflight.
-
-### T021 rescan summary
-
-All seven Phase-3 static_qualified candidate pins stable/unchanged; landscape scanned org-wide (49 confirmed compact permissive bases); one new control admitted (01-ai/Yi-Coder-1.5B); arcee-ai/AFM-4.5B-Base examined but reclassified to reference_only after its model card documented SFT+RL post-training despite the 'Base' name; three flagged-for-review (allenai/tmax-4b checkpoint-style release, microsoft/Fara1.5-4B, arcee KDA experimental variants). Candidate evidence: `evidence/T021-landscape-rescan.md`.
-
-## Completed in this cycle
+T028 acquisition result:
 
 ```text
-COMPLETED_TASKS = T000-T027 (T010-T011 harness foundation; T012-T022 static admission; T023-T026 Phase-4 harness infrastructure; T027 weight-access acquisition preflight)
-CHECKPOINTS_REACHED = PHASE_2_FOUNDATIONAL_HARNESS_READY + PHASE_3_STATIC_ADMISSION_COMPLETE + PHASE_4_HARNESS_INFRASTRUCTURE_READY + T027_PREFLIGHT_COMPLETE_AWAITING_T028_AUTHORIZATION
-REVIEW_FINDINGS_RESOLVED = qodo x4 + coderabbitai x5 (Phase 2/3) + qodo x2 T023 + x9 T024 + x9 T025 + x6 T026 + qodo x5 + coderabbitai x3 T027 — all on-head with regression tests and evidence
-PUSH_PROTECTION_BYPASS = one documented false_positive (public HF revision sha matching Mistral key shape)
+qwen3.5-2b = ACQUIRED_VERIFIED
+qwen3.5-4b = ACQUIRED_VERIFIED
+ministral-3-3b = ACQUIRED_VERIFIED
+qwen3-4b = ACQUIRED_VERIFIED
+granite-4.1-3b = ACQUIRED_VERIFIED
+smollm3-3b = ACQUIRED_VERIFIED
+qwen2.5-coder-1.5b = ACQUIRED_VERIFIED
+yi-coder-1.5b = ACQUIRED_VERIFIED
+FOUNDER_MAC_MODEL_BINARIES = ZERO
+GIT_MODEL_BINARIES = ZERO
+T028_COST = USD_0_00
 ```
 
-Seven static-qualified foundation/control candidates (Qwen3.5-2B/4B, Ministral-3-3B, Qwen3-4B control, Granite-4.1-3B, SmolLM3-3B, Qwen2.5-Coder-1.5B control), one reference_only record (Qwen2.5-Coder-3B — Qwen Research License fails FR-015/FR-017), and three post-trained comparison points. Ministral/Granite/SmolLM3 carry an explicit missing-LICENSE-text caveat with mandatory re-verification before any weight access.
+Aggregate T028 manifest: `artifacts/manifests/T028-acquired-artifacts.json`.
 
-Candidate evidence: `evidence/candidates/T012..T020`.
+## Storage Architecture
 
-## Prior checkpoint (consumed)
-
-None. Phase-2 checkpoint reached: foundational harness ready. Next dependency-satisfied tasks are the Phase-3 parallel static candidate qualifications (T012–T020), each requiring exact upstream evidence and fail-closed rights recomputation without weight access.
+Canonical policy: `docs/canonical/STORAGE_ARCHITECTURE.md`.
 
 ```text
-COMPLETED_IN_THIS_CYCLE = T010 + T011 + PHASE_2_CHECKPOINT
-FROZEN_QUALITY_GATES = configs/quality.toml (pytest full suite, ruff src+tests, strict mypy, offline CLI validate; all required on every future task head)
+FOUNDER_MAC_LARGE_ARTIFACTS = ZERO
+MAC_RECEIVES = SOURCE_CODE | CONFIGS | MANIFESTS | HASHES | METRICS | EVIDENCE | REPORTS
+MODEL_BINARIES_ON_MAC = PROHIBITED
+GIT_TREE_BINARIES = PROHIBITED
+ACQUISITION/CONVERSION_LARGE_ARTIFACT_EXECUTION = APPROVED_EPHEMERAL_RUNNERS_WITHIN_TASK_SCOPE
+PERSISTENCE_FOR_ORIGINALS = UPSTREAM_PINNED_REVISIONS
+PERSISTENCE_FOR_DERIVED = NONE_BY_DEFAULT / REGENERATE_ON_DEMAND
 ```
 
-T011 froze harness quality gates in `configs/quality.toml` (`mstr.quality-gates.v1`): full pytest suite, ruff over src and tests, strict mypy, and offline CLI schema self-check are all required on every future task head. Pre-existing lint debt deferred by T009 was repaired; `py.typed` + dev-only `types-jsonschema` enable strict typechecking; `uv.lock` pins the gate toolchain. CI remains deliberately absent per task definition.
+Any new persistent large-artifact cloud store requires a separate founder decision.
 
-Candidate evidence:
-`specs/000-universal-laptop-interaction-contract/evidence/T011-harness-foundation-qualification.md`.
+## Active Work — T029
 
-## T010 record
+T029 is the next dependency-satisfied MSTR-000 task.
 
-T010 implements the dependency-light offline CLI families `validate`, `rights`, `candidate static`, and `manifest validate` in `src/mstr_qualify/cli.py`. All commands are local-filesystem-only, deterministic JSON output, with a documented 0/1/2 exit-code contract. Offline discipline is enforced by socket-blocking integration tests. No weights, no execution, no network, no paid compute.
+Goal:
 
-Candidate evidence:
-`specs/000-universal-laptop-interaction-contract/evidence/T010-offline-cli.md`.
+```text
+Build/obtain quality-oriented and compatibility-oriented Q4 profiles
+with exact source identity + quantizer/tool commit + recipe + output hash/size.
+```
 
-## Resume boundary (consumed 2026-08-24)
+At this checkpoint PR #35 is open from branch `feat/000-t029-q4-quantization`, head `7ece09ca2b32f1a375382ce277978888e028f786`.
 
-The founder explicitly resumed MSTR after WePLD via direct founder direction. Live GitHub main was revalidated at `e042b3397af30156a243dc8a981f4f2bda6fa438` before any mutation; open PRs were empty; no checks were pending. T010 was confirmed as the next dependency-satisfied task and started under the governed workflow.
+Do not mutate or supersede that PR from MSTR-000A planning work unless live repository truth establishes a real conflict.
 
-## Product invariant
+## T022 Candidate Decision Summary
+
+T022 admits eight static-qualified records into the bounded weight-eligible set:
+
+Foundations:
+- Qwen3.5-2B
+- Qwen3.5-4B
+- Ministral-3-3B
+- Granite-4.1-3B
+- SmolLM3-3B
+
+Controls:
+- Qwen3-4B architecture control
+- Qwen2.5-Coder-1.5B code control
+- Yi-Coder-1.5B code control
+
+Qwen2.5-Coder-3B remains `reference_only` because its research license fails the primary rights gate. AFM-4.5B-Base remains a post-trained/reference comparison because upstream material documents post-training despite the name.
+
+No candidate is final backbone authority yet.
+
+## Product Invariant
 
 ```text
 PRIMARY_PRODUCT = UNIVERSAL_LAPTOP_CODER
@@ -139,55 +188,106 @@ TELEMETRY_DEFAULT = OFF
 WINDOWS + LINUX + MACOS = REQUIRED_PLATFORM_FAMILIES
 ```
 
-## Planned training execution strategy — not current authority
+## Agent Harness / Training Strategy
+
+MSTR now explicitly co-designs model, harness, environments, verifier, and training signal.
+
+Required score surfaces:
+
+```text
+RAW_MODEL
+NEUTRAL_MINIMAL_HARNESS
+MSTR_NATIVE_HARNESS
+MSTR_PLUS_WEPLD
+```
+
+Default topology:
+
+```text
+ONE MSTR BUILDER
++
+INDEPENDENT DETERMINISTIC VERIFIER
+```
+
+MSTR-000A must freeze/qualify before weight-changing agent training:
+- Build Loop v0;
+- append-oriented typed event log + replay;
+- compact AgentState;
+- neutral/MSTR/WePLD harness surfaces;
+- environment setup/admission MVP;
+- verifier/finalizer + reward-shortcut battery;
+- private/fresh Direction-to-Done v0;
+- DVCR/TTVC and failure-inclusive diagnostics;
+- failure/recovery trajectory contract;
+- bounded MSTR Research Loop v0;
+- downstream task reconciliation.
+
+## Planned Training Execution — Not Current Authority
 
 ```text
 PRIMARY_ACCESSIBLE_COMPUTE_CANDIDATE = GOOGLE_COLAB
 PRIMARY_EFFICIENT_TRAINING_FRAMEWORK_CANDIDATE = UNSLOTH
-DEFAULT_QWEN3_5_PILOT_IF_SELECTED = LORA_16BIT_BF16_OR_FP16
-QWEN3_5_QLORA = EXPERIMENT_ONLY_NOT_DEFAULT
+TRAIN_AND_SERVE_LOOP_SEMANTICS = COMPATIBLE_OR_MIGRATION_PROVEN
+CODE_FIM_PRIOR = REQUIRED_TO_REMAIN_STRONG
+EXECUTION_GROUNDED_SFT = PLANNED
+FAILURE_RECOVERY_DATA = PLANNED
+AGENTIC_RL = LATER_SEPARATELY_GATED
 CHECKPOINT_RESUME = REQUIRED
 TRAINING_RUN_MANIFEST = REQUIRED
-POST_TRAIN_EXPORT = LORA + MERGED_MASTER + GGUF_TOURNAMENT
+QUANTIZED_REGRESSION = REQUIRED_AFTER_MATERIAL_TRAINING
 ```
 
-This is a program plan, not authority to access weights, install training stacks, allocate GPUs, or train.
+This is a program plan, not weight-changing authority.
 
-## Model / compute authority
+## Model / Compute Authority
 
 ```text
 FINAL_BACKBONE = UNSELECTED
 INTERACTION_CONTRACT = UNFROZEN
+BUILD_LOOP = PLANNED_MSTR_000A
 DEFAULT_CONTEXT_ENGINE = UNSELECTED
 LOCAL_RUNTIME_BASELINE = UNSELECTED
 
-MODEL_WEIGHT_ACCESS = NONE / STATIC_METADATA_ONLY_IN_MSTR-000
-MODEL_EXECUTION = NONE
-BENCHMARK_EXECUTION = NONE
-NETWORK_SERVICE_ACCESS = METADATA_ONLY_HTTPS_GETS_HUGGINGFACE (API + raw endpoints at pinned revisions; no weight files, no gated-term acceptance)
+MODEL_WEIGHT_ACQUISITION_T028 = COMPLETE_VERIFIED
+MODEL_ARTIFACT_PERSISTENCE_ON_FOUNDER_MAC = PROHIBITED
+EPHEMERAL_ARTIFACT_REACQUISITION = TASK_SCOPED_ONLY
 PAID_MODEL_API_EXECUTION = NONE
-GOOGLE_COLAB_EXECUTION = NONE
-UNSLOTH_INSTALL_OR_EXECUTION = NONE
+PAID_COLAB = NONE
 RENTED_TRAINING_COMPUTE = NONE
-TRAINING = NONE
-LONG_TRAINING = NOT_STARTED / PROHIBITED_IN_MSTR-000
-LARGE_SCALE_RL = NOT_STARTED / PROHIBITED_IN_MSTR-000
+WEIGHT_CHANGING_TRAINING = NONE
+LONG_TRAINING = NOT_STARTED / PROHIBITED
+LARGE_SCALE_RL = NOT_STARTED / PROHIBITED
 PRODUCTION_MODEL_RELEASE = NONE
 ```
 
-Within MSTR-000, T028 remains the first possible model-weight acquisition and requires separate exact authorization after prerequisites are canonical. T053 remains the only bounded micro-adaptation gate and also requires separate exact authorization.
+The existing T053 bounded adaptation gate does not become authorized by this planning amendment. After MSTR-000A reconciliation, T053 may remain the gate or be superseded by an explicitly documented equivalent gate; either way a separate founder authorization remains required.
 
-## Resume gate
+## Quality Gates
 
-When the founder returns after WePLD:
+The repository's frozen quality gates remain authoritative for new material heads:
 
-1. verify live `main`, open PRs, reviews, checks, and task graph;
-2. read `.specify/memory/constitution.md`;
-3. read this file;
-4. read `docs/canonical/PROGRAM_ROADMAP.md`;
-5. read `docs/canonical/TRAINING_EXECUTION_STRATEGY.md`;
-6. read the full MSTR-000 Spec Kit package;
-7. confirm the correct next task against the ACTIVE_TASK/NEXT_TASKS_ON_RESUME fields at the top of this file (T028 is founder-AUTHORIZED and active under the zero-large-artifact storage architecture; T053 remains separately gated);
-8. start only the exact authorized task on a fresh branch.
+```text
+pytest full suite
+ruff src + tests (+ task surfaces where configured)
+strict mypy
+offline CLI validate
+```
 
-Canonical resume handoff: `docs/handoffs/MSTR-RESUME-AFTER-WEPLD.md`.
+Historical PASS results do not transfer to a new head. If no GitHub Actions/CI run exists, do not claim CI PASS.
+
+## Resume / Read Gate
+
+Before any material mutation:
+
+1. verify live `main`, open PRs, branches, exact heads, reviews, checks, and task graph;
+2. read `AGENTS.md`;
+3. read `.specify/memory/constitution.md`;
+4. read this file;
+5. read `docs/canonical/PROGRAM_ROADMAP.md`;
+6. read `docs/canonical/AGENT_HARNESS_AND_RESEARCH_LOOP_STRATEGY.md`;
+7. read `docs/canonical/TRAINING_EXECUTION_STRATEGY.md`;
+8. read the full active Spec Kit package;
+9. if T029–T034 remain active, continue them in order;
+10. once T034 is canonical, enter `specs/001-agent-harness-verified-loop-foundation/` before any weight-changing training path.
+
+Live canonical GitHub truth always overrides stale handoffs.
