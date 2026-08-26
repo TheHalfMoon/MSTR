@@ -194,10 +194,16 @@ def main() -> int:
                         "--outfile", str(gguf_f16), "--outtype", "f16"])
     conv_dur = round(time.monotonic() - conv_start, 1)
     if rc != 0 or not gguf_f16.is_file():
+        conv_lower = conv_out.lower()
         unsupported_markers = ["not supported", "unsupported", "unknown model architecture",
                                "trust_remote_code", "notimplementederror"]
-        is_unsupported = any(m in conv_out.lower() for m in unsupported_markers)
-        classification = "Q4_CONVERSION_UNSUPPORTED" if is_unsupported else "Q4_INTEGRITY_FAILURE"
+        missing_dep_markers = ["modulenotfounderror", "importerror", "no module named"]
+        if any(m in conv_lower for m in unsupported_markers):
+            classification = "Q4_CONVERSION_UNSUPPORTED"
+        elif any(m in conv_lower for m in missing_dep_markers):
+            classification = "Q4_QUANTIZATION_UNSUPPORTED"
+        else:
+            classification = "Q4_INTEGRITY_FAILURE"
         report = {"schema_version": "mstr.quantization-report.v1",
                   "candidate_id": args.candidate,
                   "model_repo": repo, "model_revision": revision,
