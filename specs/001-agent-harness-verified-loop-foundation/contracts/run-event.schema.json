@@ -48,5 +48,26 @@
       "enum": ["user", "model", "harness", "tool", "verifier", "environment", "system"]
     },
     "sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"}
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"event_type": {"const": "run.completed"}},
+        "required": ["event_type"]
+      },
+      "then": {
+        "properties": {
+          "source": {"enum": ["harness", "verifier", "system"]},
+          "payload": {
+            "type": "object",
+            "required": ["verifier_result_identity", "terminal_class"],
+            "properties": {
+              "verifier_result_identity": {"type": "string", "minLength": 1},
+              "terminal_class": {"enum": ["VERIFIED_SUCCESS", "RECOVERED_SUCCESS"]}
+            }
+          }
+        }
+      }
+    }
+  ]
 }
