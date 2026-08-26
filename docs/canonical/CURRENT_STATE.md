@@ -7,14 +7,18 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_AT_MSTR_000A_PLANNING_BASE = e21d72df6d928310257ec15fcad26dbe780cb7e5
-PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / T029_Q4_QUANTIZATION_ACTIVE
+CANONICAL_MAIN_AT_LATEST_RECONCILIATION = e46699d1892046bed8a1fc5090320f71e3c3bf06
+PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / T029_IMPLEMENTATION_MERGED_AWAITING_CANONICAL_TASK_RECONCILIATION
 ACTIVE_SPEC = MSTR-000
 SPEC_KIT_PACKAGE = CANONICAL
-ACTIVE_TASK = T029_Q4_PROFILE_QUANTIZATION_QUALIFICATION
-OPEN_PR_AT_CHECKPOINT = #35 feat(mstr-000): implement T029 ephemeral Q4 quantization runner
-OPEN_PR_HEAD_AT_CHECKPOINT = 7ece09ca2b32f1a375382ce277978888e028f786
+ACTIVE_TASK = T029_Q4_PROFILE_QUANTIZATION_QUALIFICATION / IMPLEMENTATION_MERGED
+OPEN_PRS_AT_RECONCILIATION = NONE
+T029_IMPLEMENTATION_PR = #35 MERGED
+T029_IMPLEMENTATION_MERGE = e46699d1892046bed8a1fc5090320f71e3c3bf06
+T029_IMPLEMENTATION_EXACT_HEAD = 7ece09ca2b32f1a375382ce277978888e028f786
 ```
+
+PR #35 merged the T029 ephemeral Q4 quantization execution surface, but the canonical MSTR-000 `tasks.md` / `CURRENT_STATE.md` on that merge still describe T029 as active rather than `COMPLETE_CANONICAL`. Therefore this document does NOT manufacture T029 completion from the implementation merge alone. The next MSTR-000 action is to reconcile/qualify T029 exactly according to live task evidence, then continue to T030 when T029 is genuinely closed canonical.
 
 Live GitHub truth overrides this snapshot if any state moved after the checkpoint.
 
@@ -90,9 +94,10 @@ T025 = COMPLETE_CANONICAL / CROSS_PLATFORM_MEMORY_PAGING_SAMPLERS
 T026 = COMPLETE_CANONICAL / MEASURE_V0_MONOTONIC_EVENT_LOGIC
 T027 = COMPLETE_CANONICAL / WEIGHT_ACCESS_ACQUISITION_PREFLIGHT
 T028 = COMPLETE_CANONICAL / WEIGHT_ACQUISITION_ALL_EIGHT_ACQUIRED_VERIFIED
+T029 = NOT_YET_CLAIMED_COMPLETE_CANONICAL / IMPLEMENTATION_PR_MERGED
 ```
 
-## Phase-4 / T028 Merge Record
+## Phase-4 / T028 / T029 Merge Record
 
 ```text
 T023: PR #25 -> fece0f3382ce383ca8e68dd875b48a46d4cc7fba
@@ -102,6 +107,7 @@ T026: PR #28 -> 52d86f0c89bd0323d19aae776ae01aa4ebf5bc58
 T027: PR #30 -> 15b691cdf27103a632c5d982b822563859cf0094
 STORAGE_ARCHITECTURE: PR #33 -> zero-large-artifact policy canonical
 T028: PR #34 -> e21d72df6d928310257ec15fcad26dbe780cb7e5 canonical state after acquisition
+T029_IMPLEMENTATION: PR #35 -> e46699d1892046bed8a1fc5090320f71e3c3bf06 (exact head 7ece09ca2b32f1a375382ce277978888e028f786)
 ```
 
 T028 acquisition result:
@@ -138,20 +144,20 @@ PERSISTENCE_FOR_DERIVED = NONE_BY_DEFAULT / REGENERATE_ON_DEMAND
 
 Any new persistent large-artifact cloud store requires a separate founder decision.
 
-## Active Work — T029
+## Active Work — T029 Reconciliation
 
-T029 is the next dependency-satisfied MSTR-000 task.
+PR #35 merged the deterministic ephemeral T029 quantization runner/workflow. The task remains subject to its exact evidence/output/review/canonicalization requirements before it may be marked complete.
 
-Goal:
+Canonical T029 goal remains:
 
 ```text
 Build/obtain quality-oriented and compatibility-oriented Q4 profiles
 with exact source identity + quantizer/tool commit + recipe + output hash/size.
 ```
 
-At this checkpoint PR #35 is open from branch `feat/000-t029-q4-quantization`, head `7ece09ca2b32f1a375382ce277978888e028f786`.
+Do not skip required candidate quantization evidence merely because the execution surface merged. Once T029 is actually `COMPLETE_CANONICAL`, proceed to T030 and continue through T034 in dependency order.
 
-Do not mutate or supersede that PR from MSTR-000A planning work unless live repository truth establishes a real conflict.
+MSTR-000A planning does not mutate or reopen the T029 implementation merge.
 
 ## T022 Candidate Decision Summary
 
@@ -287,7 +293,7 @@ Before any material mutation:
 6. read `docs/canonical/AGENT_HARNESS_AND_RESEARCH_LOOP_STRATEGY.md`;
 7. read `docs/canonical/TRAINING_EXECUTION_STRATEGY.md`;
 8. read the full active Spec Kit package;
-9. if T029–T034 remain active, continue them in order;
+9. reconcile/close T029 from exact live evidence if still open, then continue T030–T034 in order;
 10. once T034 is canonical, enter `specs/001-agent-harness-verified-loop-foundation/` before any weight-changing training path.
 
 Live canonical GitHub truth always overrides stale handoffs.
