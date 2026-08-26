@@ -86,9 +86,9 @@ All seven Phase-3 static_qualified candidate pins stable/unchanged; landscape sc
 ## Completed in this cycle
 
 ```text
-COMPLETED_TASKS = T000-T026 (T010-T011 harness foundation; T012-T022 static admission; T023-T026 Phase-4 harness infrastructure)
-CHECKPOINTS_REACHED = PHASE_2_FOUNDATIONAL_HARNESS_READY + PHASE_3_STATIC_ADMISSION_COMPLETE + PHASE_4_HARNESS_INFRASTRUCTURE_READY
-REVIEW_FINDINGS_RESOLVED = qodo x4 + coderabbitai x5 (Phase 2/3) + qodo x2 T023 + x9 T024 + x9 T025 + x6 T026 — all on-head with regression tests and evidence
+COMPLETED_TASKS = T000-T027 (T010-T011 harness foundation; T012-T022 static admission; T023-T026 Phase-4 harness infrastructure; T027 weight-access acquisition preflight)
+CHECKPOINTS_REACHED = PHASE_2_FOUNDATIONAL_HARNESS_READY + PHASE_3_STATIC_ADMISSION_COMPLETE + PHASE_4_HARNESS_INFRASTRUCTURE_READY + T027_PREFLIGHT_COMPLETE_AWAITING_T028_AUTHORIZATION
+REVIEW_FINDINGS_RESOLVED = qodo x4 + coderabbitai x5 (Phase 2/3) + qodo x2 T023 + x9 T024 + x9 T025 + x6 T026 + qodo x5 + coderabbitai x3 T027 — all on-head with regression tests and evidence
 PUSH_PROTECTION_BYPASS = one documented false_positive (public HF revision sha matching Mistral key shape)
 ```
 
