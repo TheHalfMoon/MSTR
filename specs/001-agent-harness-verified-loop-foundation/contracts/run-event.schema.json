@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://halfmoon.invalid/mstr/contracts/mstr-run-event-v0.schema.json",
+  "title": "MSTR Run Event v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "seq",
+    "event_type",
+    "logical_time",
+    "payload",
+    "model_visible",
+    "source"
+  ],
+  "properties": {
+    "schema_version": {"const": "mstr.run-event.v0"},
+    "run_id": {"type": "string", "minLength": 1},
+    "seq": {"type": "integer", "minimum": 0},
+    "event_type": {
+      "enum": [
+        "run.started",
+        "run.goal_admitted",
+        "context.observed",
+        "context.compacted",
+        "plan.updated",
+        "tool.requested",
+        "tool.result",
+        "edit.proposed",
+        "edit.applied",
+        "edit.rejected",
+        "verifier.started",
+        "verifier.result",
+        "recovery.started",
+        "recovery.result",
+        "run.stop_proposed",
+        "run.completed",
+        "run.failed",
+        "run.escalated"
+      ]
+    },
+    "logical_time": {"type": "integer", "minimum": 0},
+    "step_id": {"type": ["string", "null"]},
+    "payload": {"type": "object"},
+    "model_visible": {"type": "boolean"},
+    "source": {
+      "enum": ["user", "model", "harness", "tool", "verifier", "environment", "system"]
+    },
+    "sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"}
+  }
+}
