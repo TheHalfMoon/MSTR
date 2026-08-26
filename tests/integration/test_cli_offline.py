@@ -136,6 +136,7 @@ def test_validate_self_checks_schemas_and_fixtures(capsys: pytest.CaptureFixture
         "candidate-record",
         "interaction-contract",
         "run-evidence",
+        "storage-amendment",
         "task-manifest",
         "weight-access-manifest",
     ]

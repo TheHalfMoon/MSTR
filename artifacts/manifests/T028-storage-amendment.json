@@ -1,0 +1,97 @@
+{
+  "schema_version": "mstr.storage-amendment.v1",
+  "manifest_id": "T028-storage-amendment-zero-artifact-mac",
+  "task": "MSTR-000 / T028",
+  "canonical_base": "1a95d5900b0bc49d10d89bcb1552c7db662744aa",
+  "amends_manifest": {
+    "path": "artifacts/manifests/T027-weight-access.json",
+    "manifest_id": "T027-weight-access-preflight-frozen",
+    "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e",
+    "unchanged_fields": [
+      "candidates",
+      "exact_model_ids",
+      "exact_revisions",
+      "expected_file_integrity",
+      "rights_decisions",
+      "network_allowlist",
+      "gating_status",
+      "cost_ceiling"
+    ]
+  },
+  "policy": {
+    "founder_mac_large_artifacts": "ZERO",
+    "mac_receives_only": [
+      "SOURCE_CODE",
+      "CONFIGS",
+      "MANIFESTS",
+      "HASHES",
+      "METRICS",
+      "EVIDENCE",
+      "REPORTS"
+    ],
+    "supersedes_local_retention_clause": true,
+    "persistence_for_originals": "UPSTREAM_HUGGINGFACE_IMMUTABLE_PINNED_REVISIONS",
+    "persistence_for_derived": "REGENERATE_ON_DEMAND_IN_EPHEMERAL_RUNNERS_IDENTITY_RECORDED_IN_GIT"
+  },
+  "approved_executors": [
+    {
+      "executor_id": "colab-notebook-primary-interactive",
+      "kind": "EPHEMERAL_CLOUD_RUNNER",
+      "driver": "colab/MSTR_T028_acquire.ipynb",
+      "role": "Founder-designated primary interactive acquisition/conversion environment; founder-driven sessions",
+      "network_scope": "HTTPS_GET_ONLY_PER_T027_ALLOWLIST",
+      "authentication_required": false,
+      "monetary_cost": "USD 0.00"
+    },
+    {
+      "executor_id": "gh-actions-runner-autonomous",
+      "kind": "EPHEMERAL_CLOUD_RUNNER",
+      "driver": ".github/workflows/t028-acquire.yml",
+      "role": "Autonomous ephemeral acquisition+integrity runner for public-repo hosted runners; single-job VM lifetime satisfies deletion semantics without any local Mac storage use",
+      "network_scope": "HTTPS_GET_ONLY_PER_T027_ALLOWLIST",
+      "authentication_required": false,
+      "monetary_cost": "USD 0.00"
+    }
+  ],
+  "ephemeral_runner_contract": {
+    "authority_source": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY",
+    "fetch_method": "HTTPS_GET_ONLY",
+    "integrity_rule": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE",
+    "report_requirement": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT",
+    "local_copy_lifetime": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED",
+    "substitute_revisions_allowed": false,
+    "latest_refs_allowed": false,
+    "unrelated_files_allowed": false,
+    "required_report_identity": {
+      "model_repo": "upstream repository id (e.g. Qwen/Qwen3.5-2B-Base)",
+      "model_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+      "task_id": "MSTR-000 / T028 (+ candidate id)",
+      "runner_environment": "executor_id + OS/python/tool versions",
+      "per_file_results": "filename -> {status, size_bytes, sha256}",
+      "result_classification": "ACQUIRED_VERIFIED | EXCLUDED_* fail-closed status",
+      "resource_cost": "USD 0.00 confirmation"
+    }
+  },
+  "mac_receives": [
+    "SOURCE_CODE",
+    "CONFIGS",
+    "MANIFESTS",
+    "HASHES",
+    "METRICS",
+    "EVIDENCE",
+    "REPORTS"
+  ],
+  "prohibitions": [
+    "MODEL_BINARIES_ON_FOUNDER_MAC",
+    "MODEL_BINARIES_IN_GIT",
+    "AUTHENTICATION_OR_GATED_TERMS",
+    "PAID_ACCESS",
+    "TRAINING",
+    "SUBSTITUTE_MODELS_OR_REVISIONS",
+    "UNRELATED_ARTIFACTS"
+  ],
+  "cost_ceiling": {
+    "acquisition_cost": "USD 0.00",
+    "runner_cost_policy": "Executors must run at zero marginal monetary cost (public-repo hosted runners / free Colab tier). Any paid requirement aborts with PAID_ACCESS_REQUIRES_NEW_FOUNDER_DECISION."
+  }
+}

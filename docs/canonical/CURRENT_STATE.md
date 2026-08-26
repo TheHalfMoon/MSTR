@@ -8,11 +8,11 @@
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
 CANONICAL_MAIN_AFTER_T027 = 15b691c (T028 explicit founder gate is next; see merge log below)
-PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / T027_PREFLIGHT_COMPLETE_AWAITING_T028_AUTHORIZATION
+PROJECT_PHASE = PRECONSTRUCTION_QUALIFICATION / ZERO_ARTIFACT_STORAGE_ARCHITECTURE_CANONICAL_T028_EXECUTION_PENDING
 ACTIVE_SPEC = MSTR-000
 SPEC_KIT_PACKAGE = CANONICAL
-ACTIVE_TASK = NONE_ACTIVE / T028_EXPLICIT_FOUNDER_GATE_PENDING
-NEXT_TASKS_ON_RESUME = STOP — T028 requires separate exact founder authorization naming the frozen T027 manifest
+ACTIVE_TASK = T028_WEIGHT_ACQUISITION (founder-authorized; zero-artifact storage architecture canonical)
+NEXT_TASKS_ON_RESUME = execute T028 through approved ephemeral cloud runners, then continue non-gated tasks to T052; STOP before T053
 ```
 
 ## Canonical completed history
@@ -56,7 +56,7 @@ Gates on canonical main `15b691c` (T027 head `6e0426e`): pytest 344 passed; ruff
 
 ## Active work
 
-None active. T027 weight-access acquisition preflight is COMPLETE_CANONICAL (preparation only — froze the exact acquisition manifest for the separate T028 authorization gate; no downloads occurred). The repository now sits at the T028 EXPLICIT WEIGHT ACCESS GATE: no task may proceed until the founder issues separate exact authorization naming manifest id `mstr.weight-access-manifest.v1` / `artifacts/manifests/T027-weight-access.json`. MODEL_WEIGHT_ACCESS remains NOT_YET_AUTHORIZED.
+T028 is founder-AUTHORIZED against the frozen T027 manifest (`mstr.weight-access-manifest.v1`, SHA-256 68f514ab…55e1e, byte-for-byte unchanged). The founder has additionally decreed a ZERO-LARGE-ARTIFACT environment: no model binaries on the founder Mac or in Git. Canonical policy: `docs/canonical/STORAGE_ARCHITECTURE.md`; machine record: `artifacts/manifests/T028-storage-amendment.json` (binds to the exact T027 bytes by SHA-256). Acquisition executes inside approved ephemeral cloud runners (Colab notebook + autonomous GitHub Actions runner, both USD 0.00, HTTPS GET only, hash-verified, report-as-durable-output); local copies die with the VM after evidence is finalized.
 
 T022 canonical merge: PR #23 as `f77e213`.
 ```
@@ -184,7 +184,7 @@ When the founder returns after WePLD:
 4. read `docs/canonical/PROGRAM_ROADMAP.md`;
 5. read `docs/canonical/TRAINING_EXECUTION_STRATEGY.md`;
 6. read the full MSTR-000 Spec Kit package;
-7. confirm the correct next task against the ACTIVE_TASK/NEXT_TASKS_ON_RESUME fields at the top of this file (currently NONE_ACTIVE: T027 preflight is COMPLETE_CANONICAL; T028 requires separate explicit founder authorization);
+7. confirm the correct next task against the ACTIVE_TASK/NEXT_TASKS_ON_RESUME fields at the top of this file (T028 is founder-AUTHORIZED and active under the zero-large-artifact storage architecture; T053 remains separately gated);
 8. start only the exact authorized task on a fresh branch.
 
 Canonical resume handoff: `docs/handoffs/MSTR-RESUME-AFTER-WEPLD.md`.

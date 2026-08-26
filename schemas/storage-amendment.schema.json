@@ -1,0 +1,307 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/TheHalfMoon/MSTR/main/schemas/storage-amendment.schema.json",
+  "title": "MSTR storage architecture amendment (mstr.storage-amendment.v1)",
+  "description": "Records the zero-large-artifact founder environment decision and binds it to the exact frozen T027 weight-access manifest by path, id, and SHA-256. Candidate identities, revisions, hashes, rights, network scope, and cost ceilings are preserved unchanged; only artifact storage location/lifetime is amended.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "manifest_id",
+    "task",
+    "canonical_base",
+    "amends_manifest",
+    "policy",
+    "approved_executors",
+    "ephemeral_runner_contract",
+    "mac_receives",
+    "prohibitions",
+    "cost_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mstr.storage-amendment.v1"
+    },
+    "manifest_id": {
+      "type": "string",
+      "pattern": "^T028-storage-amendment-[a-z0-9-]+$",
+      "minLength": 1,
+      "description": "Stable identifier of this amendment record."
+    },
+    "task": {
+      "type": "string",
+      "minLength": 1,
+      "const": "MSTR-000 / T028"
+    },
+    "canonical_base": {
+      "type": "string",
+      "description": "Full 40-hex canonical main commit this amendment was authored against.",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "amends_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "manifest_id",
+        "sha256",
+        "unchanged_fields"
+      ],
+      "properties": {
+        "path": {
+          "const": "artifacts/manifests/T027-weight-access.json"
+        },
+        "manifest_id": {
+          "const": "T027-weight-access-preflight-frozen"
+        },
+        "sha256": {
+          "const": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e"
+        },
+        "unchanged_fields": {
+          "type": "array",
+          "minItems": 8,
+          "items": {
+            "enum": [
+              "candidates",
+              "exact_model_ids",
+              "exact_revisions",
+              "expected_file_integrity",
+              "rights_decisions",
+              "network_allowlist",
+              "gating_status",
+              "cost_ceiling"
+            ]
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "founder_mac_large_artifacts",
+        "mac_receives_only",
+        "supersedes_local_retention_clause",
+        "persistence_for_originals",
+        "persistence_for_derived"
+      ],
+      "properties": {
+        "founder_mac_large_artifacts": {
+          "const": "ZERO"
+        },
+        "mac_receives_only": {
+          "type": "array",
+          "minItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "SOURCE_CODE",
+              "CONFIGS",
+              "MANIFESTS",
+              "HASHES",
+              "METRICS",
+              "EVIDENCE",
+              "REPORTS"
+            ]
+          }
+        },
+        "supersedes_local_retention_clause": {
+          "type": "boolean",
+          "const": true,
+          "description": "The T027 retention clause requiring local persistence through T034 is superseded; deletion semantics move to ephemeral-runner lifetime."
+        },
+        "persistence_for_originals": {
+          "type": "string",
+          "const": "UPSTREAM_HUGGINGFACE_IMMUTABLE_PINNED_REVISIONS"
+        },
+        "persistence_for_derived": {
+          "type": "string",
+          "const": "REGENERATE_ON_DEMAND_IN_EPHEMERAL_RUNNERS_IDENTITY_RECORDED_IN_GIT"
+        }
+      }
+    },
+    "approved_executors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "executor_id",
+          "kind",
+          "driver",
+          "network_scope",
+          "authentication_required",
+          "monetary_cost"
+        ],
+        "properties": {
+          "executor_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]*$",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "EPHEMERAL_CLOUD_RUNNER"
+            ]
+          },
+          "driver": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Concrete execution surface (e.g., google-colab notebook path or GitHub Actions workflow path)."
+          },
+          "role": {
+            "type": "string"
+          },
+          "network_scope": {
+            "type": "string",
+            "const": "HTTPS_GET_ONLY_PER_T027_ALLOWLIST"
+          },
+          "authentication_required": {
+            "const": false
+          },
+          "monetary_cost": {
+            "const": "USD 0.00"
+          }
+        }
+      }
+    },
+    "ephemeral_runner_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_source",
+        "fetch_method",
+        "integrity_rule",
+        "report_requirement",
+        "local_copy_lifetime",
+        "substitute_revisions_allowed",
+        "latest_refs_allowed",
+        "unrelated_files_allowed",
+        "required_report_identity"
+      ],
+      "properties": {
+        "authority_source": {
+          "type": "string",
+          "const": "ARTIFACTS_MANIFESTS_T027_WEIGHT_ACCESS_JSON_ONLY"
+        },
+        "fetch_method": {
+          "type": "string",
+          "const": "HTTPS_GET_ONLY"
+        },
+        "integrity_rule": {
+          "type": "string",
+          "const": "PER_FILE_SHA256_AND_SIZE_EXACT_MATCH_OR_HARD_CANDIDATE_FAILURE"
+        },
+        "report_requirement": {
+          "const": "MACHINE_VERIFIABLE_REPORT_WITH_FULL_IDENTITY_METADATA_IS_THE_DURABLE_OUTPUT"
+        },
+        "local_copy_lifetime": {
+          "type": "string",
+          "const": "RUN_DURATION_ONLY_DESTROYED_WITH_EPHEMERAL_VM_AFTER_EVIDENCE_FINALIZED"
+        },
+        "substitute_revisions_allowed": {
+          "const": false
+        },
+        "latest_refs_allowed": {
+          "const": false
+        },
+        "unrelated_files_allowed": {
+          "const": false
+        },
+        "required_report_identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model_repo",
+            "model_revision",
+            "task_id",
+            "runner_environment",
+            "per_file_results",
+            "result_classification",
+            "resource_cost"
+          ],
+          "properties": {
+            "model_repo": {
+              "type": "string"
+            },
+            "model_revision": {
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "task_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "runner_environment": {
+              "type": "string",
+              "minLength": 1
+            },
+            "per_file_results": {
+              "type": "string",
+              "minLength": 1
+            },
+            "result_classification": {
+              "type": "string",
+              "minLength": 1
+            },
+            "resource_cost": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "mac_receives": {
+      "type": "array",
+      "minItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "SOURCE_CODE",
+          "CONFIGS",
+          "MANIFESTS",
+          "HASHES",
+          "METRICS",
+          "EVIDENCE",
+          "REPORTS"
+        ]
+      }
+    },
+    "prohibitions": {
+      "type": "array",
+      "minItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "MODEL_BINARIES_ON_FOUNDER_MAC",
+          "MODEL_BINARIES_IN_GIT",
+          "AUTHENTICATION_OR_GATED_TERMS",
+          "PAID_ACCESS",
+          "TRAINING",
+          "SUBSTITUTE_MODELS_OR_REVISIONS",
+          "UNRELATED_ARTIFACTS"
+        ]
+      }
+    },
+    "cost_ceiling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "acquisition_cost",
+        "runner_cost_policy"
+      ],
+      "properties": {
+        "acquisition_cost": {
+          "const": "USD 0.00"
+        },
+        "runner_cost_policy": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Executors must run at zero marginal monetary cost (e.g., public-repo hosted runners / free Colab tier). Any paid requirement aborts."
+        }
+      }
+    }
+  }
+}
