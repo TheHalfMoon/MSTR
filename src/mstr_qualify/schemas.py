@@ -27,6 +27,9 @@ SCHEMA_FILES: Mapping[str, str] = {
     "weight-access-manifest": "weight-access-manifest.schema.json",
     # Zero-large-artifact founder-environment storage amendment (T028).
     "storage-amendment": "storage-amendment.schema.json",
+    # MSTR-000A A001/A002: loop contract and run-event schemas.
+    "mstr-loop-contract-v0": "mstr-loop-contract-v0.schema.json",
+    "mstr-run-event-v0": "mstr-run-event-v0.schema.json",
 }
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]

@@ -1550,5 +1550,257 @@
         "runner_cost_policy": "zero marginal cost only"
       }
     }
+  },
+  "mstr-loop-contract-v0": {
+    "wrong_schema_version": {
+      "schema_version": "mstr.loop-contract.v1",
+      "loop_id": "build-loop-default",
+      "interaction_contract_id": "mstr-interaction-v0",
+      "tool_surface_id": "shell+edit+read",
+      "context_policy_id": "compact-state-8k",
+      "edit_policy_id": "search-replace-primary",
+      "verifier_policy_id": "independent-shell-verifier",
+      "effect_envelope_id": "repo-local-no-network",
+      "max_steps": 50,
+      "max_tool_calls": 100,
+      "max_repairs": 3,
+      "timeout_seconds": 600,
+      "goal_policy": {
+        "ambiguity_behavior": "bounded_inference",
+        "require_acceptance_criteria": true
+      },
+      "stop_policy": {
+        "success_requires_independent_verifier": true,
+        "success_terminal_classes": [
+          "VERIFIED_SUCCESS",
+          "RECOVERED_SUCCESS"
+        ],
+        "allow_escalation": true
+      },
+      "recovery_policy": {
+        "max_attempts": 3,
+        "backoff": "linear"
+      },
+      "trivial_task_fast_path": {
+        "enabled": true
+      }
+    },
+    "empty_loop_id": {
+      "schema_version": "mstr.loop-contract.v0",
+      "loop_id": "",
+      "interaction_contract_id": "mstr-interaction-v0",
+      "tool_surface_id": "shell+edit+read",
+      "context_policy_id": "compact-state-8k",
+      "edit_policy_id": "search-replace-primary",
+      "verifier_policy_id": "independent-shell-verifier",
+      "effect_envelope_id": "repo-local-no-network",
+      "max_steps": 50,
+      "max_tool_calls": 100,
+      "max_repairs": 3,
+      "timeout_seconds": 600,
+      "goal_policy": {
+        "ambiguity_behavior": "bounded_inference",
+        "require_acceptance_criteria": true
+      },
+      "stop_policy": {
+        "success_requires_independent_verifier": true,
+        "success_terminal_classes": [
+          "VERIFIED_SUCCESS",
+          "RECOVERED_SUCCESS"
+        ],
+        "allow_escalation": true
+      },
+      "recovery_policy": {
+        "max_attempts": 3,
+        "backoff": "linear"
+      },
+      "trivial_task_fast_path": {
+        "enabled": true
+      }
+    },
+    "zero_max_steps": {
+      "schema_version": "mstr.loop-contract.v0",
+      "loop_id": "build-loop-default",
+      "interaction_contract_id": "mstr-interaction-v0",
+      "tool_surface_id": "shell+edit+read",
+      "context_policy_id": "compact-state-8k",
+      "edit_policy_id": "search-replace-primary",
+      "verifier_policy_id": "independent-shell-verifier",
+      "effect_envelope_id": "repo-local-no-network",
+      "max_steps": 0,
+      "max_tool_calls": 100,
+      "max_repairs": 3,
+      "timeout_seconds": 600,
+      "goal_policy": {
+        "ambiguity_behavior": "bounded_inference",
+        "require_acceptance_criteria": true
+      },
+      "stop_policy": {
+        "success_requires_independent_verifier": true,
+        "success_terminal_classes": [
+          "VERIFIED_SUCCESS",
+          "RECOVERED_SUCCESS"
+        ],
+        "allow_escalation": true
+      },
+      "recovery_policy": {
+        "max_attempts": 3,
+        "backoff": "linear"
+      },
+      "trivial_task_fast_path": {
+        "enabled": true
+      }
+    },
+    "verifier_not_required": {
+      "schema_version": "mstr.loop-contract.v0",
+      "loop_id": "build-loop-default",
+      "interaction_contract_id": "mstr-interaction-v0",
+      "tool_surface_id": "shell+edit+read",
+      "context_policy_id": "compact-state-8k",
+      "edit_policy_id": "search-replace-primary",
+      "verifier_policy_id": "independent-shell-verifier",
+      "effect_envelope_id": "repo-local-no-network",
+      "max_steps": 50,
+      "max_tool_calls": 100,
+      "max_repairs": 3,
+      "timeout_seconds": 600,
+      "goal_policy": {
+        "ambiguity_behavior": "bounded_inference",
+        "require_acceptance_criteria": true
+      },
+      "stop_policy": {
+        "success_requires_independent_verifier": false,
+        "success_terminal_classes": [
+          "VERIFIED_SUCCESS",
+          "RECOVERED_SUCCESS"
+        ],
+        "allow_escalation": true
+      },
+      "recovery_policy": {
+        "max_attempts": 3,
+        "backoff": "linear"
+      },
+      "trivial_task_fast_path": {
+        "enabled": true
+      }
+    },
+    "bad_terminal_class": {
+      "schema_version": "mstr.loop-contract.v0",
+      "loop_id": "build-loop-default",
+      "interaction_contract_id": "mstr-interaction-v0",
+      "tool_surface_id": "shell+edit+read",
+      "context_policy_id": "compact-state-8k",
+      "edit_policy_id": "search-replace-primary",
+      "verifier_policy_id": "independent-shell-verifier",
+      "effect_envelope_id": "repo-local-no-network",
+      "max_steps": 50,
+      "max_tool_calls": 100,
+      "max_repairs": 3,
+      "timeout_seconds": 600,
+      "goal_policy": {
+        "ambiguity_behavior": "bounded_inference",
+        "require_acceptance_criteria": true
+      },
+      "stop_policy": {
+        "success_requires_independent_verifier": true,
+        "success_terminal_classes": [
+          "MODEL_CLAIMS_SUCCESS"
+        ],
+        "allow_escalation": true
+      },
+      "recovery_policy": {
+        "max_attempts": 3,
+        "backoff": "linear"
+      },
+      "trivial_task_fast_path": {
+        "enabled": true
+      }
+    }
+  },
+  "mstr-run-event-v0": {
+    "wrong_schema_version": {
+      "schema_version": "mstr.run-event.v1",
+      "run_id": "run-abc123",
+      "seq": 0,
+      "event_type": "run.started",
+      "logical_time": 1,
+      "payload": {
+        "goal": "implement feature X"
+      },
+      "model_visible": false,
+      "source": "harness",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "prev_event_sha256": null
+    },
+    "null_sha256": {
+      "schema_version": "mstr.run-event.v0",
+      "run_id": "run-abc123",
+      "seq": 0,
+      "event_type": "run.started",
+      "logical_time": 1,
+      "payload": {
+        "goal": "implement feature X"
+      },
+      "model_visible": false,
+      "source": "harness",
+      "sha256": null,
+      "prev_event_sha256": null
+    },
+    "short_sha256": {
+      "schema_version": "mstr.run-event.v0",
+      "run_id": "run-abc123",
+      "seq": 0,
+      "event_type": "run.started",
+      "logical_time": 1,
+      "payload": {
+        "goal": "implement feature X"
+      },
+      "model_visible": false,
+      "source": "harness",
+      "sha256": "abc123",
+      "prev_event_sha256": null
+    },
+    "negative_seq": {
+      "schema_version": "mstr.run-event.v0",
+      "run_id": "run-abc123",
+      "seq": -1,
+      "event_type": "run.started",
+      "logical_time": 1,
+      "payload": {
+        "goal": "implement feature X"
+      },
+      "model_visible": false,
+      "source": "harness",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "prev_event_sha256": null
+    },
+    "unknown_event_type": {
+      "schema_version": "mstr.run-event.v0",
+      "run_id": "run-abc123",
+      "seq": 0,
+      "event_type": "model.hallucinated",
+      "logical_time": 1,
+      "payload": {
+        "goal": "implement feature X"
+      },
+      "model_visible": false,
+      "source": "harness",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "prev_event_sha256": null
+    },
+    "empty_run_id": {
+      "schema_version": "mstr.run-event.v0",
+      "run_id": "",
+      "seq": 0,
+      "event_type": "run.started",
+      "logical_time": 1,
+      "payload": {
+        "goal": "implement feature X"
+      },
+      "model_visible": false,
+      "source": "harness",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "prev_event_sha256": null
+    }
   }
 }
