@@ -688,8 +688,9 @@
     },
     "safe_relative_path": {
       "type": "string",
-      "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))[^\\x00\\\\:]*$",
-      "description": "Relative POSIX path under the candidate acquisition directory. Rejects absolute paths, empty/dot/traversal segments, backslashes, colons, and NUL so a manifest cannot direct a downloader outside artifacts/external/<candidate_id>."
+      "pattern": "(?!.*(?:/$))^(?!/)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))[^\\x00\\\\:]*$",
+      "description": "Relative POSIX path under the candidate acquisition directory. Rejects absolute paths, empty/dot/traversal segments, backslashes, colons, and NUL so a manifest cannot direct a downloader outside artifacts/external/<candidate_id>.",
+      "minLength": 1
     }
   }
 }

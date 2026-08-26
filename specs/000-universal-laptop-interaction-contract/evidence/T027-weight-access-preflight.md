@@ -87,7 +87,7 @@ ALL EIGHT candidates: `authentication_required=false`, `account_required=false`,
 
 Runtime candidates: llama.cpp-GGUF-class CPU runtime, llamafile-portable-class runner. Quantizer candidates: llama.cpp convert_hf_to_gguf + llama-quantize Q4-class recipe. Status on every candidate: `CANDIDATE_ONLY_NEEDS_T029_T030`. No CANONICAL_RUNTIME or FINAL_QUANTIZER claim appears anywhere (contract-tested).
 
-Per constitution IV, runtime/quantizer dependency rights are recorded independently per candidate (`runtime_quantizer_license_notes`, schema-required): llama.cpp / llamafile tooling identified as MIT with unrestricted commercial use as a *preliminary* record, with binding evaluation explicitly deferred to T029/T030 when exact builds are pinned.
+Per constitution IV, runtime/quantizer dependency rights are recorded independently per candidate (`runtime_quantizer_license_notes`, schema-required): llama.cpp tooling identified as MIT and llamafile as Apache-2.0 project-licensed (only its llama.cpp and whisper.cpp derived components are MIT), both with unrestricted commercial use as a *preliminary* record, with binding evaluation explicitly deferred to T029/T030 when exact builds are pinned.
 
 ## 12–13. Retention / cleanup / cost
 

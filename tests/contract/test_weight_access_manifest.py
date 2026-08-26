@@ -192,7 +192,13 @@ def test_runtime_quantizer_dependency_rights_recorded(manifest: dict) -> None:
     """Runtime/quantizer tools carry their own independent rights record."""
     for candidate in manifest["candidates"]:
         notes = candidate["runtime_quantizer_license_notes"]
-        assert "MIT" in notes
+        assert "llama.cpp-GGUF-class CPU runtime (MIT-licensed" in notes, (
+            "llama.cpp must be identified as MIT-licensed"
+        )
+        assert (
+            "llamafile-portable-class runner (project license Apache-2.0; "
+            "only its llama.cpp and whisper.cpp derived components are MIT-licensed)"
+        ) in notes, "llamafile must be identified as Apache-2.0 project-licensed"
         assert "deferred" in notes.lower(), (
             "binding evaluation status must be stated explicitly"
         )
@@ -247,7 +253,7 @@ def test_no_candidate_claims_final_or_qualified_language(manifest: dict) -> None
 def test_missing_license_text_candidates_recorded_as_risks(
     manifest: dict,
 ) -> None:
-    """All candidates lacking standalone LICENSE text appear in residual risks."""
+    """Each candidate lacking a standalone LICENSE is named by exact ID in risks."""
     risks_blob = "\n".join(manifest["unresolved_risks"]).lower()
     for cid in ("ministral-3-3b", "granite-4.1-3b", "smollm3-3b", "yi-coder-1.5b"):
         record = next(c for c in manifest["candidates"] if c["candidate_id"] == cid)
@@ -256,10 +262,10 @@ def test_missing_license_text_candidates_recorded_as_risks(
             for f in record["required_artifact_files"]
         )
         if not has_standalone_license:
-            assert cid.replace("-", "-") .split("-")[0] in risks_blob or (
-                "no standalone LICENSE" in record["rights_decision_evidence"].lower()
-                or "lack a standalone license" in risks_blob
-            ), f"{cid}: missing-LICENSE situation must be recorded"
+            assert cid in risks_blob, (
+                f"{cid}: missing-LICENSE situation must be recorded with the "
+                "exact candidate ID in unresolved_risks (no generic fallback)"
+            )
 
 
 def test_caveated_candidates_record_live_license_reverification(
@@ -335,6 +341,8 @@ def test_structural_mutations_fail_closed(mutate, fragment: str) -> None:
         ("C:model/model.safetensors", "windows drive-letter style component"),
         ("dir//double.safetensors", "empty path components"),
         ("dir/./here.safetensors", "dot path component"),
+        ("", "empty artifact path"),
+        ("weights/", "trailing path separator"),
     ],
 )
 def test_unsafe_artifact_paths_fail_closed(bad_path: str, reason: str) -> None:
