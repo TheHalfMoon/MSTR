@@ -22,6 +22,9 @@ SCHEMA_FILES: Mapping[str, str] = {
     "task-manifest": "task-manifest.schema.json",
     "run-evidence": "run-evidence.schema.json",
     "interaction-contract": "interaction-contract.schema.json",
+    # T027 weight-access preparation manifest. No remote refs; no external
+    # network boundary; validated fully offline once registered.
+    "weight-access-manifest": "weight-access-manifest.schema.json",
 }
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]

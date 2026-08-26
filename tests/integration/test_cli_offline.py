@@ -137,9 +137,10 @@ def test_validate_self_checks_schemas_and_fixtures(capsys: pytest.CaptureFixture
         "interaction-contract",
         "run-evidence",
         "task-manifest",
+        "weight-access-manifest",
     ]
-    assert payload["valid_fixtures_passed"] >= 4
-    assert payload["invalid_fixtures_rejected"] >= 4
+    assert payload["valid_fixtures_passed"] >= 5
+    assert payload["invalid_fixtures_rejected"] >= 5
 
 
 def test_validate_is_deterministic_across_runs(capsys: pytest.CaptureFixture[str]) -> None:

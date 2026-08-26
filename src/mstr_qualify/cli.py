@@ -63,6 +63,8 @@ _SCHEMA_VERSION_TO_KIND = {
 _SCHEMA_VERSION_TO_SCHEMA_NAME = {
     "mstr.run.v1": "run-evidence",
     "mstr.interaction.v1": "interaction-contract",
+    # T027 weight-access preflight manifest: preparation-only contract.
+    "mstr.weight-access-manifest.v1": "weight-access-manifest",
 }
 
 _REPOSITORY_ROOT = DEFAULT_SCHEMA_DIR.parent
