@@ -33,17 +33,32 @@ from mstr_qualify.errors import QualificationError  # noqa: E402
 CHUNK = 1024 * 1024
 
 
+class _RedirectRecorder(urllib.request.HTTPRedirectHandler):
+    """Captures every redirect host so the report can prove allowlist compliance."""
+
+    def __init__(self) -> None:
+        self.hosts: list[str] = []
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+        from urllib.parse import urlparse
+
+        self.hosts.append(urlparse(newurl).hostname or "")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def _fetch_verified(planned, workdir: Path) -> dict:
     """Stream one pinned file to disk while verifying size+hash. Fail closed."""
     dest = workdir / planned.candidate_id / planned.filename
     dest.parent.mkdir(parents=True, exist_ok=True)
     hasher = hashlib.sha256()
     size = 0
+    recorder = _RedirectRecorder()
+    opener = urllib.request.build_opener(recorder)
     req = urllib.request.Request(  # noqa: S310 - host allowlisted by plan builder
         planned.url, method="GET", headers={"User-Agent": "mstr-t028-acquire/1"}
     )
     try:
-        with urllib.request.urlopen(req) as resp, dest.open("wb") as fh:  # noqa: S310
+        with opener.open(req) as resp, dest.open("wb") as fh:  # noqa: S310
             while True:
                 chunk = resp.read(CHUNK)
                 if not chunk:
@@ -84,6 +99,7 @@ def _fetch_verified(planned, workdir: Path) -> dict:
         "size_bytes": size,
         "model_repo": planned.model_repo,
         "model_revision": planned.model_revision,
+        "redirect_hosts": sorted(set(recorder.hosts)),
     }
 
 
