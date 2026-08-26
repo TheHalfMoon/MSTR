@@ -453,6 +453,6 @@
     "model_visible": false,
     "source": "harness",
     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    "prev_event_sha256": null
+    "prev_event_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
   }
 }

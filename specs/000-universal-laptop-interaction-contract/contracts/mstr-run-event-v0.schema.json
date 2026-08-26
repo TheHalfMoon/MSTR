@@ -13,7 +13,8 @@
     "payload",
     "model_visible",
     "source",
-    "prev_event_sha256"
+    "prev_event_sha256",
+    "sha256"
   ],
   "properties": {
     "schema_version": {
@@ -80,15 +81,12 @@
     "sha256": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$",
-      "description": "SHA-256 of canonical event bytes; mandatory for deterministic replay integrity."
+      "description": "SHA-256 of the canonical UTF-8 serialization of the event object with the sha256 and prev_event_sha256 fields REMOVED, keys sorted lexicographically, separators set to (',', ':'), ensure_ascii=True. This is the deterministic canonical-bytes hash that replay uses for chain verification."
     },
     "prev_event_sha256": {
-      "type": [
-        "string",
-        "null"
-      ],
+      "type": "string",
       "pattern": "^[a-f0-9]{64}$",
-      "description": "SHA-256 of the immediately preceding event in the run; null only for seq=0. Enables chain-integrity verification."
+      "description": "SHA-256 of the immediately preceding event. Mandatory for all events with seq > 0. The seq=0 event MUST set this to the null-bearing sentinel '0' * 64 (all zeros), not JSON null."
     }
   },
   "allOf": [

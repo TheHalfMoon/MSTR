@@ -22,25 +22,71 @@
     "effect_envelope_id"
   ],
   "properties": {
-    "schema_version": {"const": "mstr.loop-contract.v0"},
-    "loop_id": {"type": "string", "minLength": 1},
-    "interaction_contract_id": {"type": "string", "minLength": 1},
-    "tool_surface_id": {"type": "string", "minLength": 1},
-    "context_policy_id": {"type": "string", "minLength": 1},
-    "edit_policy_id": {"type": "string", "minLength": 1},
-    "verifier_policy_id": {"type": "string", "minLength": 1},
-    "effect_envelope_id": {"type": "string", "minLength": 1},
-    "max_steps": {"type": "integer", "minimum": 1},
-    "max_tool_calls": {"type": "integer", "minimum": 1},
-    "max_repairs": {"type": "integer", "minimum": 0},
-    "timeout_seconds": {"type": "integer", "minimum": 1},
+    "schema_version": {
+      "const": "mstr.loop-contract.v0"
+    },
+    "loop_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "interaction_contract_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tool_surface_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "context_policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "edit_policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "verifier_policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "effect_envelope_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "max_steps": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "max_tool_calls": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "max_repairs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "timeout_seconds": {
+      "type": "integer",
+      "minimum": 1
+    },
     "goal_policy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["ambiguity_behavior", "require_acceptance_criteria"],
+      "required": [
+        "ambiguity_behavior",
+        "require_acceptance_criteria"
+      ],
       "properties": {
-        "ambiguity_behavior": {"enum": ["clarify", "escalate", "bounded_inference"]},
-        "require_acceptance_criteria": {"type": "boolean"}
+        "ambiguity_behavior": {
+          "enum": [
+            "clarify",
+            "escalate",
+            "bounded_inference"
+          ]
+        },
+        "require_acceptance_criteria": {
+          "type": "boolean"
+        }
       }
     },
     "stop_policy": {
@@ -52,11 +98,18 @@
         "allow_escalation"
       ],
       "properties": {
-        "success_requires_independent_verifier": {"const": true},
-        "success_terminal_classes": {
-          "const": ["VERIFIED_SUCCESS", "RECOVERED_SUCCESS"]
+        "success_requires_independent_verifier": {
+          "const": true
         },
-        "allow_escalation": {"type": "boolean"}
+        "success_terminal_classes": {
+          "const": [
+            "VERIFIED_SUCCESS",
+            "RECOVERED_SUCCESS"
+          ]
+        },
+        "allow_escalation": {
+          "type": "boolean"
+        }
       }
     },
     "recovery_policy": {
@@ -67,8 +120,28 @@
         "require_failure_classification"
       ],
       "properties": {
-        "retry_same_failed_action_without_new_evidence": {"const": false},
-        "require_failure_classification": {"type": "boolean"}
+        "retry_same_failed_action_without_new_evidence": {
+          "const": false
+        },
+        "require_failure_classification": {
+          "const": true
+        }
+      }
+    },
+    "trivial_task_fast_path": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of what qualifies as trivial."
+        }
       }
     }
   }
