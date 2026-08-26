@@ -1,5 +1,5 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/TheHalfMoon/MSTR/main/schemas/storage-amendment.schema.json",
   "title": "MSTR storage architecture amendment (mstr.storage-amendment.v1)",
   "description": "Records the zero-large-artifact founder environment decision and binds it to the exact frozen T027 weight-access manifest by path, id, and SHA-256. Candidate identities, revisions, hashes, rights, network scope, and cost ceilings are preserved unchanged; only artifact storage location/lifetime is amended.",

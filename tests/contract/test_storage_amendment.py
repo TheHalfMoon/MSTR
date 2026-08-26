@@ -65,7 +65,6 @@ def test_founder_mac_is_zero_large_artifact(amendment: dict) -> None:
     assert amendment["policy"]["supersedes_local_retention_clause"] is True
     mac_receives = set(amendment["mac_receives"])
     assert {"MANIFESTS", "HASHES", "EVIDENCE", "REPORTS"} <= mac_receives
-    blob = json.dumps(amendment)
     assert "MODEL_BINARIES_ON_FOUNDER_MAC" in amendment["prohibitions"]
     assert "MODEL_BINARIES_IN_GIT" in amendment["prohibitions"]
 
@@ -116,7 +115,10 @@ def test_canonical_base_is_immutable_pin(amendment: dict) -> None:
             ),
             "amends_manifest.path",
         ),
-        (lambda m: m["policy"].update(founder_mac_large_artifacts="SOME"), "founder_mac_large_artifacts"),
+        (
+            lambda m: m["policy"].update(founder_mac_large_artifacts="SOME"),
+            "founder_mac_large_artifacts",
+        ),
         (lambda m: m["approved_executors"][0].update(monetary_cost="USD 5.00"), "monetary_cost"),
         (lambda m: m["ephemeral_runner_contract"].update(fetch_method="ANY_HTTP"), "fetch_method"),
         (lambda m: m["cost_ceiling"].update(acquisition_cost="USD 1.00"), "acquisition_cost"),
