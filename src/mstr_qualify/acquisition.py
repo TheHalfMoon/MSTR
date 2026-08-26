@@ -58,7 +58,7 @@ def build_acquisition_plan(t027_manifest: dict[str, Any]) -> tuple[PlannedFile, 
     plan: list[PlannedFile] = []
     for candidate in t027_manifest["candidates"]:
         rights = candidate.get("rights_decision", "")
-        if not isinstance(rights, str) or "READY_FOR_T028" not in rights:
+        if not isinstance(rights, str) or rights != "READY_FOR_T028":
             raise QualificationError(
                 "candidate lacks a passing rights decision; refusing to acquire",
                 code="acquisition.rights_gate_failed",
