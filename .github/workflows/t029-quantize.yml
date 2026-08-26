@@ -1,0 +1,63 @@
+# MSTR T029 — ephemeral Q4 quantization runner.
+#
+# Executes inside a single-job GitHub Actions VM per
+# docs/canonical/STORAGE_ARCHITECTURE.md: re-acquires pinned source from
+# upstream, converts HF→GGUF F16, quantizes to Q4_K_M + Q4_K_S via llama.cpp
+# at a pinned commit, hashes all outputs, emits durable JSON report, deletes
+# binaries before exit.
+
+name: t029-quantize
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate:
+        description: "Candidate id from artifacts/manifests/T027-weight-access.json"
+        required: true
+        type: string
+      llama_cpp_commit:
+        description: "Exact 40-hex llama.cpp commit to pin"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  quantize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install cmake build toolchain
+        run: sudo apt-get update && sudo apt-get install -y cmake build-essential
+
+      - name: Acquire source → convert → quantize (fail-closed verify)
+        env:
+          CANDIDATE: ${{ inputs.candidate }}
+          LC_COMMIT: ${{ inputs.llama_cpp_commit }}
+        run: |
+          python colab/mstr_t029_quantize.py \
+            --t027-manifest artifacts/manifests/T027-weight-access.json \
+            --candidate "$CANDIDATE" \
+            --llama-cpp-commit "$LC_COMMIT" \
+            --workdir "$RUNNER_TEMP/mstr_t029_work" \
+            --report "reports/t029-$CANDIDATE.json"
+
+      - name: Upload durable manifest only (binaries never leave the runner)
+        uses: actions/upload-artifact@v4
+        with:
+          name: t029-q4-${{ inputs.candidate }}
+          path: reports/
+          if-no-files-found: error
+
+      - name: Delete all local binary copies (defense in depth)
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/mstr_t029_work"
