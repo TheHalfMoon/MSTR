@@ -29,7 +29,7 @@ The workstream freezes/qualifies:
 - append-oriented replayable run log;
 - neutral minimal harness;
 - MSTR-native harness;
-- WePLD-native adapter;
+- WePLD-native adapter or an explicit governed deferral with evidence;
 - environment bootstrap/admission MVP;
 - independent verifier/finalizer MVP;
 - Direction-to-Done v0;
@@ -84,6 +84,26 @@ DEFAULT_MULTI_AGENT = NO
 - Research donors are references, not automatic dependencies.
 - MSTR-000B supplies product-aligned candidate, data/curriculum, verifier-health, Q4 and research-promotion requirements before convergence/training.
 
+## WePLD Adapter Reporting Rule
+
+A valid governed deferral MUST NOT invent an adapter ID.
+
+At closeout report:
+
+```text
+WEPLD_ADAPTER_STATUS = QUALIFIED | DEFERRED
+
+if QUALIFIED:
+  WEPLD_ADAPTER_ID = <exact adapter id/version>
+  WEPLD_ADAPTER_DEFERRAL_EVIDENCE = N/A
+
+if DEFERRED:
+  WEPLD_ADAPTER_ID = N/A
+  WEPLD_ADAPTER_DEFERRAL_EVIDENCE = <exact canonical evidence path/id>
+```
+
+A deferral is valid only where the active task/spec explicitly permits it and the evidence records the blocking reason and downstream effect.
+
 ## Required Final Founder Report
 
 At MSTR-000A closeout, report:
@@ -95,7 +115,9 @@ EVENT_LOG_VERSION
 AGENT_STATE_VERSION
 NEUTRAL_HARNESS_ID
 MSTR_HARNESS_ID
+WEPLD_ADAPTER_STATUS
 WEPLD_ADAPTER_ID
+WEPLD_ADAPTER_DEFERRAL_EVIDENCE
 ENVIRONMENT_MVP_ID
 VERIFIER_MVP_ID
 VERIFIER_HEALTH_ID
