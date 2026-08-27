@@ -60,9 +60,17 @@ jobs:
           import json
           import subprocess
           from pathlib import Path
-          changed = set(subprocess.run(
+
+          tracked = set(subprocess.run(
               ['git', 'diff', '--name-only'], check=True, capture_output=True, text=True
           ).stdout.splitlines())
+          untracked = set(subprocess.run(
+              ['git', 'ls-files', '--others', '--exclude-standard'],
+              check=True,
+              capture_output=True,
+              text=True,
+          ).stdout.splitlines())
+          changed = tracked | untracked
           expected = {
               'evidence/mstr-000b/B003-drift-detector.md',
               'src/mstr_qualify/cli.py',
