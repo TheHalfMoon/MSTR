@@ -61,7 +61,11 @@
       "required": ["required", "authority_id", "satisfied", "reasons"],
       "properties": {
         "required": {"type": "boolean"},
-        "authority_id": {"type": ["string", "null"], "minLength": 1},
+        "authority_id": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "description": "Observed canonical authority record/envelope identity; validating this field never creates authority."
+        },
         "satisfied": {"type": "boolean"},
         "reasons": {"$ref": "#/$defs/reasonList"}
       },
@@ -81,7 +85,17 @@
         "superseded_by": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
         "satisfied": {"type": "boolean"},
         "reasons": {"$ref": "#/$defs/reasonList"}
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"superseded": {"const": true}}, "required": ["superseded"]},
+          "then": {"properties": {"superseded_by": {"minItems": 1}}}
+        },
+        {
+          "if": {"properties": {"superseded": {"const": false}}, "required": ["superseded"]},
+          "then": {"properties": {"superseded_by": {"maxItems": 0}}}
+        }
+      ]
     },
     "stateConsistencyResult": {
       "type": "object",
@@ -167,6 +181,7 @@
               {
                 "properties": {
                   "superseded": {"const": false},
+                  "superseded_by": {"maxItems": 0},
                   "satisfied": {"const": true},
                   "reasons": {"maxItems": 0}
                 }
