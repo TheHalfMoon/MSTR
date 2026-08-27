@@ -5,7 +5,7 @@
 **State:** IMPLEMENTATION_ACTIVE
 **Canonical base / entry-gate main:** `0754d552752c2f6c099df2b480de99028e2e26e5`
 **Implementation branch:** `feat/000b-b003-drift-detector`
-**Implementation PR:** NOT_YET_OPEN
+**Implementation PR:** `#50`
 
 B003 is not `COMPLETE_CANONICAL` in this implementation evidence. The canonical task checkbox and machine catalog remain `PENDING` until a separate post-merge closeout.
 
