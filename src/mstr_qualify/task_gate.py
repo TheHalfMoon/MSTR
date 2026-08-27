@@ -190,6 +190,14 @@ def load_task_catalog(
         )
 
     tasks_file = _repository_path(root, tasks_file_raw, field="tasks_file")
+    contained_tasks_file = _contained_existing_path(root, tasks_file)
+    if contained_tasks_file is None or not contained_tasks_file.is_file():
+        raise QualificationError(
+            "canonical task markdown must be a repository-contained regular file",
+            code="task_gate.tasks_file_invalid",
+            details={"path": str(tasks_file), "root": str(root)},
+        )
+    tasks_file = contained_tasks_file
     titles, checked = _parse_task_markdown(tasks_file)
     catalog_ids = set(tasks)
     unknown_unresolved = sorted(set(unresolved) - catalog_ids)

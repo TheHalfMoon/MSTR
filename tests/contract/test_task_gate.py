@@ -611,4 +611,64 @@ def test_authority_ceiling_requires_model_units_and_nonnegative_limits(tmp_path:
             canonical_main=_CANONICAL_MAIN,
         )
         assert result["eligible"] is False
-        assert result["authority_result"]["satisfied"] is False
+        assert result["authority_result"]["satisfied"] is False\
+
+
+def test_tasks_file_symlink_outside_repository_is_rejected(tmp_path: Path) -> None:
+    catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
+    tasks_path = tmp_path / "specs" / "002-code-model-supremacy-foundation" / "tasks.md"
+    outside = tmp_path.parent / f"{tmp_path.name}-outside-tasks.md"
+    outside.write_text(
+        "- [x] **B001 Root task.**\n- [ ] **B002 Target task.**\n",
+        encoding="utf-8",
+    )
+    tasks_path.unlink()
+    _symlink_or_skip(tasks_path, outside)
+
+    with pytest.raises(QualificationError) as captured:
+        load_task_catalog(catalog_path, repository_root=tmp_path)
+    assert captured.value.code == "task_gate.tasks_file_invalid"
+
+
+def test_external_symlink_cannot_satisfy_literal_required_evidence(tmp_path: Path) -> None:
+    catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
+    canonical_evidence = tmp_path / "evidence" / "B001.md"
+    outside = tmp_path.parent / f"{tmp_path.name}-outside-evidence.md"
+    outside.write_text("external evidence\n", encoding="utf-8")
+    canonical_evidence.unlink()
+    _symlink_or_skip(canonical_evidence, outside)
+
+    result = evaluate_task_snapshot(
+        "B002",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+    predecessor = result["prerequisite_results"][0]
+    assert result["eligible"] is False
+    assert predecessor["evidence_present"] is False
+    assert "prerequisite.required_artifact_missing" in predecessor["reasons"]
+
+
+def test_external_symlink_cannot_satisfy_globbed_required_evidence(tmp_path: Path) -> None:
+    catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
+    data = json.loads(catalog_path.read_text(encoding="utf-8"))
+    data["tasks"]["B001"]["evidence_outputs"] = ["evidence/*.md"]
+    catalog_path.write_text(json.dumps(data), encoding="utf-8")
+
+    canonical_evidence = tmp_path / "evidence" / "B001.md"
+    outside = tmp_path.parent / f"{tmp_path.name}-outside-glob-evidence.md"
+    outside.write_text("external evidence\n", encoding="utf-8")
+    canonical_evidence.unlink()
+    _symlink_or_skip(canonical_evidence, outside)
+
+    result = evaluate_task_snapshot(
+        "B002",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+    predecessor = result["prerequisite_results"][0]
+    assert result["eligible"] is False
+    assert predecessor["evidence_present"] is False
+    assert "prerequisite.required_artifact_missing" in predecessor["reasons"]
