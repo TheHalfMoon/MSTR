@@ -49,9 +49,9 @@ New runtime surface:
 src/mstr_qualify/state/agent_state.py
 ```
 
-The projector validates the original event chain through A003 `replay()` before deriving state. The
-projection records `source_seq` for every retained fact/observation and sets `derived_through_seq` to the
-last replayed event sequence.
+The projector validates the original event chain through A003 `replay()` before deriving state. Every
+retained fact/observation records `source_seq`, while `derived_through_seq` records the final replayed
+sequence even when a `context.compacted` event contributes no new factual state.
 
 Projected surfaces include:
 
@@ -73,26 +73,46 @@ next_action
 derived_through_seq
 ```
 
-## Epistemic boundary
+## Provenance and epistemic boundary
 
-`working_hypotheses` are structurally labeled `UNCERTAIN`. A hypothesis is never promoted into:
+`working_hypotheses` are structurally labeled `UNCERTAIN`. A hypothesis is never promoted into a factual
+context item, verifier PASS, or completion verdict.
 
-- a factual context item;
-- a verifier PASS;
-- a completion verdict.
-
-Known projection keys are type-checked fail-closed. Unknown event payload keys remain event-log evidence
+Known projection keys are type-checked fail-closed. Unknown payload keys remain durable event-log evidence
 but do not become AgentState facts merely because they exist.
+
+Projection additionally enforces event-source authority for state-changing observations:
+
+```text
+run.goal_admitted -> user | harness | system
+context.observed  -> user | harness | tool | environment | system
+plan.updated      -> model | harness | system
+tool.result       -> tool | harness | environment | system
+edit.*            -> tool | harness | environment | system
+verifier.result   -> verifier only
+recovery.result   -> harness | tool | verifier | system
+run.failed/escalated -> harness | verifier | system
+```
+
+A model-authored `verifier.result` or `edit.applied` therefore fails with
+`state.source_not_authoritative` rather than becoming evidence.
+
+`tool.requested` is intentionally **not** projected into `commands_run`: a request proves intent, while an
+observed `tool.result` proves that an execution path actually returned a result.
+
+`context.compacted` is deliberately ignored as a factual projection input. It may remain part of the
+durable/model-visible event stream, but reprojecting facts from a summary would create circular state
+authority. AgentState is reconstructed from the underlying original events instead.
 
 Conflicting admitted goals are rejected instead of silently replacing the run goal.
 
 ## Failure preservation
 
 A004 keeps verifier outcomes as observations and separately records non-PASS verifier outcomes in
-`known_failures`. A later PASS from the same verifier does not delete the earlier failure evidence.
+`known_failures`. A later PASS from the same verifier does not delete earlier failure evidence.
 
-The projector also records edit rejection, failed tool results, failed recovery and terminal failure or
-escalation as failure evidence where the corresponding events carry those observations.
+The projector also records edit rejection, failed tool results, failed recovery, terminal failure and
+escalation as failure evidence when authoritative events carry those observations.
 
 ## Bounded compaction
 
@@ -120,7 +140,7 @@ If critical state exceeds `max_critical_items`, compaction fails closed with:
 state.critical_overflow
 ```
 
-This is deliberate: A004 will not meet a context budget by erasing safety/recovery-relevant facts.
+A004 therefore will not satisfy a context budget by erasing safety/recovery-relevant facts.
 
 Compactable history is limited independently:
 
@@ -132,8 +152,8 @@ historical PASS verifier results
 ```
 
 When old compactable entries are omitted, the returned state includes an auditable `CompactionRecord`
-containing field name, omitted count and deterministic SHA-256 over the omitted structured entries.
-The most recent allowed entries remain visible.
+containing field name, omitted count and deterministic SHA-256 over the omitted structured entries. The
+most recent allowed entries remain visible.
 
 ## Adversarial fixture and tests
 
@@ -143,22 +163,13 @@ Fixture:
 tests/fixtures/harness/a004-adversarial-state.json
 ```
 
-The fixture intentionally contains:
-
-- a failed tool command;
-- a verifier FAIL followed later by PASS;
-- changed files;
-- context volume exceeding a small test compaction budget;
-- hypotheses that sound like success but remain unverified;
-- remaining work after targeted verification.
-
 Test source:
 
 ```text
 tests/unit/harness/test_agent_state.py
 ```
 
-The tests are written to check:
+The current tests are written to check:
 
 1. deterministic projection of required state;
 2. explicit uncertainty retention;
@@ -166,11 +177,31 @@ The tests are written to check:
 4. changed-file/failure/remaining-work preservation through compaction;
 5. deterministic omission digests;
 6. critical-overflow rejection;
-7. conflicting-goal rejection;
-8. malformed projection payload rejection;
-9. tampered A003 event-chain rejection;
-10. edit/tool failure retention;
-11. empty-log rejection.
+7. requested command is not misreported as a run command;
+8. observed `tool.result` produces command history;
+9. model-authored verifier evidence rejection;
+10. model-authored applied-edit fact rejection;
+11. `context.compacted` cannot reintroduce facts;
+12. conflicting-goal rejection;
+13. malformed projection payload rejection;
+14. tampered A003 event-chain rejection;
+15. edit/tool failure retention;
+16. empty-log rejection.
+
+## Static review reconciliation
+
+Qodo's first exact-head review identified two material defects:
+
+```text
+FINDING_1 = tool.requested incorrectly populated commands_run
+FINDING_2 = verifier.result lacked source provenance enforcement
+```
+
+Both were corrected before the next review head. A004 also proactively hardened `edit.applied` source
+provenance and made `context.compacted` non-authoritative for factual reprojection. Ruff E501 candidates
+noted by the reviewer were reformatted under the repository's 100-character line policy.
+
+A new exact-head review is required after these mutations; the prior review is stale.
 
 ## Validation truth
 
@@ -193,7 +224,7 @@ A004 must remain `NOT_COMPLETE_CANONICAL` and must not merge until exact-head ga
 
 ```text
 A004_IMPLEMENTATION = PRESENT_ON_FEATURE_BRANCH
-A004_STATIC_REVIEW = PENDING
+A004_STATIC_REVIEW = PENDING_REVIEW_OF_CURRENT_HEAD
 A004_QUALITY_GATES = NOT_RUN
 A004_COMPLETE_CANONICAL = NO
 TASK_CHECKBOX_UPDATED = NO
