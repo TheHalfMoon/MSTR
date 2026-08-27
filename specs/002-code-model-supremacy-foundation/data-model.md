@@ -14,6 +14,7 @@ TaskNode
 - outputs[]
 - evidence_outputs[]
 - candidate_dependent
+- candidate_pool_requirement_id?
 - external_effect_class
 - required_authority_id?
 - parallel_safe
@@ -21,6 +22,31 @@ TaskNode
 - superseded_by[]
 - closeout_rule
 ```
+
+### Authority mapping
+
+`candidate_dependent=true` does **not** by itself create external-effect authority. It MUST instead carry a non-null `candidate_pool_requirement_id` identifying the canonical candidate pool/evidence prerequisite that must be satisfied before execution.
+
+`required_authority_id` is fail-closed according to `external_effect_class`:
+
+```text
+NO_EXTERNAL_EFFECT                -> required_authority_id MAY be null
+PUBLIC_METADATA_READ              -> required_authority_id MAY be null when the canonical task itself permits the read
+TOKENIZER_METADATA_OR_SMALL_FILES -> required_authority_id MAY be null when the canonical task itself permits the read and no model-weight file is accessed
+
+MODEL_WEIGHT_ACCESS               -> required_authority_id MUST be non-null
+GATED_TERMS_ACCEPTANCE             -> required_authority_id MUST be non-null
+PAID_MODEL_API_EXECUTION           -> required_authority_id MUST be non-null
+PAID_COMPUTE                       -> required_authority_id MUST be non-null
+RENTED_COMPUTE                     -> required_authority_id MUST be non-null
+LARGE_DATASET_INGESTION            -> required_authority_id MUST be non-null
+WEIGHT_CHANGING_TRAINING           -> required_authority_id MUST be non-null
+LONG_TRAINING                      -> required_authority_id MUST be non-null
+LARGE_SCALE_RL                     -> required_authority_id MUST be non-null
+PRODUCTION_RELEASE                 -> required_authority_id MUST be non-null
+```
+
+B002 contract fixtures MUST include every authority-gated class with `required_authority_id` missing and MUST produce `eligible=false`. Candidate-dependent fixtures with a missing `candidate_pool_requirement_id` MUST also produce `eligible=false` even when `external_effect_class=NO_EXTERNAL_EFFECT`.
 
 ## 2. TaskEligibilityResult
 
@@ -139,16 +165,23 @@ SelfAlignmentGeneration
 - generation_id
 - student_model_identity
 - seed_identity
+- seed_provenance
+- seed_rights_decision
 - generated_task
 - generated_solutions[]
 - generated_tests[]
+- generated_artifact_provenance[]
+- generated_artifact_rights_decisions[]
 - environment_identity
 - execution_results[]
 - verifier_health
 - contamination_status
 - difficulty_record
 - admission_decision
+- admission_reasons[]
 ```
+
+`admission_decision=ADMIT` is valid only when seed provenance is complete, seed rights are compatible, every generated artifact has bound provenance and compatible rights, contamination is clear, execution evidence is valid, verifier health satisfies the stage threshold, and the difficulty record matches the exact student/harness/sampling identity. Missing or unresolved evidence fails closed.
 
 ## 8. TeacherRescueRecord
 
@@ -161,11 +194,16 @@ TeacherRescueRecord
 - teacher_terms_identity
 - cost_record
 - teacher_outputs[]
+- output_provenance[]
+- output_rights_decisions[]
+- contamination_status
 - independent_execution_results[]
 - verifier_health
-- provenance
 - admission_decision
+- admission_reasons[]
 ```
+
+A teacher's identity or terms record is not an output-rights decision. `ADMIT` requires compatible rights for every concrete output, clear contamination status, exact provenance, independent execution, and stage-eligible verifier health. Any unresolved right, provenance, or contamination state fails closed.
 
 ## 9. DifficultyCalibrationRecord
 
@@ -234,13 +272,19 @@ TestGenerationExample
 - base_revision
 - behavior_contract
 - generated_test_patch
+- generated_test_provenance
+- generated_test_rights_decision
+- contamination_status
 - pre_fix_result
 - post_fix_result
 - mutation_strength
 - protected_path_status
 - verifier_health_id
 - admission_decision
+- admission_reasons[]
 ```
+
+`ADMIT` requires complete provenance, compatible rights, clear contamination status, healthy-enough verifier identity, protected-path integrity, and the required pre-fix-fail/post-fix-pass or other task-specific behavioral proof. Passing tests alone is insufficient.
 
 ## 12. GreenfieldTaskManifest
 
@@ -269,7 +313,49 @@ G4_BOUNDED_PROGRAM
 G5_MULTI_ROUND_EVOLUTION
 ```
 
-## 13. ResearchExperimentRecordV2
+## 13. MaterialResultIdentity
+
+Every material research result serializes exact identity rather than hiding it in a generic result blob.
+
+```text
+MaterialResultIdentity
+- result_id
+- model_id_or_na
+- model_revision_or_na
+- model_artifact_sha256_or_na
+- tokenizer_id_or_na
+- tokenizer_revision_or_na
+- quantization_method_or_na
+- quantizer_tool_revision_or_na
+- runtime_id_or_na
+- runtime_version_or_commit_or_na
+- runtime_build_flags_or_na
+- os_identity_or_na
+- cpu_identity_or_na
+- total_ram_bytes_or_na
+- thread_count_or_na
+- acceleration_backend_or_na
+- context_length_or_na
+- cache_state_or_na
+- interaction_contract_version_or_na
+- loop_contract_version_or_na
+- harness_profile_id_or_na
+- task_manifest_id
+- verifier_manifest_id
+- verifier_health_id_or_na
+- sampling_config_id_or_na
+- seed_or_na
+- result_classification
+- metrics
+- wall_time_seconds_or_na
+- resource_cost
+- paid_cost_usd
+- invalidation_reason_or_na
+```
+
+Fields that do not apply MUST carry an explicit `N/A`/not-applicable value rather than disappearing. A material comparison with a missing required identity is invalid.
+
+## 14. ResearchExperimentRecordV2
 
 ```text
 ResearchExperimentRecordV2
@@ -282,11 +368,11 @@ ResearchExperimentRecordV2
 - frozen_evaluation_identity
 - fidelity_level
 - budget
-- results
+- material_results[] : MaterialResultIdentity
 - hard_gate_results
 - promotion_decision
 - decision_reason
-- resource_cost
+- aggregate_resource_cost
 ```
 
 Fidelity:
@@ -299,7 +385,7 @@ L3_DIRECTION_TO_DONE
 L4_Q4_UNIVERSAL_LAPTOP
 ```
 
-## 14. TrainingMethodCell
+## 15. TrainingMethodCell
 
 ```text
 TrainingMethodCell
@@ -320,7 +406,33 @@ TrainingMethodCell
 - status
 ```
 
-## 15. RepositoryHealthRecord
+## 16. Q4PromotionRecord
+
+A checkpoint may become a parent of a later material weight-changing stage only through a successful Q4 promotion record.
+
+```text
+Q4PromotionRecord
+- source_training_run_id
+- source_checkpoint_sha256
+- merged_master_sha256
+- export_tool_id
+- export_tool_revision
+- export_recipe_hash
+- quantizer_tool_id
+- quantizer_tool_revision
+- quantization_recipe_hash
+- canonical_q4_artifact_sha256
+- artifact_integrity_status
+- q4_regression_manifest_id
+- q4_regression_result
+- universal_laptop_gate_result
+- promotion_status
+- rejection_reasons[]
+```
+
+`promotion_status=PROMOTED` is fail-closed unless merged-master export succeeds, both master and Q4 artifact hashes are verified, export/quantization tool revisions and recipes are pinned, required Q4 regressions pass, and the applicable universal-laptop hard gate passes. A BF16/FP16/master-only gain cannot become the parent checkpoint of the next material stage.
+
+## 17. RepositoryHealthRecord
 
 ```text
 RepositoryHealthRecord
@@ -340,7 +452,7 @@ RepositoryHealthRecord
 - normalized_health_class
 ```
 
-## 16. CandidatePoolDecision
+## 18. CandidatePoolDecision
 
 ```text
 CandidatePoolDecision
