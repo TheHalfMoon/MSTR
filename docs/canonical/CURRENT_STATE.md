@@ -7,14 +7,14 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_AT_LATEST_RECONCILIATION = 5693749dd560979496efad488789ec35b2c2a84d
-CANONICAL_TREE = 05d1b3b34a87776b85c3ed7f9b0f68590917f274
+CANONICAL_MAIN_AT_LATEST_RECONCILIATION = 2c02eb68a32264c86f69eb7ffc1c99ad87328376
+CANONICAL_TREE = 4d0688aaabb903d7bcfdf15728bcd138ce179fcc
 PROJECT_PHASE = PRETRAINING_FOUNDATION / MSTR-000A_EARLY_IMPLEMENTATION + MSTR-000B_PLANNING
 ACTIVE_IMPLEMENTATION_SPEC = MSTR-000A
-ACTIVE_IMPLEMENTATION_TASK = A003_EVENT_LOG_REPLAY / PR_38_OPEN
+ACTIVE_IMPLEMENTATION_TASK = A004_AGENT_STATE / NEXT_ELIGIBLE_AFTER_A003
 PLANNING_SPEC = MSTR-000B_CODE_MODEL_SUPREMACY_FOUNDATION
-OPEN_PR_AT_RECONCILIATION = #38
-PR_38_HEAD = 41122ae8dee65b2a6b3c6b188cf335d74088b06f
+OPEN_PLANNING_PR_AT_RECONCILIATION = #39
+PR_39_BRANCH = docs/002-code-model-supremacy-foundation
 ```
 
 Live GitHub truth overrides this snapshot.
@@ -46,7 +46,7 @@ WINDOWS + LINUX + MACOS = REQUIRED_PLATFORM_FAMILIES
 FOUNDER_MAC_LARGE_ARTIFACTS = ZERO
 ```
 
-## Canonical History Through A002
+## Canonical History Through A003
 
 ```text
 T000-T028 = COMPLETE_CANONICAL
@@ -54,6 +54,7 @@ T029 = IMPLEMENTATION_MERGED_PREVIOUSLY / CANONICAL_RECONCILIATION_STATUS MUST B
 
 A001 = COMPLETE_CANONICAL / LOOP_CONTRACT_V0
 A002 = COMPLETE_CANONICAL / RUN_EVENT_V0
+A003 = COMPLETE_CANONICAL / EVENT_LOG_AND_DETERMINISTIC_REPLAY
 ```
 
 A001/A002 canonical implementation:
@@ -69,18 +70,38 @@ HISTORICAL_HEAD_GATES_REPORTED_BY_PR:
   offline validate = exit 0 / 8 schemas
 ```
 
-Historical head gates do not transfer to later heads.
-
-## Active PR #38
+A003 canonical implementation:
 
 ```text
-TASK = MSTR-000A / A003
-TITLE = feat(mstr-000a): implement A003 — event log + deterministic replay
+PR #38
 HEAD = 41122ae8dee65b2a6b3c6b188cf335d74088b06f
-STATE = OPEN / READY / MERGEABLE at latest reconciliation
+MERGE = 2c02eb68a32264c86f69eb7ffc1c99ad87328376
+SCOPE:
+  integrity-chained append-oriented event log
+  monotonic sequence validation
+  deterministic replay
+  model-visible history reconstruction
+HISTORICAL_HEAD_GATES_REPORTED_BY_PR:
+  pytest = 372 passed
+  ruff = clean
+  mypy strict = clean
+  offline validate = exit 0
+EXTERNAL_REVIEW_NOTE:
+  Qodo high-level assessment was positive
+  CodeRabbit review was rate-limited and is NOT claimed as PASS
 ```
 
-PR #38 is separate from the MSTR-000B planning branch. Do not mutate or merge it from unrelated planning work.
+Historical head gates do not transfer to later heads. No CI PASS is claimed for PR #38.
+
+## MSTR-000A Next State
+
+A003 is no longer active. Under the early-safe sequence amendment proposed by MSTR-000B, the next model-independent task is:
+
+```text
+A004 = AgentState projection + bounded compaction
+```
+
+A004 must still satisfy its exact canonical prerequisites at execution time. Candidate-dependent A019-A024 remain convergence-gated and may not consume an incomplete or incomparable candidate pool.
 
 ## Governance Drift and Resolution
 
@@ -90,7 +111,7 @@ The earlier MSTR-000A package declared a blanket:
 ENTRY_GATE = T034_COMPLETE_CANONICAL
 ```
 
-However A001/A002 were implemented and merged before that blanket gate was reconciled. The repository must not hide this fact.
+However A001-A003 were implemented and merged before that blanket gate was reconciled. The repository must not hide this fact.
 
 The MSTR-000B planning amendment resolves the inconsistency by replacing the coarse gate with exact task classes:
 
@@ -102,7 +123,7 @@ CONVERGENCE_MSTR_000A = A019-A024 only after stable/equivalent candidate qualifi
 
 MSTR-000B also requires a machine task/dependency eligibility validator so future autonomous execution cannot rely on prose sequencing alone.
 
-Until the planning amendment is merged, it is evidence only; live main remains canonical.
+Until PR #39 is reviewed and merged, the MSTR-000B planning amendment is evidence only; live `main` remains canonical.
 
 ## MSTR-000B Planning
 
@@ -110,6 +131,7 @@ Planning branch at this checkpoint:
 
 ```text
 BRANCH = docs/002-code-model-supremacy-foundation
+PR = #39
 WORKSTREAM = MSTR-000B
 TITLE = Code Model Supremacy Pre-Training Foundation
 WEIGHT_CHANGING_TRAINING = NOT_AUTHORIZED
@@ -144,7 +166,7 @@ The historical T021 scan excluded many specialized variants while the current mi
 
 MSTR-000B requires a new metadata rescan that treats code-specialized base/foundation models as first-class candidates.
 
-`JetBrains/Mellum-4b-base` is a mandatory review candidate because it is a concrete 4B/8K/code-specialized Apache-2.0 base that was absent from the existing pool. It is NOT preselected or authorized for weight access.
+`JetBrains/Mellum-4b-base` is a mandatory review candidate because it is a concrete compact code-specialized base that was absent from the existing pool. It is NOT preselected or authorized for weight access.
 
 New candidate weight access outside the existing T027/T028 envelope requires a new exact founder authorization.
 
