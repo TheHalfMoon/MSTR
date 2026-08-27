@@ -7,14 +7,15 @@
 ```text
 REPOSITORY = TheHalfMoon/MSTR
 CANONICAL_BRANCH = main
-CANONICAL_MAIN_AT_LATEST_RECONCILIATION = 2c02eb68a32264c86f69eb7ffc1c99ad87328376
-CANONICAL_TREE = 4d0688aaabb903d7bcfdf15728bcd138ce179fcc
-PROJECT_PHASE = PRETRAINING_FOUNDATION / MSTR-000A_EARLY_IMPLEMENTATION + MSTR-000B_PLANNING
-ACTIVE_IMPLEMENTATION_SPEC = MSTR-000A
-ACTIVE_IMPLEMENTATION_TASK = A004_AGENT_STATE / NEXT_ELIGIBLE_AFTER_A003
-PLANNING_SPEC = MSTR-000B_CODE_MODEL_SUPREMACY_FOUNDATION
-OPEN_PLANNING_PR_AT_RECONCILIATION = #39
-PR_39_BRANCH = docs/002-code-model-supremacy-foundation
+CANONICAL_MAIN_AT_LATEST_RECONCILIATION = d0e90740924f6991da361536e7f835eb55ae9145
+CANONICAL_TREE = c602b5142a31abe55d3519913f5badfaa27469cc
+PROJECT_PHASE = PRETRAINING_FOUNDATION / MSTR-000A_EARLY_SAFE + MSTR-000B_GOVERNANCE_EXECUTION
+ACTIVE_IMPLEMENTATION_SPEC = MSTR-000B
+ACTIVE_IMPLEMENTATION_TASK = B004_000A_SEQUENCE_RECONCILIATION / ENTRY_GATE_PROVEN
+PLANNING_SPEC = NONE_SEPARATE / MSTR-000B_CANONICAL
+MSTR_000B_PLANNING_PR = #39 / MERGED e1b3cbd74ae0a74a80e3f345faef56da13818149
+LAST_COMPLETE_MSTR_000B_TASK = B003 / CLOSEOUT_MERGE d0e90740924f6991da361536e7f835eb55ae9145
+NEXT_ELIGIBLE_MSTR_000B_TASK = B004
 ```
 
 Live GitHub truth overrides this snapshot.
@@ -46,7 +47,7 @@ WINDOWS + LINUX + MACOS = REQUIRED_PLATFORM_FAMILIES
 FOUNDER_MAC_LARGE_ARTIFACTS = ZERO
 ```
 
-## Canonical History Through A003
+## Canonical History Through A004
 
 ```text
 T000-T028 = COMPLETE_CANONICAL
@@ -55,6 +56,9 @@ T029 = IMPLEMENTATION_MERGED_PREVIOUSLY / CANONICAL_RECONCILIATION_STATUS MUST B
 A001 = COMPLETE_CANONICAL / LOOP_CONTRACT_V0
 A002 = COMPLETE_CANONICAL / RUN_EVENT_V0
 A003 = COMPLETE_CANONICAL / EVENT_LOG_AND_DETERMINISTIC_REPLAY
+A004 = COMPLETE_CANONICAL / AGENT_STATE_PROJECTION_AND_BOUNDED_COMPACTION
+A005-A018 = PENDING / EARLY_SAFE_ONLY_WHEN_EXACT_PREREQUISITES_PASS
+A019-A024 = PENDING / CONVERGENCE_GATED
 ```
 
 A001/A002 canonical implementation:
@@ -93,15 +97,21 @@ EXTERNAL_REVIEW_NOTE:
 
 Historical head gates do not transfer to later heads. No CI PASS is claimed for PR #38.
 
-## MSTR-000A Next State
-
-A003 is no longer active. Under the early-safe sequence amendment proposed by MSTR-000B, the next model-independent task is:
+A004 canonical implementation and closeout:
 
 ```text
-A004 = AgentState projection + bounded compaction
+IMPLEMENTATION_PR = #45
+FINAL_IMPLEMENTATION_HEAD = d0098548766232c9fa1a879941978d1735ef9e4a
+IMPLEMENTATION_MERGE = 564096fc9e8ec3e2b0aa9505926e15f66b00ce74
+CLOSEOUT_PR = #46
+CLOSEOUT_HEAD = c91d603ab3175260348706b3f879b86900511510
+CLOSEOUT_MERGE = c2d0ee8a6b9d47275c4d309cd187c1ed0d35fb02
+STATE = COMPLETE_CANONICAL
 ```
 
-A004 must still satisfy its exact canonical prerequisites at execution time. Candidate-dependent A019-A024 remain convergence-gated and may not consume an incomplete or incomparable candidate pool.
+## MSTR-000A Next State
+
+A001-A004 are canonical. The next MSTR-000A early-safe task is A005, but B004 does not execute or authorize A005. A005-A018 remain individually gated by their exact prerequisites and the machine task validator where represented. Candidate-dependent A019-A024 remain convergence-gated and may not consume an incomplete or incomparable candidate pool.
 
 ## Governance Drift and Resolution
 
@@ -123,17 +133,19 @@ CONVERGENCE_MSTR_000A = A019-A024 only after stable/equivalent candidate qualifi
 
 MSTR-000B also requires a machine task/dependency eligibility validator so future autonomous execution cannot rely on prose sequencing alone.
 
-Until PR #39 is reviewed and merged, the MSTR-000B planning amendment is evidence only; live `main` remains canonical.
+PR #39 merged as `e1b3cbd74ae0a74a80e3f345faef56da13818149`; the MSTR-000B sequence amendment is canonical. B004 records the later live reconciliation after A004 and the B001-B003 governance chain. It does not rewrite or reopen A001-A004.
 
-## MSTR-000B Planning
-
-Planning branch at this checkpoint:
+## MSTR-000B Canonical Foundation
 
 ```text
-BRANCH = docs/002-code-model-supremacy-foundation
-PR = #39
+PLANNING_PR = #39 / MERGED
+PLANNING_MERGE = e1b3cbd74ae0a74a80e3f345faef56da13818149
 WORKSTREAM = MSTR-000B
 TITLE = Code Model Supremacy Pre-Training Foundation
+B001 = COMPLETE_CANONICAL
+B002 = COMPLETE_CANONICAL
+B003 = COMPLETE_CANONICAL
+B004 = ENTRY_GATE_PROVEN / IMPLEMENTATION_ACTIVE
 WEIGHT_CHANGING_TRAINING = NOT_AUTHORIZED
 NEW_WEIGHT_ACCESS = NOT_AUTHORIZED_BY_PLANNING_ALONE
 PAID_COMPUTE = NOT_AUTHORIZED
