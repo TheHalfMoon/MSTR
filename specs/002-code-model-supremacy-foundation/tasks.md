@@ -18,11 +18,17 @@ EARLY_SAFE:
 B001-B009, B014-B025 may execute when their exact prerequisites are satisfied and they do not access new model weights or ingest large corpora.
 
 CANDIDATE_EXTERNAL_EFFECT:
-B010-B012 require their exact authority/inputs. If B010 proves no new candidate requires weight access, B011/B012 may close as NOT_REQUIRED with explicit evidence and no external effect.
+B010-B012 require their exact authority/inputs.
 
 CONVERGENCE:
 B013, B026-B030 require the stable evidence defined below.
 ```
+
+### Machine-gate bootstrap and enforcement
+
+B001 and B002 are the only bootstrap exception because B002 does not exist before it is implemented. They MUST be executed under the manually verified prerequisites in this file and ordinary exact-head governance.
+
+Once B002 is `COMPLETE_CANONICAL`, **every material B003+ task execution and every corresponding merge MUST have a successful exact-main task-eligibility result**. `eligible=false`, validator failure, unresolved prerequisite, supersession, missing authority, candidate-pool mismatch, or canonical-state drift is a hard stop. The validator verifies authority; it never creates authority.
 
 MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 must consume the stable candidate/data/governance outputs required by this package.
 
@@ -31,19 +37,19 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
 # Phase G — Machine Governance and Drift Prevention
 
 - [ ] **B001 Freeze machine-readable TaskNode / TaskEligibilityResult contracts.**  
-  Define task state, prerequisites, outputs, supersession, external-effect class, required authority, candidate dependency, and closeout rules.  
+  Define task state, prerequisites, outputs, supersession, external-effect class, authority mapping, candidate-pool requirements, and closeout rules. Include fixtures for every authority-gated external-effect class missing `required_authority_id`, and candidate-dependent tasks missing `candidate_pool_requirement_id`; each must fail closed.  
   Outputs: `schemas/mstr-task-node-v0.schema.json`, `schemas/mstr-task-eligibility-v0.schema.json`, fixtures, `evidence/mstr-000b/B001-task-contract.md`.
 
 - [ ] **B002 Implement offline task eligibility validator.**  
-  Conceptual CLI: `python -m mstr_qualify task eligible <TASK_ID>`. Fail closed on missing predecessor, stale/superseded task, missing explicit authority, candidate-pool prerequisite, or canonical-state conflict. Validator performs no mutation.  
+  Conceptual CLI: `python -m mstr_qualify task eligible <TASK_ID>`. Fail closed on missing predecessor, stale/superseded task, missing explicit authority, candidate-pool prerequisite, or canonical-state conflict. Validator performs no mutation. B001/B002 bootstrap uses manual exact-prerequisite verification; after B002 becomes canonical there is no general bypass.  
   Outputs: `src/mstr_qualify/task_gate.py`, CLI wiring, unit/contract tests, `evidence/mstr-000b/B002-task-gate.md`.
 
 - [ ] **B003 Implement canonical drift detector.**  
-  Compare task checkboxes/state/evidence/PR merge records where machine-readable. Detect examples such as implementation merged while task remains active, or task executed before declared entry gate.  
+  Prerequisite: B002 `COMPLETE_CANONICAL` and an exact-main `eligible=true` result. Compare task checkboxes/state/evidence/PR merge records where machine-readable. Detect examples such as implementation merged while task remains active, or task executed before declared entry gate.  
   Outputs: `src/mstr_qualify/task_drift.py`, tests/fixtures, `evidence/mstr-000b/B003-drift-detector.md`.
 
 - [ ] **B004 Reconcile MSTR-000A entry semantics to live reality.**  
-  Mark canonical A001/A002/A003 accurately, including PR #38 head `41122ae8dee65b2a6b3c6b188cf335d74088b06f` and merge `2c02eb68a32264c86f69eb7ffc1c99ad87328376`; preserve A004+ live state; replace the blanket post-T034 entry rule with explicit `EARLY_SAFE` vs `CONVERGENCE` prerequisites. Do not rewrite history or claim incomplete work complete.  
+  Prerequisite: B003 `COMPLETE_CANONICAL` and exact-main `eligible=true`. Mark canonical A001/A002/A003 accurately, including PR #38 head `41122ae8dee65b2a6b3c6b188cf335d74088b06f` and merge `2c02eb68a32264c86f69eb7ffc1c99ad87328376`; preserve A004+ live state; replace the blanket post-T034 entry rule with explicit `EARLY_SAFE` vs `CONVERGENCE` prerequisites. Do not rewrite history or claim incomplete work complete.  
   Outputs: canonical task/state/roadmap amendments, `evidence/mstr-000b/B004-000a-sequence-reconciliation.md`.
 
 **Checkpoint G:** repository tooling can prove whether a task is eligible rather than relying on prose memory.
@@ -73,20 +79,20 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Revalidate current Transformers/Unsloth/PEFT/TRL compatibility, llama.cpp/GGUF conversion/quantization support, tokenizer/export hazards, and architecture-specific restrictions. Metadata/code/docs validation only unless already-authorized artifacts are sufficient.  
   Outputs: `artifacts/decisions/B009-training-runtime-compatibility.json`, `evidence/mstr-000b/B009-compatibility.md`.
 
-- [ ] **B010 Freeze exact new-candidate weight-access envelope if any new artifact evidence is required.**  
-  This is preflight only. Candidate IDs, exact revisions/files/hashes where available, network hosts, expected bytes, rights, executor, retention, cleanup and USD ceiling must be explicit. If no newly relevant candidate survives static/product gates far enough to require artifact access, record an explicit empty/`NO_NEW_WEIGHT_ACCESS_REQUIRED` decision instead of manufacturing a gate.  
+- [ ] **B010 Freeze exact new-candidate qualification/access envelope.**  
+  Distinguish `qualification_candidates[]` from `new_weight_access_required_candidates[]`. For every newly relevant candidate, state whether equivalent qualification is required and whether that qualification can use already-authorized/already-available artifacts. For candidates requiring new access, pin exact revisions/files/hashes where available, network hosts, expected bytes, rights, executor, retention, cleanup and USD ceiling. If no newly relevant candidate survives far enough to require qualification, record `NO_NEW_CANDIDATES_REQUIRING_QUALIFICATION`.  
   Outputs: `artifacts/manifests/B010-new-candidate-weight-access.json`, `evidence/mstr-000b/B010-weight-access-preflight.md`.
 
-- [ ] **B011 EXPLICIT NEW WEIGHT ACCESS GATE — acquire/verify only founder-authorized B010 candidates.**  
-  Execute only after separate exact authorization when B010 contains one or more candidates. Use approved ephemeral runners; founder Mac and Git receive no binaries. Verify exact integrity and emit T024-compatible manifests. If B010 is explicitly empty, close B011 as `NOT_REQUIRED_NO_NEW_CANDIDATES` with evidence and perform no network/model-artifact access.  
-  Outputs: `artifacts/manifests/B011-acquired-candidates.json` or an explicit N/A decision artifact, runner evidence where executed, `evidence/mstr-000b/B011-acquisition.md`.
+- [ ] **B011 EXPLICIT NEW WEIGHT ACCESS GATE — acquire/verify only founder-authorized B010 access-required candidates.**  
+  Prerequisites: B002 `COMPLETE_CANONICAL`, exact-main `eligible=true`, B010 canonical, and separate exact founder authorization when `new_weight_access_required_candidates[]` is non-empty. Use approved ephemeral runners; founder Mac and Git receive no binaries. Verify exact integrity and emit T024-compatible manifests. If the access-required list is empty, close B011 as `NOT_REQUIRED_NO_NEW_ACCESS` with evidence and perform no model-weight access. This status says nothing about whether B012 qualification is still required.  
+  Outputs: `artifacts/manifests/B011-acquired-candidates.json` or explicit no-access decision artifact, runner evidence where executed, `evidence/mstr-000b/B011-acquisition.md`.
 
-- [ ] **B012 Run equivalent Q4/runtime/resource/raw-code qualification for new candidates.**  
-  New candidates may not enter headline comparison with weaker evidence than existing candidates. Reuse canonical T029-T034 protocols where compatible; if superseded, record migration. If B011 is `NOT_REQUIRED_NO_NEW_CANDIDATES`, close B012 as `NOT_REQUIRED_NO_NEW_CANDIDATES` with evidence.  
-  Outputs: `artifacts/results/backbone/B012/` and candidate Q4 manifests where applicable, explicit N/A evidence when not applicable, `evidence/mstr-000b/B012-new-candidate-qualification.md`.
+- [ ] **B012 Run equivalent Q4/runtime/resource/raw-code qualification for every B010 qualification candidate.**  
+  Prerequisites: B002 `COMPLETE_CANONICAL`, exact-main `eligible=true`, B010 canonical, and B011 complete or `NOT_REQUIRED_NO_NEW_ACCESS`. A candidate that needs no new acquisition but has already-authorized/already-available artifacts MUST still receive equivalent qualification. B012 may close `NOT_REQUIRED_NO_NEW_CANDIDATES` only when B010 explicitly records `qualification_candidates=[]` / `NO_NEW_CANDIDATES_REQUIRING_QUALIFICATION`. Reuse canonical T029-T034 protocols where compatible; if superseded, record migration.  
+  Outputs: `artifacts/results/backbone/B012/` and candidate Q4 manifests where applicable, explicit N/A evidence only for the true empty-candidate case, `evidence/mstr-000b/B012-new-candidate-qualification.md`.
 
 - [ ] **B013 Freeze stable product-aligned candidate pool for A019/tournament convergence.**  
-  Prerequisite: the existing candidate set has completed T034 or a canonical equivalent hard-gate qualification, and every newly admitted candidate has completed B012 or an explicit non-admission/N/A path. Require comparable hard-gate evidence or explicit rejection reasons. Do not select the final backbone merely from this task.  
+  Prerequisite: B002 `COMPLETE_CANONICAL` with exact-main `eligible=true`; the existing candidate set has completed T034 or a canonical equivalent hard-gate qualification; every B010 qualification candidate has completed B012 or been explicitly rejected before admission. Require comparable hard-gate evidence or explicit rejection reasons. Do not select the final backbone merely from this task.  
   Outputs: `artifacts/decisions/B013-stable-candidate-pool.json`, `evidence/mstr-000b/B013-candidate-pool.md`.
 
 **Checkpoint B:** candidate pool reflects MSTR's code-specialized mission and has equivalent deployment evidence.
@@ -112,11 +118,11 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: implementation/tests/fixtures, `evidence/mstr-000b/B017-evolution-fixture-pilot.md`.
 
 - [ ] **B018 Freeze execution-filtered student self-alignment contract.**  
-  Student-generated tasks/solutions/tests require sandbox execution, independent verifier health, contamination/provenance and difficulty records before training admission.  
+  Student-generated tasks/solutions/tests require seed and per-artifact provenance, compatible rights, sandbox execution, independent verifier health, contamination checks and difficulty records before training admission. Missing/unresolved provenance or rights fails closed.  
   Outputs: schema/fixtures, `evidence/mstr-000b/B018-self-alignment-contract.md`.
 
 - [ ] **B019 Freeze bounded teacher-rescue policy.**  
-  Teachers are optional frontier-rescue/reference sources. Record teacher identity/terms/cost; independently execute/verify outputs; reject incompatible rights. Paid/API teacher use is not authorized here.  
+  Teachers are optional frontier-rescue/reference sources. Record teacher identity/terms/cost plus concrete-output provenance, output-rights decisions and contamination status; independently execute/verify outputs; reject incompatible or unresolved rights. Paid/API teacher use is not authorized here.  
   Outputs: `docs/data/TEACHER_RESCUE_POLICY.md`, schema/fixtures, `evidence/mstr-000b/B019-teacher-policy.md`.
 
 - [ ] **B020 Freeze checkpoint-relative difficulty calibration contract.**  
@@ -138,11 +144,11 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: schema/fixtures, `evidence/mstr-000b/B022-verifier-health.md`.
 
 - [ ] **B023 Implement verifier-health evaluator on controlled fixtures.**  
-  Prerequisite: the MSTR-000A verifier/finalizer foundation required by the implementation is canonical. Prove `HEALTHY`, `PARTIAL`, `DISAGREEMENT`, `BROKEN`, `LEAKED`, and `TAMPERED` classifications; integrate with training trajectory admission as a blocking field, amending earlier trajectory plumbing if necessary rather than creating a parallel authority surface.  
+  Exact prerequisites: A006 protected finalizer/verifier boundary `COMPLETE_CANONICAL`, A014 verifier runner/reward-shortcut battery `COMPLETE_CANONICAL`, B002 `COMPLETE_CANONICAL`, B022 `COMPLETE_CANONICAL`, and exact-main `eligible=true`. Prove `HEALTHY`, `PARTIAL`, `DISAGREEMENT`, `BROKEN`, `LEAKED`, and `TAMPERED` classifications; integrate with training trajectory admission as a blocking field, amending earlier trajectory plumbing if necessary rather than creating a parallel authority surface.  
   Outputs: verifier-health module/tests, `evidence/mstr-000b/B023-verifier-health-implementation.md`.
 
 - [ ] **B024 Freeze test-generation curriculum and acceptance semantics.**  
-  Include reproduce-before-fix, targeted regression, boundary/error, property/metamorphic where appropriate, pre-fix fail/post-fix pass, and rejection of answer-encoding/test weakening.  
+  Prerequisite: B023 `COMPLETE_CANONICAL`. Include per-example provenance/rights/contamination requirements, reproduce-before-fix, targeted regression, boundary/error, property/metamorphic where appropriate, pre-fix fail/post-fix pass, and rejection of answer-encoding/test weakening.  
   Outputs: `docs/data/TEST_GENERATION_CURRICULUM.md`, fixtures, `evidence/mstr-000b/B024-test-curriculum.md`.
 
 - [ ] **B025 Freeze greenfield/feature/synthesis curriculum.**  
@@ -156,15 +162,15 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
 # Phase R — Research Efficiency, Q4, and Long-Horizon Quality
 
 - [ ] **B026 Freeze multi-fidelity MSTR Research Ladder v0.**  
-  L0 contract/smoke -> L1 code/FIM/edit/tool -> L2 executable repo -> L3 Direction-to-Done/feature/program -> L4 Q4 universal-laptop. Define per-level promotion/hard-reject criteria.  
+  L0 contract/smoke -> L1 code/FIM/edit/tool -> L2 executable repo -> L3 Direction-to-Done/feature/program -> L4 Q4 universal-laptop. Define per-level promotion/hard-reject criteria and exact material-result identity requirements.  
   Outputs: contract/config, `evidence/mstr-000b/B026-research-ladder.md`.
 
 - [ ] **B027 Qualify the research ladder with one non-weight-changing campaign.**  
-  Use a bounded harness/config experiment. Demonstrate early discard, promotion, immutable evaluator authority and full ledger.  
+  Use a bounded harness/config experiment. Demonstrate early discard, promotion, immutable evaluator authority, complete `MaterialResultIdentity` records and full ledger.  
   Outputs: `artifacts/results/research/B027/`, `evidence/mstr-000b/B027-ladder-pilot.md`.
 
 - [ ] **B028 Freeze Q4-in-the-loop promotion contract and training-method tournament preflight.**  
-  Require release-relevant Q4 regression after material weight-changing stages. Preflight equivalent supported arms: 16-bit LoRA, 16-bit LoRA+rsLoRA, 4-bit QLoRA, 4-bit QLoRA+rsLoRA. Revalidate backbone/Unsloth/Transformers guidance immediately before execution.  
+  Require release-relevant Q4 regression after every material weight-changing stage and a fail-closed `Q4PromotionRecord` before a checkpoint may become the parent of another material stage. Supported comparisons MUST include 16-bit LoRA, 16-bit LoRA+rsLoRA, 4-bit QLoRA, and 4-bit QLoRA+rsLoRA where current backbone/framework support permits; every unsupported arm requires an exact recorded reason. Revalidate backbone/Unsloth/Transformers guidance immediately before execution.  
   Outputs: `artifacts/manifests/B028-method-tournament-preflight.json`, `docs/training/Q4_PROMOTION_CONTRACT.md`, `evidence/mstr-000b/B028-training-methods.md`.
 
 - [ ] **B029 Freeze adaptive test-time compute + selective-context policy.**  
@@ -182,19 +188,19 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
 # Phase C — Convergence and Training-Readiness Closeout
 
 - [ ] **B031 Reconcile A019/A020 and legacy MSTR-000 tournament/preflight tasks with MSTR-000B.**  
-  A019 requires B013 stable candidate pool, relevant A001-A018 contracts, and B023 implemented verifier-health authority. A020 research loop must consume B026 fidelity ladder. Legacy candidate/tournament/data tasks must be marked retained, superseded, or amended; no incompatible duplicate remains.  
+  Exact prerequisites: A019 `COMPLETE_CANONICAL`, A020 `COMPLETE_CANONICAL`, B002/B003/B004 `COMPLETE_CANONICAL`, B015/B017/B019/B021/B023/B024/B025/B027/B028/B029/B030 `COMPLETE_CANONICAL`, plus exact-main `eligible=true`. A019 itself requires A001-A018 complete, B013 stable candidate pool, B023 verifier-health implementation, and B026 research ladder; A020 consumes B026. Legacy candidate/tournament/data tasks must be marked retained, superseded, or amended; no incompatible duplicate remains.  
   Outputs: task supersession/dependency map, canonical task updates, `evidence/mstr-000b/B031-tournament-reconciliation.md`.
 
 - [ ] **B032 Amend MSTR-001/MSTR-002/MSTR-003 entry requirements.**  
-  MSTR-001 consumes Data Constitution, language mix, software evolution, frontier curriculum and Q4 promotion. MSTR-002 consumes self-alignment, teacher policy, verifier health, test generation, greenfield/feature and same-loop trajectories. MSTR-003 consumes frontier curriculum, admitted environments, verifier health and multi-fidelity RL promotion.  
+  Prerequisite: B031 `COMPLETE_CANONICAL`. MSTR-001 consumes Data Constitution, language mix, software evolution, frontier curriculum and Q4 promotion. MSTR-002 consumes self-alignment, teacher policy, verifier health, test generation, greenfield/feature and same-loop trajectories. MSTR-003 consumes frontier curriculum, admitted environments, verifier health and multi-fidelity RL promotion.  
   Outputs: roadmap/training strategy/preplan amendments, `evidence/mstr-000b/B032-downstream-contracts.md`.
 
 - [ ] **B033 Independent consistency/red-team review.**  
-  Review candidate fairness, data leakage, rights, reward hacking, task-gate bypass, teacher contamination, tokenizer comparability, Q4 promotion, WePLD attribution, and 8GB product preservation. Resolve all material findings.  
+  Prerequisite: B032 `COMPLETE_CANONICAL`. Review candidate fairness, data leakage, rights, reward hacking, task-gate bypass, teacher contamination, tokenizer comparability, Q4 promotion, WePLD attribution, and 8GB product preservation. Resolve all material findings.  
   Outputs: `evidence/mstr-000b/B033-independent-review.md`.
 
 - [ ] **B034 Close MSTR-000B canonical.**  
-  Freeze exact contract versions, stable candidate pool state, unresolved risks, supersession map, training-readiness statement and next exact authority. This task MUST NOT authorize weight-changing training.  
+  Exact prerequisite: **every B001-B033 task is `COMPLETE_CANONICAL` or, only where the task contract explicitly permits it, a canonical `NOT_REQUIRED` terminal state with evidence**. Before closeout, machine validation MUST verify every predecessor state and every task's declared evidence artifact path, including governance B001-B004; backbone B005-B013; data/curriculum B014-B021; verifier/build-skill B022-B025; research/product B026-B030; and convergence B031-B033. Freeze exact contract versions, stable candidate pool state, unresolved risks, supersession map, training-readiness statement and next exact authority. This task MUST NOT authorize weight-changing training.  
   Outputs: `artifacts/decisions/B034-mstr-000b-closeout.json`, `evidence/mstr-000b/B034-closeout.md`, canonical state updates.
 
 **Checkpoint C:** MSTR can approach weight-changing training only with product-aligned candidates, high-signal data contracts, healthy verifiers, dynamic curriculum, Q4 promotion and machine-enforced governance.
@@ -229,19 +235,22 @@ WEIGHT_CHANGING_TRAINING_AUTHORIZED_BY_THIS_WORKSTREAM = YES
 ## Dependency Summary
 
 ```text
-B001 -> B002 -> B003 -> B004
+BOOTSTRAP_MANUAL = B001 -> B002
+B002_CANONICAL -> ALL_MATERIAL_B003_PLUS_EXECUTION_AND_MERGE_REQUIRE_ELIGIBLE_TRUE
+B002 -> B003 -> B004
 
 B005 -> B006 -> B007 -> B008 -> B009 -> B010
-B010(non-empty) -> [separate founder gate] -> B011 -> B012
-B010(empty) -> B011(NOT_REQUIRED) -> B012(NOT_REQUIRED)
-T034_OR_CANONICAL_EQUIVALENT + B012 -> B013
+B002 + B010(non-empty access list) + SEPARATE_FOUNDER_AUTHORITY -> B011 -> B012
+B002 + B010(empty access list but non-empty qualification list) -> B011(NOT_REQUIRED_NO_NEW_ACCESS) -> B012
+B010(empty qualification list) -> B011(NOT_REQUIRED_NO_NEW_ACCESS) -> B012(NOT_REQUIRED_NO_NEW_CANDIDATES)
+B002 + T034_OR_CANONICAL_EQUIVALENT + B012 -> B013
 
 B014 -> B015
 B014 -> B016 -> B017
 B014 -> B018 -> B019
 B014 -> B020 -> B021
 B014 -> B022
-B022 + required MSTR-000A verifier/finalizer foundation -> B023 -> B024
+A006 + A014 + B002 + B022 -> B023 -> B024
 B014 -> B025
 
 B022 + B024 + B025 -> B026 -> B027
@@ -250,13 +259,15 @@ B020 + MSTR-000A loop/context contracts -> B029
 B024 + B025 + A019-ready harness surfaces -> B030
 
 T034_OR_CANONICAL_EQUIVALENT
-+ A001-A018 required outputs
++ A001-A018
 + B013
 + B023
 + B026
--> A019 convergence
+-> A019
+B026 + required A-loop/research contracts -> A020
 
-A019/A020 + B027-B030 -> B031 -> B032 -> B033 -> B034
+A019 + A020 + B002 + B003 + B004 + B015 + B017 + B019 + B021 + B023 + B024 + B025 + B027 + B028 + B029 + B030 -> B031 -> B032 -> B033
 
+B001-B033_COMPLETE_OR_EXPLICIT_CANONICAL_NOT_REQUIRED_WITH_EVIDENCE -> B034
 B034 != TRAINING AUTHORIZATION
 ```
