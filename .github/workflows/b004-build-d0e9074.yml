@@ -1,0 +1,137 @@
+name: Guard B004 MSTR-000A sequence reconciliation
+
+on:
+  push:
+    branches:
+      - evidence/b004-build-d0e9074
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: d0e90740924f6991da361536e7f835eb55ae9145
+  TARGET_BRANCH: docs/000b-b004-000a-sequence-reconciliation
+  EVIDENCE_BRANCH: evidence/b004-build-d0e9074
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact B004 target base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Verify live preconditions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH" "$EVIDENCE_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Re-prove production B004 entry gate on exact main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B004 > /tmp/b004-entry.json
+          python -m mstr_qualify task drift > /tmp/b004-entry-drift.json
+          python - <<'PY'
+          import json
+          task = json.load(open('/tmp/b004-entry.json', encoding='utf-8'))
+          drift = json.load(open('/tmp/b004-entry-drift.json', encoding='utf-8'))
+          assert task['task_id'] == 'B004', task
+          assert task['eligible'] is True and task['reasons'] == [], task
+          assert task['canonical_main'] == 'd0e90740924f6991da361536e7f835eb55ae9145', task
+          assert drift['status'] == 'clean' and drift['findings'] == [], drift
+          print('B004_ENTRY_GATE_ELIGIBLE=true')
+          print('B004_ENTRY_GATE_DRIFT=clean')
+          PY
+
+      - name: Apply bounded B004 reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "refs/remotes/origin/$EVIDENCE_BRANCH:scripts/evidence/b004_reconcile_apply.py" > /tmp/b004_reconcile_apply.py
+          python /tmp/b004_reconcile_apply.py
+
+      - name: Verify bounded scope and syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+          expected = {
+              'docs/canonical/CURRENT_STATE.md',
+              'docs/canonical/PROGRAM_ROADMAP.md',
+              'specs/001-agent-harness-verified-loop-foundation/tasks.md',
+              'evidence/mstr-000b/B004-000a-sequence-reconciliation.md',
+          }
+          changed = set(subprocess.run(
+              ['git', 'diff', '--name-only'], check=True, capture_output=True, text=True
+          ).stdout.splitlines())
+          assert changed == expected, (changed, expected)
+          current = Path('docs/canonical/CURRENT_STATE.md').read_text(encoding='utf-8')
+          assert 'A004 = COMPLETE_CANONICAL / AGENT_STATE_PROJECTION_AND_BOUNDED_COMPACTION' in current
+          assert 'B004 = ENTRY_GATE_PROVEN / IMPLEMENTATION_ACTIVE' in current
+          assert 'Until PR #39 is reviewed and merged' not in current
+          tasks = Path('specs/001-agent-harness-verified-loop-foundation/tasks.md').read_text(encoding='utf-8')
+          assert 'A005-A018 = PENDING / EARLY_SAFE only with exact prerequisites' in tasks
+          evidence = Path('evidence/mstr-000b/B004-000a-sequence-reconciliation.md').read_text(encoding='utf-8')
+          assert '**State:** IMPLEMENTATION_ACTIVE' in evidence
+          assert '41122ae8dee65b2a6b3c6b188cf335d74088b06f' in evidence
+          PY
+
+      - name: Commit candidate locally without pushing
+        id: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/canonical/CURRENT_STATE.md docs/canonical/PROGRAM_ROADMAP.md specs/001-agent-harness-verified-loop-foundation/tasks.md evidence/mstr-000b/B004-000a-sequence-reconciliation.md
+          git commit -m "docs(mstr-000b): reconcile MSTR-000A live sequence"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+
+      - name: Run frozen gate - pytest
+        run: pytest -q
+
+      - name: Run frozen gate - Ruff
+        run: ruff check src tests
+
+      - name: Run frozen gate - mypy
+        run: mypy
+
+      - name: Run frozen gate - offline validate
+        run: python -m mstr_qualify validate
+
+      - name: Guarded fast-forward B004 push
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="${{ steps.candidate.outputs.sha }}"
+          test "$(git rev-parse HEAD)" = "$candidate"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+          git push origin HEAD:"$TARGET_BRANCH"
+          echo "B004_IMPLEMENTATION_HEAD=$(git rev-parse HEAD)"
