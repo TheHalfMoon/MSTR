@@ -43,8 +43,8 @@ Exact blob identities on the implementation branch:
 ```text
 TASK_NODE_RUNTIME_BLOB = 928efeb537627dcc05d622c66d6bfb154f4dc452
 TASK_NODE_DESIGN_BLOB  = 928efeb537627dcc05d622c66d6bfb154f4dc452
-ELIGIBILITY_RUNTIME_BLOB = fa60056de6e3abd908a97be939cafb76590719fa
-ELIGIBILITY_DESIGN_BLOB  = fa60056de6e3abd908a97be939cafb76590719fa
+ELIGIBILITY_RUNTIME_BLOB = 0a930dbaa87312db7310793fd30bce5888b71934
+ELIGIBILITY_DESIGN_BLOB  = 0a930dbaa87312db7310793fd30bce5888b71934
 BYTE_IDENTICAL_DESIGN_RUNTIME = YES
 ```
 
@@ -108,16 +108,20 @@ Fail-closed semantics are schema-enforced:
 
 ```text
 eligible=true
-  -> all represented checks satisfied=true
+  -> every represented check satisfied=true
+  -> every prerequisite has observed state + evidence
+  -> superseded=false
+  -> state consistency has an observed state
+  -> nested failure reasons are empty
   -> top-level reasons=[]
+  -> if candidate_pool_result.required=true, observed_pool_id is non-empty
 
 eligible=false
   -> at least one top-level reason required
-
-candidate_pool_result.required=true
-  -> requirement_id is non-empty
-  -> observed_pool_id is non-empty
+  -> missing prerequisite/state/pool observations remain representable as null/false evidence
 ```
+
+A required but unavailable candidate pool is therefore representable as `eligible=false`, `required=true`, `requirement_id=<expected>`, `observed_pool_id=null`, `satisfied=false`; the schema does not erase the failure state it is designed to report.
 
 The validator implementation remains B002; B001 freezes only the machine contracts and does not create authority or mutate task state at runtime.
 
@@ -129,8 +133,11 @@ B001 adds:
 - one explicit missing-authority fixture for every authority-gated external-effect class;
 - one candidate-dependent fixture missing `candidate_pool_requirement_id`;
 - rejection of nonterminal closeout states;
-- rejection of a required candidate-pool result without an observed pool identity;
-- a focused contract test proving those cases fail closed;
+- rejection of eligible prerequisite results without evidence;
+- rejection of eligible superseded results;
+- rejection of an eligible required-candidate-pool result without observed pool identity;
+- proof that an unavailable required pool remains representable when `eligible=false`;
+- rejection of `eligible=false` without a reason;
 - generic schema-test support for per-schema fixture files and MSTR-000B-owned design sources.
 
 Focused isolated validation command:
@@ -143,7 +150,7 @@ PYTHONPATH=src pytest -q tests/contract/test_task_contracts.py tests/contract/te
 Result after final contract hardening:
 
 ```text
-24 passed, 34 deselected in 1.07s
+27 passed, 34 deselected in 1.27s
 ```
 
 This focused run reconstructed only the exact schema-loading surface needed for B001 because the execution environment could not clone GitHub over DNS. It is valid evidence for the new schema semantics, not a claim that the entire repository suite ran.
