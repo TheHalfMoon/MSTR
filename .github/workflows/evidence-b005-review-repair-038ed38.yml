@@ -1,0 +1,226 @@
+name: Repair B005 review semantics
+
+on:
+  push:
+    branches:
+      - evidence/b005-review-repair-038ed38
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: 986b174b2bf79ce53a3e67b9b02c55cbe6981303
+  EXPECTED_HEAD: 038ed38761841e4f167ca3ea546b3b07df6287c7
+  TARGET_BRANCH: research/000b-b005-code-backbone-rescan-v2
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          path: canonical
+          persist-credentials: false
+
+      - name: Checkout exact B005 target
+        uses: actions/checkout@v4
+        with:
+          ref: research/000b-b005-code-backbone-rescan-v2
+          fetch-depth: 0
+          path: target
+          persist-credentials: true
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install canonical tooling
+        working-directory: canonical
+        run: python -m pip install -e '.[dev]'
+
+      - name: Reprove exact-main B005 entry gate
+        working-directory: canonical
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+          python -m mstr_qualify task eligible B005 > /tmp/b005-entry.json
+          python -m mstr_qualify task drift > /tmp/b005-drift.json
+          python - <<'PY'
+          import json, os
+          entry = json.load(open('/tmp/b005-entry.json', encoding='utf-8'))
+          drift = json.load(open('/tmp/b005-drift.json', encoding='utf-8'))
+          assert entry['task_id'] == 'B005'
+          assert entry['eligible'] is True
+          assert entry['canonical_main'] == os.environ['EXPECTED_MAIN']
+          assert entry['reasons'] == []
+          assert drift['status'] == 'clean'
+          assert drift['findings'] == []
+          print('B005_REPAIR_ENTRY_GATE=PASS')
+          print(f"B005_REPAIR_CANONICAL_MAIN={entry['canonical_main']}")
+          PY
+
+      - name: Verify immutable target before repair
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+
+      - name: Repair revision identity semantics
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest_path = Path('artifacts/manifests/B005-code-backbone-discovery.json')
+          evidence_path = Path('evidence/mstr-000b/B005-code-backbone-rescan.md')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          rows = {row['repo_id']: row for row in manifest['candidates']}
+
+          codegemma = rows['google/codegemma-2b']
+          assert codegemma['current_revision'] == 'e7583edabd3dd48a9c705974a9456852f1205ab1'
+          assert codegemma['revision_status'] == 'EXACT_FULL_SHA'
+          for stale in (
+              'CURRENT_FULL_REVISION_UNRESOLVED_WITHOUT_TERMS_ACCEPTANCE',
+              'REVISION_DRIFT_SINCE_INITIAL_B005',
+          ):
+              if stale in codegemma['material_flags']:
+                  codegemma['material_flags'].remove(stale)
+          if 'REVISION_IDENTITY_RESOLVED_BY_PUBLIC_METADATA_REFRESH' not in codegemma['material_flags']:
+              codegemma['material_flags'].append('REVISION_IDENTITY_RESOLVED_BY_PUBLIC_METADATA_REFRESH')
+
+          lfm = rows['LiquidAI/LFM2.5-2.6B-Base']
+          assert lfm['current_revision'] == 'c57bdaed1ef166fe3095dda07f4a5e789ad5321e'
+          assert lfm['revision_status'] == 'EXACT_FULL_SHA'
+          for stale in ('FULL_SHA_PIN_REQUIRED', 'REVISION_DRIFT_SINCE_INITIAL_B005'):
+              if stale in lfm['material_flags']:
+                  lfm['material_flags'].remove(stale)
+          if 'REVISION_IDENTITY_RESOLVED_FROM_SHORT_SHA' not in lfm['material_flags']:
+              lfm['material_flags'].append('REVISION_IDENTITY_RESOLVED_FROM_SHORT_SHA')
+
+          bitnet = rows['microsoft/bitnet-b1.58-2B-4T-bf16']
+          assert 'REVISION_DRIFT_SINCE_INITIAL_B005' in bitnet['material_flags']
+
+          old_conclusion = 'Current public metadata API revision identity was refreshed for every discovery row; revision drift is explicitly flagged rather than silently retaining stale upstream main identities.'
+          new_conclusion = 'Current public metadata API revision identity was refreshed for every discovery row; actual upstream revision drift is distinguished from identity resolution of a previously unresolved or short SHA.'
+          conclusions = manifest['b005_conclusions']
+          assert old_conclusion in conclusions
+          conclusions[conclusions.index(old_conclusion)] = new_conclusion
+          manifest_path.write_text(json.dumps(manifest, separators=(',', ':'), ensure_ascii=False) + '\n', encoding='utf-8')
+
+          evidence = evidence_path.read_text(encoding='utf-8')
+          replacements = {
+              'However, the public Hugging Face page requires login and acceptance of Gemma conditions. B005 did **not** accept those terms. Consequently the current full main revision remains intentionally unresolved in the discovery manifest rather than being guessed from another ref.':
+              'At the initial scan, the public Hugging Face page required login and acceptance of Gemma conditions, so B005 did **not** accept those terms and left the full revision unresolved. The canonical refresh below later resolved the exact repository SHA from the public metadata API without accepting terms; the access gate itself remains unchanged.',
+              'ACCESS_GATE = CLICKTHROUGH_AND_LOGIN_REQUIRED\nCURRENT_FULL_REVISION = UNRESOLVED_WITHOUT_TERMS_ACCEPTANCE':
+              'ACCESS_GATE = CLICKTHROUGH_AND_LOGIN_REQUIRED\nINITIAL_SCAN_FULL_REVISION = UNRESOLVED_WITHOUT_TERMS_ACCEPTANCE\nREFRESHED_PUBLIC_METADATA_REVISION = e7583edabd3dd48a9c705974a9456852f1205ab1',
+              'The public tree exposed the current short revision `c57bdae`, but B005 did not obtain a trustworthy full SHA from the metadata surface used here. The manifest therefore records `SHORT_SHA_ONLY`; B006 must pin an exact immutable full revision before any serious classification or later access envelope.':
+              'The initial scan exposed only the short revision `c57bdae`. The canonical refresh below later resolved that same commit identity to full SHA `c57bdaed1ef166fe3095dda07f4a5e789ad5321e` through public metadata. This is identity resolution, not upstream revision drift.',
+              '5. pin a full immutable LFM2.5 revision before any later serious admission/access decision;':
+              '5. preserve the full immutable LFM2.5 revision resolved by the canonical refresh and keep its nonstandard-license review fail-closed;',
+              'The refresh re-queried current public metadata for every pre-existing B005 discovery row. When upstream `main` changed, the manifest updates to the exact new SHA and adds `REVISION_DRIFT_SINCE_INITIAL_B005` rather than hiding the drift.':
+              'The refresh re-queried current public metadata for every pre-existing B005 discovery row. It distinguishes actual upstream `main` movement from identity resolution when the initial scan had only an unresolved or short SHA.',
+              '- `google/codegemma-2b`: `UNRESOLVED` -> `e7583edabd3dd48a9c705974a9456852f1205ab1`; public metadata license tag `gemma`; gated `manual`.':
+              '- `google/codegemma-2b`: identity resolved from `UNRESOLVED` to `e7583edabd3dd48a9c705974a9456852f1205ab1` via public metadata; license tag `gemma`; gated `manual`; no terms accepted. This is not evidence of upstream revision drift.',
+              '- `microsoft/bitnet-b1.58-2B-4T-bf16`: `9e5d75862231a20855f2fecdee031f9c2e961864` -> `276681394656abdadb8e80e5b2c3db5e5d7fcaff`; public metadata license tag `mit`; gated `false`.':
+              '- `microsoft/bitnet-b1.58-2B-4T-bf16`: actual upstream revision drift `9e5d75862231a20855f2fecdee031f9c2e961864` -> `276681394656abdadb8e80e5b2c3db5e5d7fcaff`; public metadata license tag `mit`; gated `false`.',
+              '- `LiquidAI/LFM2.5-2.6B-Base`: `c57bdae` -> `c57bdaed1ef166fe3095dda07f4a5e789ad5321e`; public metadata license tag `other`; gated `false`.':
+              '- `LiquidAI/LFM2.5-2.6B-Base`: short SHA `c57bdae` resolved to the same commit identity `c57bdaed1ef166fe3095dda07f4a5e789ad5321e`; public metadata license tag `other`; gated `false`. This is not upstream revision drift.',
+          }
+          for old, new in replacements.items():
+              assert old in evidence, old
+              evidence = evidence.replace(old, new, 1)
+          evidence_path.write_text(evidence.rstrip() + '\n', encoding='utf-8')
+          print('B005_REVIEW_FINDING_REPAIR=APPLIED')
+          PY
+
+      - name: Verify bounded repair diff
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          python - <<'PY'
+          import json, subprocess
+          expected = {
+              'artifacts/manifests/B005-code-backbone-discovery.json',
+              'evidence/mstr-000b/B005-code-backbone-rescan.md',
+          }
+          changed = set(subprocess.run(['git', 'diff', '--name-only'], check=True, capture_output=True, text=True).stdout.splitlines())
+          assert changed == expected, (changed, expected)
+          m = json.load(open('artifacts/manifests/B005-code-backbone-discovery.json', encoding='utf-8'))
+          rows = {r['repo_id']: r for r in m['candidates']}
+          cg = rows['google/codegemma-2b']['material_flags']
+          lfm = rows['LiquidAI/LFM2.5-2.6B-Base']['material_flags']
+          assert 'CURRENT_FULL_REVISION_UNRESOLVED_WITHOUT_TERMS_ACCEPTANCE' not in cg
+          assert 'REVISION_DRIFT_SINCE_INITIAL_B005' not in cg
+          assert 'FULL_SHA_PIN_REQUIRED' not in lfm
+          assert 'REVISION_DRIFT_SINCE_INITIAL_B005' not in lfm
+          assert 'REVISION_DRIFT_SINCE_INITIAL_B005' in rows['microsoft/bitnet-b1.58-2B-4T-bf16']['material_flags']
+          print('B005_REPAIR_SEMANTICS=PASS')
+          PY
+
+      - name: Commit repair candidate
+        id: commit
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/manifests/B005-code-backbone-discovery.json evidence/mstr-000b/B005-code-backbone-rescan.md
+          git commit -m "fix(mstr-000b): distinguish B005 revision resolution"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Install candidate tooling
+        working-directory: target
+        run: python -m pip install -e '.[dev]'
+
+      - name: Frozen gate - pytest
+        working-directory: target
+        run: pytest -q
+
+      - name: Frozen gate - Ruff
+        working-directory: target
+        run: ruff check src tests
+
+      - name: Frozen gate - mypy
+        working-directory: target
+        run: mypy
+
+      - name: Frozen gate - offline validate
+        working-directory: target
+        run: python -m mstr_qualify validate
+
+      - name: Guarded push repaired exact head
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="${{ steps.commit.outputs.sha }}"
+          test "$(git rev-parse HEAD)" = "$candidate"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+          git push origin HEAD:"$TARGET_BRANCH"
+          echo "B005_REPAIRED_HEAD=$candidate"
