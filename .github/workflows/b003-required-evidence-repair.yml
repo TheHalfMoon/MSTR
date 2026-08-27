@@ -1,0 +1,158 @@
+name: Guard B003 required evidence repair
+
+on:
+  push:
+    branches:
+      - evidence/b003-required-evidence-repair
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_HEAD: 55ff6ef0f39801c97f062d5305584e0e3fc5bc33
+  EXPECTED_MAIN: 0754d552752c2f6c099df2b480de99028e2e26e5
+  TARGET_BRANCH: feat/000b-b003-drift-detector
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  repair-b003:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact guarded target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Verify live repair preconditions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+
+      - name: Apply bounded required-evidence repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: Path, old: str, new: str, label: str) -> None:
+              text = path.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label} match count: {count}')
+              path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          source = Path('src/mstr_qualify/task_drift.py')
+          replace_once(
+              source,
+              '''    return tuple(found[key] for key in sorted(found))\n\n\ndef _match_text(pattern: re.Pattern[str], text: str) -> str | None:\n''',
+              '''    return tuple(found[key] for key in sorted(found))\n\n\ndef _evidence_pattern_present(root: Path, raw: str) -> bool:\n    candidate = root / raw\n    if any(marker in raw for marker in ("*", "?", "[")):\n        matches = (Path(value) for value in glob.glob(str(candidate), recursive=True))\n        return any(_safe_existing_file(root, match) is not None for match in matches)\n    return _safe_existing_file(root, candidate) is not None\n\n\ndef _match_text(pattern: re.Pattern[str], text: str) -> str | None:\n''',
+              'required evidence presence helper',
+          )
+          replace_once(
+              source,
+              '''    metadata = tuple(_parse_evidence(path, root) for path in _evidence_files(root, node))\n''',
+              '''    if terminal and node["closeout_rule"]["require_all_evidence_outputs"]:\n        missing_evidence = [\n            raw for raw in node["evidence_outputs"] if not _evidence_pattern_present(root, raw)\n        ]\n        if missing_evidence:\n            findings.append(\n                _finding(\n                    task_id,\n                    "evidence.required_missing",\n                    paths=missing_evidence,\n                )\n            )\n\n    metadata = tuple(_parse_evidence(path, root) for path in _evidence_files(root, node))\n''',
+              'terminal required evidence finding',
+          )
+
+          tests = Path('tests/unit/test_task_drift.py')
+          replace_once(
+              tests,
+              '''    elif name == "terminal_missing_state":\n        gate_main, final_head, merge_sha = _merge_b003_implementation(root, include_gate=True)\n        _close_b003(root, gate_main=gate_main, final_head=final_head, merge_sha=merge_sha)\n        evidence = root / "evidence" / "mstr-000b" / "B003.md"\n        text = evidence.read_text(encoding="utf-8")\n        state_line = "**State:** COMPLETE_CANONICAL\\n"\n        assert text.count(state_line) == 1\n        evidence.write_text(text.replace(state_line, "", 1), encoding="utf-8")\n        _commit_main(root, "remove canonical evidence state")\n    elif name == "squash_implementation_merged_while_active":\n''',
+              '''    elif name == "terminal_missing_state":\n        gate_main, final_head, merge_sha = _merge_b003_implementation(root, include_gate=True)\n        _close_b003(root, gate_main=gate_main, final_head=final_head, merge_sha=merge_sha)\n        evidence = root / "evidence" / "mstr-000b" / "B003.md"\n        text = evidence.read_text(encoding="utf-8")\n        state_line = "**State:** COMPLETE_CANONICAL\\n"\n        assert text.count(state_line) == 1\n        evidence.write_text(text.replace(state_line, "", 1), encoding="utf-8")\n        _commit_main(root, "remove canonical evidence state")\n    elif name == "terminal_missing_required_evidence":\n        gate_main, final_head, merge_sha = _merge_b003_implementation(root, include_gate=True)\n        _close_b003(root, gate_main=gate_main, final_head=final_head, merge_sha=merge_sha)\n        catalog = root / "configs" / "task-gate" / "mstr-000b.json"\n        payload = json.loads(catalog.read_text(encoding="utf-8"))\n        payload["tasks"]["B003"]["evidence_outputs"].append(\n            "evidence/mstr-000b/B003-secondary.md"\n        )\n        catalog.write_text(json.dumps(payload, indent=2) + "\\n", encoding="utf-8")\n        _commit_main(root, "declare missing required B003 evidence")\n    elif name == "squash_implementation_merged_while_active":\n''',
+              'partial missing required evidence fixture case',
+          )
+
+          fixture = Path('tests/fixtures/task_drift_cases.json')
+          replace_once(
+              fixture,
+              '''    {\n      "name": "terminal_missing_state",\n      "expected_codes": ["evidence.terminal_state_mismatch"]\n    },\n    {\n      "name": "squash_implementation_merged_while_active",\n''',
+              '''    {\n      "name": "terminal_missing_state",\n      "expected_codes": ["evidence.terminal_state_mismatch"]\n    },\n    {\n      "name": "terminal_missing_required_evidence",\n      "expected_codes": ["evidence.required_missing"]\n    },\n    {\n      "name": "squash_implementation_merged_while_active",\n''',
+              'required evidence fixture manifest',
+          )
+          PY
+
+      - name: Verify repair scope and syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          python -m py_compile src/mstr_qualify/task_drift.py tests/unit/test_task_drift.py
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          expected = {
+              'src/mstr_qualify/task_drift.py',
+              'tests/unit/test_task_drift.py',
+              'tests/fixtures/task_drift_cases.json',
+          }
+          changed = set(subprocess.run(
+              ['git', 'diff', '--name-only'], check=True, capture_output=True, text=True
+          ).stdout.splitlines())
+          assert changed == expected, (changed, expected)
+          cases = json.loads(Path('tests/fixtures/task_drift_cases.json').read_text(encoding='utf-8'))['cases']
+          assert len(cases) == 12, len(cases)
+          PY
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Run targeted B003 tests
+        run: pytest -q tests/unit/test_task_drift.py tests/integration/test_task_drift_cli.py
+
+      - name: Prove repaired detector sees canonical main as clean
+        shell: bash
+        run: |
+          set -euo pipefail
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git worktree add --detach /tmp/b003-main "$EXPECTED_MAIN"
+          git -C /tmp/b003-main update-ref refs/heads/main "$EXPECTED_MAIN"
+          git -C /tmp/b003-main update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python - <<'PY'
+          from pathlib import Path
+          from mstr_qualify.task_drift import detect_canonical_drift
+          report = detect_canonical_drift(repository_root=Path('/tmp/b003-main'))
+          assert report['status'] == 'clean', report
+          assert report['findings'] == [], report
+          assert report['tasks_checked'] == 34, report
+          print('REQUIRED_EVIDENCE_REPAIR_CANONICAL_DRIFT_STATUS=clean')
+          PY
+
+      - name: Frozen gate - pytest
+        run: pytest -q
+
+      - name: Frozen gate - Ruff
+        run: ruff check src tests
+
+      - name: Frozen gate - mypy
+        run: mypy
+
+      - name: Frozen gate - offline validate
+        run: python -m mstr_qualify validate
+
+      - name: Guarded fast-forward repair push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/mstr_qualify/task_drift.py tests/unit/test_task_drift.py tests/fixtures/task_drift_cases.json
+          git commit -m "fix(mstr-000b): require terminal drift evidence"
+          git push origin HEAD:"$TARGET_BRANCH"
+          echo "REQUIRED_EVIDENCE_REPAIRED_B003_HEAD=$(git rev-parse HEAD)"
