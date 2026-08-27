@@ -73,13 +73,45 @@ def test_eligible_result_cannot_hide_a_failed_authority_check() -> None:
         validate_instance("mstr-task-eligibility-v0", record, schema_dir=ROOT / "schemas")
 
 
-def test_required_candidate_pool_must_bind_observed_pool_identity() -> None:
+def test_eligible_result_requires_prerequisite_evidence() -> None:
+    record = _valid_fixture("mstr-task-eligibility-v0")
+    record["prerequisite_results"][0]["evidence_present"] = False
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-task-eligibility-v0", record, schema_dir=ROOT / "schemas")
+
+
+def test_eligible_result_cannot_be_superseded() -> None:
+    record = _valid_fixture("mstr-task-eligibility-v0")
+    record["supersession_result"].update(
+        {"superseded": True, "superseded_by": ["B999"], "satisfied": True}
+    )
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-task-eligibility-v0", record, schema_dir=ROOT / "schemas")
+
+
+def test_required_candidate_pool_must_bind_observed_pool_identity_when_eligible() -> None:
     record = _valid_fixture("mstr-task-eligibility-v0")
     record["candidate_pool_result"].update(
         {"required": True, "requirement_id": "candidate-pool-required", "observed_pool_id": None}
     )
     with pytest.raises(ValueError, match="validation failed"):
         validate_instance("mstr-task-eligibility-v0", record, schema_dir=ROOT / "schemas")
+
+
+def test_missing_required_candidate_pool_is_representable_when_ineligible() -> None:
+    record = _valid_fixture("mstr-task-eligibility-v0")
+    record["eligible"] = False
+    record["candidate_pool_result"].update(
+        {
+            "required": True,
+            "requirement_id": "candidate-pool-required",
+            "observed_pool_id": None,
+            "satisfied": False,
+            "reasons": ["required candidate pool is unavailable"],
+        }
+    )
+    record["reasons"] = ["candidate-pool requirement is not satisfied"]
+    validate_instance("mstr-task-eligibility-v0", record, schema_dir=ROOT / "schemas")
 
 
 def test_ineligible_result_requires_a_reason() -> None:
