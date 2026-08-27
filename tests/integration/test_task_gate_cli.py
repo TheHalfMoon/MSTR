@@ -21,7 +21,7 @@ def _stdout_json(capsys: pytest.CaptureFixture[str]) -> dict[str, Any]:
     return decoded
 
 
-def test_task_eligible_b002_bootstrap_returns_zero(
+def test_task_eligible_b002_terminal_returns_one(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -34,13 +34,14 @@ def test_task_eligible_b002_bootstrap_returns_zero(
     exit_code = main(["task", "eligible", "B002"])
     payload = _stdout_json(capsys)
 
-    assert exit_code == 0
+    assert exit_code == 1
     assert payload == expected
-    assert payload["eligible"] is True
+    assert payload["eligible"] is False
+    assert "task.already_terminal" in payload["reasons"]
     validate_instance("mstr-task-eligibility-v0", payload)
 
 
-def test_task_eligible_b003_checked_failure_returns_one(
+def test_task_eligible_b003_successor_returns_zero(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -53,10 +54,10 @@ def test_task_eligible_b003_checked_failure_returns_one(
     exit_code = main(["task", "eligible", "B003"])
     payload = _stdout_json(capsys)
 
-    assert exit_code == 1
+    assert exit_code == 0
     assert payload == expected
-    assert payload["eligible"] is False
-    assert "prerequisite.unsatisfied:B002" in payload["reasons"]
+    assert payload["eligible"] is True
+    assert payload["reasons"] == []
     validate_instance("mstr-task-eligibility-v0", payload)
 
 
