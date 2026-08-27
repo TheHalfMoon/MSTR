@@ -84,9 +84,91 @@ def patch_unit_test() -> None:
     )
 
 
+def patch_ruff_line_wrapping() -> None:
+    source = ROOT / "src/mstr_qualify/task_drift.py"
+    replacements = [
+        (
+            '_EVIDENCE_STATE_RE = re.compile(r"^\\*\\*State:\\*\\*\\s*`?(?P<value>[A-Z][A-Z0-9_]*)`?\\s*$", re.MULTILINE)\n',
+            '_EVIDENCE_STATE_RE = re.compile(\n    r"^\\*\\*State:\\*\\*\\s*`?(?P<value>[A-Z][A-Z0-9_]*)`?\\s*$",\n    re.MULTILINE,\n)\n',
+            "Ruff evidence state regex",
+        ),
+        (
+            '    status = _git(root, "status", "--porcelain=v1", "--untracked-files=all", code="task_drift.status")\n',
+            '    status = _git(\n        root,\n        "status",\n        "--porcelain=v1",\n        "--untracked-files=all",\n        code="task_drift.status",\n    )\n',
+            "Ruff git status call",
+        ),
+        (
+            '            details={"ancestor": ancestor, "descendant": descendant, "returncode": completed.returncode},\n',
+            '            details={\n                "ancestor": ancestor,\n                "descendant": descendant,\n                "returncode": completed.returncode,\n            },\n',
+            "Ruff ancestry details",
+        ),
+        (
+            '                _finding(task_id, "git.pr_merge_ambiguous", pr_number=evidence_pr, merges=list(history_merges))\n',
+            '                _finding(\n                    task_id,\n                    "git.pr_merge_ambiguous",\n                    pr_number=evidence_pr,\n                    merges=list(history_merges),\n                )\n',
+            "Ruff ambiguous merge finding",
+        ),
+        (
+            '        for label, sha in (("final_head", implementation.final_head), ("merge_sha", implementation.merge_sha)):\n',
+            '        implementation_commits = (\n            ("final_head", implementation.final_head),\n            ("merge_sha", implementation.merge_sha),\n        )\n        for label, sha in implementation_commits:\n',
+            "Ruff implementation commit loop",
+        ),
+        (
+            '                findings.append(_finding(task_id, "git.implementation_commit_missing", field=label, sha=sha))\n',
+            '                findings.append(\n                    _finding(\n                        task_id,\n                        "git.implementation_commit_missing",\n                        field=label,\n                        sha=sha,\n                    )\n                )\n',
+            "Ruff missing commit finding",
+        ),
+        (
+            '        if _commit_exists(root, implementation.final_head) and _commit_exists(root, implementation.merge_sha):\n',
+            '        final_head_exists = _commit_exists(root, implementation.final_head)\n        merge_sha_exists = _commit_exists(root, implementation.merge_sha)\n        if final_head_exists and merge_sha_exists:\n',
+            "Ruff implementation existence condition",
+        ),
+        (
+            '            if not _is_ancestor(root, implementation.merge_sha, _git_identity(root, "HEAD", code="task_drift.head_invalid")):\n',
+            '            current_head = _git_identity(root, "HEAD", code="task_drift.head_invalid")\n            if not _is_ancestor(root, implementation.merge_sha, current_head):\n',
+            "Ruff merge on main condition",
+        ),
+        (
+            '                    _finding(task_id, "entry_gate.task_mismatch", observed=gate_task, expected=task_id)\n',
+            '                    _finding(\n                        task_id,\n                        "entry_gate.task_mismatch",\n                        observed=gate_task,\n                        expected=task_id,\n                    )\n',
+            "Ruff entry task mismatch",
+        ),
+        (
+            '                findings.append(_finding(task_id, "entry_gate.not_eligible", observed=gate_eligible))\n',
+            '                findings.append(\n                    _finding(task_id, "entry_gate.not_eligible", observed=gate_eligible)\n                )\n',
+            "Ruff entry not eligible",
+        ),
+        (
+            '            comparison_head = implementation.final_head if implementation is not None else evidence_head\n',
+            '            comparison_head = (\n                implementation.final_head if implementation is not None else evidence_head\n            )\n',
+            "Ruff comparison head",
+        ),
+        (
+            '                findings.append(_finding(task_id, "entry_gate.final_head_missing", pr_number=evidence_pr))\n',
+            '                findings.append(\n                    _finding(\n                        task_id,\n                        "entry_gate.final_head_missing",\n                        pr_number=evidence_pr,\n                    )\n                )\n',
+            "Ruff entry final head missing",
+        ),
+        (
+            '            elif comparison_head is not None and _commit_exists(root, str(gate_main)) and _commit_exists(root, comparison_head):\n',
+            '            elif (\n                comparison_head is not None\n                and _commit_exists(root, str(gate_main))\n                and _commit_exists(root, comparison_head)\n            ):\n',
+            "Ruff entry ancestry condition",
+        ),
+    ]
+    for old, new, label in replacements:
+        replace_once(source, old, new, label)
+
+    unit = ROOT / "tests/unit/test_task_drift.py"
+    replace_once(
+        unit,
+        '    _git(root, "merge", "--no-ff", "impl-b003", "-m", "Merge pull request #3 from fixture/impl-b003")\n',
+        '    _git(\n        root,\n        "merge",\n        "--no-ff",\n        "impl-b003",\n        "-m",\n        "Merge pull request #3 from fixture/impl-b003",\n    )\n',
+        "Ruff unit merge command",
+    )
+
+
 def main() -> None:
     patch_cli()
     patch_unit_test()
+    patch_ruff_line_wrapping()
 
 
 if __name__ == "__main__":
