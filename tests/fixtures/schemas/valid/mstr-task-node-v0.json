@@ -1,0 +1,24 @@
+{
+  "schema_version": "mstr.task-node.v0",
+  "task_id": "B011",
+  "workstream_id": "MSTR-000B",
+  "title": "Acquire exact newly authorized candidate artifacts",
+  "canonical_state": "PENDING",
+  "prerequisites": ["B002", "B010"],
+  "outputs": ["artifacts/manifests/B011-acquisition.json"],
+  "evidence_outputs": ["evidence/mstr-000b/B011-acquisition.md"],
+  "candidate_dependent": true,
+  "candidate_pool_requirement_id": "B010-access-required-candidate-set",
+  "external_effect_class": "MODEL_WEIGHT_ACCESS",
+  "required_authority_id": "founder:B011-exact-model-weight-access",
+  "parallel_safe": false,
+  "supersedes": [],
+  "superseded_by": [],
+  "closeout_rule": {
+    "terminal_states": ["COMPLETE_CANONICAL", "NOT_REQUIRED_NO_ACCESS"],
+    "require_all_outputs": true,
+    "require_all_evidence_outputs": true,
+    "completion_requires_merge": true,
+    "notes": ["NOT_REQUIRED is valid only when the task contract explicitly permits it."]
+  }
+}
