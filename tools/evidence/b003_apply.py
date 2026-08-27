@@ -72,14 +72,14 @@ def patch_unit_test() -> None:
     )
     replace_once(
         path,
-        '''    with pytest.raises(Exception) as captured:\n        detect_canonical_drift(repository_root=root)\n''',
-        '''    with pytest.raises(QualificationError) as captured:\n        detect_canonical_drift(repository_root=root)\n''',
+        '''def test_detector_refuses_feature_checkout(tmp_path: Path) -> None:\n    root = _init_repo(tmp_path)\n    _git(root, "switch", "-c", "feature")\n    with pytest.raises(Exception) as captured:\n        detect_canonical_drift(repository_root=root)\n''',
+        '''def test_detector_refuses_feature_checkout(tmp_path: Path) -> None:\n    root = _init_repo(tmp_path)\n    _git(root, "switch", "-c", "feature")\n    with pytest.raises(QualificationError) as captured:\n        detect_canonical_drift(repository_root=root)\n''',
         "unit feature exception type",
     )
     replace_once(
         path,
-        '''    with pytest.raises(Exception) as captured:\n        detect_canonical_drift(repository_root=root)\n''',
-        '''    with pytest.raises(QualificationError) as captured:\n        detect_canonical_drift(repository_root=root)\n''',
+        '''def test_detector_refuses_dirty_checkout(tmp_path: Path) -> None:\n    root = _init_repo(tmp_path)\n    (root / "dirty.txt").write_text("dirty\\n", encoding="utf-8")\n    with pytest.raises(Exception) as captured:\n        detect_canonical_drift(repository_root=root)\n''',
+        '''def test_detector_refuses_dirty_checkout(tmp_path: Path) -> None:\n    root = _init_repo(tmp_path)\n    (root / "dirty.txt").write_text("dirty\\n", encoding="utf-8")\n    with pytest.raises(QualificationError) as captured:\n        detect_canonical_drift(repository_root=root)\n''',
         "unit dirty exception type",
     )
 
