@@ -58,6 +58,8 @@ def test_private_user_data_allow_fixture_fails_closed() -> None:
 @pytest.mark.parametrize(
     ("section", "field", "unsafe_value"),
     [
+        ("target_distribution_policy", "fixed_percentages_in_b014", True),
+        ("target_distribution_policy", "stage_specific_manifest_required", False),
         ("provenance_policy", "unresolved_provenance_admission", "ALLOW"),
         ("rights_policy", "unresolved_rights_admission", "ALLOW"),
         ("rights_policy", "incompatible_rights_admission", "ALLOW"),
@@ -72,6 +74,9 @@ def test_private_user_data_allow_fixture_fails_closed() -> None:
         ("teacher_policy", "unresolved_admission", "ALLOW"),
         ("difficulty_policy", "checkpoint_relative", False),
         ("difficulty_policy", "invalid_positive_admission", "ALLOW"),
+        ("training_eval_boundary_policy", "future_history_visibility_required", False),
+        ("training_eval_boundary_policy", "hidden_tests_training_visibility", "ALLOWED"),
+        ("stage_admission_rules", "target_distribution_manifest_bound", False),
         ("stage_admission_rules", "unresolved_evidence_admission", "ALLOW"),
         ("stage_admission_rules", "private_user_data_default_rejection_enforced", False),
         ("private_user_data_policy", "private_user_repositories_default_ingest", True),
@@ -99,7 +104,7 @@ def test_core_prohibited_source_class_cannot_be_removed() -> None:
     _assert_rejected(instance)
 
 
-def test_core_software_roles_cannot_be_erased() -> None:
+def test_canonical_software_role_taxonomy_cannot_drift() -> None:
     instance = copy.deepcopy(_load(VALID_FIXTURE))
     roles = instance["software_role_taxonomy"]
     assert isinstance(roles, list)
