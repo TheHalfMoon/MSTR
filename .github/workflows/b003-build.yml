@@ -108,6 +108,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
           git worktree add --detach /tmp/b003-canonical-main "$EXPECTED_MAIN"
           python - <<'PY'
           from pathlib import Path
