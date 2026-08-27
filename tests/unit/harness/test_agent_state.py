@@ -136,7 +136,7 @@ def test_compaction_records_auditable_digests_for_omitted_noncritical_history() 
     )
 
     first = compact_agent_state(state, policy)
-    second = compact_agent_state(state, policy)
+    second = compact_agent_state(first, policy)
 
     assert state_to_dict(first) == state_to_dict(second)
     records = {record.field: record for record in first.compaction_records}
@@ -145,6 +145,65 @@ def test_compaction_records_auditable_digests_for_omitted_noncritical_history() 
     assert records["commands_run"].omitted_count > 0
     assert records["verifier_results.pass"].omitted_count == 2
     assert all(len(record.omitted_sha256) == 64 for record in records.values())
+
+
+def test_repeated_compaction_keeps_a_fixed_record_vocabulary() -> None:
+    events, _ = _fixture_events()
+    state = project_agent_state(events)
+
+    first = compact_agent_state(
+        state,
+        CompactionPolicy(
+            max_context_items=4,
+            max_command_items=1,
+            max_pass_verifier_results=2,
+            max_critical_items=64,
+        ),
+    )
+    second = compact_agent_state(
+        first,
+        CompactionPolicy(
+            max_context_items=2,
+            max_command_items=0,
+            max_pass_verifier_results=1,
+            max_critical_items=64,
+        ),
+    )
+    third = compact_agent_state(
+        second,
+        CompactionPolicy(
+            max_context_items=1,
+            max_command_items=0,
+            max_pass_verifier_results=0,
+            max_critical_items=64,
+        ),
+    )
+
+    fields = [record.field for record in third.compaction_records]
+    assert fields == sorted(set(fields))
+    assert set(fields) <= {
+        "repo_map",
+        "files_inspected",
+        "commands_run",
+        "verifier_results.pass",
+    }
+    assert len(fields) <= 4
+
+    first_records = {record.field: record for record in first.compaction_records}
+    third_records = {record.field: record for record in third.compaction_records}
+    for field, record in first_records.items():
+        assert third_records[field].omitted_count >= record.omitted_count
+
+    stable = compact_agent_state(
+        third,
+        CompactionPolicy(
+            max_context_items=1,
+            max_command_items=0,
+            max_pass_verifier_results=0,
+            max_critical_items=64,
+        ),
+    )
+    assert state_to_dict(stable) == state_to_dict(third)
 
 
 def test_compaction_fails_closed_when_critical_state_exceeds_budget() -> None:
