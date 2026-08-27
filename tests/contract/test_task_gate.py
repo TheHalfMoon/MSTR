@@ -95,6 +95,7 @@ def test_live_b002_catalog_covers_every_declared_b_task() -> None:
     assert set(catalog.nodes) == {f"B{index:03d}" for index in range(1, 35)}
     assert catalog.nodes["B001"]["canonical_state"] == "COMPLETE_CANONICAL"
     assert catalog.nodes["B002"]["canonical_state"] == "COMPLETE_CANONICAL"
+    assert catalog.nodes["B003"]["canonical_state"] == "COMPLETE_CANONICAL"
 
 
 def test_b002_is_terminal_after_canonical_closeout() -> None:
@@ -107,11 +108,21 @@ def test_b002_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b003_is_eligible_after_b002_closeout_is_canonical() -> None:
+def test_b003_is_terminal_after_canonical_closeout() -> None:
     result = evaluate_task_snapshot("B003", canonical_main=_CANONICAL_MAIN)
 
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert "task.already_terminal" in result["reasons"]
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b004_is_eligible_after_b003_closeout_is_canonical() -> None:
+    result = evaluate_task_snapshot("B004", canonical_main=_CANONICAL_MAIN)
+
     assert result["eligible"] is True
-    assert result["prerequisite_results"][0]["task_id"] == "B002"
+    assert result["prerequisite_results"][0]["task_id"] == "B003"
     assert result["prerequisite_results"][0]["observed_state"] == "COMPLETE_CANONICAL"
     assert result["prerequisite_results"][0]["satisfied"] is True
     assert result["reasons"] == []
