@@ -9,11 +9,40 @@ from mstr_qualify.schemas import SCHEMA_FILES, load_schema, validate_instance
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "tests" / "fixtures" / "schemas"
+LEGACY_DESIGN_SCHEMA_DIR = (
+    ROOT / "specs" / "000-universal-laptop-interaction-contract" / "contracts"
+)
+DESIGN_SCHEMA_OVERRIDES = {
+    "mstr-task-node-v0": (
+        ROOT
+        / "specs"
+        / "002-code-model-supremacy-foundation"
+        / "contracts"
+        / "mstr-task-node-v0.schema.json"
+    ),
+    "mstr-task-eligibility-v0": (
+        ROOT
+        / "specs"
+        / "002-code-model-supremacy-foundation"
+        / "contracts"
+        / "mstr-task-eligibility-v0.schema.json"
+    ),
+}
 
 
 def _fixture(kind: str, schema_name: str) -> object:
+    dedicated = FIXTURES / kind / f"{schema_name}.json"
+    if dedicated.exists():
+        return json.loads(dedicated.read_text(encoding="utf-8"))
     fixtures = json.loads((FIXTURES / kind / "fixtures.json").read_text(encoding="utf-8"))
     return fixtures[schema_name]
+
+
+def _design_schema_path(schema_name: str) -> Path:
+    override = DESIGN_SCHEMA_OVERRIDES.get(schema_name)
+    if override is not None:
+        return override
+    return LEGACY_DESIGN_SCHEMA_DIR / SCHEMA_FILES[schema_name]
 
 
 @pytest.mark.parametrize("schema_name", sorted(SCHEMA_FILES))
@@ -26,13 +55,7 @@ def test_runtime_schema_is_valid_draft_202012(schema_name: str) -> None:
 def test_runtime_schema_matches_design_source_byte_for_byte(schema_name: str) -> None:
     filename = SCHEMA_FILES[schema_name]
     runtime = (ROOT / "schemas" / filename).read_bytes()
-    design = (
-        ROOT
-        / "specs"
-        / "000-universal-laptop-interaction-contract"
-        / "contracts"
-        / filename
-    ).read_bytes()
+    design = _design_schema_path(schema_name).read_bytes()
     assert runtime == design
 
 
