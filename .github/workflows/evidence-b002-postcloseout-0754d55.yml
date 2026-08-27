@@ -1,0 +1,110 @@
+name: Evidence B002 post-closeout verification
+
+on:
+  push:
+    branches:
+      - evidence/b002-postcloseout-0754d55
+
+permissions:
+  contents: read
+
+jobs:
+  verify-main:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 0754d552752c2f6c099df2b480de99028e2e26e5
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - name: Checkout canonical main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact canonical main identity and clean tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          git fetch origin main
+          test "$(git rev-parse FETCH_HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+
+      - name: Compile closeout-aware task-gate tests
+        run: python -m py_compile tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Exercise production B002 terminal gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          python -m mstr_qualify task eligible B002 >/tmp/b002.json
+          code=$?
+          set -e
+          test "$code" -eq 1
+          python - <<'PY'
+          import json
+          payload = json.load(open('/tmp/b002.json', encoding='utf-8'))
+          assert payload['task_id'] == 'B002', payload
+          assert payload['eligible'] is False, payload
+          assert payload['canonical_main'] == '0754d552752c2f6c099df2b480de99028e2e26e5', payload
+          assert 'task.already_terminal' in payload['reasons'], payload
+          assert payload['state_consistency_result']['observed_state'] == 'COMPLETE_CANONICAL', payload
+          assert payload['state_consistency_result']['satisfied'] is True, payload
+          print('B002_PRODUCTION_TERMINAL=true')
+          PY
+
+      - name: Exercise production B003 successor entry gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify task eligible B003 >/tmp/b003.json
+          python - <<'PY'
+          import json
+          payload = json.load(open('/tmp/b003.json', encoding='utf-8'))
+          assert payload['task_id'] == 'B003', payload
+          assert payload['eligible'] is True, payload
+          assert payload['canonical_main'] == '0754d552752c2f6c099df2b480de99028e2e26e5', payload
+          assert payload['reasons'] == [], payload
+          predecessor = payload['prerequisite_results'][0]
+          assert predecessor['task_id'] == 'B002', predecessor
+          assert predecessor['observed_state'] == 'COMPLETE_CANONICAL', predecessor
+          assert predecessor['satisfied'] is True, predecessor
+          print('B003_PRODUCTION_ELIGIBLE=true')
+          PY
+
+      - name: Targeted task-gate tests
+        run: pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+
+      - name: Frozen gate - pytest
+        run: pytest -q
+
+      - name: Frozen gate - Ruff
+        run: ruff check src tests
+
+      - name: Frozen gate - mypy
+        run: mypy
+
+      - name: Frozen gate - offline validate
+        run: python -m mstr_qualify validate
+
+      - name: Verify immutable canonical main and clean tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+          git diff --exit-code
+          echo "FINAL_MAIN_SHA=$(git rev-parse HEAD)"
