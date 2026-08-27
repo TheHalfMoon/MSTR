@@ -57,7 +57,7 @@ class FailureRecord:
 
 @dataclass(frozen=True)
 class CompactionRecord:
-    """Auditable summary of non-critical entries omitted by compaction."""
+    """Bounded audit summary for entries omitted from one state field."""
 
     field: str
     omitted_count: int
@@ -162,6 +162,10 @@ _SOURCE_POLICY: dict[str, frozenset[str]] = {
     "run.failed": frozenset({"harness", "verifier", "system"}),
     "run.escalated": frozenset({"harness", "verifier", "system"}),
 }
+
+_COMPACTABLE_FIELDS = frozenset(
+    {"repo_map", "files_inspected", "commands_run", "verifier_results.pass"}
+)
 
 
 def _items(
@@ -507,6 +511,56 @@ def _canonical_digest(values: Sequence[Any]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _chain_digest(previous_sha256: str, next_sha256: str) -> str:
+    """Deterministically bind one prior omission digest to a new omission digest."""
+    payload = json.dumps(
+        {"previous_sha256": previous_sha256, "next_sha256": next_sha256},
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _merge_compaction_record(
+    records: dict[str, CompactionRecord],
+    record: CompactionRecord,
+) -> None:
+    """Keep exactly one cumulative audit record per compactable state field."""
+    if record.field not in _COMPACTABLE_FIELDS:
+        raise StateProjectionError(
+            f"unsupported compaction record field {record.field!r}",
+            code="state.invalid_compaction_record",
+        )
+    if record.omitted_count <= 0 or len(record.omitted_sha256) != 64:
+        raise StateProjectionError(
+            f"invalid compaction record for field {record.field!r}",
+            code="state.invalid_compaction_record",
+        )
+    previous = records.get(record.field)
+    if previous is None:
+        records[record.field] = record
+        return
+    records[record.field] = CompactionRecord(
+        field=record.field,
+        omitted_count=previous.omitted_count + record.omitted_count,
+        omitted_sha256=_chain_digest(
+            previous.omitted_sha256,
+            record.omitted_sha256,
+        ),
+    )
+
+
+def _normalize_compaction_records(
+    values: Sequence[CompactionRecord],
+) -> dict[str, CompactionRecord]:
+    """Validate and collapse historical records to the fixed field vocabulary."""
+    records: dict[str, CompactionRecord] = {}
+    for record in values:
+        _merge_compaction_record(records, record)
+    return records
+
+
 def _compact_sequence(
     field: str,
     values: tuple[Any, ...],
@@ -553,6 +607,9 @@ def compact_agent_state(
     known failures, uncertain hypotheses, remaining work and next action are
     critical. If those cannot fit the declared critical budget, compaction
     fails closed instead of truncating them.
+
+    Compaction metadata is itself bounded: at most one cumulative audit record
+    exists for each compactable field, regardless of repeated compaction.
     """
     active_policy = policy or CompactionPolicy()
     critical_count = _critical_count(state)
@@ -562,28 +619,28 @@ def compact_agent_state(
             code="state.critical_overflow",
         )
 
-    records: list[CompactionRecord] = list(state.compaction_records)
+    records = _normalize_compaction_records(state.compaction_records)
     repo_map, record = _compact_sequence(
         "repo_map",
         state.repo_map,
         active_policy.max_context_items,
     )
     if record is not None:
-        records.append(record)
+        _merge_compaction_record(records, record)
     files_inspected, record = _compact_sequence(
         "files_inspected",
         state.files_inspected,
         active_policy.max_context_items,
     )
     if record is not None:
-        records.append(record)
+        _merge_compaction_record(records, record)
     commands_run, record = _compact_sequence(
         "commands_run",
         state.commands_run,
         active_policy.max_command_items,
     )
     if record is not None:
-        records.append(record)
+        _merge_compaction_record(records, record)
 
     pass_results = [
         result for result in state.verifier_results if result.status == "PASS"
@@ -592,12 +649,13 @@ def compact_agent_state(
     kept_passes = pass_results[-limit:] if limit else []
     omitted_passes = pass_results[: len(pass_results) - len(kept_passes)]
     if omitted_passes:
-        records.append(
+        _merge_compaction_record(
+            records,
             CompactionRecord(
                 field="verifier_results.pass",
                 omitted_count=len(omitted_passes),
                 omitted_sha256=_canonical_digest(omitted_passes),
-            )
+            ),
         )
     nonpass = [
         result for result in state.verifier_results if result.status != "PASS"
@@ -612,7 +670,7 @@ def compact_agent_state(
         files_inspected=files_inspected,
         commands_run=commands_run,
         verifier_results=verifier_results,
-        compaction_records=tuple(records),
+        compaction_records=tuple(records[field] for field in sorted(records)),
     )
 
 
