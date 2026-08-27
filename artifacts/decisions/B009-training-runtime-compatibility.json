@@ -53,6 +53,31 @@
       "sha": "d7a2074112d27649303fa107eb8c94db1ee435f3"
     }
   },
+  "source_evidence": {
+    "llama_cpp_paths": [
+      "conversion/mellum.py",
+      "conversion/starcoder2.py",
+      "conversion/stablelm.py",
+      "conversion/falcon_h1.py",
+      "conversion/lfm2.py",
+      "conversion/bitnet.py",
+      "conversion/granite.py",
+      "conversion/mistral3.py",
+      "conversion/qwen.py",
+      "conversion/gemma.py",
+      "src/models/smollm3.cpp"
+    ],
+    "unsloth_paths": [
+      "unsloth/models/falcon_h1.py",
+      "unsloth/models/granite.py",
+      "studio/backend/assets/configs/model_defaults/other/unsloth_LFM2-1.2B.yaml",
+      "tests/saving/test_qwen3_5_vlm_full_finetune_key_remap.py"
+    ],
+    "peft_paths": [
+      "docs/source/developer_guides/troubleshooting.md"
+    ],
+    "interpretation": "These paths are evidence that architecture/family code exists at the pinned upstream SHA. They are not evidence that the exact MSTR candidate revision was loaded, trained, converted, quantized, exported, or benchmarked."
+  },
   "global_findings": [
     "llama.cpp pinned source contains explicit or family conversion/runtime paths for Mellum, StarCoder2, StableLM/Stable Code, Falcon-H1, LFM2, BitNet, Granite, Mistral3, Qwen, Gemma, and SmolLM3-related runtime support; these are source-presence findings only.",
     "Unsloth pinned source contains direct family code/evidence for Falcon-H1, Granite, LFM2, and Qwen3.5-era paths, but source presence is not exact-candidate training qualification.",
