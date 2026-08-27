@@ -277,16 +277,43 @@ def _git_head(root: Path) -> str:
     return value
 
 
-def _require_expected_canonical_checkout(
-    root: Path,
-    head: str,
-    expected_canonical_main: str,
-) -> None:
-    if head != expected_canonical_main:
+def _git_ref(root: Path, ref: str, *, code: str) -> str:
+    completed = _run_git(root, "rev-parse", "--verify", ref)
+    value = completed.stdout.strip().lower()
+    if completed.returncode != 0 or not _HEX40_RE.fullmatch(value):
         raise QualificationError(
-            "task eligibility checkout does not match the supplied canonical main",
+            "required canonical Git ref is unavailable or invalid",
+            code=code,
+            details={"ref": ref, "returncode": completed.returncode, "value": value},
+        )
+    return value
+
+
+def _trusted_canonical_main(root: Path) -> str:
+    """Bind eligibility to canonical main refs without performing network I/O.
+
+    Execution governance must refresh and verify ``origin/main`` against live repository
+    truth immediately before invoking this offline gate. The gate then refuses any
+    checkout where local ``main``, cached ``origin/main``, and ``HEAD`` do not agree.
+    """
+    head = _git_head(root)
+    local_main = _git_ref(root, "refs/heads/main", code="task_gate.main_ref_invalid")
+    origin_main = _git_ref(
+        root,
+        "refs/remotes/origin/main",
+        code="task_gate.origin_main_ref_invalid",
+    )
+    if local_main != origin_main:
+        raise QualificationError(
+            "local main does not match the refreshed origin/main identity",
+            code="task_gate.main_ref_mismatch",
+            details={"main": local_main, "origin_main": origin_main},
+        )
+    if head != local_main:
+        raise QualificationError(
+            "task eligibility must execute at the canonical main commit",
             code="task_gate.not_canonical_main",
-            details={"head": head, "canonical_main": expected_canonical_main},
+            details={"head": head, "canonical_main": local_main},
         )
     status = _run_git(root, "status", "--porcelain=v1", "--untracked-files=all")
     if status.returncode != 0:
@@ -301,7 +328,7 @@ def _require_expected_canonical_checkout(
             code="task_gate.dirty_checkout",
             details={"entries": status.stdout.splitlines()},
         )
-
+    return head
 def _node_sha256(node: dict[str, Any]) -> str:
     payload = json.dumps(node, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -704,20 +731,12 @@ def evaluate_task_snapshot(
 def evaluate_task_eligibility(
     task_id: str,
     *,
-    canonical_main: str,
     repository_root: Path | None = None,
     catalog_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Evaluate against a caller-supplied trusted current-main identity."""
-    if not _HEX40_RE.fullmatch(canonical_main):
-        raise QualificationError(
-            "canonical main identity must be 40 lowercase hex",
-            code="task_gate.canonical_main_invalid",
-            details={"value": canonical_main},
-        )
+    """Evaluate one task against the verified canonical-main checkout."""
     root = (repository_root or _REPOSITORY_ROOT).resolve()
-    head = _git_head(root)
-    _require_expected_canonical_checkout(root, head, canonical_main)
+    canonical_main = _trusted_canonical_main(root)
     return evaluate_task_snapshot(
         task_id,
         repository_root=root,

@@ -28,10 +28,10 @@ def test_task_eligible_b002_bootstrap_returns_zero(
     expected = evaluate_task_snapshot("B002", canonical_main=_CANONICAL_MAIN)
     monkeypatch.setattr(
         "mstr_qualify.cli.evaluate_task_eligibility",
-        lambda task_id, *, canonical_main: expected,
+        lambda task_id: expected,
     )
 
-    exit_code = main(["task", "eligible", "B002", "--canonical-main", _CANONICAL_MAIN])
+    exit_code = main(["task", "eligible", "B002"])
     payload = _stdout_json(capsys)
 
     assert exit_code == 0
@@ -47,10 +47,10 @@ def test_task_eligible_b003_checked_failure_returns_one(
     expected = evaluate_task_snapshot("B003", canonical_main=_CANONICAL_MAIN)
     monkeypatch.setattr(
         "mstr_qualify.cli.evaluate_task_eligibility",
-        lambda task_id, *, canonical_main: expected,
+        lambda task_id: expected,
     )
 
-    exit_code = main(["task", "eligible", "B003", "--canonical-main", _CANONICAL_MAIN])
+    exit_code = main(["task", "eligible", "B003"])
     payload = _stdout_json(capsys)
 
     assert exit_code == 1
@@ -64,7 +64,7 @@ def test_task_eligible_configuration_error_returns_two(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    def fail_closed(task_id: str, *, canonical_main: str) -> dict[str, Any]:
+    def fail_closed(task_id: str) -> dict[str, Any]:
         raise QualificationError(
             "unknown task id",
             code="task_gate.task_unknown",
@@ -73,7 +73,7 @@ def test_task_eligible_configuration_error_returns_two(
 
     monkeypatch.setattr("mstr_qualify.cli.evaluate_task_eligibility", fail_closed)
 
-    exit_code = main(["task", "eligible", "B999", "--canonical-main", _CANONICAL_MAIN])
+    exit_code = main(["task", "eligible", "B999"])
     captured = capsys.readouterr()
 
     assert exit_code == 2
@@ -88,11 +88,16 @@ def test_task_eligible_parser_exposes_no_mutation_surface() -> None:
     from mstr_qualify.cli import build_parser
 
     parser = build_parser()
-    args = parser.parse_args(
-        ["task", "eligible", "B003", "--canonical-main", _CANONICAL_MAIN]
-    )
+    args = parser.parse_args(["task", "eligible", "B003"])
 
     assert args.command == "task"
     assert args.task_command == "eligible"
     assert args.task_id == "B003"
-    assert args.canonical_main == _CANONICAL_MAIN
+    assert not hasattr(args, "canonical_main")
+
+def test_task_eligible_parser_rejects_caller_supplied_main() -> None:
+    from mstr_qualify.cli import build_parser
+
+    parser = build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["task", "eligible", "B003", "--canonical-main", "a" * 40])

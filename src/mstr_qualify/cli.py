@@ -477,13 +477,10 @@ def run_manifest_validate(path: Path, kind: str | None) -> tuple[int, dict[str, 
 # ---------------------------------------------------------------------------
 
 
-def run_task_eligible(
-    task_id: str,
-    canonical_main: str,
-) -> tuple[int, dict[str, Any]]:
-    """Evaluate one task against an externally supplied current-main SHA."""
+def run_task_eligible(task_id: str) -> tuple[int, dict[str, Any]]:
+    """Evaluate one task against the verified canonical-main checkout."""
 
-    result = evaluate_task_eligibility(task_id, canonical_main=canonical_main)
+    result = evaluate_task_eligibility(task_id)
     exit_code = _EXIT_OK if result["eligible"] else _EXIT_FAIL_CLOSED
     return exit_code, result
 
@@ -541,11 +538,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="evaluate one task against canonical repository-local state",
     )
     task_eligible_parser.add_argument("task_id")
-    task_eligible_parser.add_argument(
-        "--canonical-main",
-        required=True,
-        help="trusted exact current main SHA supplied by execution/merge governance",
-    )
 
     manifest_parser = subparsers.add_parser(
         "manifest",
@@ -581,7 +573,7 @@ def _dispatch(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         )
     if args.command == "task":
         if args.task_command == "eligible":
-            return run_task_eligible(args.task_id, args.canonical_main)
+            return run_task_eligible(args.task_id)
         raise QualificationError(
             "unknown task subcommand",
             code="cli.subcommand_unknown",
