@@ -38,14 +38,16 @@ jobs:
         run: |
           set -euo pipefail
           git show "refs/remotes/origin/$BUILDER_BRANCH:tools/evidence/b002_closeout_build.py" > /tmp/b002_closeout_build.py
+          git show "refs/remotes/origin/$BUILDER_BRANCH:tools/evidence/b002_closeout_cli_tests.py" > /tmp/b002_closeout_cli_tests.py
           python /tmp/b002_closeout_build.py
+          python /tmp/b002_closeout_cli_tests.py
 
       - name: Verify exact closeout scope and source syntax
         shell: bash
         run: |
           set -euo pipefail
           git diff --check
-          python -m py_compile tests/contract/test_task_gate.py
+          python -m py_compile tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
           python - <<'PY'
           import json
           from pathlib import Path
@@ -57,6 +59,7 @@ jobs:
               'evidence/mstr-000b/B002-task-gate.md',
               'specs/002-code-model-supremacy-foundation/tasks.md',
               'tests/contract/test_task_gate.py',
+              'tests/integration/test_task_gate_cli.py',
           }
           assert changed == expected, (changed, expected)
           catalog = json.loads(Path('configs/task-gate/mstr-000b.json').read_text(encoding='utf-8'))
@@ -118,7 +121,8 @@ jobs:
             configs/task-gate/mstr-000b.json \
             evidence/mstr-000b/B002-task-gate.md \
             specs/002-code-model-supremacy-foundation/tasks.md \
-            tests/contract/test_task_gate.py
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py
           test -z "$(git diff --name-only)"
           git commit -m "docs(mstr-000b): canonicalize B002 closeout"
           git push origin HEAD:"$TARGET_BRANCH"
