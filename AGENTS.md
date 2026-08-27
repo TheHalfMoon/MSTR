@@ -58,11 +58,19 @@ Canonical packages:
 
 MSTR-000B introduces a machine-readable task/dependency gate.
 
-Once B002 is canonical, autonomous implementation agents MUST run the task eligibility validator before beginning a material task and MUST fail closed when it reports an unresolved prerequisite, supersession, missing authority, candidate-pool requirement, or material canonical-state drift.
+Bootstrap is explicit:
+
+```text
+B001 = manual exact-prerequisite verification + ordinary exact-head governance
+B002 = manual exact-prerequisite verification + ordinary exact-head governance
+B003+ = machine eligibility REQUIRED once B002 is COMPLETE_CANONICAL
+```
+
+Before B002 is canonical, there is no validator command to run; agents MUST manually apply the exact task prerequisites and may not interpret the missing validator as authority to bypass them.
+
+Once B002 is `COMPLETE_CANONICAL`, autonomous implementation agents MUST run the task eligibility validator against the exact current `main` before every material B003+ task execution and again before its merge. Any `eligible=false`, validator error, unresolved prerequisite, supersession, missing authority, candidate-pool mismatch, or material canonical-state drift is a hard stop.
 
 The validator verifies existing authority; it never creates authority.
-
-Until B002 is canonical, agents must manually apply the exact task prerequisites and may not use the absence of the validator as permission to bypass them.
 
 ## Spec Kit Workflow
 
@@ -249,7 +257,7 @@ For each task:
 
 1. verify exact canonical base;
 2. read task prerequisites and output paths;
-3. run task eligibility validation once B002 is available;
+3. if task is B001/B002, manually verify its exact prerequisites; if task is B003+ and B002 is canonical, require an exact-main `eligible=true` result before execution and again before merge;
 4. create a focused branch;
 5. implement the smallest compliant change;
 6. add contract/unit/integration/security tests required by the task;
