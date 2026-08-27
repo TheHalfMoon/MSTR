@@ -1,0 +1,89 @@
+name: Evidence B004 pre-merge gate
+
+on:
+  push:
+    branches:
+      - evidence/b004-premerge-9b8ad22
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: d0e90740924f6991da361536e7f835eb55ae9145
+  EXPECTED_HEAD: 9b8ad22e59e096409b753a6264e61ee59a966dc4
+  TARGET_BRANCH: docs/000b-b004-000a-sequence-reconciliation
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  premerge:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout live main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact live refs and four-file PR scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+          python - <<'PY'
+          import subprocess
+          expected = {
+              'docs/canonical/CURRENT_STATE.md',
+              'docs/canonical/PROGRAM_ROADMAP.md',
+              'specs/001-agent-harness-verified-loop-foundation/tasks.md',
+              'evidence/mstr-000b/B004-000a-sequence-reconciliation.md',
+          }
+          changed = set(subprocess.run(
+              ['git', 'diff', '--name-only', 'd0e90740924f6991da361536e7f835eb55ae9145..refs/remotes/origin/docs/000b-b004-000a-sequence-reconciliation'],
+              check=True, capture_output=True, text=True,
+          ).stdout.splitlines())
+          assert changed == expected, (changed, expected)
+          PY
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Verify production B004 entry and clean drift on live main
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify task eligible B004 > /tmp/b004.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          task = json.load(open('/tmp/b004.json', encoding='utf-8'))
+          drift = json.load(open('/tmp/drift.json', encoding='utf-8'))
+          assert task['task_id'] == 'B004', task
+          assert task['eligible'] is True and task['reasons'] == [], task
+          assert task['canonical_main'] == 'd0e90740924f6991da361536e7f835eb55ae9145', task
+          assert drift['status'] == 'clean' and drift['findings'] == [], drift
+          assert drift['canonical_main'] == 'd0e90740924f6991da361536e7f835eb55ae9145', drift
+          print('PREMERGE_B004_PRODUCTION_ELIGIBLE=true')
+          print('PREMERGE_B004_DRIFT=clean')
+          PY
+
+      - name: Verify immutable refs at gate completion
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+          echo "FINAL_PREMERGE_MAIN=$(git rev-parse HEAD)"
+          echo "FINAL_PREMERGE_HEAD=$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)"
