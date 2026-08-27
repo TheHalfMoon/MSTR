@@ -18,7 +18,7 @@ EARLY_SAFE:
 B001-B009, B014-B025 may execute when their exact prerequisites are satisfied and they do not access new model weights or ingest large corpora.
 
 CANDIDATE_EXTERNAL_EFFECT:
-B010-B012 require their exact authority/inputs.
+B010-B012 require their exact authority/inputs. If B010 proves no new candidate requires weight access, B011/B012 may close as NOT_REQUIRED with explicit evidence and no external effect.
 
 CONVERGENCE:
 B013, B026-B030 require the stable evidence defined below.
@@ -66,7 +66,7 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: `benchmarks/manifests/B007-tokenizer-economics.json`, fixtures, `evidence/mstr-000b/B007-tokenizer-protocol.md`.
 
 - [ ] **B008 Measure tokenizer code density for all serious candidates.**  
-  Record bytes/token, tokens/diff, tokens/stacktrace, tokens/tool call, per-language fragmentation and 8K effective code payload. No model inference required.  
+  Record bytes/token, tokens/diff, tokens/stacktrace, tokens/tool call, per-language fragmentation and 8K effective code payload. Run any tokenizer acquisition/measurement in approved ephemeral research infrastructure when required; founder Mac remains zero-large-artifact. No model inference is authorized by this task.  
   Outputs: `artifacts/results/tokenizer/B008/*.json`, `evidence/mstr-000b/B008-tokenizer-economics.md`.
 
 - [ ] **B009 Freeze candidate trainability / conversion / runtime compatibility matrix.**  
@@ -74,19 +74,19 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: `artifacts/decisions/B009-training-runtime-compatibility.json`, `evidence/mstr-000b/B009-compatibility.md`.
 
 - [ ] **B010 Freeze exact new-candidate weight-access envelope if any new artifact evidence is required.**  
-  This is preflight only. Candidate IDs, exact revisions/files/hashes where available, network hosts, expected bytes, rights, executor, retention, cleanup and USD ceiling must be explicit.  
+  This is preflight only. Candidate IDs, exact revisions/files/hashes where available, network hosts, expected bytes, rights, executor, retention, cleanup and USD ceiling must be explicit. If no newly relevant candidate survives static/product gates far enough to require artifact access, record an explicit empty/`NO_NEW_WEIGHT_ACCESS_REQUIRED` decision instead of manufacturing a gate.  
   Outputs: `artifacts/manifests/B010-new-candidate-weight-access.json`, `evidence/mstr-000b/B010-weight-access-preflight.md`.
 
 - [ ] **B011 EXPLICIT NEW WEIGHT ACCESS GATE — acquire/verify only founder-authorized B010 candidates.**  
-  Execute only after separate exact authorization if B010 is non-empty. Use approved ephemeral runners; founder Mac and Git receive no binaries. Verify exact integrity and emit T024-compatible manifests.  
-  Outputs: `artifacts/manifests/B011-acquired-candidates.json`, runner evidence, `evidence/mstr-000b/B011-acquisition.md`.
+  Execute only after separate exact authorization when B010 contains one or more candidates. Use approved ephemeral runners; founder Mac and Git receive no binaries. Verify exact integrity and emit T024-compatible manifests. If B010 is explicitly empty, close B011 as `NOT_REQUIRED_NO_NEW_CANDIDATES` with evidence and perform no network/model-artifact access.  
+  Outputs: `artifacts/manifests/B011-acquired-candidates.json` or an explicit N/A decision artifact, runner evidence where executed, `evidence/mstr-000b/B011-acquisition.md`.
 
 - [ ] **B012 Run equivalent Q4/runtime/resource/raw-code qualification for new candidates.**  
-  New candidates may not enter headline comparison with weaker evidence than existing candidates. Reuse canonical T029-T034 protocols where compatible; if superseded, record migration.  
-  Outputs: `artifacts/results/backbone/B012/`, candidate Q4 manifests, `evidence/mstr-000b/B012-new-candidate-qualification.md`.
+  New candidates may not enter headline comparison with weaker evidence than existing candidates. Reuse canonical T029-T034 protocols where compatible; if superseded, record migration. If B011 is `NOT_REQUIRED_NO_NEW_CANDIDATES`, close B012 as `NOT_REQUIRED_NO_NEW_CANDIDATES` with evidence.  
+  Outputs: `artifacts/results/backbone/B012/` and candidate Q4 manifests where applicable, explicit N/A evidence when not applicable, `evidence/mstr-000b/B012-new-candidate-qualification.md`.
 
 - [ ] **B013 Freeze stable product-aligned candidate pool for A019/tournament convergence.**  
-  Require comparable hard-gate evidence or explicit N/A/rejection reasons. Do not select the final backbone merely from this task.  
+  Prerequisite: the existing candidate set has completed T034 or a canonical equivalent hard-gate qualification, and every newly admitted candidate has completed B012 or an explicit non-admission/N/A path. Require comparable hard-gate evidence or explicit rejection reasons. Do not select the final backbone merely from this task.  
   Outputs: `artifacts/decisions/B013-stable-candidate-pool.json`, `evidence/mstr-000b/B013-candidate-pool.md`.
 
 **Checkpoint B:** candidate pool reflects MSTR's code-specialized mission and has equivalent deployment evidence.
@@ -138,7 +138,7 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: schema/fixtures, `evidence/mstr-000b/B022-verifier-health.md`.
 
 - [ ] **B023 Implement verifier-health evaluator on controlled fixtures.**  
-  Prove `HEALTHY`, `PARTIAL`, `DISAGREEMENT`, `BROKEN`, `LEAKED`, and `TAMPERED` classifications; integrate with training trajectory admission as a blocking field.  
+  Prerequisite: the MSTR-000A verifier/finalizer foundation required by the implementation is canonical. Prove `HEALTHY`, `PARTIAL`, `DISAGREEMENT`, `BROKEN`, `LEAKED`, and `TAMPERED` classifications; integrate with training trajectory admission as a blocking field, amending earlier trajectory plumbing if necessary rather than creating a parallel authority surface.  
   Outputs: verifier-health module/tests, `evidence/mstr-000b/B023-verifier-health-implementation.md`.
 
 - [ ] **B024 Freeze test-generation curriculum and acceptance semantics.**  
@@ -182,7 +182,7 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
 # Phase C — Convergence and Training-Readiness Closeout
 
 - [ ] **B031 Reconcile A019/A020 and legacy MSTR-000 tournament/preflight tasks with MSTR-000B.**  
-  A019 requires B013 stable candidate pool, relevant A001-A018 contracts, and B022 verifier-health contract. A020 research loop must consume B026 fidelity ladder. Legacy candidate/tournament/data tasks must be marked retained, superseded, or amended; no incompatible duplicate remains.  
+  A019 requires B013 stable candidate pool, relevant A001-A018 contracts, and B023 implemented verifier-health authority. A020 research loop must consume B026 fidelity ladder. Legacy candidate/tournament/data tasks must be marked retained, superseded, or amended; no incompatible duplicate remains.  
   Outputs: task supersession/dependency map, canonical task updates, `evidence/mstr-000b/B031-tournament-reconciliation.md`.
 
 - [ ] **B032 Amend MSTR-001/MSTR-002/MSTR-003 entry requirements.**  
@@ -231,24 +231,25 @@ WEIGHT_CHANGING_TRAINING_AUTHORIZED_BY_THIS_WORKSTREAM = YES
 ```text
 B001 -> B002 -> B003 -> B004
 
-B005 -> B006 -> B007 -> B008 -> B009 -> B010 -> [founder gate if non-empty] -> B011 -> B012 -> B013
+B005 -> B006 -> B007 -> B008 -> B009 -> B010
+B010(non-empty) -> [separate founder gate] -> B011 -> B012
+B010(empty) -> B011(NOT_REQUIRED) -> B012(NOT_REQUIRED)
+T034_OR_CANONICAL_EQUIVALENT + B012 -> B013
 
 B014 -> B015
 B014 -> B016 -> B017
 B014 -> B018 -> B019
 B014 -> B020 -> B021
-B014 -> B022 -> B023 -> B024
+B014 -> B022
+B022 + required MSTR-000A verifier/finalizer foundation -> B023 -> B024
 B014 -> B025
 
-A006/A014-equivalent verifier foundation + B022 -> B023
-
-B026 -> B027
-B022 + B024 + B025 -> B026
+B022 + B024 + B025 -> B026 -> B027
 B009 + B014 + B022 -> B028
 B020 + MSTR-000A loop/context contracts -> B029
 B024 + B025 + A019-ready harness surfaces -> B030
 
-T034/equivalent candidate qualification
+T034_OR_CANONICAL_EQUIVALENT
 + A001-A018 required outputs
 + B013
 + B023
