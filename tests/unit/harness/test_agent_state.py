@@ -217,7 +217,7 @@ def test_edit_rejection_and_tool_failure_are_known_failures() -> None:
         {"event_type": "edit.rejected", "payload": {"reason": "stale file"}},
         {
             "event_type": "tool.result",
-            "payload": {"command": "pytest", "success": false, "error": "test failed"},
+            "payload": {"command": "pytest", "success": False, "error": "test failed"},
         },
     )
     state = project_agent_state(events)
