@@ -73,6 +73,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git add -N evidence/mstr-000b/B004-000a-sequence-reconciliation.md
           git diff --check
           python - <<'PY'
           import subprocess
