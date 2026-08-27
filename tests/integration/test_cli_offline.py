@@ -137,6 +137,8 @@ def test_validate_self_checks_schemas_and_fixtures(capsys: pytest.CaptureFixture
         "interaction-contract",
         "mstr-loop-contract-v0",
         "mstr-run-event-v0",
+        "mstr-task-eligibility-v0",
+        "mstr-task-node-v0",
         "run-evidence",
         "storage-amendment",
         "task-manifest",
