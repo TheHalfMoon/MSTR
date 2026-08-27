@@ -4,22 +4,22 @@
   "version": "0",
   "allowed_source_classes": ["PUBLIC_OPEN_SOURCE_REPOSITORY"],
   "prohibited_source_classes": [
-    "PRIVATE_USER_REPOSITORY",
-    "PRODUCTION_TRACE",
-    "UNKNOWN_PROVENANCE",
-    "UNRESOLVED_RIGHTS",
-    "BENCHMARK_EVALUATION_ITEM",
-    "FUTURE_HISTORY_LEAKAGE",
-    "UNVERIFIED_SYNTHETIC",
-    "UNVERIFIED_TEACHER_OUTPUT"
+    "PRIVATE_USER_REPOSITORY", "PRODUCTION_TRACE", "UNKNOWN_PROVENANCE", "UNRESOLVED_RIGHTS",
+    "BENCHMARK_EVALUATION_ITEM", "FUTURE_HISTORY_LEAKAGE", "UNVERIFIED_SYNTHETIC", "UNVERIFIED_TEACHER_OUTPUT"
   ],
   "software_role_taxonomy": [
-    "STATIC_CODE",
-    "SOFTWARE_EVOLUTION",
-    "TEST_GENERATION",
-    "MULTI_FILE_FEATURE",
-    "TOOL_USE"
+    "CODE", "FIM", "TEST", "DIFF", "BUILD_CI", "TOOL_SHELL", "ISSUE_DIRECTION",
+    "PR_REVIEW", "SOFTWARE_EVOLUTION", "REPAIR_RECOVERY", "FEATURE_GREENFIELD",
+    "SECURITY", "GENERAL_REASONING_REPLAY"
   ],
+  "target_distribution_policy": {
+    "mode": "STAGE_SPECIFIC_MANIFEST",
+    "fixed_percentages_in_b014": false,
+    "software_role_distribution_required": true,
+    "stage_specific_manifest_required": true,
+    "evidence_selected_mix_required": true,
+    "role_coverage_may_not_be_silently_zeroed": true
+  },
   "language_target_policy": {
     "mode": "EXTERNAL_CANONICAL_POLICY",
     "required_policy_task_id": "B015",
@@ -93,19 +93,22 @@
     "student_identity_required": true,
     "harness_identity_required": true,
     "sampling_identity_required": true,
-    "classes": [
-      "TOO_EASY",
-      "LEARNABLE_FRONTIER",
-      "HARD_FRONTIER",
-      "CURRENTLY_UNPRODUCTIVE",
-      "INVALID"
-    ],
+    "classes": ["TOO_EASY", "LEARNABLE_FRONTIER", "HARD_FRONTIER", "CURRENTLY_UNPRODUCTIVE", "INVALID"],
     "invalid_positive_admission": "REJECT"
   },
   "verifier_health_thresholds": {
     "clean_positive_allowed_classes": ["HEALTHY"],
     "research_only_classes": ["HEALTHY", "PARTIAL", "DISAGREEMENT"],
     "blocked_classes": ["BROKEN", "LEAKED", "TAMPERED"]
+  },
+  "training_eval_boundary_policy": {
+    "training_only_identity_required": true,
+    "evaluation_only_identity_required": true,
+    "held_out_identity_required": true,
+    "cross_split_dedup_required": true,
+    "benchmark_exclusion_identity_required": true,
+    "future_history_visibility_required": true,
+    "hidden_tests_training_visibility": "PROHIBITED"
   },
   "stage_admission_rules": {
     "provenance_complete": true,
@@ -115,6 +118,7 @@
     "dedup_complete": true,
     "verifier_health_threshold_met": true,
     "language_target_policy_bound": true,
+    "target_distribution_manifest_bound": true,
     "training_eval_boundary_explicit": true,
     "private_user_data_default_rejection_enforced": true,
     "unresolved_evidence_admission": "REJECT"
