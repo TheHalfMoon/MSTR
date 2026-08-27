@@ -165,10 +165,27 @@ def patch_ruff_line_wrapping() -> None:
     )
 
 
+def patch_mypy_iterator_type() -> None:
+    source = ROOT / "src/mstr_qualify/task_drift.py"
+    replace_once(
+        source,
+        "from dataclasses import dataclass\n",
+        "from collections.abc import Iterator\nfrom dataclasses import dataclass\n",
+        "mypy Iterator import",
+    )
+    replace_once(
+        source,
+        '        if any(marker in raw for marker in ("*", "?", "[")):\n',
+        '        raw_matches: Iterator[Path]\n        if any(marker in raw for marker in ("*", "?", "[")):\n',
+        "mypy raw_matches annotation",
+    )
+
+
 def main() -> None:
     patch_cli()
     patch_unit_test()
     patch_ruff_line_wrapping()
+    patch_mypy_iterator_type()
 
 
 if __name__ == "__main__":
