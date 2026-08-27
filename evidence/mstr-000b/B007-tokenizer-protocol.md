@@ -2,39 +2,53 @@
 
 **Workstream:** MSTR-000B  
 **Task:** B007  
-**State:** IMPLEMENTATION_COMPLETE_ON_BRANCH / NOT_COMPLETE_CANONICAL  
+**State:** IMPLEMENTATION_ACTIVE / NOT_COMPLETE_CANONICAL  
 **Canonical main at execution:** `ead69ae26265b133c782ae8fd2795c126253a3b6`  
+**Current branch head:** `3d5afebe69d27c7dff08e432baff0c14776572e5`  
 **Protocol:** `MSTR-TOKENIZER-ECONOMICS-v0`
 
-B007 freezes corpus bytes and measurement semantics only. It does not acquire a tokenizer, run model inference, access model weights, use paid compute, or authorize B008 execution.
+B007 freezes deterministic corpus bytes and measurement semantics only. It does not acquire or execute a tokenizer, run model inference, access model weights, use paid compute, ingest a large dataset, or authorize B008 execution.
 
-## Outputs
+## Current outputs and exact Git identities
 
 ```text
-MANIFEST = benchmarks/manifests/B007-tokenizer-economics.json
-MANIFEST_GIT_BLOB = ded18f8672a9a6ffab8d0da46ad880b73c4deebe
-
 CORPUS = benchmarks/fixtures/tokenizer-economics/B007-corpus.json
-CORPUS_GIT_BLOB = c29d7cca25ea581daf1dc33bf23b8802bdbdda76
-CORPUS_FILE_SHA256 = bf7cf5f12d43910863ceb03667972f5dfa2581285aae6ed70a608f5533257f7c
-CORPUS_FILE_BYTES = 8130
-DECODED_CONTENT_BYTES = 3617
-ENTRY_COUNT = 17
+CORPUS_GIT_BLOB = af4cf20b29f5884010e79565e394af41c5a42214
+CORPUS_FILE_SHA256 = 425456fa39ae5dc67214b4871b1ac948c63bf9f0ae72a1407a5908d4a5c9e1d6
+CORPUS_FILE_BYTES = 10951
+DECODED_CONTENT_BYTES = 3605
+ENTRY_COUNT = 34
+ENTRY_BYTE_MIN = 61
+ENTRY_BYTE_MEDIAN = 101.5
+ENTRY_BYTE_MAX = 187
+
+MANIFEST = benchmarks/manifests/B007-tokenizer-economics.json
+MANIFEST_GIT_BLOB = abc7e7216f3aa7ad2c4c46bbc57d97ddd4e82968
+
+CORPUS_SCHEMA = specs/002-code-model-supremacy-foundation/contracts/b007-tokenizer-economics-corpus-v0.schema.json
+CORPUS_SCHEMA_GIT_BLOB = f11394e87d6d569feb58616dc8b7a90dbbd2d549
+
+PROTOCOL_SCHEMA = specs/002-code-model-supremacy-foundation/contracts/b007-tokenizer-economics-protocol-v0.schema.json
+PROTOCOL_SCHEMA_GIT_BLOB = 50a0725336c14687a2da393f417b7832c0261a9c
+
+INTEGRITY_TEST = tests/contract/test_b007_tokenizer_economics.py
+INTEGRITY_TEST_GIT_BLOB = c68302f6d34f97263861b4119d59808c54bcede1
 ```
 
-## Corpus provenance
+The corpus Git blob identity equals the Git blob SHA-1 independently computed for the exact `10951` committed bytes. The manifest separately pins the corpus SHA-256, file byte count, decoded aggregate byte count, per-entry byte counts, and per-entry SHA-256 values.
 
-The corpus is repository-authored synthetic fixture content created specifically for tokenizer-economics measurement. It contains no copied external source content.
+## Corpus scope after review hardening
+
+The first draft had one small entry per required category. Qodo correctly characterized that as category-complete smoke coverage rather than a representative tokenizer-economics corpus.
+
+The hardened v0 corpus now contains **two entries for every required category**:
 
 ```text
-SOURCE_CLASS = REPOSITORY_AUTHORED_SYNTHETIC_FIXTURE
-EXTERNAL_SOURCE_CONTENT = NO
-ENCODING = UTF-8
-NEWLINE = LF
-PRE_TOKENIZATION_CONTENT_TRANSFORMATION = NONE
+PROFILE_1 = baseline
+PROFILE_2 = adversarial
 ```
 
-The required surfaces are all present:
+Categories:
 
 ```text
 python
@@ -56,59 +70,46 @@ file_paths
 tool_json
 ```
 
-This covers the B007 task minimum: Python, TypeScript/JavaScript, Rust, Go, Java, C/C++, SQL, shell, JSON/YAML/TOML, diffs, stack traces, file paths, and tool JSON.
+Adversarial surfaces include Unicode and mixed scripts, long identifiers, regex/generics/macros/operators, heredocs and shell quoting, nested JSON, YAML anchors/multiline scalars, TOML arrays/timestamps, rename/binary diff markers, multiple runtime trace styles, Windows/UNC/deep/Unicode paths, and nested tool-result/error JSON.
 
-## Byte and source-hash pinning
-
-Each decoded fixture entry records its exact UTF-8 byte count and SHA-256. The aggregate decoded byte count is the sum of those pinned entry counts.
+The claim is intentionally bounded:
 
 ```text
-python       213  59311de128f93bade6d17cfa8eb09fda5595f016b692d3a51b73bfc1be913c19
-typescript   300  f32f8ae7926462aab901e6b9ce08486744b1bc7bf6159f137435969280723a33
-javascript   246  6fcb751859d709e0aa825eaad4fd916836fba3f119663f31a2bd2fd7a76dc841
-rust         218  6836d0527bcef155f7100182ca9973b6b9aaba2361e7c775aa85a88a5af0e7e2
-go           191  4b8e768e97c44fe6a72da8fc2669a57db987f8d073129d06535fcd7d4d7e4838
-java         268  8d975b70a8257c926bf8f0007001d15c5b1cea406077df45dd8281e2461cf8ba
-c            229  3229a2e4d715ff02399a760076e8a58343c911041be89977956e7b4a64510e40
-cpp          271  784ed873ef9d60bfff4589e46bee14fe831a29e555746a581e797a333dd8206b
-sql          179  1951366e3be5075147295c7f5b89e1080fe44f612942ddb39790db54ffd49fe1
-shell        157  ea9d37c88e0780b1b4af8c01c723b666056990e65c8c1537e2e77d44c7919ad1
-json         108  5d70692e6251737b9c000b257328f8e1714158ce20496fbf983fc587d0d4fe7a
-yaml         110  ca12c345556a851d9dea5a6bb89382c3766e0981bdef74ff3b7add4c5590fbdc
-toml         118  2d371fae55e4eecd820c274e9ba9db1a24f77234e6fc9df34a86973ce68e0de5
-diff         277  559e35d7a2dbb5cffb2b5cf477ff5518b8452f4971b2956612fdb0823a0a4a06
-stack_trace  329  c4ce75639ee025a0081ca6e43b86b2860415b7f0de1853e43719e8a02a8578cb
-file_paths   247  c470c5ea5ba8724c16c3a2ee40f2613bef3b6e5cc353d64033119f93de3065fe
-tool_json    156  068fcdb1bb4d65a0df110717cb7fff1117841d926065b01eca6bc90dca92fc97
+CLAIM_SCOPE = DETERMINISTIC_STRATIFIED_V0_FIXTURE_NOT_A_POPULATION_REPRESENTATIVE_SAMPLE
 ```
 
-### Exact committed-byte proof
+B007 therefore freezes a small deterministic stratified comparison surface. It does not claim that 34 synthetic entries estimate population-wide code-tokenization behavior.
 
-Before commit, the corpus serializer produced:
+## Integrity contract
 
-```text
-FILE_BYTES = 8130
-FILE_SHA256 = bf7cf5f12d43910863ceb03667972f5dfa2581285aae6ed70a608f5533257f7c
-EXPECTED_GIT_BLOB_SHA1 = c29d7cca25ea581daf1dc33bf23b8802bdbdda76
-```
+B007 now has task-local Draft 2020-12 schemas and an integrity test. The test is designed to fail closed on:
 
-GitHub reports the committed corpus blob as exactly:
+- duplicate JSON keys;
+- corpus file SHA-256 mismatch;
+- corpus file byte-count mismatch;
+- Git blob identity mismatch;
+- duplicate fixture IDs;
+- missing baseline/adversarial profile for any required category;
+- decoded entry byte-count mismatch;
+- decoded entry SHA-256 mismatch;
+- aggregate decoded-byte mismatch;
+- manifest/corpus entry-pin mismatch;
+- external-source-content drift;
+- authority widening;
+- special-token policy weakening;
+- claim-scope widening.
 
-```text
-ACTUAL_GIT_BLOB_SHA1 = c29d7cca25ea581daf1dc33bf23b8802bdbdda76
-```
-
-Therefore the committed file is byte-identical to the bytes for which the SHA-256 and entry hashes above were calculated.
+The committed corpus file bytes and decoded entry hashes are authoritative. Re-serialization is not assumed equivalent unless every pinned identity matches.
 
 ## Measurement contract frozen for B008
 
-B008 must verify corpus integrity before tokenization and then use the exact decoded Unicode text with no pre-measurement transformation.
+B008 must tokenize the exact decoded Unicode strings without pre-measurement transformation:
 
 ```text
 ADD_SPECIAL_TOKENS = FALSE
 BOS_INJECTION = FALSE
 EOS_INJECTION = FALSE
-CHAT_TEMPLATE = PROHIBITED
+CHAT_TEMPLATE = PROHIBITED_AND_MUST_BE_ASSERTED_UNUSED
 PADDING = NONE
 TRUNCATION = NONE
 WHITESPACE_NORMALIZATION = NONE
@@ -116,67 +117,91 @@ NEWLINE_NORMALIZATION = NONE
 TOKENIZER_NATIVE_NORMALIZER = AS_PINNED_BY_TOKENIZER_REVISION
 ```
 
-Every candidate measurement must bind exact tokenizer repository/id, immutable tokenizer revision, tokenizer-file hashes where available, tokenizer implementation identity, and implementation version.
+B008 output must record effective runtime settings and the actual token-count API identity, not merely intended configuration.
+
+Tokenizer identity must include:
+
+- exact tokenizer repository/id;
+- immutable tokenizer revision;
+- SHA-256 inventory of every tokenizer artifact actually loaded;
+- tokenizer implementation identity/version/class;
+- Python/runtime and tokenizer-library identity;
+- executor identity;
+- platform identity when behavior can differ;
+- acquisition source/provenance.
 
 ## Required metrics
 
-Per entry:
-
-```text
-byte_count
-token_count
-bytes_per_token
-character_count
-characters_per_token
-identifier_count
-identifier_token_count
-mean_tokens_per_identifier
-multi_token_identifier_fraction
-```
-
-Identifiers use the frozen ASCII software-identifier regex:
-
-```text
-[A-Za-z_][A-Za-z0-9_]*
-```
-
-Each identifier is encoded in isolation with `add_special_tokens=false` for the identifier-fragmentation surface.
-
-Aggregate metrics use weighted totals, never an unweighted average of per-file ratios:
+Corpus-level weighted metrics use numerator/denominator totals:
 
 ```text
 WEIGHTED_BYTES_PER_TOKEN = SUM(byte_count) / SUM(token_count)
-EFFECTIVE_PAYLOAD_BYTES_AT_8K = FLOOR(WEIGHTED_BYTES_PER_TOKEN * 8192)
+WEIGHTED_CHARACTERS_PER_TOKEN = SUM(character_count) / SUM(token_count)
+ESTIMATED_EFFECTIVE_PAYLOAD_BYTES_AT_8192_TOKENS = FLOOR((SUM(byte_count) / SUM(token_count)) * 8192)
+ZERO_TOTAL_TOKENS = INVALID_MEASUREMENT
 ```
 
-Named surfaces must also report exact token counts for:
+The 8192-token value is explicitly a **corpus-ratio estimate**, not an exact model-context maximum.
+
+Per-category totals are mandatory so language/config/diff/tool surfaces are not hidden inside one aggregate ratio.
+
+Identifier fragmentation is deliberately named an **identifier-like lexical span** metric, not semantic identifier extraction:
 
 ```text
-DIFF = fixture_id: diff
-STACKTRACE = fixture_id: stack_trace
-TOOL_JSON = fixture_id: tool_json
-PATHS = fixture_id: file_paths
+REGEX = [A-Za-z_][A-Za-z0-9_]*
+COUNTING = OCCURRENCES_WITHOUT_DEDUPLICATION
+ZERO_MATCH = COUNT_0_AND_NULL_RATIO_DISTRIBUTION_FIELDS
 ```
 
-## Direct-comparison validity
+B008 must report mean, p50, p95, max, and multi-token fraction for isolated identifier-like spans and must record the token-piece API used.
 
-A B008 result is invalid for direct comparison when any of the following differs or is unresolved:
+Structural observations are separately required for diffs, file paths, stack traces, and tool JSON so tokenizer density results retain context about the measured surface.
 
-- protocol identity;
-- corpus file SHA-256;
-- entry hashes;
-- special-token policy;
-- aggregation formula;
-- tokenizer immutable revision;
-- tokenizer implementation identity/version.
+## Review remediation
 
-Candidate tokenizer revisions are expected to differ; the measurement protocol and corpus may not.
+Qodo review of draft head `c086fdf29706ccaeb58809221ee90cfe7563eec9` identified two substantive gaps:
+
+1. one tiny example per category was insufficient for a broad representativeness claim;
+2. byte/hash invariants were documented but not enforced by a task-local schema/integrity test.
+
+Both are addressed in the current branch design:
+
+```text
+ONE_ENTRY_PER_CATEGORY = REPLACED_BY_BASELINE_PLUS_ADVERSARIAL
+REPRESENTATIVE_POPULATION_CLAIM = REMOVED
+TASK_LOCAL_CORPUS_SCHEMA = ADDED
+TASK_LOCAL_PROTOCOL_SCHEMA = ADDED
+INTEGRITY_TEST = ADDED
+EFFECTIVE_RUNTIME_SETTINGS_CAPTURE = REQUIRED
+TOKENIZER_LOADED_ARTIFACT_HASH_INVENTORY = REQUIRED
+IDENTIFIER_METRIC_SEMANTICS = NARROWED_AND_EXPLICIT
+8192_PAYLOAD_FIELD = RENAMED_AS_ESTIMATE
+STRUCTURAL_METRICS = ADDED
+```
+
+A fresh exact-head re-review is required after this evidence refresh.
+
+## Validation state
+
+The new task-local test file exists but has **not been executed on an exact full repository checkout in the available execution environment**. No result is inferred from code inspection.
+
+```text
+B007_TARGETED_TEST = NOT_RUN
+pytest -q = NOT_RUN
+ruff check src tests = NOT_RUN
+mypy = NOT_RUN
+python -m mstr_qualify validate = NOT_RUN
+GITHUB_ACTIONS = NOT_CLAIMED
+```
+
+Per `configs/quality.toml`, B007 must not be marked `COMPLETE_CANONICAL` until the required repository quality gates have passed with evidence.
 
 ## Authority boundary
 
 ```text
 MODEL_INFERENCE = NOT_AUTHORIZED
 MODEL_WEIGHT_ACCESS = NOT_AUTHORIZED
+TOKENIZER_ARTIFACT_DOWNLOAD = NOT_AUTHORIZED_BY_B007
 PAID_COMPUTE = NOT_AUTHORIZED
 LARGE_DATASET_INGESTION = NOT_AUTHORIZED
 TOKENIZER_MEASUREMENT = NOT_EXECUTED_BY_B007
@@ -184,4 +209,4 @@ B008_EXECUTION_AUTHORITY = NOT_CREATED
 FOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO
 ```
 
-B007 is not marked `COMPLETE_CANONICAL` by this branch. Canonical closeout still requires governed review and the repository quality-gate policy; no CI or full-suite PASS is inferred here.
+B007 remains unchecked and not canonical. B008 must not infer execution or acquisition authority from this protocol.
