@@ -54,37 +54,34 @@ PASS. This workstream grants no new model weight access, weight-changing trainin
 
 ## 3. Corrected Sequence
 
-The old all-or-nothing `T034 -> MSTR-000A` sequence is superseded by exact dependencies.
+The old all-or-nothing `T034 -> MSTR-000A` sequence is superseded by exact dependencies. MSTR-000 T030-T034 is a parallel candidate/runtime branch and gates convergence, not the early-safe foundation globally.
 
 ```text
-MSTR-000 candidate/runtime work
-T030 -> T031 -> T032 -> T033 -> T034
-          | parallel where independent
-          +---------------------------+
-          |                           |
-          v                           v
-MSTR-000A A001-A018           MSTR-000B EARLY-SAFE
-loop/event/state/env/         governance/backbone metadata/
-verifier/trajectory           data/curriculum/verifier-health
-          |                           |
-          +-------------+-------------+
-                        |
-                        v
-       STABLE/EQUIVALENT PRODUCT-ALIGNED CANDIDATE POOL
-       + REQUIRED LOOP/VERIFIER/DATA CONTRACTS
-                        |
-                        v
-             A019-A024 CONVERGENCE
-                        |
-                        v
-      SEPARATE EXPLICIT WEIGHT-CHANGING TRAINING GATE
++--------------------------+   +--------------------------+   +--------------------------+
+| MSTR-000                 |   | MSTR-000A EARLY_SAFE    |   | MSTR-000B EARLY_SAFE    |
+| T030-T034 candidate/Q4   |   | A001-A018 loop/event/   |   | governance / metadata /|
+| runtime qualification    |   | state/env/verifier/traj |   | data/curriculum contracts|
++------------+-------------+   +------------+-------------+   +------------+-------------+
+             |                              |                              |
+             +------------------------------+------------------------------+
+                                            |
+                                            v
+                 STABLE/EQUIVALENT PRODUCT-ALIGNED CANDIDATE POOL
+                 + REQUIRED LOOP/VERIFIER/DATA/RESEARCH CONTRACTS
+                                            |
+                                            v
+                                 A019-A024 CONVERGENCE
+                                            |
+                                            v
+                      SEPARATE EXPLICIT WEIGHT-CHANGING TRAINING GATE
 ```
 
 Rules:
 - A001-A018 may proceed when exact task prerequisites hold and no unqualified candidate/external authority is consumed.
 - A019-A024 wait for the exact stable-candidate/verifier-health/research-ladder requirements defined in `tasks.md` and MSTR-000B.
 - Existing T030-T034 work is not reopened by MSTR-000A.
-- Once MSTR-000B B002 is canonical, agents run task eligibility validation before material task execution.
+- Before B002 is canonical, manually enforce exact prerequisites; there is no validator command to satisfy yet.
+- Once B002 is `COMPLETE_CANONICAL`, any material B-task governed by B002 requires exact-main `eligible=true` before execution and again before merge; ineligible/error is fail-closed.
 
 ## 4. Architecture
 
@@ -107,7 +104,7 @@ ResearchExperiment
 DirectionTaskManifest
 ```
 
-MSTR-000B adds Data Constitution, software-evolution, verifier-health, difficulty/frontier, candidate-pool and research-fidelity contracts. Decision-relevant serialization must be deterministic.
+MSTR-000B adds Data Constitution, software-evolution, verifier-health, difficulty/frontier, candidate-pool, exact material-result identity, Q4-promotion, and research-fidelity contracts. Decision-relevant serialization must be deterministic.
 
 ### 4.2 Build Loop
 
@@ -362,7 +359,7 @@ TRAINING EXAMPLE
 + external observation/tool result
 + verifier/reward labels + verifier-health
 + task/environment/provenance identities
-+ downstream data/difficulty/admission identity
++ downstream rights/contamination/difficulty/admission identity
 ```
 
 Future objectives include:
@@ -420,7 +417,7 @@ Required contract tests include:
 - trajectory acceptance/rejection;
 - cross-harness identity matching;
 - research loop cannot mutate frozen evaluation surface;
-- task eligibility/dependency checks once MSTR-000B B002 is canonical.
+- task eligibility/dependency/authority checks once MSTR-000B B002 is canonical.
 
 ## 11. Security
 
