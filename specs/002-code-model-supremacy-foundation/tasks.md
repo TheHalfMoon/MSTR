@@ -46,9 +46,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: `src/mstr_qualify/task_gate.py`, CLI wiring, unit/contract tests, `evidence/mstr-000b/B002-task-gate.md`.
   Canonical implementation: PR #48 / final head `9905237b0685b50059112d19e2708ba6357283b6` / merge `298a97e957fe98edec2c9fdd3f78f0f909ec09fa`.
 
-- [ ] **B003 Implement canonical drift detector.**  
-  Prerequisite: B002 `COMPLETE_CANONICAL` and an exact-main `eligible=true` result. Compare task checkboxes/state/evidence/PR merge records where machine-readable. Detect examples such as implementation merged while task remains active, or task executed before declared entry gate.  
+- [x] **B003 Implement canonical drift detector.**
+  Prerequisite: B002 `COMPLETE_CANONICAL` and an exact-main `eligible=true` result. Compare task checkboxes/state/evidence/PR merge records where machine-readable. Detect examples such as implementation merged while task remains active, or task executed before declared entry gate.
   Outputs: `src/mstr_qualify/task_drift.py`, tests/fixtures, `evidence/mstr-000b/B003-drift-detector.md`.
+  Canonical implementation: PR #50 / final head `f3ccad9d49ea9d0460f82d7ecfe64b649bd997cf` / merge `8bea74269fb81a4c898b7a2864bf103d15fd98a9`.
 
 - [ ] **B004 Reconcile MSTR-000A entry semantics to live reality.**  
   Prerequisite: B003 `COMPLETE_CANONICAL` and exact-main `eligible=true`. Mark canonical A001/A002/A003 accurately, including PR #38 head `41122ae8dee65b2a6b3c6b188cf335d74088b06f` and merge `2c02eb68a32264c86f69eb7ffc1c99ad87328376`; preserve A004+ live state; replace the blanket post-T034 entry rule with explicit `EARLY_SAFE` vs `CONVERGENCE` prerequisites. Do not rewrite history or claim incomplete work complete.  

@@ -1,17 +1,14 @@
-# B003 — Canonical Drift Detector Implementation Evidence
+# B003 — Canonical Drift Detector Closeout Evidence
 
 **Workstream:** MSTR-000B
 **Task:** B003
-**State:** IMPLEMENTATION_ACTIVE
-**Canonical base / entry-gate main:** `0754d552752c2f6c099df2b480de99028e2e26e5`
+**State:** COMPLETE_CANONICAL
 **Implementation branch:** `feat/000b-b003-drift-detector`
 **Implementation PR:** `#50`
-
-B003 is not `COMPLETE_CANONICAL` in this implementation evidence. The canonical task checkbox and machine catalog remain `PENDING` until a separate post-merge closeout.
+**Final implementation head:** `f3ccad9d49ea9d0460f82d7ecfe64b649bd997cf`
+**Canonical implementation merge:** `8bea74269fb81a4c898b7a2864bf103d15fd98a9`
 
 ## Mandatory exact-main entry gate
-
-B002 became `COMPLETE_CANONICAL` only after PR #49 merged and the resulting canonical main passed post-closeout verification. Run `33083687113`, job `98557431219`, checked out exact main `0754d552752c2f6c099df2b480de99028e2e26e5`, proved `HEAD == refs/heads/main == refs/remotes/origin/main`, and then exercised the production gates.
 
 ```text
 ENTRY_GATE_TASK = B003
@@ -19,33 +16,51 @@ ENTRY_GATE_CANONICAL_MAIN = 0754d552752c2f6c099df2b480de99028e2e26e5
 ENTRY_GATE_ELIGIBLE = true
 ENTRY_GATE_RUN = 33083687113
 ENTRY_GATE_JOB = 98557431219
-B002_PRODUCTION_TERMINAL = true
-B003_PRODUCTION_ELIGIBLE = true
-TARGETED_TASK_GATE_TESTS = PASS (43 passed in 8.71s)
-pytest -q = PASS (487 passed in 15.23s)
+```
+
+B003 implementation began only after B002 was `COMPLETE_CANONICAL` and the exact-main production task gate returned `eligible=true`.
+
+## Final implementation qualification
+
+Exact-head qualification run `33091769930`, job `98586178496`, checked out final implementation head `f3ccad9d49ea9d0460f82d7ecfe64b649bd997cf` detached and verified canonical entry main `0754d552752c2f6c099df2b480de99028e2e26e5`.
+
+```text
+B003_FIXTURE_CASES = 13
+B003_TARGETED_TESTS = PASS (9 passed)
+B003_EXACT_MAIN_ELIGIBLE = true
+CANONICAL_DRIFT_STATUS = clean
+pytest -q = PASS (496 passed)
 ruff check src tests = PASS
-mypy = PASS (25 source files)
+mypy = PASS (26 source files)
 python -m mstr_qualify validate = PASS
+VALID_FIXTURES = 10
+INVALID_FIXTURES_REJECTED = 10
+FINAL_B003_SHA = f3ccad9d49ea9d0460f82d7ecfe64b649bd997cf
 FINAL_MAIN_SHA = 0754d552752c2f6c099df2b480de99028e2e26e5
 ```
 
-This exact gate authorizes only ordinary B003 repository work. It grants no model, data, training, compute, network, or release authority.
+Fresh CodeRabbit exact-head review on `f3ccad9d49ea9d0460f82d7ecfe64b649bd997cf` found no material issue after the review-driven fail-closed and terminal-state repairs. Existing inline review threads were resolved before merge.
 
-## Implementation scope
+Pre-merge gate v2 run `33092154255` re-proved production `task eligible B003 => true` on live main and used the exact feature-head detector to prove canonical drift was clean immediately before merge.
 
-B003 adds a read-only canonical drift scanner that compares machine-readable repository facts without contacting GitHub or any provider at runtime. The intended detector covers:
+## Canonical implementation merge and post-merge proof
 
-- canonical task state vs task checkbox consistency;
-- machine-readable evidence completion claims vs canonical task state;
-- implementation PR merge records discoverable from local Git history;
-- canonical task-markdown implementation identities when present;
-- evidence/task implementation PR, final-head, and merge-SHA agreement;
-- final implementation head ancestry into the recorded merge and merge ancestry on canonical main;
-- B003+ entry-gate evidence presence and `eligible=true` state once an implementation is merged or canonically terminal;
-- entry-gate main ancestry before the recorded final implementation head;
-- deterministic, read-only `task drift` CLI status with exit `0=clean`, `1=drift`, `2=configuration/environment error`.
+PR #50 merged with expected-head guard on exact `f3ccad9d49ea9d0460f82d7ecfe64b649bd997cf`, producing canonical merge `8bea74269fb81a4c898b7a2864bf103d15fd98a9`.
 
-Synthetic fixture cases cover clean state, checkbox/state conflict, premature evidence completion, implementation merged while task remains active, a valid B003 terminal record, and an entry gate recorded after implementation.
+Post-merge verification run `33092318536`, job `98588109465`, executed on exact canonical main `8bea74269fb81a4c898b7a2864bf103d15fd98a9` and passed:
+
+```text
+POSTMERGE_B003_ELIGIBLE_PENDING_CLOSEOUT = true
+POSTMERGE_DRIFT_CODES = entry_gate.final_head_missing,evidence.implementation_identity_missing,implementation.merged_while_active
+B003_TARGETED_TESTS = PASS (9 passed)
+pytest -q = PASS (496 passed)
+ruff check src tests = PASS
+mypy = PASS (26 source files)
+python -m mstr_qualify validate = PASS
+FINAL_MAIN_SHA = 8bea74269fb81a4c898b7a2864bf103d15fd98a9
+```
+
+Those three drift findings are the expected pre-closeout state: implementation was merged while B003 remained active and the implementation identities had not yet been canonicalized. This closeout aligns the task checkbox, machine catalog, task implementation record, and evidence identities so the detector can prove the resulting candidate state clean.
 
 ## Authority boundary
 
@@ -66,6 +81,6 @@ PRIVATE_USER_TRACE_INGESTION = NONE
 FOUNDER_MAC_LARGE_ARTIFACTS = ZERO
 ```
 
-## Completion rule
+## Closeout rule
 
-Do not check B003 or change `configs/task-gate/mstr-000b.json` to `COMPLETE_CANONICAL` in the implementation PR. Final exact-head gates and review must bind the final implementation head; the implementation PR must merge with an expected-head guard; canonical main must pass post-implementation verification; then a separate closeout may align evidence, task checkbox, machine catalog, and successor B004 expectations. Only after that closeout merges and post-closeout verification passes may B003 be called `COMPLETE_CANONICAL`.
+The `COMPLETE_CANONICAL` markers in this branch are prospective closeout state only; this branch is not a canonical source of truth and cannot unlock B004 while live `main` remains at the pre-closeout state. Consistent with the B002 closeout precedent, this record and the aligned task/catalog transition become canonical when the exact qualified and reviewed closeout head is merged to `main` with an expected-head guard. Immediately after that merge, execution governance must perform post-closeout verification on the exact new canonical main and must not claim B003 complete or begin any B004 material mutation unless production B003 is terminal, production B004 returns `eligible=true`, `task drift` is clean, and all frozen repository gates pass. If that verification fails, B004 remains operationally blocked and the failed closeout must be repaired before further task execution.
