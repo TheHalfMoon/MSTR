@@ -1,0 +1,103 @@
+name: A004 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/a004-closeout-564096f
+
+permissions:
+  contents: write
+
+jobs:
+  closeout:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_HEAD: 564096fc9e8ec3e2b0aa9505926e15f66b00ce74
+      TARGET_BRANCH: docs/000a-a004-canonicalize
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - name: Checkout guarded closeout branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Verify canonical base
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+
+      - name: Record A004 canonical closeout
+        shell: python
+        run: |
+          from pathlib import Path
+
+          evidence = Path("evidence/mstr-000a/A004-agent-state.md")
+          text = evidence.read_text(encoding="utf-8")
+
+          old_header = """**State:** IMPLEMENTATION_ACTIVE / NOT_COMPLETE_CANONICAL  \n**Canonical branch base:** `ead69ae26265b133c782ae8fd2795c126253a3b6`  \n**Branch:** `feat/000a-a004-agent-state`\n"""
+          new_header = """**State:** COMPLETE_CANONICAL  \n**Canonical branch base:** `ead69ae26265b133c782ae8fd2795c126253a3b6`  \n**Branch:** `feat/000a-a004-agent-state`  \n**Implementation PR:** `#45`  \n**Final implementation head:** `d0098548766232c9fa1a879941978d1735ef9e4a`  \n**Canonical merge:** `564096fc9e8ec3e2b0aa9505926e15f66b00ce74`  \n**Final exact-head qualification run:** `33067884925`\n"""
+          if text.count(old_header) != 1:
+              raise SystemExit("A004 evidence header did not match expected pre-closeout state")
+          text = text.replace(old_header, new_header, 1)
+
+          review_start = text.index("## Static review reconciliation")
+          validation_start = text.index("## Validation truth")
+          final_review = """## Final review reconciliation\n\nQodo review found and closed three material issues during A004 development:\n\n```text\nFINDING_1 = tool.requested incorrectly populated commands_run\nFINDING_2 = verifier.result lacked source provenance enforcement\nFINDING_3 = compaction_records could grow without bound across repeated compaction\n```\n\nThe final implementation candidate additionally resolved repository quality-gate findings without changing\nA004 semantics:\n\n```text\nRUFF_REMEDIATION = a4b81fb8fe147f8ea88e6bf1c654a39e81e187c8\nSTRICT_MYPY_REMEDIATION = d0098548766232c9fa1a879941978d1735ef9e4a\n```\n\nQodo re-reviewed exact final head `d0098548766232c9fa1a879941978d1735ef9e4a` against the then-canonical\nmain and reported no material findings. The final strict-typing cast was confirmed as non-behavioral: it does\nnot alter projection semantics, compaction, replay, or event-source authority.\n\n"""
+          text = text[:review_start] + final_review + text[validation_start:]
+
+          validation_start = text.index("## Validation truth")
+          boundary_start = text.index("## Canonical boundary")
+          final_validation = """## Validation truth\n\nA dedicated GitHub-hosted evidence run checked out the exact final implementation SHA itself in detached-head\nmode, verified a clean working tree, installed the repository development tooling, and executed every frozen\nquality gate. Historical or pre-push results were not substituted for this run.\n\n```text\nFINAL_HEAD = d0098548766232c9fa1a879941978d1735ef9e4a\nFINAL_EXACT_HEAD_RUN = 33067884925\npytest -q = PASS (404 passed)\nruff check src tests = PASS\nmypy = PASS (24 source files)\npython -m mstr_qualify validate = PASS\nVALID_FIXTURES_PASSED = 8\nINVALID_FIXTURES_REJECTED = 8\n```\n\nPR #45 was then marked ready only after the exact-head review and quality gates were clean. Immediately before\nmerge, canonical `main`, the PR head, mergeability, and review-thread state were re-read. GitHub merged with an\n`expected_head_sha` guard, and post-merge verification established:\n\n```text\nA004_PR = 45\nA004_FINAL_HEAD = d0098548766232c9fa1a879941978d1735ef9e4a\nA004_MERGE = 564096fc9e8ec3e2b0aa9505926e15f66b00ce74\nPOST_MERGE_MAIN = 564096fc9e8ec3e2b0aa9505926e15f66b00ce74\nPR_45_MERGED = YES\n```\n\n"""
+          text = text[:validation_start] + final_validation + text[boundary_start:]
+
+          boundary_start = text.index("## Canonical boundary")
+          final_boundary = """## Canonical boundary\n\n```text\nA004_IMPLEMENTATION = CANONICAL_ON_MAIN\nA004_STATIC_REVIEW = PASS / NO_MATERIAL_FINDINGS_AT_FINAL_HEAD\nA004_QUALITY_GATES = PASS_AT_EXACT_FINAL_HEAD\nA004_COMPLETE_CANONICAL = YES\nTASK_CHECKBOX_UPDATED = YES\nA005_ENTRY_PREREQUISITE_A004 = SATISFIED\nMODEL_WEIGHT_ACCESS = NONE\nMODEL_EXECUTION = NONE\nTOKENIZER_EXECUTION = NONE\nPAID_COMPUTE = NONE\nLARGE_DATASET_INGESTION = NONE\nWEIGHT_CHANGING_TRAINING = NONE\nPRODUCTION_RELEASE = NONE\n```\n\nThis closeout does not itself authorize any external effect. Subsequent task eligibility remains governed by\nthe live repository task graph, prerequisites, active-path ownership, and external-effect gates.\n"""
+          text = text[:boundary_start] + final_boundary
+          evidence.write_text(text, encoding="utf-8")
+
+          tasks = Path("specs/001-agent-harness-verified-loop-foundation/tasks.md")
+          task_text = tasks.read_text(encoding="utf-8")
+          old_task = """- [ ] **A004 Implement `AgentState` projection and bounded compaction.**  \n  Must preserve uncertainty, verifier failures, changed files, known failures, and remaining work.  \n  Outputs: projection/compaction module, adversarial compaction fixtures, `evidence/mstr-000a/A004-agent-state.md`.\n"""
+          new_task = """- [x] **A004 Implement `AgentState` projection and bounded compaction.**  \n  Must preserve uncertainty, verifier failures, changed files, known failures, and remaining work.  \n  Outputs: projection/compaction module, adversarial compaction fixtures, `evidence/mstr-000a/A004-agent-state.md`.  \n  Canonical implementation: PR #45 / final head `d0098548766232c9fa1a879941978d1735ef9e4a` / merge `564096fc9e8ec3e2b0aa9505926e15f66b00ce74`.\n"""
+          if task_text.count(old_task) != 1:
+              raise SystemExit("A004 task entry did not match expected unchecked state")
+          tasks.write_text(task_text.replace(old_task, new_task, 1), encoding="utf-8")
+
+      - name: Verify closeout mutation scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          test "$(git diff --name-only | sort)" = "$(printf '%s\n' evidence/mstr-000a/A004-agent-state.md specs/001-agent-harness-verified-loop-foundation/tasks.md | sort)"
+          git diff -- evidence/mstr-000a/A004-agent-state.md specs/001-agent-harness-verified-loop-foundation/tasks.md
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Verify frozen gates on closeout candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q
+          ruff check src tests
+          mypy
+          python -m mstr_qualify validate
+
+      - name: Commit and fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add evidence/mstr-000a/A004-agent-state.md specs/001-agent-harness-verified-loop-foundation/tasks.md
+          git commit -m "docs(mstr-000a): canonicalize A004 closeout"
+          git push origin HEAD:"$TARGET_BRANCH"
+          echo "CLOSEOUT_HEAD=$(git rev-parse HEAD)"
