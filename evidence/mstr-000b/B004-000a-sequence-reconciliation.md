@@ -31,7 +31,7 @@ No B004 material mutation began before that production `eligible=true` result.
 | A001 | `COMPLETE_CANONICAL`; PR #37; head `b4547f9393644586f893f5cd7ddd420f82bc6f2a`; merge `5693749dd560979496efad488789ec35b2c2a84d` |
 | A002 | `COMPLETE_CANONICAL`; PR #37; head `b4547f9393644586f893f5cd7ddd420f82bc6f2a`; merge `5693749dd560979496efad488789ec35b2c2a84d` |
 | A003 | `COMPLETE_CANONICAL`; PR #38; head `41122ae8dee65b2a6b3c6b188cf335d74088b06f`; merge `2c02eb68a32264c86f69eb7ffc1c99ad87328376` |
-| A004 | `COMPLETE_CANONICAL`; implementation PR #45; head `d0098548766232c9fa1a879941978d1735ef9e4a`; merge `564096fc9e8ec3e2b0aa9505926e15f66b00ce74`; closeout PR #46; merge `c2d0ee8a6b9d47275c4d309cd187c1ed0d35fb02` |
+| A004 | `COMPLETE_CANONICAL`; implementation PR #45; head `d0098548766232c9fa1a879941978d1735ef9e4a`; merge `564096fc9e8ec3e2b0aa9505926e15f66b00ce74`; closeout PR #46; closeout head `c91d603ab3175260348706b3f879b86900511510`; merge `c2d0ee8a6b9d47275c4d309cd187c1ed0d35fb02` |
 | A005-A018 | `PENDING`; `EARLY_SAFE` only when each task's exact prerequisites pass |
 | A019-A024 | `PENDING`; `CONVERGENCE_GATED` |
 
