@@ -1,0 +1,700 @@
+name: B002 review hardening v1
+
+on:
+  push:
+    branches:
+      - evidence/b002-review-hardening-v1
+
+permissions:
+  contents: write
+
+jobs:
+  harden-and-verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_HEAD: 5557559a1c81e213a68c1a9b0edc285cb2454657
+      EXPECTED_MAIN: 856a7993f64a7f17ead6f6c019c5668724444ed4
+      TARGET_BRANCH: feat/000b-b002-task-gate
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - name: Checkout guarded B002 branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Verify exact feature and canonical main identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+
+      - name: Apply fail-closed review hardening
+        shell: python
+        run: |
+          from pathlib import Path
+          import json
+
+          gate = Path("src/mstr_qualify/task_gate.py")
+          text = gate.read_text(encoding="utf-8")
+
+          text = text.replace(
+              "clean and HEAD matches the local canonical main ref; the result then binds to\n"
+              "that exact Git SHA. Tests may inject an explicit canonical-main identity.\n",
+              "clean and HEAD matches an explicit canonical-main SHA supplied by the\n"
+              "execution/merge governance path. The validator never treats an unrefreshed local\n"
+              "branch or remote-tracking ref as proof of current canonical main.\n",
+              1,
+          )
+          if "import math\n" not in text:
+              text = text.replace("import json\n", "import json\nimport math\n", 1)
+
+          catalog_ids_anchor = '''    catalog_ids = set(tasks)
+              markdown_ids = set(titles)
+          '''.replace("              ", "")
+          catalog_ids_new = '''    catalog_ids = set(tasks)
+              unknown_unresolved = sorted(set(unresolved) - catalog_ids)
+              if unknown_unresolved:
+                  raise QualificationError(
+                      "catalog unresolved_bindings reference unknown task ids",
+                      code="task_gate.catalog_unresolved_unknown",
+                      details={"task_ids": unknown_unresolved},
+                  )
+              markdown_ids = set(titles)
+          '''.replace("              ", "")
+          if text.count(catalog_ids_anchor) != 1:
+              raise SystemExit("catalog unresolved-key anchor mismatch")
+          text = text.replace(catalog_ids_anchor, catalog_ids_new, 1)
+
+          start = text.index("def _git_ref(root: Path, ref: str) -> str | None:\n")
+          end = text.index("\ndef _node_sha256", start)
+          git_block = '''def _require_expected_canonical_checkout(
+              root: Path,
+              head: str,
+              expected_canonical_main: str,
+          ) -> None:
+              if head != expected_canonical_main:
+                  raise QualificationError(
+                      "task eligibility checkout does not match the supplied canonical main",
+                      code="task_gate.not_canonical_main",
+                      details={"head": head, "canonical_main": expected_canonical_main},
+                  )
+              status = _run_git(root, "status", "--porcelain=v1", "--untracked-files=all")
+              if status.returncode != 0:
+                  raise QualificationError(
+                      "unable to verify clean canonical checkout",
+                      code="task_gate.git_status",
+                      details={"returncode": status.returncode},
+                  )
+              if status.stdout.strip():
+                  raise QualificationError(
+                      "task eligibility refuses a dirty canonical checkout",
+                      code="task_gate.dirty_checkout",
+                      details={"entries": status.stdout.splitlines()},
+                  )
+          '''.replace("          ", "")
+          text = text[:start] + git_block.rstrip() + "\n" + text[end:]
+
+          start = text.index("def _path_pattern_present(root: Path, raw: str) -> bool:\n")
+          end = text.index("\ndef _required_closeout_paths_present", start)
+          path_block = '''def _contained_existing_path(root: Path, candidate: Path) -> Path | None:
+              root = root.resolve()
+              try:
+                  relative = candidate.relative_to(root)
+              except ValueError:
+                  return None
+
+              cursor = root
+              for part in relative.parts:
+                  cursor = cursor / part
+                  if cursor.is_symlink():
+                      return None
+
+              try:
+                  resolved = candidate.resolve(strict=True)
+              except OSError:
+                  return None
+              try:
+                  resolved.relative_to(root)
+              except ValueError:
+                  return None
+              return resolved
+
+
+          def _path_pattern_present(root: Path, raw: str) -> bool:
+              path = _repository_path(root, raw, field="task output")
+              if any(marker in raw for marker in ("*", "?", "[")):
+                  matches = (Path(match) for match in glob.glob(str(path), recursive=True))
+                  return any(_contained_existing_path(root, match) is not None for match in matches)
+              return _contained_existing_path(root, path) is not None
+          '''.replace("          ", "")
+          text = text[:start] + path_block.rstrip() + "\n" + text[end:]
+
+          start = text.index(
+              "def _authority_observed(root: Path, task_id: str, effect: str, authority_id: str) -> bool:\n"
+          )
+          end = text.index("\ndef _prerequisite_result", start)
+          authority_block = '''def _read_bound_json_artifact(
+              root: Path,
+              directory: str,
+              binding_id: str,
+          ) -> dict[str, Any] | None:
+              if not _BINDING_ID_RE.fullmatch(binding_id):
+                  return None
+              path = root / "artifacts" / directory / f"{binding_id}.json"
+              resolved = _contained_existing_path(root, path)
+              if resolved is None or not resolved.is_file():
+                  return None
+              try:
+                  data = json.loads(resolved.read_text(encoding="utf-8"))
+              except (OSError, json.JSONDecodeError):
+                  return None
+              return data if isinstance(data, dict) else None
+
+
+          def _authority_ceiling_valid(value: object) -> bool:
+              if not isinstance(value, dict):
+                  return False
+              cost_model = value.get("cost_model")
+              if not isinstance(cost_model, str) or not cost_model.strip():
+                  return False
+              limits = value.get("limits")
+              if not isinstance(limits, list) or not limits:
+                  return False
+              for limit in limits:
+                  if not isinstance(limit, dict):
+                      return False
+                  resource = limit.get("resource")
+                  unit = limit.get("unit")
+                  maximum = limit.get("max")
+                  if not isinstance(resource, str) or not resource.strip():
+                      return False
+                  if not isinstance(unit, str) or not unit.strip():
+                      return False
+                  if isinstance(maximum, bool) or not isinstance(maximum, (int, float)):
+                      return False
+                  if not math.isfinite(float(maximum)) or maximum < 0:
+                      return False
+              return True
+
+
+          def _authority_observed(root: Path, task_id: str, effect: str, authority_id: str) -> bool:
+              """Verify one existing canonical authority envelope; never create authority."""
+
+              data = _read_bound_json_artifact(root, "authorities", authority_id)
+              if data is None:
+                  return False
+              scope = data.get("scope")
+              return bool(
+                  data.get("authority_id") == authority_id
+                  and data.get("task_id") == task_id
+                  and data.get("external_effect_class") == effect
+                  and data.get("status") == "AUTHORIZED_CANONICAL"
+                  and isinstance(scope, dict)
+                  and bool(scope)
+                  and _authority_ceiling_valid(data.get("cost_resource_ceiling"))
+              )
+
+
+          def _candidate_pool_observed(root: Path, requirement_id: str) -> bool:
+              data = _read_bound_json_artifact(root, "decisions", requirement_id)
+              if data is None or data.get("stable_pool") is not True:
+                  return False
+              observed = data.get("decision_id", data.get("candidate_pool_id"))
+              return observed == requirement_id
+          '''.replace("          ", "")
+          text = text[:start] + authority_block.rstrip() + "\n" + text[end:]
+
+          start = text.index("def evaluate_task_eligibility(\n")
+          old_eval = text[start:]
+          if "canonical_main: str | None = None" not in old_eval:
+              raise SystemExit("evaluate function shape mismatch")
+          body_marker = "    catalog = load_task_catalog(catalog_path, repository_root=root)\n"
+          body_index = old_eval.index(body_marker)
+          semantic_body = old_eval[body_index:]
+          snapshot = '''def evaluate_task_snapshot(
+              task_id: str,
+              *,
+              repository_root: Path | None = None,
+              catalog_path: Path | None = None,
+              canonical_main: str,
+          ) -> dict[str, Any]:
+              """Evaluate a supplied repository snapshot without claiming current-main authority."""
+
+              root = (repository_root or _REPOSITORY_ROOT).resolve()
+              main_sha = canonical_main
+              if not _HEX40_RE.fullmatch(main_sha):
+                  raise QualificationError(
+                      "canonical main identity must be 40 lowercase hex",
+                      code="task_gate.canonical_main_invalid",
+                      details={"value": main_sha},
+                  )
+          '''.replace("          ", "")
+          snapshot += semantic_body
+          wrapper = '''
+
+
+          def evaluate_task_eligibility(
+              task_id: str,
+              *,
+              canonical_main: str,
+              repository_root: Path | None = None,
+              catalog_path: Path | None = None,
+          ) -> dict[str, Any]:
+              """Evaluate against a caller-supplied trusted current-main identity."""
+
+              if not _HEX40_RE.fullmatch(canonical_main):
+                  raise QualificationError(
+                      "canonical main identity must be 40 lowercase hex",
+                      code="task_gate.canonical_main_invalid",
+                      details={"value": canonical_main},
+                  )
+              root = (repository_root or _REPOSITORY_ROOT).resolve()
+              head = _git_head(root)
+              _require_expected_canonical_checkout(root, head, canonical_main)
+              return evaluate_task_snapshot(
+                  task_id,
+                  repository_root=root,
+                  catalog_path=catalog_path,
+                  canonical_main=canonical_main,
+              )
+          '''.replace("          ", "")
+          text = text[:start] + snapshot.rstrip() + wrapper
+          gate.write_text(text.rstrip() + "\n", encoding="utf-8")
+
+          catalog_path = Path("configs/task-gate/mstr-000b.json")
+          catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+          mandatory_outputs = {
+              "B006": ["artifacts/candidates/*.json"],
+              "B007": ["benchmarks/manifests/B007-tokenizer-economics.json"],
+              "B008": ["artifacts/results/tokenizer/B008/*.json"],
+              "B009": ["artifacts/decisions/B009-training-runtime-compatibility.json"],
+              "B010": ["artifacts/manifests/B010-new-candidate-weight-access.json"],
+              "B013": ["artifacts/decisions/B013-stable-candidate-pool.json"],
+              "B014": ["docs/data/MSTR_DATA_CONSTITUTION.md"],
+              "B015": ["artifacts/decisions/B015-language-target-policy.json"],
+              "B019": ["docs/data/TEACHER_RESCUE_POLICY.md"],
+              "B021": ["src/mstr_qualify/curriculum/"],
+              "B024": ["docs/data/TEST_GENERATION_CURRICULUM.md"],
+              "B025": ["docs/data/GREENFIELD_FEATURE_CURRICULUM.md"],
+              "B027": ["artifacts/results/research/B027/"],
+              "B028": [
+                  "artifacts/manifests/B028-method-tournament-preflight.json",
+                  "docs/training/Q4_PROMOTION_CONTRACT.md",
+              ],
+              "B034": ["artifacts/decisions/B034-mstr-000b-closeout.json"],
+          }
+          for task_id, outputs in mandatory_outputs.items():
+              task = catalog["tasks"][task_id]
+              task["outputs"] = outputs
+              task.setdefault("closeout_rule", {})["require_all_outputs"] = True
+          b011 = catalog["tasks"]["B011"]
+          b011["external_effect_class"] = "MODEL_WEIGHT_ACCESS"
+          b011["required_authority_id"] = "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"
+          catalog["unresolved_bindings"]["B011"] = (
+              "B010 must first determine whether new access is required. Until that decision is "
+              "canonical, B011 remains BLOCKED under the strongest MODEL_WEIGHT_ACCESS effect. "
+              "The access path must bind exact founder authority; the no-access path must "
+              "explicitly change the node to NO_EXTERNAL_EFFECT before closing "
+              "NOT_REQUIRED_NO_NEW_ACCESS."
+          )
+          catalog_path.write_text(json.dumps(catalog, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+          cli = Path("src/mstr_qualify/cli.py")
+          cli_text = cli.read_text(encoding="utf-8")
+          cli_text = cli_text.replace(
+              "mstr-qualify task eligible <TASK_ID>\n",
+              "mstr-qualify task eligible <TASK_ID> --canonical-main <SHA>\n",
+              1,
+          )
+          old_run = '''def run_task_eligible(task_id: str) -> tuple[int, dict[str, Any]]:
+              """Evaluate one canonical task without mutating repository state."""
+
+              result = evaluate_task_eligibility(task_id)
+              exit_code = _EXIT_OK if result["eligible"] else _EXIT_FAIL_CLOSED
+              return exit_code, result
+          '''.replace("          ", "")
+          new_run = '''def run_task_eligible(
+              task_id: str,
+              canonical_main: str,
+          ) -> tuple[int, dict[str, Any]]:
+              """Evaluate one task against an externally supplied current-main SHA."""
+
+              result = evaluate_task_eligibility(task_id, canonical_main=canonical_main)
+              exit_code = _EXIT_OK if result["eligible"] else _EXIT_FAIL_CLOSED
+              return exit_code, result
+          '''.replace("          ", "")
+          if cli_text.count(old_run) != 1:
+              raise SystemExit("CLI run_task_eligible anchor mismatch")
+          cli_text = cli_text.replace(old_run, new_run, 1)
+          parser_anchor = '    task_eligible_parser.add_argument("task_id")\n'
+          parser_new = parser_anchor + '''    task_eligible_parser.add_argument(
+              "--canonical-main",
+              required=True,
+              help="trusted exact current main SHA supplied by execution/merge governance",
+          )
+          '''.replace("          ", "")
+          if cli_text.count(parser_anchor) != 1:
+              raise SystemExit("CLI task parser anchor mismatch")
+          cli_text = cli_text.replace(parser_anchor, parser_new, 1)
+          dispatch_anchor = '            return run_task_eligible(args.task_id)\n'
+          if cli_text.count(dispatch_anchor) != 1:
+              raise SystemExit("CLI task dispatch anchor mismatch")
+          cli_text = cli_text.replace(
+              dispatch_anchor,
+              '            return run_task_eligible(args.task_id, args.canonical_main)\n',
+              1,
+          )
+          cli.write_text(cli_text, encoding="utf-8")
+
+          contract = Path("tests/contract/test_task_gate.py")
+          test_text = contract.read_text(encoding="utf-8")
+          import_anchor = '''from mstr_qualify.task_gate import (
+              diagnose_task_node,
+              evaluate_task_eligibility,
+              load_task_catalog,
+          )
+          '''.replace("          ", "")
+          import_new = '''from mstr_qualify.task_gate import (
+              diagnose_task_node,
+              evaluate_task_eligibility,
+              evaluate_task_snapshot,
+              load_task_catalog,
+          )
+          '''.replace("          ", "")
+          if test_text.count(import_anchor) != 1:
+              raise SystemExit("contract import anchor mismatch")
+          test_text = test_text.replace(import_anchor, import_new, 1)
+          test_text = test_text.replace("evaluate_task_eligibility(", "evaluate_task_snapshot(")
+
+          real_start = test_text.index("def test_real_evaluation_requires_clean_local_canonical_main")
+          real_end = test_text.index("\ndef test_undeclared_not_required_state", real_start)
+          real_test = '''def test_real_evaluation_requires_trusted_current_main(tmp_path: Path) -> None:
+              catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
+              _git(tmp_path, "init", "-b", "main")
+              _git(tmp_path, "config", "user.name", "B002 Test")
+              _git(tmp_path, "config", "user.email", "b002@example.invalid")
+              _git(tmp_path, "add", ".")
+              _git(tmp_path, "commit", "-m", "fixture main")
+              head = subprocess.run(
+                  ["git", "rev-parse", "HEAD"],
+                  cwd=tmp_path,
+                  check=True,
+                  capture_output=True,
+                  text=True,
+              ).stdout.strip()
+
+              on_main = evaluate_task_eligibility(
+                  "B002",
+                  repository_root=tmp_path,
+                  catalog_path=catalog_path,
+                  canonical_main=head,
+              )
+              assert on_main["eligible"] is True
+              assert on_main["canonical_main"] == head
+
+              with pytest.raises(QualificationError) as stale_error:
+                  evaluate_task_eligibility(
+                      "B002",
+                      repository_root=tmp_path,
+                      catalog_path=catalog_path,
+                      canonical_main="b" * 40,
+                  )
+              assert stale_error.value.code == "task_gate.not_canonical_main"
+
+              with catalog_path.open("a", encoding="utf-8") as handle:
+                  handle.write("\n")
+              with pytest.raises(QualificationError) as dirty_error:
+                  evaluate_task_eligibility(
+                      "B002",
+                      repository_root=tmp_path,
+                      catalog_path=catalog_path,
+                      canonical_main=head,
+                  )
+              assert dirty_error.value.code == "task_gate.dirty_checkout"
+          '''.replace("          ", "")
+          test_text = test_text[:real_start] + real_test.rstrip() + "\n" + test_text[real_end:]
+
+          old_ceiling = '    envelope["cost_resource_ceiling"] = {"usd_max": 0, "wall_minutes_max": 1}\n'
+          new_ceiling = '''    envelope["cost_resource_ceiling"] = {
+              "cost_model": "fixed-cap",
+              "limits": [
+                  {"resource": "cost", "max": 0, "unit": "USD"},
+                  {"resource": "wall_time", "max": 1, "unit": "minute"},
+              ],
+          }
+          '''.replace("          ", "")
+          if test_text.count(old_ceiling) != 1:
+              raise SystemExit("authority ceiling test anchor mismatch")
+          test_text = test_text.replace(old_ceiling, new_ceiling, 1)
+
+          addition = r'''
+
+          def test_unknown_unresolved_binding_key_is_rejected(tmp_path: Path) -> None:
+              catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
+              data = json.loads(catalog_path.read_text(encoding="utf-8"))
+              data["unresolved_bindings"] = {"B999": "typo must not silently disappear"}
+              catalog_path.write_text(json.dumps(data), encoding="utf-8")
+
+              with pytest.raises(QualificationError) as captured:
+                  load_task_catalog(catalog_path, repository_root=tmp_path)
+              assert captured.value.code == "task_gate.catalog_unresolved_unknown"
+
+
+          def test_live_catalog_binds_mandatory_machine_verifiable_outputs() -> None:
+              catalog = load_task_catalog()
+              expected = {
+                  "B006": ["artifacts/candidates/*.json"],
+                  "B007": ["benchmarks/manifests/B007-tokenizer-economics.json"],
+                  "B008": ["artifacts/results/tokenizer/B008/*.json"],
+                  "B009": ["artifacts/decisions/B009-training-runtime-compatibility.json"],
+                  "B010": ["artifacts/manifests/B010-new-candidate-weight-access.json"],
+                  "B013": ["artifacts/decisions/B013-stable-candidate-pool.json"],
+                  "B014": ["docs/data/MSTR_DATA_CONSTITUTION.md"],
+                  "B015": ["artifacts/decisions/B015-language-target-policy.json"],
+                  "B019": ["docs/data/TEACHER_RESCUE_POLICY.md"],
+                  "B021": ["src/mstr_qualify/curriculum/"],
+                  "B024": ["docs/data/TEST_GENERATION_CURRICULUM.md"],
+                  "B025": ["docs/data/GREENFIELD_FEATURE_CURRICULUM.md"],
+                  "B027": ["artifacts/results/research/B027/"],
+                  "B028": [
+                      "artifacts/manifests/B028-method-tournament-preflight.json",
+                      "docs/training/Q4_PROMOTION_CONTRACT.md",
+                  ],
+                  "B034": ["artifacts/decisions/B034-mstr-000b-closeout.json"],
+              }
+              for task_id, outputs in expected.items():
+                  node = catalog.nodes[task_id]
+                  assert node["outputs"] == outputs
+                  assert node["closeout_rule"]["require_all_outputs"] is True
+
+
+          def test_b011_remains_weight_access_fail_closed_until_b010_resolution() -> None:
+              catalog = load_task_catalog()
+              node = catalog.nodes["B011"]
+              assert node["canonical_state"] == "BLOCKED"
+              assert node["external_effect_class"] == "MODEL_WEIGHT_ACCESS"
+              assert node["required_authority_id"] == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"
+              assert "B011" in catalog.unresolved_bindings
+
+              result = evaluate_task_snapshot("B011", canonical_main=_CANONICAL_MAIN)
+              assert result["eligible"] is False
+              assert result["authority_result"]["required"] is True
+              assert result["authority_result"]["satisfied"] is False
+              assert "task.blocked" in result["reasons"]
+              assert "task.unresolved_binding" in result["reasons"]
+
+
+          def _symlink_or_skip(link: Path, target: Path) -> None:
+              try:
+                  link.symlink_to(target)
+              except OSError as exc:
+                  pytest.skip(f"symlink creation unavailable: {exc}")
+
+
+          def test_external_symlink_cannot_satisfy_required_predecessor_output(tmp_path: Path) -> None:
+              catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
+              data = json.loads(catalog_path.read_text(encoding="utf-8"))
+              data["tasks"]["B001"]["outputs"] = ["artifacts/B001-output.json"]
+              data["tasks"]["B001"]["closeout_rule"] = {"require_all_outputs": True}
+              catalog_path.write_text(json.dumps(data), encoding="utf-8")
+
+              outside = tmp_path.parent / f"{tmp_path.name}-external-output.json"
+              outside.write_text("{}", encoding="utf-8")
+              link = tmp_path / "artifacts" / "B001-output.json"
+              link.parent.mkdir(parents=True)
+              _symlink_or_skip(link, outside)
+
+              result = evaluate_task_snapshot(
+                  "B002",
+                  repository_root=tmp_path,
+                  catalog_path=catalog_path,
+                  canonical_main=_CANONICAL_MAIN,
+              )
+              predecessor = result["prerequisite_results"][0]
+              assert result["eligible"] is False
+              assert predecessor["evidence_present"] is False
+              assert "prerequisite.required_artifact_missing" in predecessor["reasons"]
+
+
+          def test_external_authority_symlink_cannot_authorize_effect(tmp_path: Path) -> None:
+              catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
+              data = json.loads(catalog_path.read_text(encoding="utf-8"))
+              data["tasks"]["B002"].update(
+                  {
+                      "external_effect_class": "PAID_COMPUTE",
+                      "required_authority_id": "AUTH-B002",
+                  }
+              )
+              catalog_path.write_text(json.dumps(data), encoding="utf-8")
+              envelope = {
+                  "authority_id": "AUTH-B002",
+                  "task_id": "B002",
+                  "external_effect_class": "PAID_COMPUTE",
+                  "status": "AUTHORIZED_CANONICAL",
+                  "scope": {"executor": "fixture"},
+                  "cost_resource_ceiling": {
+                      "cost_model": "fixed-cap",
+                      "limits": [{"resource": "cost", "max": 0, "unit": "USD"}],
+                  },
+              }
+              outside = tmp_path.parent / f"{tmp_path.name}-external-authority.json"
+              outside.write_text(json.dumps(envelope), encoding="utf-8")
+              link = tmp_path / "artifacts" / "authorities" / "AUTH-B002.json"
+              link.parent.mkdir(parents=True)
+              _symlink_or_skip(link, outside)
+
+              result = evaluate_task_snapshot(
+                  "B002",
+                  repository_root=tmp_path,
+                  catalog_path=catalog_path,
+                  canonical_main=_CANONICAL_MAIN,
+              )
+              assert result["eligible"] is False
+              assert result["authority_result"]["satisfied"] is False
+
+
+          def test_authority_ceiling_requires_model_units_and_nonnegative_limits(tmp_path: Path) -> None:
+              catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
+              data = json.loads(catalog_path.read_text(encoding="utf-8"))
+              data["tasks"]["B002"].update(
+                  {
+                      "external_effect_class": "PAID_COMPUTE",
+                      "required_authority_id": "AUTH-B002",
+                  }
+              )
+              catalog_path.write_text(json.dumps(data), encoding="utf-8")
+              authority = tmp_path / "artifacts" / "authorities" / "AUTH-B002.json"
+              authority.parent.mkdir(parents=True)
+              base = {
+                  "authority_id": "AUTH-B002",
+                  "task_id": "B002",
+                  "external_effect_class": "PAID_COMPUTE",
+                  "status": "AUTHORIZED_CANONICAL",
+                  "scope": {"executor": "fixture"},
+              }
+              invalid_ceilings = [
+                  {},
+                  {"cost_model": "fixed-cap", "limits": []},
+                  {
+                      "cost_model": "fixed-cap",
+                      "limits": [{"resource": "cost", "max": -1, "unit": "USD"}],
+                  },
+                  {
+                      "cost_model": "fixed-cap",
+                      "limits": [{"resource": "cost", "max": 1, "unit": ""}],
+                  },
+              ]
+              for ceiling in invalid_ceilings:
+                  authority.write_text(
+                      json.dumps({**base, "cost_resource_ceiling": ceiling}),
+                      encoding="utf-8",
+                  )
+                  result = evaluate_task_snapshot(
+                      "B002",
+                      repository_root=tmp_path,
+                      catalog_path=catalog_path,
+                      canonical_main=_CANONICAL_MAIN,
+                  )
+                  assert result["eligible"] is False
+                  assert result["authority_result"]["satisfied"] is False
+          '''.replace("          ", "").strip()
+          if "test_unknown_unresolved_binding_key_is_rejected" in test_text:
+              raise SystemExit("review-hardening tests already present")
+          contract.write_text(test_text.rstrip() + "\n\n" + addition + "\n", encoding="utf-8")
+
+          integration = Path("tests/integration/test_task_gate_cli.py")
+          integration_text = integration.read_text(encoding="utf-8")
+          integration_text = integration_text.replace(
+              "from mstr_qualify.task_gate import evaluate_task_eligibility\n",
+              "from mstr_qualify.task_gate import evaluate_task_snapshot\n",
+              1,
+          )
+          integration_text = integration_text.replace(
+              'evaluate_task_eligibility("B002", canonical_main=_CANONICAL_MAIN)',
+              'evaluate_task_snapshot("B002", canonical_main=_CANONICAL_MAIN)',
+              1,
+          )
+          integration_text = integration_text.replace(
+              'evaluate_task_eligibility("B003", canonical_main=_CANONICAL_MAIN)',
+              'evaluate_task_snapshot("B003", canonical_main=_CANONICAL_MAIN)',
+              1,
+          )
+          integration_text = integration_text.replace(
+              "lambda task_id: expected,",
+              "lambda task_id, *, canonical_main: expected,",
+          )
+          integration_text = integration_text.replace(
+              "def fail_closed(task_id: str) -> dict[str, Any]:",
+              "def fail_closed(task_id: str, *, canonical_main: str) -> dict[str, Any]:",
+              1,
+          )
+          integration_text = integration_text.replace(
+              'main(["task", "eligible", "B002"])',
+              'main(["task", "eligible", "B002", "--canonical-main", _CANONICAL_MAIN])',
+              1,
+          )
+          integration_text = integration_text.replace(
+              'main(["task", "eligible", "B003"])',
+              'main(["task", "eligible", "B003", "--canonical-main", _CANONICAL_MAIN])',
+              1,
+          )
+          integration_text = integration_text.replace(
+              'main(["task", "eligible", "B999"])',
+              'main(["task", "eligible", "B999", "--canonical-main", _CANONICAL_MAIN])',
+              1,
+          )
+          integration_text = integration_text.replace(
+              'args = parser.parse_args(["task", "eligible", "B003"])',
+              'args = parser.parse_args(\n        ["task", "eligible", "B003", "--canonical-main", _CANONICAL_MAIN]\n    )',
+              1,
+          )
+          integration_text = integration_text.replace(
+              '    assert args.task_id == "B003"\n',
+              '    assert args.task_id == "B003"\n    assert args.canonical_main == _CANONICAL_MAIN\n',
+              1,
+          )
+          integration.write_text(integration_text, encoding="utf-8")
+
+      - name: Verify bounded mutation scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          actual="$(git diff --name-only | sort)"
+          expected="$(printf '%s\n' configs/task-gate/mstr-000b.json src/mstr_qualify/cli.py src/mstr_qualify/task_gate.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py | sort)"
+          test "$actual" = "$expected"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Verify hardened B002 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          pytest -q
+          ruff check src tests
+          mypy
+          python -m mstr_qualify validate
+
+      - name: Commit and guarded fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$TARGET_BRANCH"
+          test "$(git rev-parse FETCH_HEAD)" = "$EXPECTED_HEAD"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add configs/task-gate/mstr-000b.json src/mstr_qualify/cli.py src/mstr_qualify/task_gate.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          git commit -m "fix(mstr-000b): close task-gate review gaps"
+          git push origin HEAD:"$TARGET_BRANCH"
+          echo "NEW_B002_HEAD=$(git rev-parse HEAD)"
