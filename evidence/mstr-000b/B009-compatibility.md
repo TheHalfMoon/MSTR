@@ -10,8 +10,6 @@ B009 is a metadata/code/docs compatibility freeze only. It does not access model
 
 ## Provenance binding
 
-The decision is bound to repository inputs without using a self-referential containing-commit field:
-
 ```text
 B009_BRANCH_BASE_MAIN = ead69ae26265b133c782ae8fd2795c126253a3b6
 B005_INPUT_PATH = artifacts/manifests/B005-code-backbone-discovery.json
@@ -20,9 +18,9 @@ B005_EMBEDDED_EXECUTION_BASE = e1b3cbd74ae0a74a80e3f345faef56da13818149
 EXACT_REVIEW_HEAD_BINDING = EXTERNAL_GIT_PR_HEAD
 ```
 
-The B005 embedded `canonical_main_sha` records when B005 itself executed. B009 consumes the exact B005 blob as present in canonical main `ead69ae...`; those identities have different provenance roles.
+The B005 embedded SHA records B005 execution provenance. B009 consumes the exact B005 blob as present in canonical main `ead69ae...`; those identities have different roles.
 
-The exact review head is intentionally established by Git/PR state plus the B009 artifact blob at that head. Embedding the containing commit SHA inside the file would change that commit and become self-referential, so it is not used as a validity rule.
+The exact review head is established by Git/PR state plus the B009 artifact blob at that head. Embedding the containing commit SHA inside the file would be self-referential and is not used as a validity rule.
 
 ## Exact upstream pins
 
@@ -34,28 +32,15 @@ TRL          = huggingface/trl@67dfbe211a07a8dd6ebc1a5af5b75152e10add8e
 LLAMA_CPP    = ggml-org/llama.cpp@d7a2074112d27649303fa107eb8c94db1ee435f3
 ```
 
-`SOURCE_REGISTERED` means only that the pinned source contains an implementation/converter/family path. It is not a runtime PASS. `GENERIC_PATH` means a framework may operate through a broad HF/CausalLM interface but the exact candidate was not executed. `UNVERIFIED` is intentionally fail-closed.
+`SOURCE_REGISTERED` is source presence, not a runtime PASS. `GENERIC_PATH` is not exact-candidate qualification. `UNVERIFIED` and identity-blocked states are intentionally fail-closed.
 
 ## Main findings
 
-### 1. llama.cpp converter evidence is not runtime evidence
+### llama.cpp converter evidence is not runtime evidence
 
-The pinned llama.cpp source contains converter-source paths for:
+The pinned llama.cpp source contains converter-source paths for Mellum, StarCoder2, StableLM / Stable Code, Falcon-H1, LFM2, BitNet, Granite, Mistral3, Qwen, and Gemma. Those `conversion/*.py` files prove converter-source presence only. They do not prove runtime implementation, successful conversion, quantization quality, tokenizer preservation, or runtime fidelity.
 
-- Mellum;
-- StarCoder2;
-- StableLM / Stable Code;
-- Falcon-H1;
-- LFM2;
-- BitNet;
-- Granite;
-- Mistral3 / Ministral-family conversion;
-- Qwen-family models;
-- Gemma-family models.
-
-These `conversion/*.py` paths prove converter-source presence only. They do **not** prove runtime implementation, successful conversion, quantization quality, tokenizer preservation, or runtime fidelity.
-
-SmolLM3 is separately supported by an explicitly observed runtime source path:
+SmolLM3 separately has an explicitly observed runtime source path:
 
 ```text
 src/models/smollm3.cpp
@@ -63,7 +48,7 @@ src/models/smollm3.cpp
 
 Even that source presence is not exact-revision runtime qualification.
 
-### 2. Unsloth support must be candidate-specific
+### Unsloth support must be candidate-specific
 
 The pinned Unsloth source has direct family evidence for Falcon-H1, Granite, LFM2, and Qwen3.5-era paths. Direct source evidence was not established in this review for Mellum, StarCoder2, or Stable Code.
 
@@ -72,21 +57,13 @@ UNSLOTH_SOURCE_PRESENT != EXACT_MODEL_TRAINING_PASS
 NO_DIRECT_SOURCE_HIT != PROVEN_INCOMPATIBLE
 ```
 
-Every serious candidate still needs exact-revision train/save/export qualification before B013 admission.
+### Hybrid architectures require adapter-target coverage checks
 
-### 3. Hybrid architectures require adapter-target coverage checks
+The pinned PEFT main documents a hybrid-architecture hazard: when some configured `target_modules` match and others do not, unmatched modules may be silently skipped rather than causing total failure.
 
-The pinned PEFT main explicitly documents a hybrid-architecture hazard: when some configured `target_modules` match and others do not, unmatched modules may be silently skipped rather than causing total failure.
-
-This is material especially for:
-
-- `tiiuae/Falcon-H1-3B-Base`;
-- `LiquidAI/LFM2.5-2.6B-Base`;
-- multimodal/mixed-component Ministral training scope.
+This is material especially for Falcon-H1, LFM2.5 after identity resolution, and multimodal/mixed-component Ministral training scope.
 
 Granite 4.1 3B is not in this hybrid-warning set: its public config identifies `GraniteForCausalLM` / `model_type=granite`, and its model card describes a dense decoder-only transformer.
-
-Before adapter training, qualification must enumerate exact module names and prove intended adapter coverage. A run that merely starts is insufficient evidence.
 
 ## Candidate-specific restrictions
 
@@ -97,7 +74,7 @@ Before adapter training, qualification must enumerate exact module names and pro
 
 **Granite 4.1 3B Base**
 - Public config identifies `GraniteForCausalLM` / `model_type=granite`.
-- Model card describes a dense decoder-only transformer; no hybrid PEFT warning is applied.
+- Dense decoder-only; no hybrid PEFT warning is applied.
 - Family source evidence exists in Unsloth and llama.cpp converter code.
 - Exact 4.1-3B train/save/export/runtime path remains unexecuted.
 
@@ -111,19 +88,22 @@ Before adapter training, qualification must enumerate exact module names and pro
 
 **Falcon-H1 3B Base**
 - Hybrid Transformer/SSM architecture.
-- Unsloth and llama.cpp have architecture/family source evidence, but only converter-source evidence is claimed from the cited llama.cpp path.
+- Unsloth and llama.cpp have architecture/family source evidence; the cited llama.cpp path is converter-source evidence only.
 - PEFT target-module coverage and SSM runtime/export behavior require exact qualification.
 
 **BitNet b1.58 2B4T BF16**
 - Native context reported in B005 is 4096, below MSTR's 8192 reference.
 - Public usage reports specialized/remote-code handling.
 - Generic 4-bit/QLoRA assumptions must not be applied to native 1.58-bit semantics without proof.
-- llama.cpp has BitNet converter source; B009 did not execute it or claim runtime support from that converter file.
+- llama.cpp has BitNet converter source; B009 did not execute it or infer runtime support from it.
 
 **LFM2.5 2.6B Base**
-- B005 has only a short revision; full immutable SHA remains required.
-- Unsloth and llama.cpp have LFM2-family source evidence; the cited llama.cpp evidence is converter-source only.
-- Exact LFM2.5 training/export/runtime remains unqualified.
+- The B005 value `c57bdae` is retained only as `observed_short_revision`; B009 no longer uses it as `revision`.
+- `revision = null` and `identity_status = BLOCKED_FULL_SHA_UNRESOLVED`.
+- Unsloth, PEFT/TRL, and llama.cpp entries are family/generic evidence only and explicitly identity-blocked.
+- No exact-candidate compatibility claim is valid until a full immutable revision is recorded and all dependent evidence is revalidated.
+
+This is a deliberate fail-closed result, not an attempt to infer a full SHA from incomplete public metadata.
 
 ## Framework interpretation policy
 
@@ -149,14 +129,14 @@ qualification_candidates[]
 new_weight_access_required_candidates[]
 ```
 
-B010 owns those decisions after B006 rights/provenance and B007/B008 evidence are reconciled. Compatibility cannot override rights, provenance, exact-revision identity, tokenizer economics, or resource hard gates.
+B010 owns those decisions after B006 rights/provenance and B007/B008 evidence are reconciled. An identity-blocked candidate such as LFM2.5 cannot be promoted based on B009 family-level source evidence.
 
 ## Validation / authority state
 
-Current decision artifact blob after provenance/runtime-claim hardening:
+Current decision artifact blob after fail-closing LFM2.5 identity:
 
 ```text
-B009_DECISION_BLOB = dbbac577e93141f20f2276c5b83ffbffe467548e
+B009_DECISION_BLOB = df342a0c8e30a4a727ee82fb8e81f70b6c04d185
 ```
 
 No repository quality gate or candidate execution is claimed:
