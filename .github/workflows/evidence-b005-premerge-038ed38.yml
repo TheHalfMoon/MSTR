@@ -1,0 +1,191 @@
+name: Verify B005 pre-merge exact head
+
+on:
+  push:
+    branches:
+      - evidence/b005-premerge-038ed38
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 986b174b2bf79ce53a3e67b9b02c55cbe6981303
+      EXPECTED_HEAD: 038ed38761841e4f167ca3ea546b3b07df6287c7
+      TARGET_BRANCH: research/000b-b005-code-backbone-rescan-v2
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - name: Checkout exact canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: 986b174b2bf79ce53a3e67b9b02c55cbe6981303
+          fetch-depth: 0
+          path: canonical
+          persist-credentials: false
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install canonical tooling
+        working-directory: canonical
+        run: python -m pip install -e '.[dev]'
+
+      - name: Verify production B005 gate and canonical drift
+        working-directory: canonical
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          git branch -f main "$EXPECTED_MAIN"
+          git checkout main
+          test -z "$(git status --short)"
+          python -m mstr_qualify task eligible B005 > /tmp/b005.json
+          cat /tmp/b005.json
+          python - <<'PY'
+          import json, os
+          with open('/tmp/b005.json', encoding='utf-8') as fh:
+              payload=json.load(fh)
+          assert payload['task_id'] == 'B005'
+          assert payload['eligible'] is True
+          assert payload['canonical_main'] == os.environ['EXPECTED_MAIN']
+          assert payload['reasons'] == []
+          PY
+          python -m mstr_qualify task drift > /tmp/drift.json
+          cat /tmp/drift.json
+          python - <<'PY'
+          import json
+          with open('/tmp/drift.json', encoding='utf-8') as fh:
+              payload=json.load(fh)
+          assert payload['status'] == 'clean'
+          assert payload['findings'] == []
+          PY
+
+      - name: Checkout exact B005 refresh head
+        uses: actions/checkout@v4
+        with:
+          ref: 038ed38761841e4f167ca3ea546b3b07df6287c7
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+
+      - name: Verify exact four-file diff
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          python - <<'PY'
+          import os, subprocess
+          expected = {
+              'artifacts/manifests/B005-code-backbone-discovery.json',
+              'artifacts/manifests/B005-canonical-input-binding.json',
+              'evidence/mstr-000b/B005-code-backbone-rescan.md',
+              'evidence/mstr-000b/B005-schema-validation.md',
+          }
+          changed=set(subprocess.run(
+              ['git','diff','--name-only',os.environ['EXPECTED_MAIN'],os.environ['EXPECTED_HEAD']],
+              check=True,capture_output=True,text=True,
+          ).stdout.splitlines())
+          assert changed == expected, (changed, expected)
+          PY
+          git diff --check "$EXPECTED_MAIN" "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+
+      - name: Install candidate tooling
+        working-directory: candidate
+        run: python -m pip install -e '.[dev]'
+
+      - name: Revalidate B005 local contracts and authority boundary
+        working-directory: candidate
+        shell: bash
+        run: |
+          python - <<'PY'
+          import copy, json, os, subprocess
+          from pathlib import Path
+          from jsonschema import Draft202012Validator, ValidationError
+
+          pairs=[
+              ('specs/002-code-model-supremacy-foundation/contracts/b005-code-backbone-discovery-v1.schema.json','artifacts/manifests/B005-code-backbone-discovery.json'),
+              ('specs/002-code-model-supremacy-foundation/contracts/b005-canonical-input-binding-v1.schema.json','artifacts/manifests/B005-canonical-input-binding.json'),
+          ]
+          loaded=[]
+          for schema_path, instance_path in pairs:
+              schema=json.loads(Path(schema_path).read_text(encoding='utf-8'))
+              instance=json.loads(Path(instance_path).read_text(encoding='utf-8'))
+              Draft202012Validator.check_schema(schema)
+              Draft202012Validator(schema).validate(instance)
+              loaded.append((schema,instance))
+          discovery_schema, discovery=loaded[0]
+          binding_schema, binding=loaded[1]
+          assert discovery['canonical_main_sha'] == os.environ['EXPECTED_MAIN']
+          assert binding['canonical_main_sha'] == os.environ['EXPECTED_MAIN']
+          assert discovery['scope']['model_weight_access'] is False
+          assert discovery['scope']['tokenizer_artifact_download'] is False
+          assert discovery['scope']['gated_terms_acceptance'] is False
+          assert discovery['no_weight_access_performed'] is True
+          assert discovery['no_authority_created'] is True
+          assert binding['authority']['creates_model_access_authority'] is False
+          bad=copy.deepcopy(discovery)
+          bad['scope']['model_weight_access']=True
+          try: Draft202012Validator(discovery_schema).validate(bad)
+          except ValidationError: pass
+          else: raise AssertionError('weight-access mutation accepted')
+          bad=copy.deepcopy(binding)
+          bad['authority']['creates_model_access_authority']=True
+          try: Draft202012Validator(binding_schema).validate(bad)
+          except ValidationError: pass
+          else: raise AssertionError('authority mutation accepted')
+          serious=set(discovery['newly_relevant_for_b006'])
+          assert 'LiquidAI/LFM2.5-1.2B-Base' in serious
+          assert 'Qwen/Qwen3.5-0.8B-Base' in serious
+          assert 'zai-org/GLM-5.3-Flash' not in serious
+          assert 'moonshotai/Kimi-K2-Base' not in serious
+          for entry in binding['canonical_inputs']:
+              observed=subprocess.run(
+                  ['git','rev-parse',f"{os.environ['EXPECTED_MAIN']}:{entry['path']}"],
+                  check=True,capture_output=True,text=True,
+              ).stdout.strip().lower()
+              assert observed == entry['blob_sha']
+          print('B005_PREMERGE_LOCAL_CONTRACTS=PASS')
+          print('B005_PREMERGE_AUTHORITY_BOUNDARY=PASS')
+          print(f"B005_PREMERGE_DISCOVERY_ROWS={len(discovery['candidates'])}")
+          PY
+
+      - name: Frozen gate - pytest
+        working-directory: candidate
+        run: pytest -q
+
+      - name: Frozen gate - Ruff
+        working-directory: candidate
+        run: ruff check src tests
+
+      - name: Frozen gate - mypy
+        working-directory: candidate
+        run: mypy
+
+      - name: Frozen gate - offline validate
+        working-directory: candidate
+        run: python -m mstr_qualify validate
+
+      - name: Final immutable main and head check
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+          echo "FINAL_MAIN_SHA=$EXPECTED_MAIN"
+          echo "FINAL_B005_HEAD=$EXPECTED_HEAD"
