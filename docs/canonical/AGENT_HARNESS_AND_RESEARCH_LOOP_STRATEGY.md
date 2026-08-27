@@ -32,36 +32,34 @@ FOUNDER_MAC_LARGE_ARTIFACTS = ZERO
 
 ## Corrected Pre-Training Sequence
 
-The old blanket statement that all MSTR-000A work starts only after T034 is superseded by exact dependencies.
+The old blanket statement that all MSTR-000A work starts only after T034 is superseded by exact dependencies. MSTR-000 T030-T034 is one parallel qualification branch; it gates candidate-dependent convergence, **not** all early-safe A/B work.
 
 ```text
-MSTR-000 T030-T034 candidate/runtime qualification
-            |
-            | parallel where independent
-            +--------------------------+
-            |                          |
-            v                          v
-MSTR-000A A001-A018            MSTR-000B early-safe work
-loop/event/state/env/          task gates/backbone metadata/
-verifier/trajectory            data/curriculum/verifier-health
-            |                          |
-            +------------+-------------+
-                         |
-                         v
-          STABLE/EQUIVALENT PRODUCT-ALIGNED CANDIDATE POOL
-          + REQUIRED LOOP/VERIFIER/DATA CONTRACTS
-                         |
-                         v
-             A019-A024 CONVERGENCE
-                         |
-                         v
-          SEPARATE EXPLICIT WEIGHT-CHANGING TRAINING GATE
++--------------------------+   +--------------------------+   +--------------------------+
+| MSTR-000                 |   | MSTR-000A EARLY_SAFE    |   | MSTR-000B EARLY_SAFE    |
+| T030-T034 candidate/Q4   |   | A001-A018 loop/event/   |   | task gates / backbone   |
+| runtime qualification    |   | state/env/verifier/traj |   | metadata/data/contracts |
++------------+-------------+   +------------+-------------+   +------------+-------------+
+             |                              |                              |
+             +------------------------------+------------------------------+
+                                            |
+                                            v
+                    STABLE/EQUIVALENT PRODUCT-ALIGNED CANDIDATE POOL
+                    + REQUIRED LOOP/VERIFIER/DATA/RESEARCH CONTRACTS
+                                            |
+                                            v
+                                A019-A024 CONVERGENCE
+                                            |
+                                            v
+                     SEPARATE EXPLICIT WEIGHT-CHANGING TRAINING GATE
 ```
 
 Therefore:
 
 ```text
 A001-A018 = EARLY_SAFE WHEN EXACT PREREQUISITES HOLD
+MSTR-000B_EARLY_SAFE = MAY_PROCEED WHEN EXACT PREREQUISITES HOLD
+T030-T034 = REQUIRED FOR CANDIDATE-DEPENDENT CONVERGENCE, NOT GLOBAL EARLY-SAFE ENTRY
 A019-A024 = CONVERGENCE_GATED
 MSTR_000B_REQUIRED_OUTPUTS = MUST_NOT_BE_BYPASSED
 WEIGHT_CHANGING_TRAINING = SEPARATELY_GATED
@@ -202,8 +200,10 @@ execution-grounded SFT/recovery data
 +
 bounded agent RL
 +
-Q4 product regression
+export + integrity + Q4 product regression
 ```
+
+A material weight-changing checkpoint may become the parent of a later material stage only after its merged-master and canonical-Q4 artifacts are identity-bound, integrity-verified, and pass the required Q4 promotion gate.
 
 MSTR-000B owns data/curriculum/verifier-health prerequisites before weight-changing training.
 
