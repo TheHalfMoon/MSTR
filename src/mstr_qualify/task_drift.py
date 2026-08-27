@@ -379,7 +379,7 @@ def _scan_task(
     metadata = tuple(_parse_evidence(path, root) for path in _evidence_files(root, node))
     if terminal and node["closeout_rule"]["require_all_evidence_outputs"]:
         invalid_state_paths = sorted(
-            entry.path for entry in metadata if entry.state != "COMPLETE_CANONICAL"
+            entry.path for entry in metadata if entry.state != node["canonical_state"]
         )
         if invalid_state_paths:
             findings.append(
@@ -408,7 +408,7 @@ def _scan_task(
     gate_main = _unique_value(task_id, "entry_gate_main", gate_mains, findings)
     gate_eligible = _unique_value(task_id, "entry_gate_eligible", gate_eligible_values, findings)
 
-    if evidence_state == "COMPLETE_CANONICAL" and not terminal:
+    if evidence_state in node["closeout_rule"]["terminal_states"] and not terminal:
         findings.append(
             _finding(
                 task_id,
@@ -416,7 +416,7 @@ def _scan_task(
                 canonical_state=node["canonical_state"],
             )
         )
-    if terminal and evidence_state != "COMPLETE_CANONICAL":
+    if terminal and evidence_state != node["canonical_state"]:
         findings.append(
             _finding(
                 task_id,

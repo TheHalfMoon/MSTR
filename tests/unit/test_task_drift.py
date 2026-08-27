@@ -333,6 +333,61 @@ def test_fixture_cases_detect_expected_canonical_drift(tmp_path: Path) -> None:
             assert observed == set(), (name, observed)
 
 
+@pytest.mark.parametrize(
+    "terminal_state",
+    ["NOT_REQUIRED_NO_NEW_ACCESS", "NOT_REQUIRED_NO_NEW_CANDIDATES"],
+)
+def test_detector_accepts_allowed_noncomplete_terminal_state(
+    tmp_path: Path, terminal_state: str
+) -> None:
+    root = _init_repo(tmp_path)
+    gate_main, final_head, merge_sha = _merge_b003_implementation(root, include_gate=True)
+    _close_b003(root, gate_main=gate_main, final_head=final_head, merge_sha=merge_sha)
+
+    catalog = root / "configs" / "task-gate" / "mstr-000b.json"
+    payload = json.loads(catalog.read_text(encoding="utf-8"))
+    payload["tasks"]["B003"]["canonical_state"] = terminal_state
+    payload["tasks"]["B003"]["closeout_rule"] = {
+        "terminal_states": ["COMPLETE_CANONICAL", terminal_state]
+    }
+    catalog.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    evidence = root / "evidence" / "mstr-000b" / "B003.md"
+    text = evidence.read_text(encoding="utf-8")
+    state_line = "**State:** COMPLETE_CANONICAL\n"
+    assert text.count(state_line) == 1
+    evidence.write_text(
+        text.replace(state_line, f"**State:** {terminal_state}\n", 1),
+        encoding="utf-8",
+    )
+    _commit_main(root, f"close B003 fixture as {terminal_state}")
+
+    report = detect_canonical_drift(repository_root=root)
+    assert report["status"] == "clean", report
+    assert report["findings"] == [], report
+
+
+@pytest.mark.parametrize(
+    "terminal_state",
+    ["NOT_REQUIRED_NO_NEW_ACCESS", "NOT_REQUIRED_NO_NEW_CANDIDATES"],
+)
+def test_detector_flags_allowed_terminal_claim_while_task_is_active(
+    tmp_path: Path, terminal_state: str
+) -> None:
+    root = _init_repo(tmp_path)
+    catalog = root / "configs" / "task-gate" / "mstr-000b.json"
+    payload = json.loads(catalog.read_text(encoding="utf-8"))
+    payload["tasks"]["B003"]["closeout_rule"] = {
+        "terminal_states": ["COMPLETE_CANONICAL", terminal_state]
+    }
+    catalog.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    _write_b003_evidence(root, state=terminal_state)
+    _commit_main(root, f"claim {terminal_state} while B003 remains active")
+
+    report = detect_canonical_drift(repository_root=root)
+    assert "evidence.completion_claim_active_task" in _codes(report), report
+
+
 def test_detector_refuses_feature_checkout(tmp_path: Path) -> None:
     root = _init_repo(tmp_path)
     _git(root, "switch", "-c", "feature")
