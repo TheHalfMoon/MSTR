@@ -36,57 +36,17 @@
     "NOT_EXECUTED": "No artifact-backed runtime, training, conversion, export, or quantization claim."
   },
   "upstream_pins": {
-    "transformers": {
-      "repository": "huggingface/transformers",
-      "ref": "main",
-      "sha": "01846b52e4b9333577af7e4e19c6d3c0f815ff72"
-    },
-    "unsloth": {
-      "repository": "unslothai/unsloth",
-      "ref": "main",
-      "sha": "e42405615e26f626232084b973976f61036e8b2e"
-    },
-    "peft": {
-      "repository": "huggingface/peft",
-      "ref": "main",
-      "sha": "5779b17b9a67d9b07b5be75053cb1932b939fd9f"
-    },
-    "trl": {
-      "repository": "huggingface/trl",
-      "ref": "main",
-      "sha": "67dfbe211a07a8dd6ebc1a5af5b75152e10add8e"
-    },
-    "llama_cpp": {
-      "repository": "ggml-org/llama.cpp",
-      "ref": "master",
-      "sha": "d7a2074112d27649303fa107eb8c94db1ee435f3"
-    }
+    "transformers": {"repository": "huggingface/transformers", "ref": "main", "sha": "01846b52e4b9333577af7e4e19c6d3c0f815ff72"},
+    "unsloth": {"repository": "unslothai/unsloth", "ref": "main", "sha": "e42405615e26f626232084b973976f61036e8b2e"},
+    "peft": {"repository": "huggingface/peft", "ref": "main", "sha": "5779b17b9a67d9b07b5be75053cb1932b939fd9f"},
+    "trl": {"repository": "huggingface/trl", "ref": "main", "sha": "67dfbe211a07a8dd6ebc1a5af5b75152e10add8e"},
+    "llama_cpp": {"repository": "ggml-org/llama.cpp", "ref": "master", "sha": "d7a2074112d27649303fa107eb8c94db1ee435f3"}
   },
   "source_evidence": {
-    "llama_cpp_converter_paths": [
-      "conversion/mellum.py",
-      "conversion/starcoder2.py",
-      "conversion/stablelm.py",
-      "conversion/falcon_h1.py",
-      "conversion/lfm2.py",
-      "conversion/bitnet.py",
-      "conversion/granite.py",
-      "conversion/mistral3.py",
-      "conversion/qwen.py",
-      "conversion/gemma.py"
-    ],
-    "llama_cpp_runtime_paths": [
-      "src/models/smollm3.cpp"
-    ],
-    "unsloth_paths": [
-      "unsloth/models/falcon_h1.py",
-      "unsloth/models/granite.py",
-      "studio/backend/assets/configs/model_defaults/other/unsloth_LFM2-1.2B.yaml",
-      "tests/saving/test_qwen3_5_vlm_full_finetune_key_remap.py"
-    ],
-    "peft_paths": [
-      "docs/source/developer_guides/troubleshooting.md"
-    ],
+    "llama_cpp_converter_paths": ["conversion/mellum.py", "conversion/starcoder2.py", "conversion/stablelm.py", "conversion/falcon_h1.py", "conversion/lfm2.py", "conversion/bitnet.py", "conversion/granite.py", "conversion/mistral3.py", "conversion/qwen.py", "conversion/gemma.py"],
+    "llama_cpp_runtime_paths": ["src/models/smollm3.cpp"],
+    "unsloth_paths": ["unsloth/models/falcon_h1.py", "unsloth/models/granite.py", "studio/backend/assets/configs/model_defaults/other/unsloth_LFM2-1.2B.yaml", "tests/saving/test_qwen3_5_vlm_full_finetune_key_remap.py"],
+    "peft_paths": ["docs/source/developer_guides/troubleshooting.md"],
     "interpretation": "conversion/*.py proves converter-source presence only. src/models/smollm3.cpp is explicit runtime-source evidence for SmolLM3. No runtime implementation or fidelity claim is made for other families unless a runtime path is separately named. Unsloth/PEFT paths are family or framework evidence, not exact-candidate execution evidence."
   },
   "global_findings": [
@@ -95,204 +55,25 @@
     "Unsloth pinned source contains direct family code/evidence for Falcon-H1, Granite, LFM2, and Qwen3.5-era paths, but source presence is not exact-candidate training qualification.",
     "PEFT pinned main explicitly documents silent partial target-module skip risk on hybrid architectures; B009 therefore requires exact module-coverage auditing for Falcon-H1/LFM2-style hybrid candidates and explicit component-scope auditing for mixed-component Ministral training.",
     "TRL is treated as a generic trainer layer only when the underlying Transformers/model path is valid; B009 does not infer candidate-specific trainability from TRL presence.",
+    "LiquidAI/LFM2.5-2.6B-Base is identity-blocked in B009 because only the B005 short revision c57bdae is available in the canonical input; B009 does not promote that short value into an immutable revision identity.",
     "No GGUF conversion, quantization, tokenizer export, adapter training, or model inference was executed."
   ],
   "candidates": [
-    {
-      "repo_id": "Qwen/Qwen3.5-2B-Base",
-      "revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
-      "source_class": "EXISTING_T022",
-      "architecture_family": "qwen3_5_dense",
-      "transformers": "SOURCE_REGISTERED_NATIVE_NOT_EXECUTED",
-      "unsloth": "SOURCE_EVIDENCE_PRESENT_NOT_EXACT_MODEL_EXECUTED",
-      "peft": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "llama_cpp": "FAMILY_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": ["B006_PROVENANCE_REVALIDATION_REQUIRED", "TOKENIZER_EXPORT_IDENTITY_MUST_BE_PINNED"],
-      "restrictions": ["Do not treat source registration as exact-revision runtime qualification."]
-    },
-    {
-      "repo_id": "Qwen/Qwen3.5-4B-Base",
-      "revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
-      "source_class": "EXISTING_T022",
-      "architecture_family": "qwen3_5_dense",
-      "transformers": "SOURCE_REGISTERED_NATIVE_NOT_EXECUTED",
-      "unsloth": "SOURCE_EVIDENCE_PRESENT_NOT_EXACT_MODEL_EXECUTED",
-      "peft": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "llama_cpp": "FAMILY_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": ["B006_PROVENANCE_REVALIDATION_REQUIRED", "TOKENIZER_EXPORT_IDENTITY_MUST_BE_PINNED"],
-      "restrictions": ["Do not treat source registration as exact-revision runtime qualification."]
-    },
-    {
-      "repo_id": "mistralai/Ministral-3-3B-Base-2512",
-      "revision": "6f9c4b12a95b139af68670a6713616b757923735",
-      "source_class": "EXISTING_T022",
-      "architecture_family": "mistral3_multimodal",
-      "transformers": "SOURCE_REGISTERED_ARCH_SPECIFIC_NOT_EXECUTED",
-      "unsloth": "ARCH_SPECIFIC_PATH_UNVERIFIED_FOR_EXACT_MODEL",
-      "peft": "ARCH_SPECIFIC_TARGET_MODULE_AUDIT_REQUIRED",
-      "trl": "MULTIMODAL_OR_TEXT_COMPONENT_SCOPE_MUST_BE_EXPLICIT",
-      "llama_cpp": "MISTRAL3_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": ["VISION_COMPONENT_COST_REVIEW", "PARAMETER_COUNT_REVALIDATION_REQUIRED", "TEXT_ONLY_VS_MULTIMODAL_EXPORT_SCOPE_MUST_BE_EXPLICIT"],
-      "restrictions": ["Do not assume a text-only CausalLM fast path for the full checkpoint.", "Adapter target modules must be audited against the exact language/vision component scope."]
-    },
-    {
-      "repo_id": "Qwen/Qwen3-4B-Base",
-      "revision": "906bfd4b4dc7f14ee4320094d8b41684abff8539",
-      "source_class": "EXISTING_T022",
-      "architecture_family": "qwen3_dense",
-      "transformers": "SOURCE_REGISTERED_NATIVE_NOT_EXECUTED",
-      "unsloth": "SOURCE_EVIDENCE_PRESENT_NOT_EXACT_MODEL_EXECUTED",
-      "peft": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "llama_cpp": "FAMILY_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": ["TOKENIZER_EXPORT_IDENTITY_MUST_BE_PINNED"],
-      "restrictions": ["Exact-revision conversion and quantization still require B012-equivalent execution evidence."]
-    },
-    {
-      "repo_id": "ibm-granite/granite-4.1-3b-base",
-      "revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
-      "source_class": "EXISTING_T022",
-      "architecture_family": "granite_dense_decoder",
-      "transformers": "SOURCE_REGISTERED_NATIVE_GRANITEFORCAUSALLM_NOT_EXECUTED",
-      "unsloth": "SOURCE_EVIDENCE_PRESENT_FOR_GRANITE_FAMILY_NOT_EXACT_MODEL_EXECUTED",
-      "peft": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "llama_cpp": "GRANITE_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": ["CONTEXT_EXTENSION_CLAIM_SEPARATE_FROM_TRAINED_SEQUENCE"],
-      "restrictions": ["Pinned public config identifies GraniteForCausalLM/model_type=granite and the model card describes a dense decoder-only transformer; do not apply hybrid-module warnings to this 3B checkpoint.", "Do not infer exact 4.1-3B Unsloth support from family-level files alone."]
-    },
-    {
-      "repo_id": "HuggingFaceTB/SmolLM3-3B-Base",
-      "revision": "d78a42f79198603e614095753484a04c10c2b940",
-      "source_class": "EXISTING_T022",
-      "architecture_family": "smollm3",
-      "transformers": "SOURCE_REGISTERED_NATIVE_NOT_EXECUTED",
-      "unsloth": "FAMILY_OR_GENERIC_PATH_UNVERIFIED_FOR_EXACT_MODEL",
-      "peft": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "llama_cpp": "SMOLLM3_RUNTIME_SOURCE_PRESENT_AND_LLAMA_CONVERTER_PATH_NOT_EXECUTED",
-      "hazards": ["YARN_EXTENSION_SEPARATE_FROM_NATIVE_CONFIG", "TOKENIZER_EXPORT_IDENTITY_MUST_BE_PINNED"],
-      "restrictions": ["Native context and extrapolated context must be reported separately."]
-    },
-    {
-      "repo_id": "Qwen/Qwen2.5-Coder-1.5B",
-      "revision": "df3ce67c0e24480f20468b6ef2894622d69eb73b",
-      "source_class": "EXISTING_T022",
-      "architecture_family": "qwen2_coder",
-      "transformers": "SOURCE_REGISTERED_NATIVE_NOT_EXECUTED",
-      "unsloth": "QWEN_FAMILY_PATH_EXPECTED_BUT_EXACT_MODEL_NOT_EXECUTED",
-      "peft": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "llama_cpp": "QWEN_FAMILY_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": ["FIM_SPECIAL_TOKEN_AND_EXPORT_BEHAVIOR_MUST_BE_VERIFIED"],
-      "restrictions": ["FIM token identities and export preservation are qualification-critical."]
-    },
-    {
-      "repo_id": "01-ai/Yi-Coder-1.5B",
-      "revision": "00e59e64f47d3c78e4cfbdd345888479797e8109",
-      "source_class": "EXISTING_T022",
-      "architecture_family": "llama_derived_or_yi_family_exact_MAPPING_UNVERIFIED",
-      "transformers": "GENERIC_OR_REMOTE_MODEL_PATH_NEEDS_EXACT_CONFIG_REVALIDATION",
-      "unsloth": "GENERIC_LLAMA_PATH_POSSIBLE_NOT_MODEL_EXECUTED",
-      "peft": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "llama_cpp": "LLAMA_FAMILY_CONVERTER_PATH_POSSIBLE_NOT_EXACTLY_PROVEN",
-      "hazards": ["PARAMETER_COUNT_REVALIDATION_REQUIRED", "PROVENANCE_REVALIDATION_REQUIRED", "EXACT_ARCHITECTURE_MAPPING_MUST_BE_REVALIDATED"],
-      "restrictions": ["No runtime compatibility PASS until exact config/model_type is revalidated."]
-    },
-    {
-      "repo_id": "JetBrains/Mellum-4b-base",
-      "revision": "83cce2605fbdf6a3868627e9b0a5924e0072b94d",
-      "source_class": "NEWLY_RELEVANT_B005",
-      "architecture_family": "llama_compatible_mellum",
-      "transformers": "LLAMA_COMPATIBLE_SOURCE_PATH_NOT_EXECUTED",
-      "unsloth": "NO_DIRECT_MELLUM_SOURCE_EVIDENCE_FOUND_AT_PIN",
-      "peft": "GENERIC_LLAMA_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "llama_cpp": "MELLUM_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": ["IDE_CODE_COMPLETION_FIM_EXPORT_BEHAVIOR_MUST_BE_VERIFIED", "UNSLOTH_FAST_PATH_UNVERIFIED"],
-      "restrictions": ["Treat Unsloth support as unverified even though Transformers/PEFT/TRL may use Llama-compatible paths."]
-    },
-    {
-      "repo_id": "bigcode/starcoder2-3b",
-      "revision": "733247c55e3f73af49ce8e9c7949bf14af205928",
-      "source_class": "NEWLY_RELEVANT_B005",
-      "architecture_family": "starcoder2",
-      "transformers": "SOURCE_REGISTERED_NATIVE_NOT_EXECUTED",
-      "unsloth": "NO_DIRECT_STARCODER2_SOURCE_EVIDENCE_FOUND_AT_PIN",
-      "peft": "GENERIC_CAUSAL_LM_ADAPTER_PATH_NOT_MODEL_EXECUTED",
-      "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "llama_cpp": "STARCODER2_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": ["NON_APACHE_LICENSE_REQUIRES_B006_RIGHTS_DECISION", "FIM_SPECIAL_TOKEN_AND_EXPORT_BEHAVIOR_MUST_BE_VERIFIED", "UNSLOTH_FAST_PATH_UNVERIFIED"],
-      "restrictions": ["Rights fit precedes any compatibility-based promotion."]
-    },
-    {
-      "repo_id": "stabilityai/stable-code-3b",
-      "revision": "5cee3fa2905e7a03c4a1b0bc02f39da7ceaa6cb5",
-      "source_class": "NEWLY_RELEVANT_B005",
-      "architecture_family": "stablelm",
-      "transformers": "SOURCE_REGISTERED_NATIVE_NOT_EXECUTED",
-      "unsloth": "NO_DIRECT_STABLE_CODE_SOURCE_EVIDENCE_FOUND_AT_PIN",
-      "peft": "GENERIC_CAUSAL_LM_ADAPTER_PATH_NOT_MODEL_EXECUTED",
-      "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
-      "llama_cpp": "STABLELM_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": ["NONSTANDARD_LICENSE_REQUIRES_B006_RIGHTS_DECISION", "FIM_EXPORT_BEHAVIOR_MUST_BE_VERIFIED", "UNSLOTH_FAST_PATH_UNVERIFIED"],
-      "restrictions": ["Compatibility cannot override an incompatible rights decision."]
-    },
-    {
-      "repo_id": "google/codegemma-2b",
-      "revision": null,
-      "source_class": "NEWLY_RELEVANT_B005",
-      "architecture_family": "gemma_code",
-      "transformers": "GEMMA_FAMILY_SOURCE_PRESENT_BUT_EXACT_GATED_REVISION_UNRESOLVED",
-      "unsloth": "GEMMA_FAMILY_SUPPORT_DOES_NOT_RESOLVE_GATED_EXACT_REVISION",
-      "peft": "GENERIC_GEMMA_ADAPTER_PATH_CONDITIONAL_ON_AUTHORIZED_ARTIFACT",
-      "trl": "GENERIC_CAUSAL_LM_PATH_CONDITIONAL_ON_AUTHORIZED_ARTIFACT",
-      "llama_cpp": "GEMMA_CONVERTER_SOURCE_PRESENT_BUT_EXACT_MODEL_NOT_ACCESSED",
-      "hazards": ["CLICKTHROUGH_AND_LOGIN_REQUIRED", "CURRENT_FULL_REVISION_UNRESOLVED", "GATED_TERMS_ACCEPTANCE_NOT_AUTHORIZED", "FIM_SPECIAL_TOKEN_AND_EXPORT_BEHAVIOR_MUST_BE_VERIFIED"],
-      "restrictions": ["B009 metadata does not accept terms or authorize gated access.", "No exact-revision runtime claim is permitted."]
-    },
-    {
-      "repo_id": "tiiuae/Falcon-H1-3B-Base",
-      "revision": "c096902c69be0eed2e5369d3420a8bb960d293e1",
-      "source_class": "NEWLY_RELEVANT_B005",
-      "architecture_family": "falcon_h1_hybrid_transformer_ssm",
-      "transformers": "SOURCE_REGISTERED_ARCH_SPECIFIC_NOT_EXECUTED",
-      "unsloth": "DIRECT_FALCON_H1_SOURCE_PRESENT_NOT_EXACT_MODEL_EXECUTED",
-      "peft": "HYBRID_TARGET_MODULE_AUDIT_REQUIRED",
-      "trl": "GENERIC_TRAINER_COMPATIBILITY_NOT_MODEL_EXECUTED",
-      "llama_cpp": "FALCON_H1_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": ["HYBRID_ADAPTER_TARGET_MODULE_SILENT_SKIP_RISK", "SSM_RUNTIME_AND_EXPORT_PATH_MUST_BE_EXACTLY_QUALIFIED"],
-      "restrictions": ["PEFT target modules must be enumerated and coverage-checked.", "Runtime/quantization must be architecture-specific, not inferred from Transformer-only models."]
-    },
-    {
-      "repo_id": "microsoft/bitnet-b1.58-2B-4T-bf16",
-      "revision": "9e5d75862231a20855f2fecdee031f9c2e961864",
-      "source_class": "NEWLY_RELEVANT_B005",
-      "architecture_family": "bitnet_1_58_training_master",
-      "transformers": "MODEL_REPO_REMOTE_CODE_OR_SPECIALIZED_PATH_REPORTED_NOT_EXECUTED",
-      "unsloth": "NO_DIRECT_BITNET_TRAINING_FAST_PATH_EVIDENCE_ESTABLISHED",
-      "peft": "SPECIALIZED_ARCHITECTURE_ADAPTER_COMPATIBILITY_UNVERIFIED",
-      "trl": "SPECIALIZED_ARCHITECTURE_TRAINABILITY_UNVERIFIED",
-      "llama_cpp": "BITNET_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": ["NATIVE_CONTEXT_4096_BELOW_MSTR_8192_REFERENCE", "TRUST_REMOTE_CODE_REPORTED_BY_PUBLIC_MODEL_USAGE", "PACKED_DEPLOYMENT_SIBLING_DIFFERS_FROM_BF16_TRAINING_MASTER", "SPECIALIZED_QUANTIZATION_SEMANTICS"],
-      "restrictions": ["Do not treat generic QLoRA/4-bit recipes as valid for native 1.58-bit semantics.", "8K product qualification requires an explicit context-policy decision."]
-    },
-    {
-      "repo_id": "LiquidAI/LFM2.5-2.6B-Base",
-      "revision": "c57bdae",
-      "source_class": "NEWLY_RELEVANT_B005",
-      "architecture_family": "lfm2_hybrid_on_device",
-      "transformers": "SOURCE_REGISTERED_OR_MODEL_INTEGRATION_PATH_REQUIRES_FULL_SHA_REVALIDATION",
-      "unsloth": "LFM2_SOURCE_EVIDENCE_PRESENT_NOT_EXACT_LFM2_5_MODEL_EXECUTED",
-      "peft": "HYBRID_TARGET_MODULE_AUDIT_REQUIRED",
-      "trl": "GENERIC_TRAINER_COMPATIBILITY_NOT_MODEL_EXECUTED",
-      "llama_cpp": "LFM2_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": ["FULL_SHA_PIN_REQUIRED", "NONSTANDARD_LICENSE_REQUIRES_B006_RIGHTS_DECISION", "HYBRID_ADAPTER_TARGET_MODULE_AUDIT_REQUIRED"],
-      "restrictions": ["Short revision is insufficient for canonical compatibility identity.", "Exact LFM2.5 training/export path remains unqualified."]
-    }
+    {"repo_id":"Qwen/Qwen3.5-2B-Base","revision":"b1485b2fa6dfa1287294f269f5fb618e03d52d7c","source_class":"EXISTING_T022","architecture_family":"qwen3_5_dense","transformers":"SOURCE_REGISTERED_NATIVE_NOT_EXECUTED","unsloth":"SOURCE_EVIDENCE_PRESENT_NOT_EXACT_MODEL_EXECUTED","peft":"GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","trl":"GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","llama_cpp":"FAMILY_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED","hazards":["B006_PROVENANCE_REVALIDATION_REQUIRED","TOKENIZER_EXPORT_IDENTITY_MUST_BE_PINNED"],"restrictions":["Do not treat source registration as exact-revision runtime qualification."]},
+    {"repo_id":"Qwen/Qwen3.5-4B-Base","revision":"1001bb4d826a52d1f399e183466143f4da7b741b","source_class":"EXISTING_T022","architecture_family":"qwen3_5_dense","transformers":"SOURCE_REGISTERED_NATIVE_NOT_EXECUTED","unsloth":"SOURCE_EVIDENCE_PRESENT_NOT_EXACT_MODEL_EXECUTED","peft":"GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","trl":"GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","llama_cpp":"FAMILY_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED","hazards":["B006_PROVENANCE_REVALIDATION_REQUIRED","TOKENIZER_EXPORT_IDENTITY_MUST_BE_PINNED"],"restrictions":["Do not treat source registration as exact-revision runtime qualification."]},
+    {"repo_id":"mistralai/Ministral-3-3B-Base-2512","revision":"6f9c4b12a95b139af68670a6713616b757923735","source_class":"EXISTING_T022","architecture_family":"mistral3_multimodal","transformers":"SOURCE_REGISTERED_ARCH_SPECIFIC_NOT_EXECUTED","unsloth":"ARCH_SPECIFIC_PATH_UNVERIFIED_FOR_EXACT_MODEL","peft":"ARCH_SPECIFIC_TARGET_MODULE_AUDIT_REQUIRED","trl":"MULTIMODAL_OR_TEXT_COMPONENT_SCOPE_MUST_BE_EXPLICIT","llama_cpp":"MISTRAL3_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED","hazards":["VISION_COMPONENT_COST_REVIEW","PARAMETER_COUNT_REVALIDATION_REQUIRED","TEXT_ONLY_VS_MULTIMODAL_EXPORT_SCOPE_MUST_BE_EXPLICIT"],"restrictions":["Do not assume a text-only CausalLM fast path for the full checkpoint.","Adapter target modules must be audited against the exact language/vision component scope."]},
+    {"repo_id":"Qwen/Qwen3-4B-Base","revision":"906bfd4b4dc7f14ee4320094d8b41684abff8539","source_class":"EXISTING_T022","architecture_family":"qwen3_dense","transformers":"SOURCE_REGISTERED_NATIVE_NOT_EXECUTED","unsloth":"SOURCE_EVIDENCE_PRESENT_NOT_EXACT_MODEL_EXECUTED","peft":"GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","trl":"GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","llama_cpp":"FAMILY_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED","hazards":["TOKENIZER_EXPORT_IDENTITY_MUST_BE_PINNED"],"restrictions":["Exact-revision conversion and quantization still require B012-equivalent execution evidence."]},
+    {"repo_id":"ibm-granite/granite-4.1-3b-base","revision":"dacb9cb9157bec98e99b09f285c92a4d58405c96","source_class":"EXISTING_T022","architecture_family":"granite_dense_decoder","transformers":"SOURCE_REGISTERED_NATIVE_GRANITEFORCAUSALLM_NOT_EXECUTED","unsloth":"SOURCE_EVIDENCE_PRESENT_FOR_GRANITE_FAMILY_NOT_EXACT_MODEL_EXECUTED","peft":"GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","trl":"GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","llama_cpp":"GRANITE_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED","hazards":["CONTEXT_EXTENSION_CLAIM_SEPARATE_FROM_TRAINED_SEQUENCE"],"restrictions":["Pinned public config identifies GraniteForCausalLM/model_type=granite and the model card describes a dense decoder-only transformer; do not apply hybrid-module warnings to this 3B checkpoint.","Do not infer exact 4.1-3B Unsloth support from family-level files alone."]},
+    {"repo_id":"HuggingFaceTB/SmolLM3-3B-Base","revision":"d78a42f79198603e614095753484a04c10c2b940","source_class":"EXISTING_T022","architecture_family":"smollm3","transformers":"SOURCE_REGISTERED_NATIVE_NOT_EXECUTED","unsloth":"FAMILY_OR_GENERIC_PATH_UNVERIFIED_FOR_EXACT_MODEL","peft":"GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","trl":"GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","llama_cpp":"SMOLLM3_RUNTIME_SOURCE_PRESENT_AND_LLAMA_CONVERTER_PATH_NOT_EXECUTED","hazards":["YARN_EXTENSION_SEPARATE_FROM_NATIVE_CONFIG","TOKENIZER_EXPORT_IDENTITY_MUST_BE_PINNED"],"restrictions":["Native context and extrapolated context must be reported separately."]},
+    {"repo_id":"Qwen/Qwen2.5-Coder-1.5B","revision":"df3ce67c0e24480f20468b6ef2894622d69eb73b","source_class":"EXISTING_T022","architecture_family":"qwen2_coder","transformers":"SOURCE_REGISTERED_NATIVE_NOT_EXECUTED","unsloth":"QWEN_FAMILY_PATH_EXPECTED_BUT_EXACT_MODEL_NOT_EXECUTED","peft":"GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","trl":"GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","llama_cpp":"QWEN_FAMILY_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED","hazards":["FIM_SPECIAL_TOKEN_AND_EXPORT_BEHAVIOR_MUST_BE_VERIFIED"],"restrictions":["FIM token identities and export preservation are qualification-critical."]},
+    {"repo_id":"01-ai/Yi-Coder-1.5B","revision":"00e59e64f47d3c78e4cfbdd345888479797e8109","source_class":"EXISTING_T022","architecture_family":"llama_derived_or_yi_family_exact_MAPPING_UNVERIFIED","transformers":"GENERIC_OR_REMOTE_MODEL_PATH_NEEDS_EXACT_CONFIG_REVALIDATION","unsloth":"GENERIC_LLAMA_PATH_POSSIBLE_NOT_MODEL_EXECUTED","peft":"GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","trl":"GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","llama_cpp":"LLAMA_FAMILY_CONVERTER_PATH_POSSIBLE_NOT_EXACTLY_PROVEN","hazards":["PARAMETER_COUNT_REVALIDATION_REQUIRED","PROVENANCE_REVALIDATION_REQUIRED","EXACT_ARCHITECTURE_MAPPING_MUST_BE_REVALIDATED"],"restrictions":["No runtime compatibility PASS until exact config/model_type is revalidated."]},
+    {"repo_id":"JetBrains/Mellum-4b-base","revision":"83cce2605fbdf6a3868627e9b0a5924e0072b94d","source_class":"NEWLY_RELEVANT_B005","architecture_family":"llama_compatible_mellum","transformers":"LLAMA_COMPATIBLE_SOURCE_PATH_NOT_EXECUTED","unsloth":"NO_DIRECT_MELLUM_SOURCE_EVIDENCE_FOUND_AT_PIN","peft":"GENERIC_LLAMA_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","trl":"GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","llama_cpp":"MELLUM_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED","hazards":["IDE_CODE_COMPLETION_FIM_EXPORT_BEHAVIOR_MUST_BE_VERIFIED","UNSLOTH_FAST_PATH_UNVERIFIED"],"restrictions":["Treat Unsloth support as unverified even though Transformers/PEFT/TRL may use Llama-compatible paths."]},
+    {"repo_id":"bigcode/starcoder2-3b","revision":"733247c55e3f73af49ce8e9c7949bf14af205928","source_class":"NEWLY_RELEVANT_B005","architecture_family":"starcoder2","transformers":"SOURCE_REGISTERED_NATIVE_NOT_EXECUTED","unsloth":"NO_DIRECT_STARCODER2_SOURCE_EVIDENCE_FOUND_AT_PIN","peft":"GENERIC_CAUSAL_LM_ADAPTER_PATH_NOT_MODEL_EXECUTED","trl":"GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","llama_cpp":"STARCODER2_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED","hazards":["NON_APACHE_LICENSE_REQUIRES_B006_RIGHTS_DECISION","FIM_SPECIAL_TOKEN_AND_EXPORT_BEHAVIOR_MUST_BE_VERIFIED","UNSLOTH_FAST_PATH_UNVERIFIED"],"restrictions":["Rights fit precedes any compatibility-based promotion."]},
+    {"repo_id":"stabilityai/stable-code-3b","revision":"5cee3fa2905e7a03c4a1b0bc02f39da7ceaa6cb5","source_class":"NEWLY_RELEVANT_B005","architecture_family":"stablelm","transformers":"SOURCE_REGISTERED_NATIVE_NOT_EXECUTED","unsloth":"NO_DIRECT_STABLE_CODE_SOURCE_EVIDENCE_FOUND_AT_PIN","peft":"GENERIC_CAUSAL_LM_ADAPTER_PATH_NOT_MODEL_EXECUTED","trl":"GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED","llama_cpp":"STABLELM_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED","hazards":["NONSTANDARD_LICENSE_REQUIRES_B006_RIGHTS_DECISION","FIM_EXPORT_BEHAVIOR_MUST_BE_VERIFIED","UNSLOTH_FAST_PATH_UNVERIFIED"],"restrictions":["Compatibility cannot override an incompatible rights decision."]},
+    {"repo_id":"google/codegemma-2b","revision":null,"source_class":"NEWLY_RELEVANT_B005","architecture_family":"gemma_code","identity_status":"BLOCKED_GATED_FULL_REVISION_UNRESOLVED","transformers":"GEMMA_FAMILY_SOURCE_PRESENT_BUT_EXACT_GATED_REVISION_UNRESOLVED","unsloth":"GEMMA_FAMILY_SUPPORT_DOES_NOT_RESOLVE_GATED_EXACT_REVISION","peft":"GENERIC_GEMMA_ADAPTER_PATH_CONDITIONAL_ON_AUTHORIZED_ARTIFACT","trl":"GENERIC_CAUSAL_LM_PATH_CONDITIONAL_ON_AUTHORIZED_ARTIFACT","llama_cpp":"GEMMA_CONVERTER_SOURCE_PRESENT_BUT_EXACT_MODEL_NOT_ACCESSED","hazards":["CLICKTHROUGH_AND_LOGIN_REQUIRED","CURRENT_FULL_REVISION_UNRESOLVED","GATED_TERMS_ACCEPTANCE_NOT_AUTHORIZED","FIM_SPECIAL_TOKEN_AND_EXPORT_BEHAVIOR_MUST_BE_VERIFIED"],"restrictions":["B009 metadata does not accept terms or authorize gated access.","No exact-revision runtime claim is permitted."]},
+    {"repo_id":"tiiuae/Falcon-H1-3B-Base","revision":"c096902c69be0eed2e5369d3420a8bb960d293e1","source_class":"NEWLY_RELEVANT_B005","architecture_family":"falcon_h1_hybrid_transformer_ssm","transformers":"SOURCE_REGISTERED_ARCH_SPECIFIC_NOT_EXECUTED","unsloth":"DIRECT_FALCON_H1_SOURCE_PRESENT_NOT_EXACT_MODEL_EXECUTED","peft":"HYBRID_TARGET_MODULE_AUDIT_REQUIRED","trl":"GENERIC_TRAINER_COMPATIBILITY_NOT_MODEL_EXECUTED","llama_cpp":"FALCON_H1_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED","hazards":["HYBRID_ADAPTER_TARGET_MODULE_SILENT_SKIP_RISK","SSM_RUNTIME_AND_EXPORT_PATH_MUST_BE_EXACTLY_QUALIFIED"],"restrictions":["PEFT target modules must be enumerated and coverage-checked.","Runtime/quantization must be architecture-specific, not inferred from Transformer-only models."]},
+    {"repo_id":"microsoft/bitnet-b1.58-2B-4T-bf16","revision":"9e5d75862231a20855f2fecdee031f9c2e961864","source_class":"NEWLY_RELEVANT_B005","architecture_family":"bitnet_1_58_training_master","transformers":"MODEL_REPO_REMOTE_CODE_OR_SPECIALIZED_PATH_REPORTED_NOT_EXECUTED","unsloth":"NO_DIRECT_BITNET_TRAINING_FAST_PATH_EVIDENCE_ESTABLISHED","peft":"SPECIALIZED_ARCHITECTURE_ADAPTER_COMPATIBILITY_UNVERIFIED","trl":"SPECIALIZED_ARCHITECTURE_TRAINABILITY_UNVERIFIED","llama_cpp":"BITNET_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED","hazards":["NATIVE_CONTEXT_4096_BELOW_MSTR_8192_REFERENCE","TRUST_REMOTE_CODE_REPORTED_BY_PUBLIC_MODEL_USAGE","PACKED_DEPLOYMENT_SIBLING_DIFFERS_FROM_BF16_TRAINING_MASTER","SPECIALIZED_QUANTIZATION_SEMANTICS"],"restrictions":["Do not treat generic QLoRA/4-bit recipes as valid for native 1.58-bit semantics.","8K product qualification requires an explicit context-policy decision."]},
+    {"repo_id":"LiquidAI/LFM2.5-2.6B-Base","revision":null,"observed_short_revision":"c57bdae","identity_status":"BLOCKED_FULL_SHA_UNRESOLVED","source_class":"NEWLY_RELEVANT_B005","architecture_family":"lfm2_hybrid_on_device","transformers":"FAMILY_SOURCE_ONLY_IDENTITY_BLOCKED","unsloth":"LFM2_FAMILY_SOURCE_ONLY_IDENTITY_BLOCKED","peft":"HYBRID_TARGET_MODULE_AUDIT_REQUIRED_AFTER_IDENTITY_RESOLUTION","trl":"GENERIC_TRAINER_PATH_BLOCKED_PENDING_IDENTITY","llama_cpp":"LFM2_CONVERTER_SOURCE_ONLY_IDENTITY_BLOCKED","hazards":["FULL_SHA_PIN_REQUIRED","NONSTANDARD_LICENSE_REQUIRES_B006_RIGHTS_DECISION","HYBRID_ADAPTER_TARGET_MODULE_AUDIT_REQUIRED"],"restrictions":["The B005 short revision c57bdae is observation-only and is not an immutable candidate identity.","No exact-candidate compatibility claim is valid until a full immutable revision is recorded and dependent source evidence is revalidated."]}
   ],
   "b010_handoff": {
     "decision_owner": "B010",
