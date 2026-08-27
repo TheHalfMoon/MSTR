@@ -73,8 +73,8 @@ def patch_unit_test() -> None:
     replace_once(
         path,
         '''def test_detector_refuses_feature_checkout(tmp_path: Path) -> None:\n    root = _init_repo(tmp_path)\n    _git(root, "switch", "-c", "feature")\n    with pytest.raises(Exception) as captured:\n        detect_canonical_drift(repository_root=root)\n''',
-        '''def test_detector_refuses_feature_checkout(tmp_path: Path) -> None:\n    root = _init_repo(tmp_path)\n    _git(root, "switch", "-c", "feature")\n    with pytest.raises(QualificationError) as captured:\n        detect_canonical_drift(repository_root=root)\n''',
-        "unit feature exception type",
+        '''def test_detector_refuses_feature_checkout(tmp_path: Path) -> None:\n    root = _init_repo(tmp_path)\n    _git(root, "switch", "-c", "feature")\n    (root / "feature-only.txt").write_text("diverged\\n", encoding="utf-8")\n    _git(root, "add", "feature-only.txt")\n    _git(root, "commit", "-m", "feature diverges from canonical main")\n    with pytest.raises(QualificationError) as captured:\n        detect_canonical_drift(repository_root=root)\n''',
+        "unit feature non-main commit",
     )
     replace_once(
         path,
