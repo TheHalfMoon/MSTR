@@ -32,6 +32,7 @@
     "candidate_dependent": {"type": "boolean"},
     "candidate_pool_requirement_id": {"type": ["string", "null"], "minLength": 1},
     "external_effect_class": {
+      "description": "Classifies the strongest external effect the task may require. This field never grants authority.",
       "enum": [
         "NO_EXTERNAL_EFFECT",
         "PUBLIC_METADATA_READ",
@@ -48,7 +49,11 @@
         "PRODUCTION_RELEASE"
       ]
     },
-    "required_authority_id": {"type": ["string", "null"], "minLength": 1},
+    "required_authority_id": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "Foreign-key reference to an already-canonical authority record or envelope. The referenced authority owns the exact effect scope and any applicable cost/resource ceilings; this identifier never creates or broadens authority."
+    },
     "parallel_safe": {"type": "boolean"},
     "supersedes": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
     "superseded_by": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
@@ -78,7 +83,12 @@
         {"type": "string", "pattern": "^NOT_REQUIRED(?:_[A-Z0-9]+)*$"}
       ]
     },
-    "repoPath": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"}
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Repository-relative POSIX-style path. Absolute paths, Windows drive-qualified paths, backslashes, colon-qualified paths, and parent traversal are prohibited.",
+      "pattern": "^(?!/)(?!.*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    }
   },
   "allOf": [
     {
