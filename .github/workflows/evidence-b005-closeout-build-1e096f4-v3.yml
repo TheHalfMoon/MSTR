@@ -1,0 +1,141 @@
+name: Build B005 canonical closeout v3
+
+on:
+  push:
+    branches: [evidence/b005-closeout-build-1e096f4-v3]
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: 1e096f4d1f270b2803da6a6306e9e7f0cf8fb81b
+  EXPECTED_TARGET: 1e096f4d1f270b2803da6a6306e9e7f0cf8fb81b
+  TARGET_BRANCH: docs/000b-b005-canonicalize
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  closeout:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout verified closeout builder script
+        uses: actions/checkout@v4
+        with:
+          ref: evidence/b005-closeout-build-1e096f4-v2
+          fetch-depth: 1
+          path: evidence
+          persist-credentials: false
+      - name: Checkout exact closeout target
+        uses: actions/checkout@v4
+        with:
+          ref: docs/000b-b005-canonicalize
+          fetch-depth: 0
+          path: target
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install tooling
+        working-directory: target
+        run: python -m pip install -e '.[dev]'
+      - name: Verify exact entry state
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_TARGET"
+          git branch -f main "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+          python -m mstr_qualify task eligible B005 > /tmp/b005.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          task=json.load(open('/tmp/b005.json',encoding='utf-8'))
+          drift=json.load(open('/tmp/drift.json',encoding='utf-8'))
+          assert task['eligible'] is True and task['task_id']=='B005'
+          assert task['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert task['state_consistency_result']['observed_state']=='PENDING'
+          assert drift['status']=='clean' and drift['findings']==[]
+          print('B005_CLOSEOUT_ENTRY_GATE=PASS')
+          PY
+      - name: Apply closeout transition
+        run: python evidence/.github/evidence/b005_closeout_apply.py target
+      - name: Normalize only modified Markdown marker lines
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('target/specs/002-code-model-supremacy-foundation/tasks.md')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('- [x] **B005 Run mission-aligned compact backbone metadata rescan.**  \n','- [x] **B005 Run mission-aligned compact backbone metadata rescan.**\n',1)
+          p.write_text(s,encoding='utf-8')
+          p=Path('target/evidence/mstr-000b/B005-code-backbone-rescan.md')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('**State:** COMPLETE_CANONICAL  \n','**State:** COMPLETE_CANONICAL\n',1)
+          p.write_text(s,encoding='utf-8')
+          print('B005_CLOSEOUT_MARKER_WHITESPACE=NORMALIZED')
+          PY
+      - name: Verify bounded closeout
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          expected={'configs/task-gate/mstr-000b.json','specs/002-code-model-supremacy-foundation/tasks.md','evidence/mstr-000b/B005-code-backbone-rescan.md'}
+          changed=set(subprocess.run(['git','diff','--name-only'],check=True,capture_output=True,text=True).stdout.splitlines())
+          assert changed==expected,(changed,expected)
+          c=json.loads(Path('configs/task-gate/mstr-000b.json').read_text())
+          t=Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text()
+          e=Path('evidence/mstr-000b/B005-code-backbone-rescan.md').read_text()
+          assert c['tasks']['B005']['canonical_state']=='COMPLETE_CANONICAL'
+          assert c['tasks']['B006']['canonical_state']=='PENDING'
+          assert c['tasks']['B006']['prerequisites']==['B005']
+          assert '- [x] **B005 Run mission-aligned compact backbone metadata rescan.**' in t
+          assert '- [ ] **B006 Create/reconcile candidate records for newly relevant code-specialized models.**' in t
+          assert '**State:** COMPLETE_CANONICAL' in e
+          assert 'B006_STATE = PENDING' in e
+          print('B005_CLOSEOUT_SCOPE=PASS')
+          print('B005_CLOSEOUT_CONSISTENCY=PASS')
+          PY
+      - name: Commit candidate
+        id: commit
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md evidence/mstr-000b/B005-code-backbone-rescan.md
+          git commit -m "docs(mstr-000b): canonicalize B005 closeout"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_TARGET"
+          test -z "$(git status --short)"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Pytest
+        working-directory: target
+        run: pytest -q
+      - name: Ruff
+        working-directory: target
+        run: ruff check src tests
+      - name: Mypy
+        working-directory: target
+        run: mypy
+      - name: Validate
+        working-directory: target
+        run: python -m mstr_qualify validate
+      - name: Guarded push
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="${{ steps.commit.outputs.sha }}"
+          test "$(git rev-parse HEAD)" = "$candidate"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_TARGET"
+          test -z "$(git status --short)"
+          git push origin HEAD:"$TARGET_BRANCH"
+          echo "B005_CLOSEOUT_CANDIDATE=$candidate"
