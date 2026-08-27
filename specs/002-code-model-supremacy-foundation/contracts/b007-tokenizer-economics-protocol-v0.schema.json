@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mstr.local/specs/002-code-model-supremacy-foundation/contracts/b007-tokenizer-economics-protocol-v0.schema.json",
+  "title": "B007 Tokenizer Economics Protocol v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format_version", "task_id", "workstream_id", "protocol_id", "canonical_main_sha", "claim_scope", "corpus", "integrity_preflight", "tokenizer_identity", "encoding_contract", "metrics", "comparability", "b008_output_requirements", "authority"],
+  "properties": {
+    "format_version": {"const": "mstr.tokenizer-economics-protocol.v0"},
+    "task_id": {"const": "B007"},
+    "workstream_id": {"const": "MSTR-000B"},
+    "protocol_id": {"const": "MSTR-TOKENIZER-ECONOMICS-v0"},
+    "canonical_main_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "claim_scope": {"const": "DETERMINISTIC_STRATIFIED_V0_FIXTURE_NOT_A_POPULATION_REPRESENTATIVE_SAMPLE"},
+    "corpus": {
+      "type": "object",
+      "required": ["corpus_id", "fixture_path", "fixture_sha256", "fixture_file_bytes", "expected_git_blob_sha1", "decoded_content_bytes", "entry_count", "entry_byte_distribution", "encoding", "newline", "source_class", "external_source_content", "profiles_required", "required_categories", "category_summary", "entry_pins"],
+      "properties": {
+        "corpus_id": {"const": "B007-tokenizer-economics-v0"},
+        "fixture_path": {"const": "benchmarks/fixtures/tokenizer-economics/B007-corpus.json"},
+        "fixture_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "fixture_file_bytes": {"type": "integer", "minimum": 1},
+        "expected_git_blob_sha1": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "decoded_content_bytes": {"type": "integer", "minimum": 1},
+        "entry_count": {"const": 34},
+        "entry_byte_distribution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "median", "max"],
+          "properties": {"min": {"type": "integer", "minimum": 1}, "median": {"type": "number", "minimum": 1}, "max": {"type": "integer", "minimum": 1}}
+        },
+        "encoding": {"const": "UTF-8"},
+        "newline": {"const": "LF"},
+        "source_class": {"const": "REPOSITORY_AUTHORED_SYNTHETIC_FIXTURE"},
+        "external_source_content": {"const": false},
+        "profiles_required": {"const": ["baseline", "adversarial"]},
+        "required_categories": {"const": ["python", "typescript", "javascript", "rust", "go", "java", "c", "cpp", "sql", "shell", "json", "yaml", "toml", "diff", "stack_trace", "file_paths", "tool_json"]},
+        "category_summary": {"type": "array", "minItems": 17, "maxItems": 17},
+        "entry_pins": {"type": "array", "minItems": 34, "maxItems": 34}
+      }
+    },
+    "integrity_preflight": {
+      "type": "object",
+      "required": ["strict_json_duplicate_key_rejection_required", "verify_fixture_file_sha256", "verify_fixture_file_bytes", "verify_expected_git_blob_sha1", "verify_entry_order_and_unique_ids", "verify_required_categories_and_profiles", "verify_each_decoded_content_byte_count", "verify_each_decoded_content_sha256", "verify_aggregate_decoded_content_bytes", "verify_manifest_entry_pins", "fail_closed_on_any_mismatch", "content_transformation_before_tokenization", "authoritative_serialization_rule"],
+      "properties": {
+        "strict_json_duplicate_key_rejection_required": {"const": true},
+        "verify_fixture_file_sha256": {"const": true},
+        "verify_fixture_file_bytes": {"const": true},
+        "verify_expected_git_blob_sha1": {"const": true},
+        "verify_entry_order_and_unique_ids": {"const": true},
+        "verify_required_categories_and_profiles": {"const": true},
+        "verify_each_decoded_content_byte_count": {"const": true},
+        "verify_each_decoded_content_sha256": {"const": true},
+        "verify_aggregate_decoded_content_bytes": {"const": true},
+        "verify_manifest_entry_pins": {"const": true},
+        "fail_closed_on_any_mismatch": {"const": true},
+        "content_transformation_before_tokenization": {"const": "NONE"},
+        "authoritative_serialization_rule": {"const": "COMMITTED_CORPUS_FILE_BYTES_AND_DECODED_ENTRY_HASHES_ARE_AUTHORITATIVE"}
+      }
+    },
+    "tokenizer_identity": {"type": "object"},
+    "encoding_contract": {
+      "type": "object",
+      "required": ["add_special_tokens", "bos_injection", "eos_injection", "chat_template", "padding", "truncation", "pre_measurement_whitespace_normalization", "pre_measurement_newline_normalization", "effective_runtime_settings_capture_required", "token_count_api_identity_required"],
+      "properties": {
+        "add_special_tokens": {"const": false},
+        "bos_injection": {"const": false},
+        "eos_injection": {"const": false},
+        "chat_template": {"const": "PROHIBITED_AND_MUST_BE_ASSERTED_UNUSED"},
+        "padding": {"const": "NONE"},
+        "truncation": {"const": "NONE"},
+        "pre_measurement_whitespace_normalization": {"const": "NONE"},
+        "pre_measurement_newline_normalization": {"const": "NONE"},
+        "effective_runtime_settings_capture_required": {"const": true},
+        "token_count_api_identity_required": {"const": true}
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "required": ["identifier_like_regex", "identifier_like_semantics", "identifier_like_counting", "identifier_like_zero_match_behavior", "weighted_bytes_per_token_formula", "estimated_effective_payload_bytes_at_8192_tokens_formula", "zero_total_tokens_behavior", "estimated_payload_semantics", "required_structural_observations"],
+      "properties": {
+        "identifier_like_regex": {"const": "[A-Za-z_][A-Za-z0-9_]*"},
+        "identifier_like_semantics": {"const": "LEXICAL_ASCII_IDENTIFIER_LIKE_SPANS_NOT_LANGUAGE_AWARE_IDENTIFIERS"},
+        "identifier_like_counting": {"const": "COUNT_OCCURRENCES_WITHOUT_DEDUPLICATION"},
+        "identifier_like_zero_match_behavior": {"const": "REPORT_COUNT_0_AND_NULL_RATIO_DISTRIBUTION_FIELDS"},
+        "weighted_bytes_per_token_formula": {"const": "SUM(byte_count) / SUM(token_count)"},
+        "estimated_effective_payload_bytes_at_8192_tokens_formula": {"const": "FLOOR((SUM(byte_count) / SUM(token_count)) * 8192)"},
+        "zero_total_tokens_behavior": {"const": "INVALID_MEASUREMENT"},
+        "estimated_payload_semantics": {"const": "CORPUS_RATIO_ESTIMATE_NOT_AN_EXACT_MODEL_CONTEXT_MAXIMUM"},
+        "required_structural_observations": {"type": "object"}
+      }
+    },
+    "comparability": {"type": "object"},
+    "b008_output_requirements": {"type": "array", "minItems": 10, "uniqueItems": true},
+    "authority": {
+      "type": "object",
+      "required": ["model_inference_authorized", "model_weight_access_authorized", "paid_compute_authorized", "large_dataset_ingestion_authorized", "tokenizer_measurement_authorized_by_b007", "note"],
+      "properties": {
+        "model_inference_authorized": {"const": false},
+        "model_weight_access_authorized": {"const": false},
+        "paid_compute_authorized": {"const": false},
+        "large_dataset_ingestion_authorized": {"const": false},
+        "tokenizer_measurement_authorized_by_b007": {"const": false},
+        "note": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}
