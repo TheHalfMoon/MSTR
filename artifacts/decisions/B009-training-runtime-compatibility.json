@@ -4,7 +4,16 @@
   "task_id": "B009",
   "workstream_id": "MSTR-000B",
   "canonical_main_sha": "ead69ae26265b133c782ae8fd2795c126253a3b6",
+  "canonical_main_semantics": "Exact canonical main from which the B009 branch was created. This is intentionally not the self-referential PR head SHA.",
   "input_manifest": "artifacts/manifests/B005-code-backbone-discovery.json",
+  "input_binding": {
+    "canonical_tree_main_sha": "ead69ae26265b133c782ae8fd2795c126253a3b6",
+    "input_manifest_git_blob_sha1": "daf641bcd10af01a677a69a3a35e0d411ab6488b",
+    "b005_embedded_execution_base_sha": "e1b3cbd74ae0a74a80e3f345faef56da13818149",
+    "interpretation": "B005's embedded canonical_main_sha records B005 execution provenance. B009 consumes the exact B005 blob as committed in canonical main ead69ae; the two identities serve different provenance roles and are not drift.",
+    "exact_review_head_binding": "EXTERNAL_GIT_PR_HEAD",
+    "review_binding_rule": "An exact-head review must identify the GitHub PR head externally and verify that this artifact blob is present at that head. Embedding the containing commit SHA inside this file would be self-referential and is not used as a validity rule."
+  },
   "candidate_count": 15,
   "scope": {
     "metadata_code_docs_only": true,
@@ -54,7 +63,7 @@
     }
   },
   "source_evidence": {
-    "llama_cpp_paths": [
+    "llama_cpp_converter_paths": [
       "conversion/mellum.py",
       "conversion/starcoder2.py",
       "conversion/stablelm.py",
@@ -64,7 +73,9 @@
       "conversion/granite.py",
       "conversion/mistral3.py",
       "conversion/qwen.py",
-      "conversion/gemma.py",
+      "conversion/gemma.py"
+    ],
+    "llama_cpp_runtime_paths": [
       "src/models/smollm3.cpp"
     ],
     "unsloth_paths": [
@@ -76,10 +87,11 @@
     "peft_paths": [
       "docs/source/developer_guides/troubleshooting.md"
     ],
-    "interpretation": "These paths are evidence that architecture/family code exists at the pinned upstream SHA. They are not evidence that the exact MSTR candidate revision was loaded, trained, converted, quantized, exported, or benchmarked."
+    "interpretation": "conversion/*.py proves converter-source presence only. src/models/smollm3.cpp is explicit runtime-source evidence for SmolLM3. No runtime implementation or fidelity claim is made for other families unless a runtime path is separately named. Unsloth/PEFT paths are family or framework evidence, not exact-candidate execution evidence."
   },
   "global_findings": [
-    "llama.cpp pinned source contains explicit or family conversion/runtime paths for Mellum, StarCoder2, StableLM/Stable Code, Falcon-H1, LFM2, BitNet, Granite, Mistral3, Qwen, Gemma, and SmolLM3-related runtime support; these are source-presence findings only.",
+    "llama.cpp pinned source contains converter-source paths for Mellum, StarCoder2, StableLM/Stable Code, Falcon-H1, LFM2, BitNet, Granite, Mistral3, Qwen, and Gemma. This proves converter-source presence only, not runtime implementation, conversion success, quantization quality, or runtime fidelity.",
+    "SmolLM3 has an explicitly observed llama.cpp runtime source path at src/models/smollm3.cpp; even this source presence is not exact-candidate runtime qualification.",
     "Unsloth pinned source contains direct family code/evidence for Falcon-H1, Granite, LFM2, and Qwen3.5-era paths, but source presence is not exact-candidate training qualification.",
     "PEFT pinned main explicitly documents silent partial target-module skip risk on hybrid architectures; B009 therefore requires exact module-coverage auditing for Falcon-H1/LFM2-style hybrid candidates and explicit component-scope auditing for mixed-component Ministral training.",
     "TRL is treated as a generic trainer layer only when the underlying Transformers/model path is valid; B009 does not infer candidate-specific trainability from TRL presence.",
@@ -96,13 +108,8 @@
       "peft": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "llama_cpp": "FAMILY_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": [
-        "B006_PROVENANCE_REVALIDATION_REQUIRED",
-        "TOKENIZER_EXPORT_IDENTITY_MUST_BE_PINNED"
-      ],
-      "restrictions": [
-        "Do not treat source registration as exact-revision runtime qualification."
-      ]
+      "hazards": ["B006_PROVENANCE_REVALIDATION_REQUIRED", "TOKENIZER_EXPORT_IDENTITY_MUST_BE_PINNED"],
+      "restrictions": ["Do not treat source registration as exact-revision runtime qualification."]
     },
     {
       "repo_id": "Qwen/Qwen3.5-4B-Base",
@@ -114,13 +121,8 @@
       "peft": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "llama_cpp": "FAMILY_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": [
-        "B006_PROVENANCE_REVALIDATION_REQUIRED",
-        "TOKENIZER_EXPORT_IDENTITY_MUST_BE_PINNED"
-      ],
-      "restrictions": [
-        "Do not treat source registration as exact-revision runtime qualification."
-      ]
+      "hazards": ["B006_PROVENANCE_REVALIDATION_REQUIRED", "TOKENIZER_EXPORT_IDENTITY_MUST_BE_PINNED"],
+      "restrictions": ["Do not treat source registration as exact-revision runtime qualification."]
     },
     {
       "repo_id": "mistralai/Ministral-3-3B-Base-2512",
@@ -132,15 +134,8 @@
       "peft": "ARCH_SPECIFIC_TARGET_MODULE_AUDIT_REQUIRED",
       "trl": "MULTIMODAL_OR_TEXT_COMPONENT_SCOPE_MUST_BE_EXPLICIT",
       "llama_cpp": "MISTRAL3_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": [
-        "VISION_COMPONENT_COST_REVIEW",
-        "PARAMETER_COUNT_REVALIDATION_REQUIRED",
-        "TEXT_ONLY_VS_MULTIMODAL_EXPORT_SCOPE_MUST_BE_EXPLICIT"
-      ],
-      "restrictions": [
-        "Do not assume a text-only CausalLM fast path for the full checkpoint.",
-        "Adapter target modules must be audited against the exact language/vision component scope."
-      ]
+      "hazards": ["VISION_COMPONENT_COST_REVIEW", "PARAMETER_COUNT_REVALIDATION_REQUIRED", "TEXT_ONLY_VS_MULTIMODAL_EXPORT_SCOPE_MUST_BE_EXPLICIT"],
+      "restrictions": ["Do not assume a text-only CausalLM fast path for the full checkpoint.", "Adapter target modules must be audited against the exact language/vision component scope."]
     },
     {
       "repo_id": "Qwen/Qwen3-4B-Base",
@@ -152,12 +147,8 @@
       "peft": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "llama_cpp": "FAMILY_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": [
-        "TOKENIZER_EXPORT_IDENTITY_MUST_BE_PINNED"
-      ],
-      "restrictions": [
-        "Exact-revision conversion and quantization still require B012-equivalent execution evidence."
-      ]
+      "hazards": ["TOKENIZER_EXPORT_IDENTITY_MUST_BE_PINNED"],
+      "restrictions": ["Exact-revision conversion and quantization still require B012-equivalent execution evidence."]
     },
     {
       "repo_id": "ibm-granite/granite-4.1-3b-base",
@@ -169,13 +160,8 @@
       "peft": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "llama_cpp": "GRANITE_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": [
-        "CONTEXT_EXTENSION_CLAIM_SEPARATE_FROM_TRAINED_SEQUENCE"
-      ],
-      "restrictions": [
-        "Pinned public config identifies GraniteForCausalLM/model_type=granite and the model card describes a dense decoder-only transformer; do not apply hybrid-module warnings to this 3B checkpoint.",
-        "Do not infer exact 4.1-3B Unsloth support from family-level files alone."
-      ]
+      "hazards": ["CONTEXT_EXTENSION_CLAIM_SEPARATE_FROM_TRAINED_SEQUENCE"],
+      "restrictions": ["Pinned public config identifies GraniteForCausalLM/model_type=granite and the model card describes a dense decoder-only transformer; do not apply hybrid-module warnings to this 3B checkpoint.", "Do not infer exact 4.1-3B Unsloth support from family-level files alone."]
     },
     {
       "repo_id": "HuggingFaceTB/SmolLM3-3B-Base",
@@ -187,13 +173,8 @@
       "peft": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "llama_cpp": "SMOLLM3_RUNTIME_SOURCE_PRESENT_AND_LLAMA_CONVERTER_PATH_NOT_EXECUTED",
-      "hazards": [
-        "YARN_EXTENSION_SEPARATE_FROM_NATIVE_CONFIG",
-        "TOKENIZER_EXPORT_IDENTITY_MUST_BE_PINNED"
-      ],
-      "restrictions": [
-        "Native context and extrapolated context must be reported separately."
-      ]
+      "hazards": ["YARN_EXTENSION_SEPARATE_FROM_NATIVE_CONFIG", "TOKENIZER_EXPORT_IDENTITY_MUST_BE_PINNED"],
+      "restrictions": ["Native context and extrapolated context must be reported separately."]
     },
     {
       "repo_id": "Qwen/Qwen2.5-Coder-1.5B",
@@ -205,12 +186,8 @@
       "peft": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "llama_cpp": "QWEN_FAMILY_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": [
-        "FIM_SPECIAL_TOKEN_AND_EXPORT_BEHAVIOR_MUST_BE_VERIFIED"
-      ],
-      "restrictions": [
-        "FIM token identities and export preservation are qualification-critical."
-      ]
+      "hazards": ["FIM_SPECIAL_TOKEN_AND_EXPORT_BEHAVIOR_MUST_BE_VERIFIED"],
+      "restrictions": ["FIM token identities and export preservation are qualification-critical."]
     },
     {
       "repo_id": "01-ai/Yi-Coder-1.5B",
@@ -222,14 +199,8 @@
       "peft": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "llama_cpp": "LLAMA_FAMILY_CONVERTER_PATH_POSSIBLE_NOT_EXACTLY_PROVEN",
-      "hazards": [
-        "PARAMETER_COUNT_REVALIDATION_REQUIRED",
-        "PROVENANCE_REVALIDATION_REQUIRED",
-        "EXACT_ARCHITECTURE_MAPPING_MUST_BE_REVALIDATED"
-      ],
-      "restrictions": [
-        "No runtime compatibility PASS until exact config/model_type is revalidated."
-      ]
+      "hazards": ["PARAMETER_COUNT_REVALIDATION_REQUIRED", "PROVENANCE_REVALIDATION_REQUIRED", "EXACT_ARCHITECTURE_MAPPING_MUST_BE_REVALIDATED"],
+      "restrictions": ["No runtime compatibility PASS until exact config/model_type is revalidated."]
     },
     {
       "repo_id": "JetBrains/Mellum-4b-base",
@@ -241,13 +212,8 @@
       "peft": "GENERIC_LLAMA_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "llama_cpp": "MELLUM_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": [
-        "IDE_CODE_COMPLETION_FIM_EXPORT_BEHAVIOR_MUST_BE_VERIFIED",
-        "UNSLOTH_FAST_PATH_UNVERIFIED"
-      ],
-      "restrictions": [
-        "Treat Unsloth support as unverified even though Transformers/PEFT/TRL may use Llama-compatible paths."
-      ]
+      "hazards": ["IDE_CODE_COMPLETION_FIM_EXPORT_BEHAVIOR_MUST_BE_VERIFIED", "UNSLOTH_FAST_PATH_UNVERIFIED"],
+      "restrictions": ["Treat Unsloth support as unverified even though Transformers/PEFT/TRL may use Llama-compatible paths."]
     },
     {
       "repo_id": "bigcode/starcoder2-3b",
@@ -259,14 +225,8 @@
       "peft": "GENERIC_CAUSAL_LM_ADAPTER_PATH_NOT_MODEL_EXECUTED",
       "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "llama_cpp": "STARCODER2_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": [
-        "NON_APACHE_LICENSE_REQUIRES_B006_RIGHTS_DECISION",
-        "FIM_SPECIAL_TOKEN_AND_EXPORT_BEHAVIOR_MUST_BE_VERIFIED",
-        "UNSLOTH_FAST_PATH_UNVERIFIED"
-      ],
-      "restrictions": [
-        "Rights fit precedes any compatibility-based promotion."
-      ]
+      "hazards": ["NON_APACHE_LICENSE_REQUIRES_B006_RIGHTS_DECISION", "FIM_SPECIAL_TOKEN_AND_EXPORT_BEHAVIOR_MUST_BE_VERIFIED", "UNSLOTH_FAST_PATH_UNVERIFIED"],
+      "restrictions": ["Rights fit precedes any compatibility-based promotion."]
     },
     {
       "repo_id": "stabilityai/stable-code-3b",
@@ -278,14 +238,8 @@
       "peft": "GENERIC_CAUSAL_LM_ADAPTER_PATH_NOT_MODEL_EXECUTED",
       "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "llama_cpp": "STABLELM_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": [
-        "NONSTANDARD_LICENSE_REQUIRES_B006_RIGHTS_DECISION",
-        "FIM_EXPORT_BEHAVIOR_MUST_BE_VERIFIED",
-        "UNSLOTH_FAST_PATH_UNVERIFIED"
-      ],
-      "restrictions": [
-        "Compatibility cannot override an incompatible rights decision."
-      ]
+      "hazards": ["NONSTANDARD_LICENSE_REQUIRES_B006_RIGHTS_DECISION", "FIM_EXPORT_BEHAVIOR_MUST_BE_VERIFIED", "UNSLOTH_FAST_PATH_UNVERIFIED"],
+      "restrictions": ["Compatibility cannot override an incompatible rights decision."]
     },
     {
       "repo_id": "google/codegemma-2b",
@@ -297,16 +251,8 @@
       "peft": "GENERIC_GEMMA_ADAPTER_PATH_CONDITIONAL_ON_AUTHORIZED_ARTIFACT",
       "trl": "GENERIC_CAUSAL_LM_PATH_CONDITIONAL_ON_AUTHORIZED_ARTIFACT",
       "llama_cpp": "GEMMA_CONVERTER_SOURCE_PRESENT_BUT_EXACT_MODEL_NOT_ACCESSED",
-      "hazards": [
-        "CLICKTHROUGH_AND_LOGIN_REQUIRED",
-        "CURRENT_FULL_REVISION_UNRESOLVED",
-        "GATED_TERMS_ACCEPTANCE_NOT_AUTHORIZED",
-        "FIM_SPECIAL_TOKEN_AND_EXPORT_BEHAVIOR_MUST_BE_VERIFIED"
-      ],
-      "restrictions": [
-        "B009 metadata does not accept terms or authorize gated access.",
-        "No exact-revision runtime claim is permitted."
-      ]
+      "hazards": ["CLICKTHROUGH_AND_LOGIN_REQUIRED", "CURRENT_FULL_REVISION_UNRESOLVED", "GATED_TERMS_ACCEPTANCE_NOT_AUTHORIZED", "FIM_SPECIAL_TOKEN_AND_EXPORT_BEHAVIOR_MUST_BE_VERIFIED"],
+      "restrictions": ["B009 metadata does not accept terms or authorize gated access.", "No exact-revision runtime claim is permitted."]
     },
     {
       "repo_id": "tiiuae/Falcon-H1-3B-Base",
@@ -318,14 +264,8 @@
       "peft": "HYBRID_TARGET_MODULE_AUDIT_REQUIRED",
       "trl": "GENERIC_TRAINER_COMPATIBILITY_NOT_MODEL_EXECUTED",
       "llama_cpp": "FALCON_H1_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": [
-        "HYBRID_ADAPTER_TARGET_MODULE_SILENT_SKIP_RISK",
-        "SSM_RUNTIME_AND_EXPORT_PATH_MUST_BE_EXACTLY_QUALIFIED"
-      ],
-      "restrictions": [
-        "PEFT target modules must be enumerated and coverage-checked.",
-        "Runtime/quantization must be architecture-specific, not inferred from Transformer-only models."
-      ]
+      "hazards": ["HYBRID_ADAPTER_TARGET_MODULE_SILENT_SKIP_RISK", "SSM_RUNTIME_AND_EXPORT_PATH_MUST_BE_EXACTLY_QUALIFIED"],
+      "restrictions": ["PEFT target modules must be enumerated and coverage-checked.", "Runtime/quantization must be architecture-specific, not inferred from Transformer-only models."]
     },
     {
       "repo_id": "microsoft/bitnet-b1.58-2B-4T-bf16",
@@ -337,16 +277,8 @@
       "peft": "SPECIALIZED_ARCHITECTURE_ADAPTER_COMPATIBILITY_UNVERIFIED",
       "trl": "SPECIALIZED_ARCHITECTURE_TRAINABILITY_UNVERIFIED",
       "llama_cpp": "BITNET_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": [
-        "NATIVE_CONTEXT_4096_BELOW_MSTR_8192_REFERENCE",
-        "TRUST_REMOTE_CODE_REPORTED_BY_PUBLIC_MODEL_USAGE",
-        "PACKED_DEPLOYMENT_SIBLING_DIFFERS_FROM_BF16_TRAINING_MASTER",
-        "SPECIALIZED_QUANTIZATION_SEMANTICS"
-      ],
-      "restrictions": [
-        "Do not treat generic QLoRA/4-bit recipes as valid for native 1.58-bit semantics.",
-        "8K product qualification requires an explicit context-policy decision."
-      ]
+      "hazards": ["NATIVE_CONTEXT_4096_BELOW_MSTR_8192_REFERENCE", "TRUST_REMOTE_CODE_REPORTED_BY_PUBLIC_MODEL_USAGE", "PACKED_DEPLOYMENT_SIBLING_DIFFERS_FROM_BF16_TRAINING_MASTER", "SPECIALIZED_QUANTIZATION_SEMANTICS"],
+      "restrictions": ["Do not treat generic QLoRA/4-bit recipes as valid for native 1.58-bit semantics.", "8K product qualification requires an explicit context-policy decision."]
     },
     {
       "repo_id": "LiquidAI/LFM2.5-2.6B-Base",
@@ -358,15 +290,8 @@
       "peft": "HYBRID_TARGET_MODULE_AUDIT_REQUIRED",
       "trl": "GENERIC_TRAINER_COMPATIBILITY_NOT_MODEL_EXECUTED",
       "llama_cpp": "LFM2_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
-      "hazards": [
-        "FULL_SHA_PIN_REQUIRED",
-        "NONSTANDARD_LICENSE_REQUIRES_B006_RIGHTS_DECISION",
-        "HYBRID_ADAPTER_TARGET_MODULE_AUDIT_REQUIRED"
-      ],
-      "restrictions": [
-        "Short revision is insufficient for canonical compatibility identity.",
-        "Exact LFM2.5 training/export path remains unqualified."
-      ]
+      "hazards": ["FULL_SHA_PIN_REQUIRED", "NONSTANDARD_LICENSE_REQUIRES_B006_RIGHTS_DECISION", "HYBRID_ADAPTER_TARGET_MODULE_AUDIT_REQUIRED"],
+      "restrictions": ["Short revision is insufficient for canonical compatibility identity.", "Exact LFM2.5 training/export path remains unqualified."]
     }
   ],
   "b010_handoff": {
