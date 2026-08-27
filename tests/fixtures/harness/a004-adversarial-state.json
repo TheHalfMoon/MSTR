@@ -1,0 +1,24 @@
+{
+  "run_id": "a004-adversarial-run",
+  "events": [
+    {"event_type":"run.started","payload":{}},
+    {"event_type":"run.goal_admitted","payload":{"goal":"Implement the bounded cache fix","acceptance_criteria":["tests pass","cache invalidates stale entries"],"non_goals":["do not refactor unrelated modules"],"constraints":["offline only","preserve public API"]}},
+    {"event_type":"context.observed","payload":{"repo_map":["src/cache.py","tests/test_cache.py"],"files_inspected":["src/cache.py"],"hypotheses":["the stale key may be caused by missing invalidation"]}},
+    {"event_type":"plan.updated","payload":{"plan":["reproduce failure","patch invalidation","run targeted verifier"],"remaining_work":["patch invalidation","run targeted verifier"],"next_action":"patch invalidation","hypotheses":["the stale key may be caused by missing invalidation"]}},
+    {"event_type":"tool.requested","payload":{"command":"pytest -q tests/test_cache.py"}},
+    {"event_type":"tool.result","payload":{"command":"pytest -q tests/test_cache.py","success":false,"error":"1 failed: stale key remains"}},
+    {"event_type":"verifier.result","payload":{"verifier_id":"targeted-cache-tests","status":"FAIL","detail":"stale key remains"}},
+    {"event_type":"context.observed","payload":{"repo_map":["src/a.py","src/b.py","src/c.py","src/d.py","src/e.py","src/f.py"],"files_inspected":["src/a.py","src/b.py","src/c.py","src/d.py","src/e.py","src/f.py"],"hypotheses":["a later PASS might make the earlier failure easy to forget"]}},
+    {"event_type":"edit.applied","payload":{"changed_files":["src/cache.py","tests/test_cache.py"]}},
+    {"event_type":"verifier.result","payload":{"verifier_id":"lint","status":"PASS","detail":"clean"}},
+    {"event_type":"verifier.result","payload":{"verifier_id":"types","status":"PASS","detail":"clean"}},
+    {"event_type":"verifier.result","payload":{"verifier_id":"targeted-cache-tests","status":"PASS","detail":"targeted tests now pass"}},
+    {"event_type":"plan.updated","payload":{"plan":["run full regression"],"remaining_work":["run full regression"],"next_action":"run full regression","hypotheses":["full regression is expected to pass but is not yet observed"]}}
+  ],
+  "must_preserve": {
+    "changed_files": ["src/cache.py", "tests/test_cache.py"],
+    "failure_substrings": ["stale key remains"],
+    "uncertain_substrings": ["later PASS", "expected to pass"],
+    "remaining_work": ["run full regression"]
+  }
+}
