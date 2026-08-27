@@ -41,56 +41,51 @@ Measured evidence may refine the exact support floor, but it may not be silently
 
 ## Program Sequence
 
-MSTR-000A and MSTR-000B contain early-safe, model-independent work that may proceed before candidate convergence when exact dependencies allow. Candidate-dependent convergence remains gated.
+MSTR-000A and MSTR-000B contain early-safe, model-independent work that may proceed before candidate convergence when exact dependencies allow. MSTR-000 T030-T034 is a parallel candidate/runtime qualification branch and gates candidate-dependent convergence only.
 
 ```text
-                    MSTR-000
-       Q4 / runtime / candidate qualification
-                     |
-                     | parallel where independent
-        +------------+-------------+
-        |                          |
-        v                          v
-MSTR-000A EARLY FOUNDATION   MSTR-000B EARLY FOUNDATION
-loop/event/state/env/        task gates + mission-aligned
-verifier/trajectory          rescan + data/curriculum/verifier-health
-        |                          |
-        +------------+-------------+
-                     |
-                     v
-       STABLE PRODUCT-ALIGNED CANDIDATE POOL
-       + QUALIFIED LOOP/VERIFIER/DATA CONTRACTS
-                     |
-                     v
-        MSTR-000A / MSTR-000B CONVERGENCE
-        cross-harness + Direction-to-Done
-        + multi-fidelity research + recipe preflight
-                     |
-                     | separate exact training authority
-                     v
-MSTR-001  Data Engine + Code/FIM Continued/Mid-Training
-                     |
-                     v
-MSTR-002  Execution-Grounded Coding SFT + Recovery
-                     |
-                     v
-MSTR-003  Environment Factory Expansion + Agentic RL
-                     |
-              +------+------+
-              |             |
-              v             v
-           MSTR-004      MSTR-005
-              |             |
-              +------+------+ 
-                     |
-                     v
-                  MSTR-006
-                     |
-                     v
-                  MSTR-007
-                     |
-                     v
-                  MSTR-008
++--------------------------+   +--------------------------+   +--------------------------+
+| MSTR-000                 |   | MSTR-000A EARLY         |   | MSTR-000B EARLY         |
+| T030-T034 Q4/runtime/    |   | A001-A018 loop/event/   |   | task gates + mission-   |
+| candidate qualification  |   | state/env/verifier/traj |   | aligned data/contracts  |
++------------+-------------+   +------------+-------------+   +------------+-------------+
+             |                              |                              |
+             +------------------------------+------------------------------+
+                                            |
+                                            v
+                      STABLE PRODUCT-ALIGNED CANDIDATE POOL
+                      + QUALIFIED LOOP/VERIFIER/DATA/RESEARCH CONTRACTS
+                                            |
+                                            v
+                         MSTR-000A / MSTR-000B CONVERGENCE
+                         cross-harness + Direction-to-Done
+                         + multi-fidelity research + recipe preflight
+                                            |
+                                            | separate exact training authority
+                                            v
+                  MSTR-001 Data Engine + Code/FIM Continued/Mid-Training
+                                            |
+                                            v
+                  MSTR-002 Execution-Grounded Coding SFT + Recovery
+                                            |
+                                            v
+                  MSTR-003 Environment Factory Expansion + Agentic RL
+                                            |
+                                     +------+------+
+                                     |             |
+                                     v             v
+                                  MSTR-004      MSTR-005
+                                     |             |
+                                     +------+------+ 
+                                            |
+                                            v
+                                         MSTR-006
+                                            |
+                                            v
+                                         MSTR-007
+                                            |
+                                            v
+                                         MSTR-008
 ```
 
 No old task number may bypass MSTR-000A/MSTR-000B convergence into weight-changing training.
@@ -191,8 +186,8 @@ Harness-only gains MUST NOT be attributed to model weights.
 11. **Feature/greenfield curriculum** spanning function -> module -> multi-file feature -> bounded program -> repeated evolution.
 12. **Multi-fidelity research ladder** from cheap proxies to Q4 universal-laptop tests.
 13. **Adaptive test-time compute/selective context** measured for marginal DVCR/TTVC value.
-14. **Q4-in-the-loop promotion** after every material weight-changing stage.
-15. **Equivalent training-method tournament preflight** for LoRA/rsLoRA/QLoRA arms where current backbone support permits.
+14. **Fail-closed Q4 checkpoint promotion** after every material weight-changing stage.
+15. **Equivalent training-method tournament preflight** for 16-bit LoRA, 16-bit LoRA+rsLoRA, 4-bit QLoRA, and 4-bit QLoRA+rsLoRA where current backbone/framework support permits; exact unsupported reasons are mandatory.
 16. **Repository Health Delta** so repeated task success cannot hide accumulating technical debt.
 17. **Cross-harness robustness** to detect scaffold overfitting.
 
@@ -202,9 +197,25 @@ Metadata/static review may proceed normally. Any model weight access outside the
 
 ### Exit gate
 
-MSTR-000B closes only after B034 proves that task-gate enforcement, stable candidate pool, Data Constitution, software-evolution/self-alignment/difficulty/verifier-health/test-generation/feature curricula, research ladder, Q4 promotion, method preflight, repository-health and downstream reconciliation are canonical.
+B034 is machine-checkable. It may close only when **every B001-B033 task** is `COMPLETE_CANONICAL` or an explicitly task-permitted canonical `NOT_REQUIRED` state with its declared evidence artifact present. This includes, at minimum, the exact branches:
 
-B034 does NOT authorize training.
+```text
+B001 -> B002 -> B003 -> B004
+B014 -> B015
+B014 -> B016 -> B017
+B014 -> B018 -> B019
+B014 -> B020 -> B021
+B014 -> B022
+A006 + A014 + B002 + B022 -> B023 -> B024
+B014 -> B025
+B022 + B024 + B025 -> B026 -> B027
+B009 + B014 + B022 -> B028
+B020 + required MSTR-000A context/loop contracts -> B029
+B024 + B025 + A019-ready harness surfaces -> B030
+B031 -> B032 -> B033 -> B034
+```
+
+Before closure, the task validator/closeout check must verify predecessor states and each task's declared evidence path, including governance, backbone, data/curriculum, verifier/build-skill, research/product, and convergence branches. B034 does **NOT** authorize training.
 
 ## MSTR-001 — Data Engine + Bounded Code/FIM Continued/Mid-Training
 
@@ -227,7 +238,7 @@ B034 does NOT authorize training.
 - general/software-reasoning replay sufficient to prevent damaging forgetting;
 - dynamic student-frontier sampling;
 - bounded pilot recipe and measured pilot before any larger token run;
-- resume-safe training manifests/checkpoints and Q4 regression after each material stage.
+- resume-safe training manifests/checkpoints and fail-closed Q4 promotion after each material stage.
 
 **Preferred accessible execution path:** Google Colab + Unsloth subject to exact support/authority. Training logic remains repository code/config driven.
 
@@ -333,12 +344,13 @@ SOFTWARE_EVOLUTION_DATA = FIRST_CLASS
 STUDENT_SELF_ALIGNMENT = FIRST_CLASS
 DIFFICULTY_FRONTIER = CHECKPOINT_RELATIVE
 VERIFIER_HEALTH = REQUIRED_FOR_TRAINING_ADMISSION
-Q4_PROMOTION = REQUIRED_AFTER_MATERIAL_WEIGHT_CHANGE
+Q4_PROMOTION = REQUIRED_AND_FAIL_CLOSED_AFTER_MATERIAL_WEIGHT_CHANGE
+ONLY_Q4_QUALIFIED_CHECKPOINT_MAY_PARENT_NEXT_MATERIAL_STAGE = REQUIRED
 EXECUTABLE_ENVIRONMENT_ADMISSION = REQUIRED_BEFORE_AGENT_RL
 INDEPENDENT_VERIFIER = REQUIRED_FOR_SUCCESS_LABEL
 INTERRUPTION_SAFE = REQUIRED
 PINNED_ENVIRONMENT = REQUIRED
-RUN MANIFEST + HASHES = REQUIRED
+RUN_MANIFEST + HASHES = REQUIRED
 PRODUCTION_TRACE_TRAINING_DEFAULT = OFF
 ```
 
