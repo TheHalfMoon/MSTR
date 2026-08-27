@@ -43,27 +43,28 @@ rescan
 -> tokenizer economics protocol
 -> trainability/runtime/quantizer compatibility
 -> bounded admission
--> explicit weight gate if needed
--> ephemeral acquire
--> Q4/runtime/resource qualification
+-> explicit weight gate only if new access is required
+-> ephemeral acquire when authorized
+-> Q4/runtime/resource qualification for every qualification candidate
 -> stable candidate pool
 ```
 
+No-new-access is not the same as no-new-candidate: an already-authorized/already-available candidate still requires equivalent B012 qualification before B013.
+
 ### Lane D — Data/training-signal foundation
 
-Contracts and small fixtures may proceed without large corpus ingestion:
+Contracts and small fixtures may proceed without large corpus ingestion as parallel branches from the Data Constitution:
 
 ```text
-Data Constitution
--> SoftwareEvolutionRecord
--> self-alignment/teacher contracts
--> difficulty/frontier contract
--> verifier-health contract
--> test-generation curriculum
--> greenfield/feature synthesis contract
--> Q4 regression contract
--> method-tournament preflight
+                         +-> language/tooling policy
+Data Constitution -------+-> SoftwareEvolutionRecord -> fixture extractor
+                         +-> self-alignment -> teacher-rescue policy
+                         +-> difficulty -> frontier calibrator
+                         +-> verifier-health contract -> evaluator -> test curriculum
+                         +-> greenfield/feature curriculum
 ```
+
+Q4 promotion and training-method preflight consume the relevant backbone/data/verifier contracts but grant no training authority.
 
 ### Convergence lane
 
@@ -73,8 +74,9 @@ Only after candidate and harness prerequisites:
 stable candidate pool
 + A001-A018 qualified loop/trajectory foundation
 + data/verifier/curriculum contracts
++ multi-fidelity research ladder
 -> A019 cross-harness tournament
--> multi-fidelity research campaign
+-> A020 bounded research campaign
 -> downstream task supersession/reconciliation
 -> explicit founder training gate
 ```
@@ -94,8 +96,10 @@ TaskNode
   state
   prerequisites[]
   output_paths[]
+  evidence_outputs[]
   external_effect_class
   required_authority_id?
+  candidate_pool_requirement_id?
   supersedes[]
   superseded_by[]
   parallel_safe
@@ -117,11 +121,17 @@ Checks:
 - evidence/output existence where machine-verifiable;
 - supersession;
 - external authority binding;
+- candidate-pool requirement binding;
 - canonical state/task mismatch;
-- candidate-pool stability requirement;
 - current main identity.
 
-This gate is advisory-enforced by tooling first and SHOULD later become a required repository check before autonomous task execution/merge.
+### Bootstrap and mandatory enforcement
+
+B001 and B002 are the only bootstrap exception because the validator cannot validate its own pre-existence. They use manual exact-prerequisite verification plus ordinary exact-head governance.
+
+Once B002 is `COMPLETE_CANONICAL`, a successful validator result against exact current `main` is a **mandatory fail-closed prerequisite before every material B003+ task execution and again before merge**. Any `eligible=false`, validator error, unresolved predecessor, supersession, missing authority, candidate-pool mismatch, or canonical-state drift blocks execution/merge. This is not advisory and is not deferred to a later repository phase.
+
+Authority semantics are explicit in the TaskNode contract. Candidate dependence never creates external-effect authority; gated external-effect classes require non-null exact authority, while candidate-dependent tasks require a canonical candidate-pool requirement identity.
 
 ## 4. Backbone Rescan Method
 
@@ -196,7 +206,7 @@ Freeze a manifest-level target distribution rather than hard-code one final mixt
 
 Every data unit records:
 - source/provenance;
-- license/terms;
+- license/terms/rights decision;
 - repository/revision identity;
 - software role;
 - language/tooling;
@@ -264,13 +274,15 @@ When creating a step-level example, information from future steps/final patches 
 
 ```text
 seed concept/repo slice
+-> bind seed provenance + rights
 -> student generates task
 -> student generates N solution/test candidates
+-> bind provenance + rights for every generated artifact
 -> execute in admitted sandbox
 -> independent verifier health check
--> contamination/provenance check
+-> contamination check
 -> difficulty calibration
--> admission decision
+-> fail-closed admission decision
 ```
 
 ### Teacher rescue path
@@ -280,14 +292,14 @@ Triggered only for useful frontier tasks the student cannot solve reliably.
 ```text
 frontier task
 -> permitted teacher candidate(s)
--> N solutions
+-> N outputs
+-> bind concrete output provenance + rights + contamination status
 -> independent execution/verifier
--> rights/provenance
 -> student-relative difficulty label
--> admission
+-> admission or rejection
 ```
 
-Teacher identity and cost must remain explicit. Paid/API teachers require exact authority.
+Teacher identity/terms alone do not prove output rights. Paid/API teachers require exact authority.
 
 ## 9. Student-Frontier Curriculum
 
@@ -324,9 +336,11 @@ A verifier package contains:
 - generated-test independence notes;
 - disagreement state.
 
-Training admission consumes verifier health, not only terminal test exit code.
+Training admission consumes verifier health, not only terminal test exit code. B023 is blocked until exact A006 and A014 verifier foundations are canonical.
 
 ## 11. Test Generation Curriculum
+
+Every admitted test-generation example binds provenance, rights, contamination, verifier health, and protected-path integrity.
 
 Training examples should teach:
 
@@ -377,7 +391,7 @@ Direction-to-Done feature/greenfield/recovery tasks. Expensive.
 ### L4
 Canonical Q4 on universal-laptop hardware lanes. Most product-specific.
 
-Each experiment has predeclared promotion criteria. An experiment may be discarded early for regression/hard-gate failure.
+Each experiment has predeclared promotion criteria. An experiment may be discarded early for regression/hard-gate failure. Every material result serializes the exact `MaterialResultIdentity`; opaque result blobs cannot satisfy comparison evidence.
 
 ## 14. Training Method Preflight
 
@@ -390,29 +404,33 @@ Equivalent method cells use the same:
 - eval checkpoints;
 - export/Q4 path.
 
-Candidate arms where supported:
+Every technically supported arm from the following set MUST be included:
 - LoRA 16-bit;
 - LoRA 16-bit + rsLoRA;
 - QLoRA 4-bit;
 - QLoRA 4-bit + rsLoRA.
 
-The first smoke may use smaller samples. Full fine-tuning is outside default scope.
+Every unsupported arm must record the exact compatibility reason and evidence identity. The first smoke may use smaller samples. Full fine-tuning is outside default scope.
 
 ## 15. Q4-in-the-Loop
 
-After a material checkpoint:
+After every material weight-changing checkpoint:
 
 ```text
-checkpoint
+source checkpoint
 -> merge/export
+-> verify merged-master SHA-256
+-> record export tool revision + recipe hash
 -> canonical Q4
--> integrity hash
+-> verify Q4 SHA-256
+-> record quantizer revision + recipe hash
 -> L1 regression
 -> selected L2/L3 regression
--> L4 when stage is a promotion/final decision
+-> L4/universal-laptop gate when required
+-> Q4PromotionRecord
 ```
 
-Q4 regressions can block promotion even if master-checkpoint metrics improve.
+Promotion is fail closed. `Q4PromotionRecord=PROMOTED` requires complete immutable artifact/tool/recipe identity plus every required regression/integrity gate. Only a promoted checkpoint may become the parent of another material weight-changing stage. Master-checkpoint improvement alone cannot bypass this rule.
 
 ## 16. Repository Health Delta
 
@@ -444,9 +462,9 @@ A checkpoint that only works in one highly specific scaffold is flagged. Trainin
 
 ### MSTR-000A
 
-A001/A002 are already merged on live main at plan-authoring time. A003 is in PR #38. MSTR-000B does not reopen those implementations.
+A001/A002/A003 are canonical. A004 is the next early-safe model-independent implementation candidate subject to exact prerequisites. MSTR-000B does not reopen those implementations.
 
-The old blanket MSTR-000A entry gate will be replaced with:
+The old blanket MSTR-000A entry gate is replaced with:
 
 ```text
 EARLY_SAFE = A001-A018 where exact dependencies and no candidate result are required
@@ -478,6 +496,8 @@ No design element:
 - allows hidden telemetry;
 - permits evaluation mutation during research;
 - starts weight-changing training;
-- treats harness gain as raw model gain.
+- treats harness gain as raw model gain;
+- allows an ineligible post-B002 B-task to execute/merge;
+- allows a non-Q4-qualified material checkpoint to parent the next material stage.
 
 **Result:** PASS_FOR_TASKING.
