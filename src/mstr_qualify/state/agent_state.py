@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, replace
-from typing import Any, Literal, Sequence, cast
+from typing import Any, Literal, cast
 
 from mstr_qualify.harness.event_log import EventEntry, replay
 

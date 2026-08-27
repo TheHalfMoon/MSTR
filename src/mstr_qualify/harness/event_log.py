@@ -47,7 +47,9 @@ class EventEntry:
     sha256: str
 
 
-def validate_event(event: dict[str, Any], expected_seq: int, expected_prev: str | None) -> EventEntry:
+def validate_event(
+    event: dict[str, Any], expected_seq: int, expected_prev: str | None
+) -> EventEntry:
     """Validate a single event's structural and integrity properties."""
     from mstr_qualify.schemas import validate_instance
 
