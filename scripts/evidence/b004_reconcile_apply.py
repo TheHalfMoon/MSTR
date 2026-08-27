@@ -192,9 +192,9 @@ evidence.parent.mkdir(parents=True, exist_ok=True)
 evidence.write_text(
     """# B004 — MSTR-000A Sequence Reconciliation Evidence
 
-**Workstream:** MSTR-000B  
-**Task:** B004  
-**State:** IMPLEMENTATION_ACTIVE  
+**Workstream:** MSTR-000B
+**Task:** B004
+**State:** IMPLEMENTATION_ACTIVE
 **Entry canonical main:** `d0e90740924f6991da361536e7f835eb55ae9145`
 
 ## Exact-main entry gate
