@@ -66,6 +66,13 @@ def test_closeout_rule_rejects_nonterminal_task_state() -> None:
         validate_instance("mstr-task-node-v0", record, schema_dir=ROOT / "schemas")
 
 
+def test_eligibility_result_requires_task_node_digest_binding() -> None:
+    record = _valid_fixture("mstr-task-eligibility-v0")
+    del record["task_node_sha256"]
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-task-eligibility-v0", record, schema_dir=ROOT / "schemas")
+
+
 def test_eligible_result_cannot_hide_a_failed_authority_check() -> None:
     record = _valid_fixture("mstr-task-eligibility-v0")
     record["authority_result"]["satisfied"] = False
@@ -85,6 +92,14 @@ def test_eligible_result_cannot_be_superseded() -> None:
     record["supersession_result"].update(
         {"superseded": True, "superseded_by": ["B999"], "satisfied": True}
     )
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-task-eligibility-v0", record, schema_dir=ROOT / "schemas")
+
+
+def test_eligible_result_rejects_failed_cross_contract_semantic_check() -> None:
+    record = _valid_fixture("mstr-task-eligibility-v0")
+    record["prerequisite_results"][0]["observed_state"] = "PENDING"
+    record["semantic_checks"]["prerequisite_states_satisfied"] = False
     with pytest.raises(ValueError, match="validation failed"):
         validate_instance("mstr-task-eligibility-v0", record, schema_dir=ROOT / "schemas")
 
@@ -110,6 +125,7 @@ def test_missing_required_candidate_pool_is_representable_when_ineligible() -> N
             "reasons": ["required candidate pool is unavailable"],
         }
     )
+    record["semantic_checks"]["candidate_pool_requirement_complete"] = False
     record["reasons"] = ["candidate-pool requirement is not satisfied"]
     validate_instance("mstr-task-eligibility-v0", record, schema_dir=ROOT / "schemas")
 
