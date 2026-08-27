@@ -41,19 +41,12 @@ A003_HEAD = 41122ae8dee65b2a6b3c6b188cf335d74088b06f
 A003_MERGE = 2c02eb68a32264c86f69eb7ffc1c99ad87328376
 ```
 
-## Implementation
+## Projection authority
 
-New runtime surface:
+The projector validates the event chain through A003 `replay()` before deriving state. Every retained
+fact or observation records its `source_seq`; `derived_through_seq` records the final replayed sequence.
 
-```text
-src/mstr_qualify/state/agent_state.py
-```
-
-The projector validates the original event chain through A003 `replay()` before deriving state. Every
-retained fact/observation records `source_seq`, while `derived_through_seq` records the final replayed
-sequence even when a `context.compacted` event contributes no new factual state.
-
-Projected surfaces include:
+Projected surfaces are:
 
 ```text
 goal
@@ -73,15 +66,10 @@ next_action
 derived_through_seq
 ```
 
-## Provenance and epistemic boundary
+`working_hypotheses` are structurally `UNCERTAIN` and are never promoted into factual context, verifier
+PASS, or completion authority. Known projection keys are type-checked fail-closed.
 
-`working_hypotheses` are structurally labeled `UNCERTAIN`. A hypothesis is never promoted into a factual
-context item, verifier PASS, or completion verdict.
-
-Known projection keys are type-checked fail-closed. Unknown payload keys remain durable event-log evidence
-but do not become AgentState facts merely because they exist.
-
-Projection additionally enforces event-source authority for state-changing observations:
+Source authority for state-changing observations is explicit:
 
 ```text
 run.goal_admitted -> user | harness | system
@@ -94,29 +82,26 @@ recovery.result   -> harness | tool | verifier | system
 run.failed/escalated -> harness | verifier | system
 ```
 
-A model-authored `verifier.result` or `edit.applied` therefore fails with
+A model-authored `verifier.result` or `edit.applied` fails with
 `state.source_not_authoritative` rather than becoming evidence.
 
-`tool.requested` is intentionally **not** projected into `commands_run`: a request proves intent, while an
-observed `tool.result` proves that an execution path actually returned a result.
+`tool.requested` does not populate `commands_run`; a request proves intent, while an observed
+`tool.result` proves that an execution path returned a result.
 
-`context.compacted` is deliberately ignored as a factual projection input. It may remain part of the
-durable/model-visible event stream, but reprojecting facts from a summary would create circular state
-authority. AgentState is reconstructed from the underlying original events instead.
+`context.compacted` is deliberately ignored as factual projection input. It may remain durable/model-visible
+event data, but summary text cannot become a second circular authority for reconstructed state.
 
 Conflicting admitted goals are rejected instead of silently replacing the run goal.
 
 ## Failure preservation
 
-A004 keeps verifier outcomes as observations and separately records non-PASS verifier outcomes in
-`known_failures`. A later PASS from the same verifier does not delete earlier failure evidence.
+Non-PASS verifier observations remain in `verifier_results` and are also represented in `known_failures`.
+A later PASS from the same verifier does not delete the earlier failure evidence.
 
-The projector also records edit rejection, failed tool results, failed recovery, terminal failure and
-escalation as failure evidence when authoritative events carry those observations.
+Authoritative edit rejection, failed tool result, failed recovery, terminal failure and escalation events
+are retained as failure evidence when their payloads support those observations.
 
 ## Bounded compaction
-
-`CompactionPolicy` splits state into critical and compactable history.
 
 Critical state is never truncated:
 
@@ -140,9 +125,7 @@ If critical state exceeds `max_critical_items`, compaction fails closed with:
 state.critical_overflow
 ```
 
-A004 therefore will not satisfy a context budget by erasing safety/recovery-relevant facts.
-
-Compactable history is limited independently:
+Only the following non-critical history is bounded:
 
 ```text
 repo_map
@@ -151,9 +134,34 @@ commands_run
 historical PASS verifier results
 ```
 
-When old compactable entries are omitted, the returned state includes an auditable `CompactionRecord`
-containing field name, omitted count and deterministic SHA-256 over the omitted structured entries. The
-most recent allowed entries remain visible.
+### Bounded audit metadata
+
+Compaction metadata is itself bounded. The state permits at most one cumulative `CompactionRecord` for
+each compactable field:
+
+```text
+repo_map
+files_inspected
+commands_run
+verifier_results.pass
+```
+
+Therefore repeated compaction cannot create an unbounded audit-log tail inside `AgentState`.
+
+For the first omission of a field, the record contains the omitted count and deterministic SHA-256 of the
+omitted structured entries. If the already-compacted state is compacted again with a tighter policy, the
+record is updated in place conceptually:
+
+```text
+omitted_count = previous_count + newly_omitted_count
+omitted_sha256 = sha256(canonical_json({
+  "previous_sha256": previous_digest,
+  "next_sha256": new_omission_digest
+}))
+```
+
+Existing records are normalized through the same fixed field vocabulary. Unknown record fields or invalid
+record shapes fail closed with `state.invalid_compaction_record`.
 
 ## Adversarial fixture and tests
 
@@ -176,37 +184,42 @@ The current tests are written to check:
 3. verifier failure survival after later PASS;
 4. changed-file/failure/remaining-work preservation through compaction;
 5. deterministic omission digests;
-6. critical-overflow rejection;
-7. requested command is not misreported as a run command;
-8. observed `tool.result` produces command history;
-9. model-authored verifier evidence rejection;
-10. model-authored applied-edit fact rejection;
-11. `context.compacted` cannot reintroduce facts;
-12. conflicting-goal rejection;
-13. malformed projection payload rejection;
-14. tampered A003 event-chain rejection;
-15. edit/tool failure retention;
-16. empty-log rejection.
+6. repeated compaction keeps a fixed maximum four-record vocabulary;
+7. cumulative omitted counts survive tighter repeated compaction;
+8. repeating the same final policy is idempotent;
+9. critical-overflow rejection;
+10. requested command is not misreported as a run command;
+11. observed `tool.result` produces command history;
+12. model-authored verifier evidence rejection;
+13. model-authored applied-edit fact rejection;
+14. `context.compacted` cannot reintroduce facts;
+15. conflicting-goal rejection;
+16. malformed projection payload rejection;
+17. tampered A003 event-chain rejection;
+18. edit/tool failure retention;
+19. empty-log rejection.
 
 ## Static review reconciliation
 
-Qodo's first exact-head review identified two material defects:
+Qodo exact-head review history to date:
 
 ```text
 FINDING_1 = tool.requested incorrectly populated commands_run
 FINDING_2 = verifier.result lacked source provenance enforcement
+FINDING_3 = compaction_records could grow without bound across repeated compaction
 ```
 
-Both were corrected before the next review head. A004 also proactively hardened `edit.applied` source
-provenance and made `context.compacted` non-authoritative for factual reprojection. Ruff E501 candidates
-noted by the reviewer were reformatted under the repository's 100-character line policy.
+Findings 1 and 2 were confirmed closed by Qodo on head
+`336ed346d65edb9283c081634938954d834d5860`.
 
-A new exact-head review is required after these mutations; the prior review is stale.
+Finding 3 was then corrected by replacing append-only compaction metadata with the fixed field vocabulary
+and cumulative hash-chain aggregation described above. Regression coverage was added. Because this changed
+the head again, a new exact-head review is required before any static-review-clean claim.
 
 ## Validation truth
 
 The current environment cannot resolve `github.com` for an exact repository checkout. Therefore the
-repository quality gates have **not** been executed on this feature head.
+repository quality gates have **not** been executed on the current feature head.
 
 ```text
 A004_TARGETED_TEST = NOT_RUN
