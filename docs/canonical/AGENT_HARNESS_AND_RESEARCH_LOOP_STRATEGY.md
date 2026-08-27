@@ -1,7 +1,7 @@
 # MSTR Agent Harness + Research Loop Strategy
 
-**Status:** FOUNDER-DIRECTED_SEQUENCE_AMENDMENT / becomes canonical only when merged  
-**Date:** 2026-08-26  
+**Status:** CANONICAL STRATEGY / amended by MSTR-000B planning when merged  
+**Date:** 2026-08-27  
 **Purpose:** Make MSTR the smallest exceptional code-specialized builder: direction -> verified working software.
 
 ## Mission
@@ -30,52 +30,74 @@ WINDOWS + LINUX + MACOS = REQUIRED
 FOUNDER_MAC_LARGE_ARTIFACTS = ZERO
 ```
 
-## Mandatory Sequence Amendment
+## Corrected Pre-Training Sequence
 
-T029–T034 continue exactly as already authorized/planned.
-
-After T034:
+The old blanket statement that all MSTR-000A work starts only after T034 is superseded by exact dependencies.
 
 ```text
-T034 COMPLETE_CANONICAL
-        ↓
-MSTR-000A VERIFIED AGENT HARNESS + DIRECTION-TO-DONE FOUNDATION
-        ↓
-final interaction/tournament/data-recipe reconciliation
-        ↓
-SEPARATE EXPLICIT WEIGHT-CHANGING TRAINING GATE
+MSTR-000 T030-T034 candidate/runtime qualification
+            |
+            | parallel where independent
+            +--------------------------+
+            |                          |
+            v                          v
+MSTR-000A A001-A018            MSTR-000B early-safe work
+loop/event/state/env/          task gates/backbone metadata/
+verifier/trajectory            data/curriculum/verifier-health
+            |                          |
+            +------------+-------------+
+                         |
+                         v
+          STABLE/EQUIVALENT PRODUCT-ALIGNED CANDIDATE POOL
+          + REQUIRED LOOP/VERIFIER/DATA CONTRACTS
+                         |
+                         v
+             A019-A024 CONVERGENCE
+                         |
+                         v
+          SEPARATE EXPLICIT WEIGHT-CHANGING TRAINING GATE
 ```
 
 Therefore:
 
 ```text
-T029-T034 = CONTINUE
-T035+ = MAY NOT BYPASS MSTR-000A CLOSEOUT
-T053_OR_EQUIVALENT_WEIGHT_CHANGE = BLOCKED_UNTIL_MSTR-000A_CLOSEOUT + SEPARATE_FOUNDER_AUTHORIZATION
+A001-A018 = EARLY_SAFE WHEN EXACT PREREQUISITES HOLD
+A019-A024 = CONVERGENCE_GATED
+MSTR_000B_REQUIRED_OUTPUTS = MUST_NOT_BE_BYPASSED
+WEIGHT_CHANGING_TRAINING = SEPARATELY_GATED
 ```
 
-The implementation package is:
-
-`specs/001-agent-harness-verified-loop-foundation/`
+Packages:
+- `specs/001-agent-harness-verified-loop-foundation/`
+- `specs/002-code-model-supremacy-foundation/`
 
 ## Three Required Loops
 
 ### MSTR Build Loop
 
+The Build Loop is a bounded state graph, not a ritual linear chain.
+
+Conceptual states:
+
 ```text
-DIRECTION
--> ORIENT
--> GOAL
--> LOCALIZE
--> PLAN
--> ACT
--> OBSERVE
--> VERIFY
--> RECOVER when needed
--> VERIFIED STOP
+ORIENT
+GOAL
+LOCALIZE
+PLAN
+ACT
+OBSERVE
+VERIFY
+RECOVER
+STOP
 ```
 
-The builder may propose stop. It cannot create canonical success without independent verifier evidence.
+A trivial task may use:
+
+```text
+GOAL -> ACT -> VERIFY -> STOP
+```
+
+A difficult task may revisit localization/planning/recovery. The builder may propose stop. It cannot create canonical success without independent verifier evidence.
 
 ### MSTR Environment Loop
 
@@ -98,11 +120,21 @@ BASELINE
 -> BOUNDED MUTATION
 -> RUN
 -> EVALUATE
--> KEEP | DISCARD | CRASH
+-> KEEP | DISCARD | CRASH | INVALID
 -> REPEAT
 ```
 
-Evaluation, hidden answers, verifier policy, budget, rights, security, and product constraints remain frozen during a campaign.
+MSTR-000B adds a multi-fidelity promotion ladder:
+
+```text
+L0 contract/smoke
+-> L1 code/FIM/edit/tool
+-> L2 executable repo
+-> L3 Direction-to-Done/feature/program
+-> L4 Q4 universal-laptop
+```
+
+Evaluation, hidden answers, verifier authority, budget, rights, security, contamination and product constraints remain frozen during a campaign.
 
 ## Harness Surfaces
 
@@ -134,7 +166,7 @@ MSTR exposes an evidence-derived `CapabilityProfile`; WePLD uses it to choose th
 The target flywheel is:
 
 ```text
-WePLD creates/structures better executable work
+WePLD structures better executable work
         ↓
 MSTR receives higher-signal software trajectories
         ↓
@@ -142,37 +174,81 @@ MSTR becomes a better small builder
         ↓
 better MSTR improves WePLD execution
         ↓
-prior MSTR versions help bootstrap future environments/research
+prior MSTR versions help bootstrap future environments/research/data calibration
 ```
+
+WePLD full-system results remain distinct from raw model results.
 
 ## Training Consequence
 
 Future training should increasingly follow:
 
 ```text
+product-aligned code foundation
++
 strong code/FIM prior
 +
 verified agent loop
 +
 runnable environments
 +
-independent verifiers
+independent healthy verifiers
++
+software-evolution + self-aligned data
++
+checkpoint-relative frontier curriculum
 +
 execution-grounded SFT/recovery data
 +
 bounded agent RL
++
+Q4 product regression
 ```
+
+MSTR-000B owns data/curriculum/verifier-health prerequisites before weight-changing training.
 
 Future MSTR-001 research must include measured arms for:
 - ordinary FIM;
 - instruction-aware FIM;
 - function/dependency-aware FIM;
 - cross-file/repository FIM;
+- test-aware/diff-aware FIM where specified;
 - action/observation continuation as an experimental arm only.
 
-Future MSTR-002 must consume verified trajectories from the same loop semantics used for evaluation/serving.
+Future MSTR-002 must consume verified trajectories from the same loop semantics used for evaluation/serving and include tester/reviewer behavior, feature/greenfield work and failure recovery.
 
-Future MSTR-003 must use admitted executable environments and reward-shortcut-resistant verifiers.
+Future MSTR-003 must use admitted executable environments, checkpoint-relative difficulty and reward-shortcut-resistant/health-qualified verifiers.
+
+## Selective Context
+
+MSTR should learn what context is missing rather than blindly retrieve.
+
+Where the frozen interaction contract supports them, context intents include:
+
+```text
+NO_RETRIEVAL
+NEED_FILE
+NEED_SYMBOL
+NEED_HISTORY
+NEED_TEST
+NEED_CONFIG
+NO_MORE_CONTEXT
+```
+
+The 8K product prioritizes compact AgentState, recent relevant evidence and the smallest sufficient repository slice.
+
+## Adaptive Test-Time Compute
+
+Default to one bounded attempt. Spend additional compute only when verifier evidence/uncertainty justifies it.
+
+```text
+attempt
+-> verify
+-> targeted repair
+-> optional small bounded branch/best-of-K if measured expected value exceeds cost
+```
+
+Report marginal DVCR gain against extra TTVC/tokens/tool calls.
 
 ## Primary Metrics
 
@@ -183,33 +259,27 @@ FPAR = First-Pass Accept Rate
 ESR  = Edit-Survival Rate
 RSR  = Repair Success Rate
 TER  = Tool Error Rate
+RHD  = Repository Health Delta
 ```
 
-Also report tokens/tool calls/context consumed per verified completion and harness overhead.
+Also report tokens/tool calls/context consumed per verified completion, harness overhead and artifact/laptop resource cost.
 
 ## Research Sources
 
-Full synthesis and source list:
+MSTR-000A synthesis:
 `specs/001-agent-harness-verified-loop-foundation/research.md`
 
-Key external references include:
-- Karpathy autoresearch
-- DeepSeek Harness architecture
-- Cursor Composer / Composer 2 / Composer 2.5, Autoinstall, real-time RL
-- Claude Loops
-- Loop Engineering
-- SWE-agent / mini-SWE-agent
-- SWE-Gym and executable-environment research
-- function-/instruction-aware FIM research
-- selective repository retrieval research
+MSTR-000B synthesis:
+`specs/002-code-model-supremacy-foundation/research.md`
 
-These are research donors. None is automatically a product dependency.
+Research references are donors/evidence only. No source code, dependency, dataset, model, teacher/API or license enters MSTR authority by citation alone.
 
 ## Authority
 
-This document does not itself authorize:
+These strategies do not themselves authorize:
 
 ```text
+NEW_MODEL_WEIGHT_ACCESS
 WEIGHT_CHANGING_TRAINING
 PAID_COMPUTE
 PAID_MODEL_API
@@ -219,4 +289,4 @@ PRODUCTION_RELEASE
 PRODUCTION_TRACE_INGESTION
 ```
 
-Those remain subject to exact downstream task/founder gates.
+Those remain subject to exact downstream tasks and founder gates.
