@@ -2,9 +2,9 @@
 
 The gate reads only repository-local canonical metadata. It never mutates task
 state, creates authority, contacts a remote service, or infers permission from
-an identifier alone. The caller is responsible for running the command against
-the exact canonical-main checkout required by repository governance; the result
-binds itself to the checked-out Git SHA so that claim is externally verifiable.
+an identifier alone. Normal CLI evaluation fails closed unless the checkout is
+clean and HEAD matches the local canonical main ref; the result then binds to
+that exact Git SHA. Tests may inject an explicit canonical-main identity.
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ _TASK_LINE_RE = re.compile(
     re.MULTILINE,
 )
 _HEX40_RE = re.compile(r"^[0-9a-f]{40}$")
+_BINDING_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _TERMINAL_COMPLETE = {"COMPLETE_CANONICAL"}
 _GATED_EFFECTS = {
     "MODEL_WEIGHT_ACCESS",
@@ -143,6 +144,14 @@ def load_task_catalog(
 
     root = (repository_root or _REPOSITORY_ROOT).resolve()
     path = (catalog_path or (root / "configs" / "task-gate" / "mstr-000b.json")).resolve()
+    try:
+        path.relative_to(root)
+    except ValueError as exc:
+        raise QualificationError(
+            "task catalog must remain inside the repository",
+            code="task_gate.catalog_outside_repository",
+            details={"path": str(path), "root": str(root)},
+        ) from exc
     raw = _read_json_object(path, code="task_gate.catalog")
     if raw.get("catalog_version") != "mstr.task-catalog.v0":
         raise QualificationError(
@@ -221,10 +230,10 @@ def load_task_catalog(
     return TaskCatalog(root, tasks_file, nodes, checked, dict(unresolved))
 
 
-def _git_head(root: Path) -> str:
+def _run_git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     try:
-        completed = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
+        return subprocess.run(
+            ["git", *args],
             cwd=root,
             check=False,
             capture_output=True,
@@ -233,10 +242,14 @@ def _git_head(root: Path) -> str:
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise QualificationError(
-            "unable to resolve current Git HEAD",
-            code="task_gate.git_head",
-            details={"root": str(root)},
+            "unable to inspect repository Git state",
+            code="task_gate.git_unavailable",
+            details={"root": str(root), "args": list(args)},
         ) from exc
+
+
+def _git_head(root: Path) -> str:
+    completed = _run_git(root, "rev-parse", "HEAD")
     value = completed.stdout.strip().lower()
     if completed.returncode != 0 or not _HEX40_RE.fullmatch(value):
         raise QualificationError(
@@ -246,6 +259,50 @@ def _git_head(root: Path) -> str:
         )
     return value
 
+
+def _git_ref(root: Path, ref: str) -> str | None:
+    completed = _run_git(root, "rev-parse", "--verify", "--quiet", ref)
+    if completed.returncode != 0:
+        return None
+    value = completed.stdout.strip().lower()
+    if not _HEX40_RE.fullmatch(value):
+        raise QualificationError(
+            "canonical main ref is not a 40-hex commit identity",
+            code="task_gate.main_ref_invalid",
+            details={"ref": ref, "value": value},
+        )
+    return value
+
+
+def _require_canonical_main_checkout(root: Path, head: str) -> None:
+    canonical = _git_ref(root, "refs/remotes/origin/main")
+    if canonical is None:
+        canonical = _git_ref(root, "refs/heads/main")
+    if canonical is None:
+        raise QualificationError(
+            "no local canonical main ref is available",
+            code="task_gate.main_ref_missing",
+            details={"root": str(root)},
+        )
+    if head != canonical:
+        raise QualificationError(
+            "task eligibility must run at the local canonical main commit",
+            code="task_gate.not_canonical_main",
+            details={"head": head, "canonical_main": canonical},
+        )
+    status = _run_git(root, "status", "--porcelain=v1", "--untracked-files=all")
+    if status.returncode != 0:
+        raise QualificationError(
+            "unable to verify clean canonical checkout",
+            code="task_gate.git_status",
+            details={"returncode": status.returncode},
+        )
+    if status.stdout.strip():
+        raise QualificationError(
+            "task eligibility refuses a dirty canonical checkout",
+            code="task_gate.dirty_checkout",
+            details={"entries": status.stdout.splitlines()},
+        )
 
 def _node_sha256(node: dict[str, Any]) -> str:
     payload = json.dumps(node, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
@@ -283,14 +340,10 @@ def _required_closeout_paths_present(root: Path, node: dict[str, Any]) -> tuple[
 
 
 def _authority_observed(root: Path, task_id: str, effect: str, authority_id: str) -> bool:
-    """Verify a canonical repository authority envelope; never create one.
+    """Verify one existing canonical authority envelope; never create authority."""
 
-    B002 recognizes only an exact repository-local envelope at
-    ``artifacts/authorities/<authority_id>.json``. The envelope must bind the
-    same task/effect and explicitly record ``AUTHORIZED_CANONICAL``. No such
-    envelope is created by B002.
-    """
-
+    if not _BINDING_ID_RE.fullmatch(authority_id):
+        return False
     path = root / "artifacts" / "authorities" / f"{authority_id}.json"
     if not path.is_file():
         return False
@@ -298,17 +351,23 @@ def _authority_observed(root: Path, task_id: str, effect: str, authority_id: str
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False
+    scope = data.get("scope") if isinstance(data, dict) else None
+    ceiling = data.get("cost_resource_ceiling") if isinstance(data, dict) else None
     return bool(
         isinstance(data, dict)
         and data.get("authority_id") == authority_id
         and data.get("task_id") == task_id
         and data.get("external_effect_class") == effect
         and data.get("status") == "AUTHORIZED_CANONICAL"
-        and isinstance(data.get("scope"), dict)
+        and isinstance(scope, dict)
+        and bool(scope)
+        and isinstance(ceiling, dict)
+        and bool(ceiling)
     )
 
-
 def _candidate_pool_observed(root: Path, requirement_id: str) -> bool:
+    if not _BINDING_ID_RE.fullmatch(requirement_id):
+        return False
     path = root / "artifacts" / "decisions" / f"{requirement_id}.json"
     if not path.is_file():
         return False
@@ -452,20 +511,25 @@ def evaluate_task_eligibility(
 ) -> dict[str, Any]:
     """Evaluate one task against repository-local canonical state without mutation."""
 
-    catalog = load_task_catalog(catalog_path, repository_root=repository_root)
+    root = (repository_root or _REPOSITORY_ROOT).resolve()
+    if canonical_main is None:
+        main_sha = _git_head(root)
+        _require_canonical_main_checkout(root, main_sha)
+    else:
+        main_sha = canonical_main
+    if not _HEX40_RE.fullmatch(main_sha):
+        raise QualificationError(
+            "canonical main identity must be 40 lowercase hex",
+            code="task_gate.canonical_main_invalid",
+            details={"value": main_sha},
+        )
+    catalog = load_task_catalog(catalog_path, repository_root=root)
     node = catalog.nodes.get(task_id)
     if node is None:
         raise QualificationError(
             "unknown task id",
             code="task_gate.task_unknown",
             details={"task_id": task_id, "known": sorted(catalog.nodes)},
-        )
-    main_sha = canonical_main or _git_head(catalog.repository_root)
-    if not _HEX40_RE.fullmatch(main_sha):
-        raise QualificationError(
-            "canonical main identity must be 40 lowercase hex",
-            code="task_gate.canonical_main_invalid",
-            details={"value": main_sha},
         )
 
     prerequisite_results = [

@@ -102,6 +102,12 @@ Additional coverage includes:
 - catalog non-mutation;
 - CLI exit contract: `0=eligible`, `1=ineligible`, `2=configuration/error`.
 
+## Canonical-checkout and binding hardening
+
+Normal CLI evaluation now requires a clean checkout whose HEAD equals the local canonical main ref (`origin/main` when available, otherwise local `main`). A dirty tree or non-main commit is a configuration error, so uncommitted checkbox/evidence edits or feature-branch state cannot be presented as exact-main eligibility evidence. The resulting SHA must still be reconciled with live GitHub main by merge governance before a material action.
+
+Catalog overrides used by the Python API must resolve inside the repository. Authority and candidate-pool binding IDs are filename-safe before they are mapped to repository artifacts, preventing traversal through an identifier. A gated authority envelope is accepted only when it binds the exact task/effect, is `AUTHORIZED_CANONICAL`, has a non-empty structured `scope`, and has a non-empty structured `cost_resource_ceiling`; the gate never manufactures or widens either field.
+
 ## Qualification state
 
 ```text

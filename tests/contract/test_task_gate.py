@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -243,3 +244,175 @@ def test_catalog_input_is_not_mutated_by_evaluation(tmp_path: Path) -> None:
 
     assert result["eligible"] is True
     assert catalog_path.read_bytes() == before
+
+def _git(tmp_path: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", *args],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_catalog_path_cannot_escape_repository(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    outside = tmp_path / "outside.json"
+    outside.write_text("{}", encoding="utf-8")
+
+    with pytest.raises(QualificationError) as captured:
+        load_task_catalog(outside, repository_root=root)
+
+    assert captured.value.code == "task_gate.catalog_outside_repository"
+
+
+def test_unsafe_authority_id_cannot_traverse_artifact_directory(tmp_path: Path) -> None:
+    catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
+    data = json.loads(catalog_path.read_text(encoding="utf-8"))
+    data["tasks"]["B002"].update(
+        {
+            "external_effect_class": "PAID_COMPUTE",
+            "required_authority_id": "../escape",
+        }
+    )
+    catalog_path.write_text(json.dumps(data), encoding="utf-8")
+    escaped = tmp_path / "artifacts" / "escape.json"
+    escaped.parent.mkdir(parents=True)
+    escaped.write_text(
+        json.dumps(
+            {
+                "authority_id": "../escape",
+                "task_id": "B002",
+                "external_effect_class": "PAID_COMPUTE",
+                "status": "AUTHORIZED_CANONICAL",
+                "scope": {"executor": "fixture"},
+                "cost_resource_ceiling": {"usd_max": 1},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = evaluate_task_eligibility(
+        "B002",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    assert result["authority_result"]["satisfied"] is False
+    assert "authority.canonical_envelope_missing_or_invalid" in result["reasons"]
+
+
+def test_authority_requires_scope_and_cost_resource_ceiling(tmp_path: Path) -> None:
+    catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
+    data = json.loads(catalog_path.read_text(encoding="utf-8"))
+    data["tasks"]["B002"].update(
+        {
+            "external_effect_class": "PAID_COMPUTE",
+            "required_authority_id": "AUTH-B002",
+        }
+    )
+    catalog_path.write_text(json.dumps(data), encoding="utf-8")
+    authority = tmp_path / "artifacts" / "authorities" / "AUTH-B002.json"
+    authority.parent.mkdir(parents=True)
+    envelope = {
+        "authority_id": "AUTH-B002",
+        "task_id": "B002",
+        "external_effect_class": "PAID_COMPUTE",
+        "status": "AUTHORIZED_CANONICAL",
+        "scope": {"executor": "fixture"},
+    }
+    authority.write_text(json.dumps(envelope), encoding="utf-8")
+
+    missing_ceiling = evaluate_task_eligibility(
+        "B002",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+    assert missing_ceiling["eligible"] is False
+
+    envelope["cost_resource_ceiling"] = {"usd_max": 0, "wall_minutes_max": 1}
+    authority.write_text(json.dumps(envelope), encoding="utf-8")
+    complete = evaluate_task_eligibility(
+        "B002",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+    assert complete["eligible"] is True
+
+
+def test_unsafe_candidate_pool_id_cannot_traverse_decision_directory(tmp_path: Path) -> None:
+    catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
+    data = json.loads(catalog_path.read_text(encoding="utf-8"))
+    data["tasks"]["B002"].update(
+        {
+            "candidate_dependent": True,
+            "candidate_pool_requirement_id": "../escape",
+        }
+    )
+    catalog_path.write_text(json.dumps(data), encoding="utf-8")
+    escaped = tmp_path / "artifacts" / "escape.json"
+    escaped.parent.mkdir(parents=True)
+    escaped.write_text(
+        json.dumps(
+            {
+                "candidate_pool_id": "../escape",
+                "stable_pool": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = evaluate_task_eligibility(
+        "B002",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    assert result["candidate_pool_result"]["satisfied"] is False
+    assert "candidate_pool.canonical_decision_missing_or_invalid" in result["reasons"]
+
+
+def test_real_evaluation_requires_clean_local_canonical_main(tmp_path: Path) -> None:
+    catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
+    _git(tmp_path, "init", "-b", "main")
+    _git(tmp_path, "config", "user.name", "B002 Test")
+    _git(tmp_path, "config", "user.email", "b002@example.invalid")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-m", "fixture main")
+
+    on_main = evaluate_task_eligibility(
+        "B002",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+    )
+    assert on_main["eligible"] is True
+
+    _git(tmp_path, "switch", "-c", "feature")
+    (tmp_path / "feature.txt").write_text("feature\n", encoding="utf-8")
+    _git(tmp_path, "add", "feature.txt")
+    _git(tmp_path, "commit", "-m", "feature commit")
+    with pytest.raises(QualificationError) as branch_error:
+        evaluate_task_eligibility(
+            "B002",
+            repository_root=tmp_path,
+            catalog_path=catalog_path,
+        )
+    assert branch_error.value.code == "task_gate.not_canonical_main"
+
+    _git(tmp_path, "switch", "main")
+    with catalog_path.open("a", encoding="utf-8") as handle:
+        handle.write("\n")
+    with pytest.raises(QualificationError) as dirty_error:
+        evaluate_task_eligibility(
+            "B002",
+            repository_root=tmp_path,
+            catalog_path=catalog_path,
+        )
+    assert dirty_error.value.code == "task_gate.dirty_checkout"
