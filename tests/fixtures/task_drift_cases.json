@@ -1,0 +1,65 @@
+{
+  "cases": [
+    {
+      "name": "clean_pending_successor",
+      "expected_codes": []
+    },
+    {
+      "name": "checkbox_state_conflict",
+      "expected_codes": ["state.checkbox_conflict"]
+    },
+    {
+      "name": "active_evidence_claims_completion",
+      "expected_codes": ["evidence.completion_claim_active_task"]
+    },
+    {
+      "name": "implementation_merged_while_active",
+      "expected_codes": [
+        "implementation.merged_while_active",
+        "evidence.implementation_identity_missing"
+      ]
+    },
+    {
+      "name": "terminal_all_identity_missing",
+      "expected_codes": ["evidence.implementation_identity_missing"]
+    },
+    {
+      "name": "terminal_missing_state",
+      "expected_codes": ["evidence.terminal_state_mismatch"]
+    },
+    {
+      "name": "terminal_missing_required_evidence",
+      "expected_codes": ["evidence.required_missing"]
+    },
+    {
+      "name": "terminal_secondary_missing_state",
+      "expected_codes": ["evidence.terminal_state_mismatch"]
+    },
+    {
+      "name": "squash_implementation_merged_while_active",
+      "expected_codes": [
+        "implementation.merged_while_active",
+        "evidence.implementation_identity_missing"
+      ]
+    },
+    {
+      "name": "rebase_implementation_merge_unverifiable",
+      "expected_codes": [
+        "git.pr_merge_unverifiable",
+        "evidence.implementation_identity_missing"
+      ]
+    },
+    {
+      "name": "terminal_missing_identity_field",
+      "expected_codes": ["evidence.implementation_identity_missing"]
+    },
+    {
+      "name": "valid_terminal_b003",
+      "expected_codes": []
+    },
+    {
+      "name": "entry_gate_after_implementation",
+      "expected_codes": ["entry_gate.after_implementation"]
+    }
+  ]
+}

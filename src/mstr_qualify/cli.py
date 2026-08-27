@@ -6,7 +6,8 @@ Command families implemented by this task:
 mstr-qualify validate [paths...]
 mstr-qualify rights <candidate-config>
 mstr-qualify candidate static <candidate-config>
-mstr-qualify task eligible <TASK_ID> --canonical-main <SHA>
+mstr-qualify task eligible <TASK_ID>
+mstr-qualify task drift
 mstr-qualify manifest validate <manifest> [--kind {candidate,task,benchmark}]
 ```
 
@@ -48,6 +49,7 @@ from .schemas import (
     load_schema,
     validation_errors,
 )
+from .task_drift import detect_canonical_drift
 from .task_gate import evaluate_task_eligibility
 
 _EXIT_OK = 0
@@ -485,6 +487,14 @@ def run_task_eligible(task_id: str) -> tuple[int, dict[str, Any]]:
     return exit_code, result
 
 
+def run_task_drift() -> tuple[int, dict[str, Any]]:
+    """Scan canonical task/evidence/merge state for fail-closed drift."""
+
+    report = detect_canonical_drift()
+    exit_code = _EXIT_OK if report["status"] == "clean" else _EXIT_FAIL_CLOSED
+    return exit_code, report
+
+
 # ---------------------------------------------------------------------------
 # parser and dispatch
 # ---------------------------------------------------------------------------
@@ -538,6 +548,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="evaluate one task against canonical repository-local state",
     )
     task_eligible_parser.add_argument("task_id")
+    task_subparsers.add_parser(
+        "drift",
+        help="scan canonical task, evidence, and merge state for drift",
+    )
 
     manifest_parser = subparsers.add_parser(
         "manifest",
@@ -574,6 +588,8 @@ def _dispatch(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
     if args.command == "task":
         if args.task_command == "eligible":
             return run_task_eligible(args.task_id)
+        if args.task_command == "drift":
+            return run_task_drift()
         raise QualificationError(
             "unknown task subcommand",
             code="cli.subcommand_unknown",
