@@ -1,0 +1,117 @@
+name: Verify B005 post-merge canonical main
+
+on:
+  push:
+    branches:
+      - evidence/b005-postmerge-1e096f4
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: 1e096f4d1f270b2803da6a6306e9e7f0cf8fb81b
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: 1e096f4d1f270b2803da6a6306e9e7f0cf8fb81b
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Verify exact live main and clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          git branch -f main "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+          echo "B005_POSTMERGE_MAIN=$EXPECTED_MAIN"
+
+      - name: Verify B005 production gate and canonical drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify task eligible B005 > /tmp/b005.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          cat /tmp/b005.json
+          cat /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          b005 = json.load(open('/tmp/b005.json', encoding='utf-8'))
+          drift = json.load(open('/tmp/drift.json', encoding='utf-8'))
+          assert b005['task_id'] == 'B005'
+          assert b005['eligible'] is True
+          assert b005['canonical_main'] == os.environ['EXPECTED_MAIN']
+          assert b005['state_consistency_result']['observed_state'] == 'PENDING'
+          assert drift['status'] == 'clean'
+          assert drift['findings'] == []
+          print('B005_POSTMERGE_ELIGIBLE=PASS')
+          print('B005_POSTMERGE_DRIFT=CLEAN')
+          PY
+
+      - name: Verify merged B005 outputs and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path('artifacts/manifests/B005-code-backbone-discovery.json').read_text(encoding='utf-8'))
+          b = json.loads(Path('artifacts/manifests/B005-canonical-input-binding.json').read_text(encoding='utf-8'))
+          assert m['task_id'] == 'B005'
+          assert m['canonical_main_sha'] == '986b174b2bf79ce53a3e67b9b02c55cbe6981303'
+          assert len(m['candidates']) == 19
+          assert m['no_weight_access_performed'] is True
+          assert m['no_authority_created'] is True
+          assert m['scope']['model_weight_access'] is False
+          assert m['scope']['tokenizer_artifact_download'] is False
+          assert m['scope']['gated_terms_acceptance'] is False
+          assert b['authority']['creates_model_access_authority'] is False
+          rows = {r['repo_id']: r for r in m['candidates']}
+          assert 'REVISION_DRIFT_SINCE_INITIAL_B005' in rows['microsoft/bitnet-b1.58-2B-4T-bf16']['material_flags']
+          assert 'REVISION_DRIFT_SINCE_INITIAL_B005' not in rows['google/codegemma-2b']['material_flags']
+          assert 'REVISION_DRIFT_SINCE_INITIAL_B005' not in rows['LiquidAI/LFM2.5-2.6B-Base']['material_flags']
+          assert 'REVISION_IDENTITY_RESOLVED_BY_PUBLIC_METADATA_REFRESH' in rows['google/codegemma-2b']['material_flags']
+          assert 'REVISION_IDENTITY_RESOLVED_FROM_SHORT_SHA' in rows['LiquidAI/LFM2.5-2.6B-Base']['material_flags']
+          print('B005_POSTMERGE_OUTPUTS=PASS')
+          print('B005_POSTMERGE_AUTHORITY_BOUNDARY=PASS')
+          PY
+          git diff --check HEAD^
+
+      - name: Frozen gate - pytest
+        run: pytest -q
+
+      - name: Frozen gate - Ruff
+        run: ruff check src tests
+
+      - name: Frozen gate - mypy
+        run: mypy
+
+      - name: Frozen gate - offline validate
+        run: python -m mstr_qualify validate
+
+      - name: Final immutable canonical-main check
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+          echo "B005_POSTMERGE_FINAL_MAIN=$EXPECTED_MAIN"
