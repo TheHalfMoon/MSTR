@@ -1,0 +1,85 @@
+name: Evidence B002 post-merge verification
+
+on:
+  push:
+    branches:
+      - evidence/b002-postmerge-298a97e
+
+permissions:
+  contents: read
+
+jobs:
+  verify-main:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 298a97e957fe98edec2c9fdd3f78f0f909ec09fa
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - name: Checkout canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify canonical main identity and clean tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+          echo "CANONICAL_MAIN=$(git rev-parse HEAD)"
+
+      - name: Compile task-gate contract source
+        run: python -m py_compile tests/contract/test_task_gate.py
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Exercise production B002 eligibility gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify task eligible B002 | tee /tmp/b002-eligibility.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path('/tmp/b002-eligibility.json').read_text(encoding='utf-8'))
+          assert result['task_id'] == 'B002'
+          assert result['eligible'] is True
+          assert result['canonical_main'] == '298a97e957fe98edec2c9fdd3f78f0f909ec09fa'
+          PY
+
+      - name: Targeted B002 tests
+        run: pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+
+      - name: Frozen gate - pytest
+        run: pytest -q
+
+      - name: Frozen gate - Ruff
+        run: ruff check src tests
+
+      - name: Frozen gate - mypy
+        run: mypy
+
+      - name: Frozen gate - offline validate
+        run: python -m mstr_qualify validate
+
+      - name: Verify immutable canonical main and clean tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+          git diff --exit-code
+          echo "FINAL_MAIN_SHA=$(git rev-parse HEAD)"
