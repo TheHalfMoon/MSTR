@@ -1,0 +1,114 @@
+{
+  "format_version": "mstr.tokenizer-economics-protocol.v0",
+  "task_id": "B007",
+  "workstream_id": "MSTR-000B",
+  "protocol_id": "MSTR-TOKENIZER-ECONOMICS-v0",
+  "canonical_main_sha": "ead69ae26265b133c782ae8fd2795c126253a3b6",
+  "corpus": {
+    "corpus_id": "B007-tokenizer-economics-v0",
+    "fixture_path": "benchmarks/fixtures/tokenizer-economics/B007-corpus.json",
+    "fixture_sha256": "bf7cf5f12d43910863ceb03667972f5dfa2581285aae6ed70a608f5533257f7c",
+    "fixture_file_bytes": 8130,
+    "decoded_content_bytes": 3617,
+    "entry_count": 17,
+    "encoding": "UTF-8",
+    "newline": "LF",
+    "source_class": "REPOSITORY_AUTHORED_SYNTHETIC_FIXTURE",
+    "external_source_content": false,
+    "required_categories": [
+      "python", "typescript", "javascript", "rust", "go", "java", "c", "cpp",
+      "sql", "shell", "json", "yaml", "toml", "diff", "stack_trace", "file_paths", "tool_json"
+    ],
+    "entries": [
+      {"fixture_id":"python","byte_count":213,"sha256":"59311de128f93bade6d17cfa8eb09fda5595f016b692d3a51b73bfc1be913c19"},
+      {"fixture_id":"typescript","byte_count":300,"sha256":"f32f8ae7926462aab901e6b9ce08486744b1bc7bf6159f137435969280723a33"},
+      {"fixture_id":"javascript","byte_count":246,"sha256":"6fcb751859d709e0aa825eaad4fd916836fba3f119663f31a2bd2fd7a76dc841"},
+      {"fixture_id":"rust","byte_count":218,"sha256":"6836d0527bcef155f7100182ca9973b6b9aaba2361e7c775aa85a88a5af0e7e2"},
+      {"fixture_id":"go","byte_count":191,"sha256":"4b8e768e97c44fe6a72da8fc2669a57db987f8d073129d06535fcd7d4d7e4838"},
+      {"fixture_id":"java","byte_count":268,"sha256":"8d975b70a8257c926bf8f0007001d15c5b1cea406077df45dd8281e2461cf8ba"},
+      {"fixture_id":"c","byte_count":229,"sha256":"3229a2e4d715ff02399a760076e8a58343c911041be89977956e7b4a64510e40"},
+      {"fixture_id":"cpp","byte_count":271,"sha256":"784ed873ef9d60bfff4589e46bee14fe831a29e555746a581e797a333dd8206b"},
+      {"fixture_id":"sql","byte_count":179,"sha256":"1951366e3be5075147295c7f5b89e1080fe44f612942ddb39790db54ffd49fe1"},
+      {"fixture_id":"shell","byte_count":157,"sha256":"ea9d37c88e0780b1b4af8c01c723b666056990e65c8c1537e2e77d44c7919ad1"},
+      {"fixture_id":"json","byte_count":108,"sha256":"5d70692e6251737b9c000b257328f8e1714158ce20496fbf983fc587d0d4fe7a"},
+      {"fixture_id":"yaml","byte_count":110,"sha256":"ca12c345556a851d9dea5a6bb89382c3766e0981bdef74ff3b7add4c5590fbdc"},
+      {"fixture_id":"toml","byte_count":118,"sha256":"2d371fae55e4eecd820c274e9ba9db1a24f77234e6fc9df34a86973ce68e0de5"},
+      {"fixture_id":"diff","byte_count":277,"sha256":"559e35d7a2dbb5cffb2b5cf477ff5518b8452f4971b2956612fdb0823a0a4a06"},
+      {"fixture_id":"stack_trace","byte_count":329,"sha256":"c4ce75639ee025a0081ca6e43b86b2860415b7f0de1853e43719e8a02a8578cb"},
+      {"fixture_id":"file_paths","byte_count":247,"sha256":"c470c5ea5ba8724c16c3a2ee40f2613bef3b6e5cc353d64033119f93de3065fe"},
+      {"fixture_id":"tool_json","byte_count":156,"sha256":"068fcdb1bb4d65a0df110717cb7fff1117841d926065b01eca6bc90dca92fc97"}
+    ]
+  },
+  "integrity_preflight": {
+    "verify_fixture_file_sha256": true,
+    "verify_each_decoded_content_byte_count": true,
+    "verify_each_decoded_content_sha256": true,
+    "fail_closed_on_any_mismatch": true,
+    "content_transformation_before_tokenization": "NONE"
+  },
+  "tokenizer_identity": {
+    "tokenizer_repository_or_id_required": true,
+    "immutable_tokenizer_revision_required": true,
+    "tokenizer_file_hashes_required_where_available": true,
+    "tokenizer_implementation_id_required": true,
+    "tokenizer_implementation_version_required": true
+  },
+  "encoding_contract": {
+    "input_field": "entries[].content_utf8",
+    "decode": "JSON_STRING_TO_UNICODE_THEN_UTF8_BYTES_FOR_BYTE_METRICS",
+    "tokenize_text": "EXACT_DECODED_UNICODE_STRING",
+    "add_special_tokens": false,
+    "bos_injection": false,
+    "eos_injection": false,
+    "chat_template": "PROHIBITED",
+    "padding": "NONE",
+    "truncation": "NONE",
+    "pre_measurement_whitespace_normalization": "NONE",
+    "pre_measurement_newline_normalization": "NONE",
+    "tokenizer_native_normalizer": "AS_PINNED_BY_TOKENIZER_REVISION"
+  },
+  "metrics": {
+    "per_entry_required": [
+      "byte_count", "token_count", "bytes_per_token", "character_count",
+      "characters_per_token", "identifier_count", "identifier_token_count",
+      "mean_tokens_per_identifier", "multi_token_identifier_fraction"
+    ],
+    "identifier_regex": "[A-Za-z_][A-Za-z0-9_]*",
+    "identifier_measurement": "Encode each matched identifier in isolation with add_special_tokens=false; report token pieces per identifier and fraction requiring >1 token.",
+    "aggregate_required": [
+      "total_bytes", "total_tokens", "weighted_bytes_per_token", "weighted_characters_per_token",
+      "effective_payload_bytes_at_8k", "per_category_metrics"
+    ],
+    "weighted_bytes_per_token_formula": "SUM(byte_count) / SUM(token_count)",
+    "effective_payload_bytes_at_8k_formula": "FLOOR(weighted_bytes_per_token * 8192)",
+    "required_named_surfaces": {
+      "diff_tokens": "fixture_id=diff token_count",
+      "stacktrace_tokens": "fixture_id=stack_trace token_count",
+      "tool_json_tokens": "fixture_id=tool_json token_count",
+      "path_tokens": "fixture_id=file_paths token_count"
+    }
+  },
+  "comparability": {
+    "same_protocol_id_required": true,
+    "same_corpus_fixture_sha256_required": true,
+    "same_entry_hashes_required": true,
+    "same_special_token_policy_required": true,
+    "same_aggregation_formula_required": true,
+    "candidate_tokenizer_revision_may_differ": true,
+    "missing_identity_or_integrity_evidence": "INVALID_FOR_DIRECT_COMPARISON"
+  },
+  "b008_output_requirements": [
+    "candidate_id", "tokenizer_id", "tokenizer_revision", "tokenizer_file_hashes",
+    "tokenizer_implementation_id", "tokenizer_implementation_version",
+    "protocol_id", "corpus_fixture_sha256", "per_entry_metrics", "aggregate_metrics",
+    "measurement_failures", "measured_at", "executor_identity"
+  ],
+  "authority": {
+    "model_inference_authorized": false,
+    "model_weight_access_authorized": false,
+    "paid_compute_authorized": false,
+    "large_dataset_ingestion_authorized": false,
+    "tokenizer_measurement_authorized_by_b007": false,
+    "note": "B007 freezes bytes and protocol only. B008 owns actual tokenizer measurement and any separately required tokenizer acquisition authority."
+  }
+}
