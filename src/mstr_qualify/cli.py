@@ -6,7 +6,7 @@ Command families implemented by this task:
 mstr-qualify validate [paths...]
 mstr-qualify rights <candidate-config>
 mstr-qualify candidate static <candidate-config>
-mstr-qualify task eligible <TASK_ID>
+mstr-qualify task eligible <TASK_ID> --canonical-main <SHA>
 mstr-qualify manifest validate <manifest> [--kind {candidate,task,benchmark}]
 ```
 
@@ -477,10 +477,13 @@ def run_manifest_validate(path: Path, kind: str | None) -> tuple[int, dict[str, 
 # ---------------------------------------------------------------------------
 
 
-def run_task_eligible(task_id: str) -> tuple[int, dict[str, Any]]:
-    """Evaluate one canonical task without mutating repository state."""
+def run_task_eligible(
+    task_id: str,
+    canonical_main: str,
+) -> tuple[int, dict[str, Any]]:
+    """Evaluate one task against an externally supplied current-main SHA."""
 
-    result = evaluate_task_eligibility(task_id)
+    result = evaluate_task_eligibility(task_id, canonical_main=canonical_main)
     exit_code = _EXIT_OK if result["eligible"] else _EXIT_FAIL_CLOSED
     return exit_code, result
 
@@ -538,6 +541,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="evaluate one task against canonical repository-local state",
     )
     task_eligible_parser.add_argument("task_id")
+    task_eligible_parser.add_argument(
+        "--canonical-main",
+        required=True,
+        help="trusted exact current main SHA supplied by execution/merge governance",
+    )
 
     manifest_parser = subparsers.add_parser(
         "manifest",
@@ -573,7 +581,7 @@ def _dispatch(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         )
     if args.command == "task":
         if args.task_command == "eligible":
-            return run_task_eligible(args.task_id)
+            return run_task_eligible(args.task_id, args.canonical_main)
         raise QualificationError(
             "unknown task subcommand",
             code="cli.subcommand_unknown",

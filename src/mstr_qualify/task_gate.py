@@ -3,8 +3,9 @@
 The gate reads only repository-local canonical metadata. It never mutates task
 state, creates authority, contacts a remote service, or infers permission from
 an identifier alone. Normal CLI evaluation fails closed unless the checkout is
-clean and HEAD matches the local canonical main ref; the result then binds to
-that exact Git SHA. Tests may inject an explicit canonical-main identity.
+clean and HEAD matches an explicit canonical-main SHA supplied by the
+execution/merge governance path. The validator never treats an unrefreshed local
+branch or remote-tracking ref as proof of current canonical main.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from __future__ import annotations
 import glob
 import hashlib
 import json
+import math
 import re
 import subprocess
 from dataclasses import dataclass
@@ -190,6 +192,13 @@ def load_task_catalog(
     tasks_file = _repository_path(root, tasks_file_raw, field="tasks_file")
     titles, checked = _parse_task_markdown(tasks_file)
     catalog_ids = set(tasks)
+    unknown_unresolved = sorted(set(unresolved) - catalog_ids)
+    if unknown_unresolved:
+        raise QualificationError(
+            "catalog unresolved_bindings reference unknown task ids",
+            code="task_gate.catalog_unresolved_unknown",
+            details={"task_ids": unknown_unresolved},
+        )
     markdown_ids = set(titles)
     if catalog_ids != markdown_ids:
         raise QualificationError(
@@ -260,35 +269,16 @@ def _git_head(root: Path) -> str:
     return value
 
 
-def _git_ref(root: Path, ref: str) -> str | None:
-    completed = _run_git(root, "rev-parse", "--verify", "--quiet", ref)
-    if completed.returncode != 0:
-        return None
-    value = completed.stdout.strip().lower()
-    if not _HEX40_RE.fullmatch(value):
+def _require_expected_canonical_checkout(
+    root: Path,
+    head: str,
+    expected_canonical_main: str,
+) -> None:
+    if head != expected_canonical_main:
         raise QualificationError(
-            "canonical main ref is not a 40-hex commit identity",
-            code="task_gate.main_ref_invalid",
-            details={"ref": ref, "value": value},
-        )
-    return value
-
-
-def _require_canonical_main_checkout(root: Path, head: str) -> None:
-    canonical = _git_ref(root, "refs/remotes/origin/main")
-    if canonical is None:
-        canonical = _git_ref(root, "refs/heads/main")
-    if canonical is None:
-        raise QualificationError(
-            "no local canonical main ref is available",
-            code="task_gate.main_ref_missing",
-            details={"root": str(root)},
-        )
-    if head != canonical:
-        raise QualificationError(
-            "task eligibility must run at the local canonical main commit",
+            "task eligibility checkout does not match the supplied canonical main",
             code="task_gate.not_canonical_main",
-            details={"head": head, "canonical_main": canonical},
+            details={"head": head, "canonical_main": expected_canonical_main},
         )
     status = _run_git(root, "status", "--porcelain=v1", "--untracked-files=all")
     if status.returncode != 0:
@@ -327,12 +317,34 @@ def _checkbox_consistent(node: dict[str, Any], checked: bool | None) -> bool:
     return checked is _declared_terminal_state(node)
 
 
+def _contained_existing_path(root: Path, candidate: Path) -> Path | None:
+    resolved_root = root.resolve()
+    try:
+        relative = candidate.relative_to(resolved_root)
+    except ValueError:
+        return None
+    cursor = resolved_root
+    for part in relative.parts:
+        cursor = cursor / part
+        if cursor.is_symlink():
+            return None
+    try:
+        resolved = candidate.resolve(strict=True)
+        resolved.relative_to(resolved_root)
+    except (OSError, ValueError):
+        return None
+    return resolved
+
+
 def _path_pattern_present(root: Path, raw: str) -> bool:
     path = _repository_path(root, raw, field="task output")
     if any(marker in raw for marker in ("*", "?", "[")):
-        return bool(glob.glob(str(path), recursive=True))
-    return path.exists()
-
+        matches = (Path(match) for match in glob.glob(str(path), recursive=True))
+        return any(
+            _contained_existing_path(root, match) is not None
+            for match in matches
+        )
+    return _contained_existing_path(root, path) is not None
 
 def _required_closeout_paths_present(root: Path, node: dict[str, Any]) -> tuple[bool, list[str]]:
     rule = node["closeout_rule"]
@@ -345,47 +357,73 @@ def _required_closeout_paths_present(root: Path, node: dict[str, Any]) -> tuple[
     return not missing, missing
 
 
+def _read_bound_json_artifact(
+    root: Path,
+    directory: str,
+    binding_id: str,
+) -> dict[str, Any] | None:
+    if not _BINDING_ID_RE.fullmatch(binding_id):
+        return None
+    path = root / "artifacts" / directory / f"{binding_id}.json"
+    resolved = _contained_existing_path(root, path)
+    if resolved is None or not resolved.is_file():
+        return None
+    try:
+        data = json.loads(resolved.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _authority_ceiling_valid(value: object) -> bool:
+    if not isinstance(value, dict):
+        return False
+    cost_model = value.get("cost_model")
+    if not isinstance(cost_model, str) or not cost_model.strip():
+        return False
+    limits = value.get("limits")
+    if not isinstance(limits, list) or not limits:
+        return False
+    for limit in limits:
+        if not isinstance(limit, dict):
+            return False
+        resource = limit.get("resource")
+        unit = limit.get("unit")
+        maximum = limit.get("max")
+        if not isinstance(resource, str) or not resource.strip():
+            return False
+        if not isinstance(unit, str) or not unit.strip():
+            return False
+        if isinstance(maximum, bool) or not isinstance(maximum, (int, float)):
+            return False
+        if not math.isfinite(float(maximum)) or maximum < 0:
+            return False
+    return True
+
+
 def _authority_observed(root: Path, task_id: str, effect: str, authority_id: str) -> bool:
     """Verify one existing canonical authority envelope; never create authority."""
-
-    if not _BINDING_ID_RE.fullmatch(authority_id):
+    data = _read_bound_json_artifact(root, "authorities", authority_id)
+    if data is None:
         return False
-    path = root / "artifacts" / "authorities" / f"{authority_id}.json"
-    if not path.is_file():
-        return False
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return False
-    scope = data.get("scope") if isinstance(data, dict) else None
-    ceiling = data.get("cost_resource_ceiling") if isinstance(data, dict) else None
+    scope = data.get("scope")
     return bool(
-        isinstance(data, dict)
-        and data.get("authority_id") == authority_id
+        data.get("authority_id") == authority_id
         and data.get("task_id") == task_id
         and data.get("external_effect_class") == effect
         and data.get("status") == "AUTHORIZED_CANONICAL"
         and isinstance(scope, dict)
         and bool(scope)
-        and isinstance(ceiling, dict)
-        and bool(ceiling)
+        and _authority_ceiling_valid(data.get("cost_resource_ceiling"))
     )
 
+
 def _candidate_pool_observed(root: Path, requirement_id: str) -> bool:
-    if not _BINDING_ID_RE.fullmatch(requirement_id):
-        return False
-    path = root / "artifacts" / "decisions" / f"{requirement_id}.json"
-    if not path.is_file():
-        return False
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return False
-    if not isinstance(data, dict) or data.get("stable_pool") is not True:
+    data = _read_bound_json_artifact(root, "decisions", requirement_id)
+    if data is None or data.get("stable_pool") is not True:
         return False
     observed = data.get("decision_id", data.get("candidate_pool_id"))
     return observed == requirement_id
-
 
 def _prerequisite_result(catalog: TaskCatalog, task_id: str) -> dict[str, Any]:
     node = catalog.nodes.get(task_id)
@@ -508,21 +546,16 @@ def diagnose_task_node(
     return result
 
 
-def evaluate_task_eligibility(
+def evaluate_task_snapshot(
     task_id: str,
     *,
     repository_root: Path | None = None,
     catalog_path: Path | None = None,
-    canonical_main: str | None = None,
+    canonical_main: str,
 ) -> dict[str, Any]:
-    """Evaluate one task against repository-local canonical state without mutation."""
-
+    """Evaluate a supplied snapshot without claiming current-main authority."""
     root = (repository_root or _REPOSITORY_ROOT).resolve()
-    if canonical_main is None:
-        main_sha = _git_head(root)
-        _require_canonical_main_checkout(root, main_sha)
-    else:
-        main_sha = canonical_main
+    main_sha = canonical_main
     if not _HEX40_RE.fullmatch(main_sha):
         raise QualificationError(
             "canonical main identity must be 40 lowercase hex",
@@ -658,3 +691,28 @@ def evaluate_task_eligibility(
     }
     validate_instance("mstr-task-eligibility-v0", result)
     return result
+
+
+def evaluate_task_eligibility(
+    task_id: str,
+    *,
+    canonical_main: str,
+    repository_root: Path | None = None,
+    catalog_path: Path | None = None,
+) -> dict[str, Any]:
+    """Evaluate against a caller-supplied trusted current-main identity."""
+    if not _HEX40_RE.fullmatch(canonical_main):
+        raise QualificationError(
+            "canonical main identity must be 40 lowercase hex",
+            code="task_gate.canonical_main_invalid",
+            details={"value": canonical_main},
+        )
+    root = (repository_root or _REPOSITORY_ROOT).resolve()
+    head = _git_head(root)
+    _require_expected_canonical_checkout(root, head, canonical_main)
+    return evaluate_task_snapshot(
+        task_id,
+        repository_root=root,
+        catalog_path=catalog_path,
+        canonical_main=canonical_main,
+    )
