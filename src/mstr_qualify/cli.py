@@ -65,13 +65,15 @@ _SCHEMA_VERSION_TO_SCHEMA_NAME = {
     "mstr.interaction.v1": "interaction-contract",
     # T027 weight-access preflight manifest: preparation-only contract.
     "mstr.weight-access-manifest.v1": "weight-access-manifest",
+    # MSTR-000B B001 machine-task contracts.
+    "mstr.task-node.v0": "mstr-task-node-v0",
+    "mstr.task-eligibility.v0": "mstr-task-eligibility-v0",
 }
 
 _REPOSITORY_ROOT = DEFAULT_SCHEMA_DIR.parent
-_VALID_FIXTURES = _REPOSITORY_ROOT / "tests" / "fixtures" / "schemas" / "valid" / "fixtures.json"
-_INVALID_FIXTURES = (
-    _REPOSITORY_ROOT / "tests" / "fixtures" / "schemas" / "invalid" / "fixtures.json"
-)
+_SCHEMA_FIXTURE_ROOT = _REPOSITORY_ROOT / "tests" / "fixtures" / "schemas"
+_VALID_FIXTURES = _SCHEMA_FIXTURE_ROOT / "valid" / "fixtures.json"
+_INVALID_FIXTURES = _SCHEMA_FIXTURE_ROOT / "invalid" / "fixtures.json"
 
 
 class _CheckedFailure(Exception):
@@ -189,7 +191,55 @@ def _validate_registered_schemas() -> list[str]:
     return checked
 
 
+def _dedicated_fixture(kind: str, schema_name: str) -> object | None:
+    """Load a per-schema fixture when present, failing closed on malformed JSON."""
+
+    path = _SCHEMA_FIXTURE_ROOT / kind / f"{schema_name}.json"
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise QualificationError(
+            "canonical dedicated schema fixture is unreadable",
+            code="cli.fixture_read",
+            details={"schema": schema_name, "kind": kind, "path": str(path)},
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise QualificationError(
+            "canonical dedicated schema fixture is not valid JSON",
+            code="cli.fixture_json_invalid",
+            details={
+                "schema": schema_name,
+                "kind": kind,
+                "path": str(path),
+                "reason": exc.msg,
+            },
+        ) from exc
+
+
+def _fixture_instance(
+    kind: str,
+    schema_name: str,
+    aggregate: dict[str, Any],
+) -> object:
+    """Resolve dedicated-first fixtures while preserving the legacy aggregate fallback."""
+
+    dedicated = _dedicated_fixture(kind, schema_name)
+    if dedicated is not None:
+        return dedicated
+    if schema_name in aggregate:
+        return aggregate[schema_name]
+    raise QualificationError(
+        "registered schema has no canonical fixture",
+        code="cli.fixture_missing",
+        details={"schema": schema_name, "kind": kind},
+    )
+
+
 def _validate_fixture_sets() -> tuple[int, int]:
+    """Validate one passing and one failing canonical fixture for every schema."""
+
     try:
         valid_fixtures = json.loads(_VALID_FIXTURES.read_text(encoding="utf-8"))
         invalid_fixtures = json.loads(_INVALID_FIXTURES.read_text(encoding="utf-8"))
@@ -217,30 +267,31 @@ def _validate_fixture_sets() -> tuple[int, int]:
     valid_passed = 0
     invalid_rejected = 0
     for name in sorted(SCHEMA_FILES):
-        if name in valid_fixtures:
-            errors = validation_errors(name, valid_fixtures[name])
-            if errors:
-                raise _CheckedFailure(
-                    _payload(
-                        "validate",
-                        "fail",
-                        code="cli.fixture_should_pass",
-                        schema=name,
-                        errors=list(errors),
-                    )
+        valid_instance = _fixture_instance("valid", name, valid_fixtures)
+        errors = validation_errors(name, valid_instance)
+        if errors:
+            raise _CheckedFailure(
+                _payload(
+                    "validate",
+                    "fail",
+                    code="cli.fixture_should_pass",
+                    schema=name,
+                    errors=list(errors),
                 )
-            valid_passed += 1
-        if name in invalid_fixtures:
-            if not validation_errors(name, invalid_fixtures[name]):
-                raise _CheckedFailure(
-                    _payload(
-                        "validate",
-                        "fail",
-                        code="cli.fixture_should_fail",
-                        schema=name,
-                    )
+            )
+        valid_passed += 1
+
+        invalid_instance = _fixture_instance("invalid", name, invalid_fixtures)
+        if not validation_errors(name, invalid_instance):
+            raise _CheckedFailure(
+                _payload(
+                    "validate",
+                    "fail",
+                    code="cli.fixture_should_fail",
+                    schema=name,
                 )
-            invalid_rejected += 1
+            )
+        invalid_rejected += 1
     return valid_passed, invalid_rejected
 
 
