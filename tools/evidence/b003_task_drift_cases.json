@@ -1,0 +1,28 @@
+{
+  "cases": [
+    {
+      "name": "clean_pending_successor",
+      "expected_codes": []
+    },
+    {
+      "name": "checkbox_state_conflict",
+      "expected_codes": ["state.checkbox_conflict"]
+    },
+    {
+      "name": "active_evidence_claims_completion",
+      "expected_codes": ["evidence.completion_claim_active_task"]
+    },
+    {
+      "name": "implementation_merged_while_active",
+      "expected_codes": ["implementation.merged_while_active"]
+    },
+    {
+      "name": "valid_terminal_b003",
+      "expected_codes": []
+    },
+    {
+      "name": "entry_gate_after_implementation",
+      "expected_codes": ["entry_gate.after_implementation"]
+    }
+  ]
+}
