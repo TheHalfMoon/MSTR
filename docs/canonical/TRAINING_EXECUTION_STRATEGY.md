@@ -41,7 +41,7 @@ PRODUCT-ALIGNED FOUNDATION
 -> SOFTWARE-EVOLUTION / DIRECTION-TO-DONE SFT
 -> FAILURE/RECOVERY/PREFERENCE TRAINING
 -> BOUNDED EXECUTABLE AGENT RL
--> Q4 PRODUCT REGRESSION AFTER EACH MATERIAL STAGE
+-> EXPORT + INTEGRITY + Q4 PRODUCT REGRESSION AFTER EACH MATERIAL STAGE
 ```
 
 A strong code prior is a prerequisite to efficient agent optimization. Training data is chosen for alignment with real software-building work, not token volume alone.
@@ -85,7 +85,7 @@ Rules:
 
 Purpose: choose the most efficient stable adaptation mechanism before investing in model-specific pilots.
 
-Equivalent candidate arms SHOULD include where current backbone/framework support permits:
+Equivalent candidate arms **MUST include every technically supported arm** from:
 
 ```text
 16BIT_LORA
@@ -93,6 +93,8 @@ Equivalent candidate arms SHOULD include where current backbone/framework suppor
 4BIT_QLORA
 4BIT_QLORA_RSLORA
 ```
+
+For every arm not executed, the decision record MUST state the exact backbone/framework compatibility reason, authoritative evidence identity, and whether the omission is `UNSUPPORTED`, `INCOMPATIBLE`, or `SEPARATELY_GATED`. Convenience or notebook availability is not a valid omission reason.
 
 No arm wins because it is easier in Unsloth. Revalidate current model-specific documentation immediately before execution; do not preserve stale blanket claims about a family indefinitely.
 
@@ -130,13 +132,19 @@ Use a checkpoint-relative difficulty/frontier sampler. The pilot must not simply
 After each material checkpoint:
 
 ```text
-master checkpoint
--> export/merge
--> canonical Q4
+source checkpoint
+-> merged master
+-> verify merged-master SHA-256
+-> canonical Q4 export
+-> verify canonical-Q4 SHA-256
 -> direct code/FIM tests
 -> selected executable repo tests
--> promotion/discard decision
+-> required Q4/universal-laptop regression
+-> Q4PromotionRecord
+-> PROMOTE | REJECT
 ```
+
+Only `PROMOTED` checkpoints may become parents of a later material weight-changing stage.
 
 ### C3 — MSTR-002 execution-grounded SFT / preference
 
@@ -157,7 +165,7 @@ Data includes:
 - feature/greenfield tasks;
 - persistent FIM/direct-code replay.
 
-Clean positive SFT admission requires the stage's provenance/contamination/verifier-health threshold.
+Clean positive SFT admission requires the stage's provenance/rights/contamination/verifier-health threshold.
 
 ### C4 — MSTR-003 executable agent RL
 
@@ -171,7 +179,7 @@ Requirements:
 - failure-inclusive trajectories;
 - same or migration-proven model-visible loop semantics;
 - multi-fidelity promotion before expensive campaigns;
-- Q4 product regression before parent checkpoint promotion.
+- a successful identity-bound Q4 promotion record before a checkpoint is reused as a later material-stage parent.
 
 Unsloth may be used for cheap GRPO/RL pilots where appropriate. `slime`, `verl`, and alternatives remain candidates for scaled long-horizon RL. No scaled framework is preselected.
 
@@ -181,27 +189,29 @@ MSTR treats execution-filtered self-alignment as a first-class data source.
 
 ```text
 student proposes task/solution/tests
+-> bind seed + generated-artifact provenance/rights
 -> admitted sandbox executes
 -> independent verifier + verifier-health
--> provenance/contamination
+-> contamination checks
 -> difficulty calibration
 -> stage admission
 ```
 
-The purpose is not self-confirmation. A student-generated example cannot validate itself.
+The purpose is not self-confirmation. A student-generated example cannot validate itself. Missing or unresolved provenance/rights/contamination evidence fails closed.
 
 ## 6. Teacher Rescue
 
 Teacher use is bounded and secondary.
 
 A teacher may address useful hard-frontier cells only when:
-- teacher/API/output rights are compatible;
+- teacher/API terms are recorded;
+- concrete teacher-output rights are compatible;
+- exact output provenance is recorded;
+- contamination/leakage status is clear;
 - exact cost/network authority exists;
-- outputs are independently executed/verified;
-- provenance is recorded;
-- benchmark contamination/leakage is controlled.
+- outputs are independently executed/verified.
 
-Teacher output is evidence candidate, not truth.
+Teacher output is evidence candidate, not truth. Unresolved output rights or contamination fails closed.
 
 Large code/agent models, including future/current Qwen3.8-class models, may be reference/teacher candidates while remaining unsuitable as the universal-laptop release backbone.
 
@@ -233,7 +243,7 @@ L0 CONTRACT/SMOKE
 -> L4 Q4 UNIVERSAL-LAPTOP
 ```
 
-Weak experiments are discarded before expensive evaluation. Promotion criteria are frozen before each campaign.
+Weak experiments are discarded before expensive evaluation. Promotion criteria are frozen before each campaign. Every material result uses the exact `MaterialResultIdentity` contract; missing required identity invalidates comparison/promotion.
 
 ## 9. Colab Reproducibility Contract
 
@@ -371,19 +381,40 @@ TOKENIZER/PROCESSOR_ARTIFACTS
 QUANTIZED_DEPLOYMENT_ARTIFACTS
 ```
 
-Release-relevant promotion:
+Every material weight-changing stage must emit a `Q4PromotionRecord` containing at minimum:
+
+```text
+source_training_run_id
+source_checkpoint_sha256
+merged_master_sha256
+export_tool_id + exact revision
+export_recipe_hash
+quantizer_tool_id + exact revision
+quantization_recipe_hash
+canonical_q4_artifact_sha256
+artifact_integrity_status
+q4_regression_manifest_id + result
+universal_laptop_gate_result
+promotion_status
+```
+
+Release-relevant promotion is fail closed:
 
 ```text
 checkpoint
 -> merged master
--> GGUF/reference conversion
+-> verify master hash
+-> GGUF/reference conversion with pinned tool revision + recipe
 -> canonical Q4
--> integrity
+-> verify Q4 hash
 -> direct-code/FIM regression
 -> tool/edit/recovery regression
 -> Direction-to-Done subset
--> universal-laptop gate when required by fidelity level
+-> universal-laptop gate when required
+-> PROMOTE only if every required gate passes
 ```
+
+`REJECTED`, missing, incomplete, or identity-ambiguous promotion records cannot be used as parent checkpoints for later material weight-changing stages. A BF16/FP16/master-only gain does not qualify for continuation.
 
 Q8/Q6/Q5 may be diagnostic arms, not mandatory persistent artifacts.
 
