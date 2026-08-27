@@ -189,6 +189,14 @@ def _evidence_files(root: Path, node: dict[str, Any]) -> tuple[Path, ...]:
     return tuple(found[key] for key in sorted(found))
 
 
+def _evidence_pattern_present(root: Path, raw: str) -> bool:
+    candidate = root / raw
+    if any(marker in raw for marker in ("*", "?", "[")):
+        matches = (Path(value) for value in glob.glob(str(candidate), recursive=True))
+        return any(_safe_existing_file(root, match) is not None for match in matches)
+    return _safe_existing_file(root, candidate) is not None
+
+
 def _match_text(pattern: re.Pattern[str], text: str) -> str | None:
     match = pattern.search(text)
     return match.group("value") if match else None
@@ -354,6 +362,19 @@ def _scan_task(
                 terminal_states=node["closeout_rule"]["terminal_states"],
             )
         )
+
+    if terminal and node["closeout_rule"]["require_all_evidence_outputs"]:
+        missing_evidence = [
+            raw for raw in node["evidence_outputs"] if not _evidence_pattern_present(root, raw)
+        ]
+        if missing_evidence:
+            findings.append(
+                _finding(
+                    task_id,
+                    "evidence.required_missing",
+                    paths=missing_evidence,
+                )
+            )
 
     metadata = tuple(_parse_evidence(path, root) for path in _evidence_files(root, node))
     states = {entry.state for entry in metadata if entry.state is not None}

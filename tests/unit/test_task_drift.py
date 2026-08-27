@@ -262,6 +262,16 @@ def _run_case(name: str, tmp_path: Path) -> set[str]:
         assert text.count(state_line) == 1
         evidence.write_text(text.replace(state_line, "", 1), encoding="utf-8")
         _commit_main(root, "remove canonical evidence state")
+    elif name == "terminal_missing_required_evidence":
+        gate_main, final_head, merge_sha = _merge_b003_implementation(root, include_gate=True)
+        _close_b003(root, gate_main=gate_main, final_head=final_head, merge_sha=merge_sha)
+        catalog = root / "configs" / "task-gate" / "mstr-000b.json"
+        payload = json.loads(catalog.read_text(encoding="utf-8"))
+        payload["tasks"]["B003"]["evidence_outputs"].append(
+            "evidence/mstr-000b/B003-secondary.md"
+        )
+        catalog.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        _commit_main(root, "declare missing required B003 evidence")
     elif name == "squash_implementation_merged_while_active":
         _merge_b003_implementation(root, include_gate=True, merge_style="squash")
     elif name == "rebase_implementation_merge_unverifiable":
