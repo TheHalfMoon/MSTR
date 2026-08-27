@@ -224,6 +224,20 @@ def _run_case(name: str, tmp_path: Path) -> set[str]:
         _commit_main(root, "introduce evidence drift")
     elif name == "implementation_merged_while_active":
         _merge_b003_implementation(root, include_gate=True)
+    elif name == "terminal_missing_identity_field":
+        gate_main, final_head, merge_sha = _merge_b003_implementation(root, include_gate=True)
+        _close_b003(
+            root,
+            gate_main=gate_main,
+            final_head=final_head,
+            merge_sha=merge_sha,
+        )
+        evidence = root / "evidence" / "mstr-000b" / "B003.md"
+        text = evidence.read_text(encoding="utf-8")
+        identity_line = f"**Final implementation head:** `{final_head}`\n"
+        assert text.count(identity_line) == 1
+        evidence.write_text(text.replace(identity_line, "", 1), encoding="utf-8")
+        _commit_main(root, "remove mandatory B003 identity field")
     elif name in {"valid_terminal_b003", "entry_gate_after_implementation"}:
         gate_main, final_head, merge_sha = _merge_b003_implementation(root, include_gate=True)
         _close_b003(

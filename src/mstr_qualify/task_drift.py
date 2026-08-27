@@ -403,6 +403,29 @@ def _scan_task(
                 )
             )
 
+    identity_values = {
+        "implementation_pr": evidence_pr,
+        "final_head": evidence_head,
+        "merge_sha": evidence_merge,
+    }
+    identity_comparison_required = (
+        implementation is not None
+        or bool(history_merges)
+        or any(value is not None for value in identity_values.values())
+    )
+    if identity_comparison_required:
+        missing_identity_fields = sorted(
+            field for field, value in identity_values.items() if value is None
+        )
+        if missing_identity_fields:
+            findings.append(
+                _finding(
+                    task_id,
+                    "evidence.implementation_identity_missing",
+                    missing_fields=missing_identity_fields,
+                )
+            )
+
     if implementation is not None:
         if not terminal:
             findings.append(

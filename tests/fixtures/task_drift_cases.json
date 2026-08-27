@@ -14,7 +14,14 @@
     },
     {
       "name": "implementation_merged_while_active",
-      "expected_codes": ["implementation.merged_while_active"]
+      "expected_codes": [
+        "implementation.merged_while_active",
+        "evidence.implementation_identity_missing"
+      ]
+    },
+    {
+      "name": "terminal_missing_identity_field",
+      "expected_codes": ["evidence.implementation_identity_missing"]
     },
     {
       "name": "valid_terminal_b003",
