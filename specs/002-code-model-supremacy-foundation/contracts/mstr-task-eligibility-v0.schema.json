@@ -101,12 +101,7 @@
       "allOf": [
         {
           "if": {"properties": {"required": {"const": true}}, "required": ["required"]},
-          "then": {
-            "properties": {
-              "requirement_id": {"type": "string", "minLength": 1},
-              "observed_pool_id": {"type": "string", "minLength": 1}
-            }
-          }
+          "then": {"properties": {"requirement_id": {"type": "string", "minLength": 1}}}
         }
       ]
     }
@@ -121,32 +116,55 @@
             "items": {
               "allOf": [
                 {"$ref": "#/$defs/prerequisiteResult"},
-                {"properties": {"satisfied": {"const": true}}}
+                {
+                  "properties": {
+                    "observed_state": {"$ref": "#/$defs/taskState"},
+                    "evidence_present": {"const": true},
+                    "satisfied": {"const": true},
+                    "reasons": {"maxItems": 0}
+                  }
+                }
               ]
             }
           },
           "authority_result": {
             "allOf": [
               {"$ref": "#/$defs/authorityResult"},
-              {"properties": {"satisfied": {"const": true}}}
+              {"properties": {"satisfied": {"const": true}, "reasons": {"maxItems": 0}}}
             ]
           },
           "supersession_result": {
             "allOf": [
               {"$ref": "#/$defs/supersessionResult"},
-              {"properties": {"satisfied": {"const": true}}}
+              {
+                "properties": {
+                  "superseded": {"const": false},
+                  "satisfied": {"const": true},
+                  "reasons": {"maxItems": 0}
+                }
+              }
             ]
           },
           "state_consistency_result": {
             "allOf": [
               {"$ref": "#/$defs/stateConsistencyResult"},
-              {"properties": {"satisfied": {"const": true}}}
+              {
+                "properties": {
+                  "observed_state": {"$ref": "#/$defs/taskState"},
+                  "satisfied": {"const": true},
+                  "reasons": {"maxItems": 0}
+                }
+              }
             ]
           },
           "candidate_pool_result": {
             "allOf": [
               {"$ref": "#/$defs/candidatePoolResult"},
-              {"properties": {"satisfied": {"const": true}}}
+              {"properties": {"satisfied": {"const": true}, "reasons": {"maxItems": 0}}},
+              {
+                "if": {"properties": {"required": {"const": true}}, "required": ["required"]},
+                "then": {"properties": {"observed_pool_id": {"type": "string", "minLength": 1}}}
+              }
             ]
           }
         }
