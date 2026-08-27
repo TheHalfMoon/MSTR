@@ -21,6 +21,20 @@ CONVERGENCE = A019-A024 only after stable/equivalent candidate qualification and
 
 T029–T034 in MSTR-000 remain active according to their own canonical state and are not reopened by this package. No A-task may bypass an explicit external-effect gate. The machine task validator introduced by MSTR-000B becomes authoritative for eligibility once canonical.
 
+### Live history reconciliation
+
+MSTR-000B B004 binds the sequence amendment to the repository's actual canonical history without rewriting it:
+
+```text
+A001 + A002 = COMPLETE_CANONICAL / PR #37 / head b4547f9393644586f893f5cd7ddd420f82bc6f2a / merge 5693749dd560979496efad488789ec35b2c2a84d
+A003 = COMPLETE_CANONICAL / PR #38 / head 41122ae8dee65b2a6b3c6b188cf335d74088b06f / merge 2c02eb68a32264c86f69eb7ffc1c99ad87328376
+A004 = COMPLETE_CANONICAL / PR #45 / head d0098548766232c9fa1a879941978d1735ef9e4a / merge 564096fc9e8ec3e2b0aa9505926e15f66b00ce74 / closeout PR #46 / merge c2d0ee8a6b9d47275c4d309cd187c1ed0d35fb02
+A005-A018 = PENDING / EARLY_SAFE only with exact prerequisites
+A019-A024 = PENDING / CONVERGENCE_GATED
+```
+
+This reconciliation does not infer completion for A005+ and grants no external-effect authority.
+
 ## Phase A — Contract and Replay Spine
 
 - [x] **A001 [P] Freeze canonical `mstr.loop-contract.v0` implementation contract** from the planning schema, including success/verifier, recovery, budgets, and effect envelope semantics.  
