@@ -18,7 +18,21 @@ FOUNDER_MAC_LARGE_ARTIFACTS = ZERO
 
 For **A019-A024 convergence** additionally require the exact MSTR-000B/candidate prerequisites in `tasks.md`, including the stable product-aligned candidate pool and required verifier/research contracts.
 
-Before each task, re-read live `main`, `AGENTS.md`, the constitution, `CURRENT_STATE.md`, MSTR-000A, MSTR-000B, and exact task prerequisites. Once B002 is canonical, run the machine task-eligibility validator and fail closed on an ineligible result.
+Before each task, re-read live `main`, `AGENTS.md`, the constitution, `CURRENT_STATE.md`, MSTR-000A, MSTR-000B, and exact task prerequisites.
+
+Task-gate bootstrap is explicit:
+
+```text
+before B002 is canonical:
+  there is no machine validator requirement to execute;
+  manually enforce exact prerequisites and authority.
+
+after B002 is COMPLETE_CANONICAL:
+  require exact-main eligible=true before every material B-task governed by B002 and again before merge;
+  fail closed on validator error or ineligible result.
+```
+
+The absence of B002 before its implementation is never permission to bypass task prerequisites.
 
 ## Implementation Order
 
