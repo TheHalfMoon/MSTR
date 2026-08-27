@@ -1,0 +1,129 @@
+{
+  "schema_version": "mstr.data-constitution.v0",
+  "constitution_id": "MSTR-DATA-CONSTITUTION-v0",
+  "version": "0",
+  "allowed_source_classes": ["PUBLIC_OPEN_SOURCE_REPOSITORY"],
+  "prohibited_source_classes": [
+    "PRIVATE_USER_REPOSITORY",
+    "PRODUCTION_TRACE",
+    "UNKNOWN_PROVENANCE",
+    "UNRESOLVED_RIGHTS",
+    "BENCHMARK_EVALUATION_ITEM",
+    "FUTURE_HISTORY_LEAKAGE",
+    "UNVERIFIED_SYNTHETIC",
+    "UNVERIFIED_TEACHER_OUTPUT"
+  ],
+  "software_role_taxonomy": [
+    "STATIC_CODE",
+    "SOFTWARE_EVOLUTION",
+    "TEST_GENERATION",
+    "MULTI_FILE_FEATURE",
+    "TOOL_USE"
+  ],
+  "language_target_policy": {
+    "mode": "EXTERNAL_CANONICAL_POLICY",
+    "required_policy_task_id": "B015",
+    "must_be_bound_before_training_admission": true
+  },
+  "provenance_policy": {
+    "source_identity_required": true,
+    "source_revision_or_snapshot_required": true,
+    "acquisition_time_required": true,
+    "artifact_lineage_required": true,
+    "unresolved_provenance_admission": "REJECT"
+  },
+  "rights_policy": {
+    "license_or_terms_identity_required": true,
+    "concrete_rights_decision_required": true,
+    "unresolved_rights_admission": "REJECT",
+    "incompatible_rights_admission": "REJECT",
+    "teacher_terms_do_not_substitute_output_rights": true
+  },
+  "contamination_policy": {
+    "benchmark_overlap_check_required": true,
+    "future_history_leakage_check_required": true,
+    "cross_split_contamination_check_required": true,
+    "unresolved_contamination_admission": "REJECT"
+  },
+  "dedup_policy": {
+    "exact_dedup_required": true,
+    "near_duplicate_detection_required": true,
+    "cross_split_dedup_required": true,
+    "provenance_preserved_after_dedup": true
+  },
+  "benchmark_exclusion_policy": {
+    "benchmark_eval_items_in_training": "PROHIBITED",
+    "hidden_tests_in_training": "PROHIBITED",
+    "benchmark_derived_solution_leakage": "PROHIBITED",
+    "near_duplicate_guard_required": true
+  },
+  "synthetic_policy": {
+    "generator_identity_required": true,
+    "generation_provenance_required": true,
+    "rights_decision_required": true,
+    "verifier_evidence_required": true,
+    "contamination_check_required": true,
+    "unverified_admission": "REJECT"
+  },
+  "student_generated_policy": {
+    "seed_provenance_required": true,
+    "seed_rights_required": true,
+    "per_artifact_provenance_required": true,
+    "per_artifact_rights_required": true,
+    "sandbox_execution_required": true,
+    "independent_verifier_required": true,
+    "contamination_check_required": true,
+    "difficulty_record_required": true,
+    "unresolved_admission": "REJECT"
+  },
+  "teacher_policy": {
+    "teacher_identity_required": true,
+    "teacher_terms_identity_required": true,
+    "concrete_output_provenance_required": true,
+    "concrete_output_rights_required": true,
+    "independent_execution_required": true,
+    "verifier_health_required": true,
+    "contamination_check_required": true,
+    "teacher_identity_is_truth": false,
+    "unresolved_admission": "REJECT",
+    "paid_or_api_teacher_authorized_by_constitution": false
+  },
+  "difficulty_policy": {
+    "checkpoint_relative": true,
+    "student_identity_required": true,
+    "harness_identity_required": true,
+    "sampling_identity_required": true,
+    "classes": [
+      "TOO_EASY",
+      "LEARNABLE_FRONTIER",
+      "HARD_FRONTIER",
+      "CURRENTLY_UNPRODUCTIVE",
+      "INVALID"
+    ],
+    "invalid_positive_admission": "REJECT"
+  },
+  "verifier_health_thresholds": {
+    "clean_positive_allowed_classes": ["HEALTHY"],
+    "research_only_classes": ["HEALTHY", "PARTIAL", "DISAGREEMENT"],
+    "blocked_classes": ["BROKEN", "LEAKED", "TAMPERED"]
+  },
+  "stage_admission_rules": {
+    "provenance_complete": true,
+    "rights_compatible": true,
+    "contamination_clear": true,
+    "benchmark_exclusion_clear": true,
+    "dedup_complete": true,
+    "verifier_health_threshold_met": true,
+    "language_target_policy_bound": true,
+    "training_eval_boundary_explicit": true,
+    "private_user_data_default_rejection_enforced": true,
+    "unresolved_evidence_admission": "REJECT"
+  },
+  "private_user_data_policy": {
+    "default_admission": "ALLOW",
+    "private_user_repositories_default_ingest": false,
+    "production_traces_default_ingest": false,
+    "hidden_telemetry_allowed": false,
+    "future_exception_requires_separate_policy_and_authority": true
+  }
+}
