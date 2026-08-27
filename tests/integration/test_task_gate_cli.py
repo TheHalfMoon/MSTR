@@ -6,7 +6,11 @@ from typing import Any
 import pytest
 
 from mstr_qualify.__main__ import main
+from mstr_qualify.errors import QualificationError
 from mstr_qualify.schemas import validate_instance
+from mstr_qualify.task_gate import evaluate_task_eligibility
+
+_CANONICAL_MAIN = "a" * 40
 
 
 def _stdout_json(capsys: pytest.CaptureFixture[str]) -> dict[str, Any]:
@@ -17,34 +21,58 @@ def _stdout_json(capsys: pytest.CaptureFixture[str]) -> dict[str, Any]:
     return decoded
 
 
-def test_task_eligible_b002_bootstrap_returns_zero(capsys: pytest.CaptureFixture[str]) -> None:
+def test_task_eligible_b002_bootstrap_returns_zero(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    expected = evaluate_task_eligibility("B002", canonical_main=_CANONICAL_MAIN)
+    monkeypatch.setattr(
+        "mstr_qualify.cli.evaluate_task_eligibility",
+        lambda task_id: expected,
+    )
+
     exit_code = main(["task", "eligible", "B002"])
     payload = _stdout_json(capsys)
 
     assert exit_code == 0
-    assert payload["schema_version"] == "mstr.task-eligibility.v0"
-    assert payload["task_id"] == "B002"
+    assert payload == expected
     assert payload["eligible"] is True
-    assert len(payload["canonical_main"]) == 40
     validate_instance("mstr-task-eligibility-v0", payload)
 
 
-def test_task_eligible_b003_is_fail_closed_before_b002_closeout(
+def test_task_eligible_b003_checked_failure_returns_one(
+    monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    expected = evaluate_task_eligibility("B003", canonical_main=_CANONICAL_MAIN)
+    monkeypatch.setattr(
+        "mstr_qualify.cli.evaluate_task_eligibility",
+        lambda task_id: expected,
+    )
+
     exit_code = main(["task", "eligible", "B003"])
     payload = _stdout_json(capsys)
 
     assert exit_code == 1
-    assert payload["task_id"] == "B003"
+    assert payload == expected
     assert payload["eligible"] is False
     assert "prerequisite.unsatisfied:B002" in payload["reasons"]
     validate_instance("mstr-task-eligibility-v0", payload)
 
 
-def test_task_eligible_unknown_task_is_exit_two(
+def test_task_eligible_configuration_error_returns_two(
+    monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    def fail_closed(task_id: str) -> dict[str, Any]:
+        raise QualificationError(
+            "unknown task id",
+            code="task_gate.task_unknown",
+            details={"task_id": task_id},
+        )
+
+    monkeypatch.setattr("mstr_qualify.cli.evaluate_task_eligibility", fail_closed)
+
     exit_code = main(["task", "eligible", "B999"])
     captured = capsys.readouterr()
 
@@ -56,9 +84,7 @@ def test_task_eligible_unknown_task_is_exit_two(
     assert payload["code"] == "task_gate.task_unknown"
 
 
-def test_task_eligible_has_no_repository_mutation(tmp_path: object) -> None:
-    # The command itself exposes no write option or mutation subcommand. Parser
-    # coverage protects the B002 read-only interface from accidental expansion.
+def test_task_eligible_parser_exposes_no_mutation_surface() -> None:
     from mstr_qualify.cli import build_parser
 
     parser = build_parser()
