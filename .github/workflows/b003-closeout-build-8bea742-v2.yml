@@ -1,0 +1,134 @@
+name: Guard B003 canonical closeout v2
+
+on:
+  push:
+    branches:
+      - evidence/b003-closeout-build-8bea742-v2
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: 8bea74269fb81a4c898b7a2864bf103d15fd98a9
+  TARGET_BRANCH: docs/000b-b003-canonicalize
+  EVIDENCE_BRANCH: evidence/b003-closeout-build-8bea742-v2
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  build-closeout:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact closeout target base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Verify live closeout preconditions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH" "$EVIDENCE_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+
+      - name: Apply bounded B003 closeout transition
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "refs/remotes/origin/$EVIDENCE_BRANCH:scripts/evidence/b003_closeout_apply.py" > /tmp/b003_closeout_apply.py
+          python /tmp/b003_closeout_apply.py
+
+      - name: Verify bounded closeout scope and syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          python -m py_compile tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          expected = {
+              'configs/task-gate/mstr-000b.json',
+              'evidence/mstr-000b/B003-drift-detector.md',
+              'specs/002-code-model-supremacy-foundation/tasks.md',
+              'tests/contract/test_task_gate.py',
+              'tests/integration/test_task_gate_cli.py',
+          }
+          changed = set(subprocess.run(
+              ['git', 'diff', '--name-only'], check=True, capture_output=True, text=True
+          ).stdout.splitlines())
+          assert changed == expected, (changed, expected)
+          payload = json.loads(Path('configs/task-gate/mstr-000b.json').read_text(encoding='utf-8'))
+          assert payload['tasks']['B003']['canonical_state'] == 'COMPLETE_CANONICAL'
+          text = Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text(encoding='utf-8')
+          assert '- [x] **B003 Implement canonical drift detector.**' in text
+          assert 'Canonical implementation: PR #50 / final head `f3ccad9d49ea9d0460f82d7ecfe64b649bd997cf` / merge `8bea74269fb81a4c898b7a2864bf103d15fd98a9`.' in text
+          PY
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Verify closeout task-gate and drift transition
+        shell: bash
+        run: |
+          set -euo pipefail
+          git update-ref refs/heads/main HEAD
+          git update-ref refs/remotes/origin/main HEAD
+          set +e
+          python -m mstr_qualify task eligible B003 > /tmp/b003.json
+          b003_rc=$?
+          set -e
+          test "$b003_rc" -eq 1
+          python -m mstr_qualify task eligible B004 > /tmp/b004.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          b003 = json.load(open('/tmp/b003.json', encoding='utf-8'))
+          b004 = json.load(open('/tmp/b004.json', encoding='utf-8'))
+          drift = json.load(open('/tmp/drift.json', encoding='utf-8'))
+          assert b003['eligible'] is False and 'task.already_terminal' in b003['reasons'], b003
+          assert b004['eligible'] is True and b004['reasons'] == [], b004
+          assert drift['status'] == 'clean' and drift['findings'] == [], drift
+          assert drift['tasks_checked'] == 34, drift
+          print('B003_CLOSEOUT_CANDIDATE_TERMINAL=true')
+          print('B004_CLOSEOUT_CANDIDATE_ELIGIBLE=true')
+          print('B003_CLOSEOUT_CANDIDATE_DRIFT=clean')
+          PY
+
+      - name: Run targeted governance tests
+        run: pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/unit/test_task_drift.py tests/integration/test_task_drift_cli.py
+
+      - name: Frozen gate - pytest
+        run: pytest -q
+
+      - name: Frozen gate - Ruff
+        run: ruff check src tests
+
+      - name: Frozen gate - mypy
+        run: mypy
+
+      - name: Frozen gate - offline validate
+        run: python -m mstr_qualify validate
+
+      - name: Guarded fast-forward closeout push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add configs/task-gate/mstr-000b.json evidence/mstr-000b/B003-drift-detector.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          git commit -m "docs(mstr-000b): canonicalize B003 closeout"
+          git push origin HEAD:"$TARGET_BRANCH"
+          echo "B003_CLOSEOUT_HEAD=$(git rev-parse HEAD)"
