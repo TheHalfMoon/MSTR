@@ -1,0 +1,90 @@
+name: Evidence B003 pre-merge gate v2
+
+on:
+  push:
+    branches:
+      - evidence/b003-premerge-f3ccad9-v2
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: 0754d552752c2f6c099df2b480de99028e2e26e5
+  EXPECTED_HEAD: f3ccad9d49ea9d0460f82d7ecfe64b649bd997cf
+  TARGET_BRANCH: feat/000b-b003-drift-detector
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  verify-b003-premerge:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify live refs and prepare exact feature worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git worktree add --detach /tmp/b003-feature "$EXPECTED_HEAD"
+          test "$(git -C /tmp/b003-feature rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+          test -z "$(git -C /tmp/b003-feature status --short)"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install canonical package
+        run: python -m pip install -e .
+
+      - name: Verify production B003 entry gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify task eligible B003 > /tmp/b003.json
+          python - <<'PY'
+          import json
+          payload = json.load(open('/tmp/b003.json', encoding='utf-8'))
+          assert payload['task_id'] == 'B003', payload
+          assert payload['eligible'] is True, payload
+          assert payload['canonical_main'] == '0754d552752c2f6c099df2b480de99028e2e26e5', payload
+          assert payload['reasons'] == [], payload
+          print('PREMERGE_B003_ELIGIBLE=true')
+          PY
+
+      - name: Verify exact feature detector sees canonical main as clean
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=/tmp/b003-feature/src python - <<'PY'
+          from pathlib import Path
+          from mstr_qualify.task_drift import detect_canonical_drift
+          report = detect_canonical_drift(repository_root=Path.cwd())
+          assert report['canonical_main'] == '0754d552752c2f6c099df2b480de99028e2e26e5', report
+          assert report['status'] == 'clean', report
+          assert report['findings'] == [], report
+          assert report['tasks_checked'] == 34, report
+          print('PREMERGE_CANONICAL_DRIFT_STATUS=clean')
+          PY
+
+      - name: Re-verify immutable refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git -C /tmp/b003-feature rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+          test -z "$(git -C /tmp/b003-feature status --short)"
