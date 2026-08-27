@@ -20,16 +20,21 @@ from mstr_qualify.state import (
 FIXTURE = Path("tests/fixtures/harness/a004-adversarial-state.json")
 
 
-def _events_from_specs(run_id: str, specs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _events_from_specs(
+    run_id: str,
+    specs: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
     previous: str | None = None
     for seq, spec in enumerate(specs):
         event_type = spec["event_type"]
-        source = "harness"
-        if event_type == "verifier.result":
-            source = "verifier"
-        elif event_type.startswith("tool."):
-            source = "tool"
+        source = spec.get("source")
+        if source is None:
+            source = "harness"
+            if event_type == "verifier.result":
+                source = "verifier"
+            elif event_type.startswith("tool."):
+                source = "tool"
         event = create_event(
             run_id,
             seq,
@@ -78,10 +83,15 @@ def test_hypotheses_never_become_facts_or_verifier_passes() -> None:
     state = project_agent_state(events)
 
     assert state.working_hypotheses
-    assert all(item.epistemic_status == "UNCERTAIN" for item in state.working_hypotheses)
+    assert all(
+        item.epistemic_status == "UNCERTAIN"
+        for item in state.working_hypotheses
+    )
     hypothesis_text = " ".join(item.value for item in state.working_hypotheses)
     assert "expected to pass" in hypothesis_text
-    assert not any(result.detail == hypothesis_text for result in state.verifier_results)
+    assert not any(
+        result.detail == hypothesis_text for result in state.verifier_results
+    )
 
 
 def test_compaction_preserves_failures_changes_uncertainty_and_remaining_work() -> None:
@@ -97,20 +107,22 @@ def test_compaction_preserves_failures_changes_uncertainty_and_remaining_work() 
         ),
     )
 
-    assert [item.value for item in compacted.changed_files] == fixture["must_preserve"][
-        "changed_files"
-    ]
+    assert [item.value for item in compacted.changed_files] == fixture[
+        "must_preserve"
+    ]["changed_files"]
     assert any(result.status == "FAIL" for result in compacted.verifier_results)
     assert sum(result.status == "PASS" for result in compacted.verifier_results) == 1
     failure_text = " ".join(item.detail for item in compacted.known_failures)
     for expected in fixture["must_preserve"]["failure_substrings"]:
         assert expected in failure_text
-    hypothesis_text = " ".join(item.value for item in compacted.working_hypotheses)
+    hypothesis_text = " ".join(
+        item.value for item in compacted.working_hypotheses
+    )
     for expected in fixture["must_preserve"]["uncertain_substrings"]:
         assert expected in hypothesis_text
-    assert [item.value for item in compacted.remaining_work] == fixture["must_preserve"][
-        "remaining_work"
-    ]
+    assert [item.value for item in compacted.remaining_work] == fixture[
+        "must_preserve"
+    ]["remaining_work"]
 
 
 def test_compaction_records_auditable_digests_for_omitted_noncritical_history() -> None:
@@ -145,6 +157,94 @@ def test_compaction_fails_closed_when_critical_state_exceeds_budget() -> None:
     assert exc.value.code == "state.critical_overflow"
 
 
+def test_tool_request_alone_does_not_claim_command_was_run() -> None:
+    events = _simple_events(
+        {"event_type": "run.started", "payload": {}},
+        {
+            "event_type": "tool.requested",
+            "payload": {"command": "pytest -q"},
+        },
+    )
+
+    state = project_agent_state(events)
+
+    assert state.commands_run == ()
+
+
+def test_observed_tool_result_is_recorded_as_command_run() -> None:
+    events = _simple_events(
+        {"event_type": "run.started", "payload": {}},
+        {
+            "event_type": "tool.result",
+            "payload": {"command": "pytest -q", "success": True},
+        },
+    )
+
+    state = project_agent_state(events)
+
+    assert [item.value for item in state.commands_run] == ["pytest -q"]
+
+
+def test_model_authored_verifier_result_is_rejected() -> None:
+    events = _simple_events(
+        {"event_type": "run.started", "payload": {}},
+        {
+            "event_type": "verifier.result",
+            "source": "model",
+            "payload": {
+                "verifier_id": "fake",
+                "status": "PASS",
+                "detail": "model says done",
+            },
+        },
+    )
+
+    with pytest.raises(StateProjectionError) as exc:
+        project_agent_state(events)
+
+    assert exc.value.code == "state.source_not_authoritative"
+
+
+def test_model_authored_edit_fact_is_rejected() -> None:
+    events = _simple_events(
+        {"event_type": "run.started", "payload": {}},
+        {
+            "event_type": "edit.applied",
+            "source": "model",
+            "payload": {"path": "src/claimed.py"},
+        },
+    )
+
+    with pytest.raises(StateProjectionError) as exc:
+        project_agent_state(events)
+
+    assert exc.value.code == "state.source_not_authoritative"
+
+
+def test_context_compaction_cannot_reintroduce_facts() -> None:
+    events = _simple_events(
+        {"event_type": "run.started", "payload": {}},
+        {
+            "event_type": "context.observed",
+            "payload": {"repo_map": ["src/real.py"]},
+        },
+        {
+            "event_type": "context.compacted",
+            "source": "model",
+            "payload": {
+                "repo_map": ["src/invented.py"],
+                "hypotheses": ["invented summary"],
+            },
+        },
+    )
+
+    state = project_agent_state(events)
+
+    assert [item.value for item in state.repo_map] == ["src/real.py"]
+    assert state.working_hypotheses == ()
+    assert state.derived_through_seq == 2
+
+
 def test_projection_rejects_conflicting_goal() -> None:
     events = _simple_events(
         {"event_type": "run.started", "payload": {}},
@@ -161,7 +261,10 @@ def test_projection_rejects_conflicting_goal() -> None:
 def test_projection_rejects_plan_event_without_plan() -> None:
     events = _simple_events(
         {"event_type": "run.started", "payload": {}},
-        {"event_type": "plan.updated", "payload": {"remaining_work": ["work"]}},
+        {
+            "event_type": "plan.updated",
+            "payload": {"remaining_work": ["work"]},
+        },
     )
 
     with pytest.raises(StateProjectionError) as exc:
@@ -173,7 +276,10 @@ def test_projection_rejects_plan_event_without_plan() -> None:
 def test_projection_rejects_malformed_known_projection_field() -> None:
     events = _simple_events(
         {"event_type": "run.started", "payload": {}},
-        {"event_type": "context.observed", "payload": {"files_inspected": ["ok", 7]}},
+        {
+            "event_type": "context.observed",
+            "payload": {"files_inspected": ["ok", 7]},
+        },
     )
 
     with pytest.raises(StateProjectionError) as exc:
@@ -195,11 +301,19 @@ def test_verifier_failure_survives_later_pass_from_same_verifier() -> None:
         {"event_type": "run.started", "payload": {}},
         {
             "event_type": "verifier.result",
-            "payload": {"verifier_id": "tests", "status": "FAIL", "detail": "regression"},
+            "payload": {
+                "verifier_id": "tests",
+                "status": "FAIL",
+                "detail": "regression",
+            },
         },
         {
             "event_type": "verifier.result",
-            "payload": {"verifier_id": "tests", "status": "PASS", "detail": "repaired"},
+            "payload": {
+                "verifier_id": "tests",
+                "status": "PASS",
+                "detail": "repaired",
+            },
         },
     )
     state = compact_agent_state(
@@ -208,16 +322,25 @@ def test_verifier_failure_survives_later_pass_from_same_verifier() -> None:
     )
 
     assert [result.status for result in state.verifier_results] == ["FAIL"]
-    assert any("regression" in failure.detail for failure in state.known_failures)
+    assert any(
+        "regression" in failure.detail for failure in state.known_failures
+    )
 
 
 def test_edit_rejection_and_tool_failure_are_known_failures() -> None:
     events = _simple_events(
         {"event_type": "run.started", "payload": {}},
-        {"event_type": "edit.rejected", "payload": {"reason": "stale file"}},
+        {
+            "event_type": "edit.rejected",
+            "payload": {"reason": "stale file"},
+        },
         {
             "event_type": "tool.result",
-            "payload": {"command": "pytest", "success": False, "error": "test failed"},
+            "payload": {
+                "command": "pytest",
+                "success": False,
+                "error": "test failed",
+            },
         },
     )
     state = project_agent_state(events)
