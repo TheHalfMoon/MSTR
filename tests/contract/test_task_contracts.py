@@ -6,7 +6,8 @@ from typing import Any
 
 import pytest
 
-from mstr_qualify.schemas import validate_instance
+from mstr_qualify.cli import run_validate
+from mstr_qualify.schemas import SCHEMA_FILES, validate_instance
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "tests" / "fixtures" / "mstr-000b" / "B001" / "task-node-fail-closed.json"
@@ -27,10 +28,14 @@ AUTHORITY_GATED_CLASSES = {
 
 
 def _fixtures() -> dict[str, Any]:
+    """Load B001's explicit fail-closed TaskNode fixture set."""
+
     return json.loads(FIXTURE.read_text(encoding="utf-8"))
 
 
 def _valid_fixture(schema_name: str) -> dict[str, Any]:
+    """Load one dedicated valid fixture by registered schema name."""
+
     return json.loads((VALID_SCHEMA_FIXTURES / f"{schema_name}.json").read_text(encoding="utf-8"))
 
 
@@ -66,6 +71,25 @@ def test_closeout_rule_rejects_nonterminal_task_state() -> None:
         validate_instance("mstr-task-node-v0", record, schema_dir=ROOT / "schemas")
 
 
+@pytest.mark.parametrize(
+    "unsafe_path",
+    [
+        "/absolute/output.json",
+        "../outside.json",
+        "evidence/../../outside.json",
+        "C:/outside/evidence.md",
+        "C:relative/evidence.md",
+        "evidence\\outside.json",
+        "file:outside.json",
+    ],
+)
+def test_task_node_rejects_non_repository_relative_paths(unsafe_path: str) -> None:
+    record = _valid_fixture("mstr-task-node-v0")
+    record["outputs"] = [unsafe_path]
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-task-node-v0", record, schema_dir=ROOT / "schemas")
+
+
 def test_eligibility_result_requires_task_node_digest_binding() -> None:
     record = _valid_fixture("mstr-task-eligibility-v0")
     del record["task_node_sha256"]
@@ -91,6 +115,15 @@ def test_eligible_result_cannot_be_superseded() -> None:
     record = _valid_fixture("mstr-task-eligibility-v0")
     record["supersession_result"].update(
         {"superseded": True, "superseded_by": ["B999"], "satisfied": True}
+    )
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-task-eligibility-v0", record, schema_dir=ROOT / "schemas")
+
+
+def test_supersession_result_rejects_nonempty_superseded_by_when_not_superseded() -> None:
+    record = _valid_fixture("mstr-task-eligibility-v0")
+    record["supersession_result"].update(
+        {"superseded": False, "superseded_by": ["B999"], "satisfied": True}
     )
     with pytest.raises(ValueError, match="validation failed"):
         validate_instance("mstr-task-eligibility-v0", record, schema_dir=ROOT / "schemas")
@@ -135,3 +168,25 @@ def test_ineligible_result_requires_a_reason() -> None:
     record["eligible"] = False
     with pytest.raises(ValueError, match="validation failed"):
         validate_instance("mstr-task-eligibility-v0", record, schema_dir=ROOT / "schemas")
+
+
+@pytest.mark.parametrize("schema_name", ["mstr-task-node-v0", "mstr-task-eligibility-v0"])
+def test_cli_validate_auto_detects_b001_contracts(tmp_path: Path, schema_name: str) -> None:
+    record = _valid_fixture(schema_name)
+    path = tmp_path / f"{schema_name}.json"
+    path.write_text(json.dumps(record), encoding="utf-8")
+
+    exit_code, payload = run_validate([path])
+
+    assert exit_code == 0
+    assert payload["status"] == "pass"
+    assert payload["files"][0]["schema_version"] == record["schema_version"]
+
+
+def test_cli_self_check_validates_every_registered_schema_fixture() -> None:
+    exit_code, payload = run_validate(())
+
+    assert exit_code == 0
+    assert payload["status"] == "pass"
+    assert payload["valid_fixtures_passed"] == len(SCHEMA_FILES)
+    assert payload["invalid_fixtures_rejected"] == len(SCHEMA_FILES)
