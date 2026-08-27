@@ -1,0 +1,145 @@
+name: Verify repaired B005 pre-merge head
+
+on:
+  push:
+    branches:
+      - evidence/b005-premerge-0a7ee7e
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: 986b174b2bf79ce53a3e67b9b02c55cbe6981303
+  EXPECTED_HEAD: 0a7ee7e392d827fb08c8cc9f3b2d9ec45c8cca1a
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: 986b174b2bf79ce53a3e67b9b02c55cbe6981303
+          fetch-depth: 0
+          path: canonical
+          persist-credentials: false
+
+      - name: Checkout exact repaired B005 head
+        uses: actions/checkout@v4
+        with:
+          ref: 0a7ee7e392d827fb08c8cc9f3b2d9ec45c8cca1a
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install canonical tooling
+        working-directory: canonical
+        run: python -m pip install -e '.[dev]'
+
+      - name: Verify live exact-main eligibility and drift
+        working-directory: canonical
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main research/000b-b005-code-backbone-rescan-v2
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          git branch -f main "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/research/000b-b005-code-backbone-rescan-v2)" = "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+          python -m mstr_qualify task eligible B005 > /tmp/b005-entry.json
+          python -m mstr_qualify task drift > /tmp/b005-drift.json
+          python - <<'PY'
+          import json, os
+          entry = json.load(open('/tmp/b005-entry.json', encoding='utf-8'))
+          drift = json.load(open('/tmp/b005-drift.json', encoding='utf-8'))
+          assert entry['task_id'] == 'B005'
+          assert entry['eligible'] is True
+          assert entry['canonical_main'] == os.environ['EXPECTED_MAIN']
+          assert entry['reasons'] == []
+          assert drift['status'] == 'clean'
+          assert drift['findings'] == []
+          print('B005_PREMERGE_ENTRY_GATE=PASS')
+          print(f"B005_PREMERGE_CANONICAL_MAIN={entry['canonical_main']}")
+          PY
+
+      - name: Verify exact four-file candidate diff and repaired semantics
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          changed="$(git diff --name-only "$EXPECTED_MAIN"..."$EXPECTED_HEAD")"
+          printf '%s\n' "$changed"
+          python - <<'PY'
+          import json, subprocess
+          expected = {
+              'artifacts/manifests/B005-code-backbone-discovery.json',
+              'artifacts/manifests/B005-canonical-input-binding.json',
+              'evidence/mstr-000b/B005-code-backbone-rescan.md',
+              'evidence/mstr-000b/B005-schema-validation.md',
+          }
+          got = set(subprocess.run(['git','diff','--name-only','986b174b2bf79ce53a3e67b9b02c55cbe6981303...0a7ee7e392d827fb08c8cc9f3b2d9ec45c8cca1a'], check=True, capture_output=True, text=True).stdout.splitlines())
+          assert got == expected, (got, expected)
+          m = json.load(open('artifacts/manifests/B005-code-backbone-discovery.json', encoding='utf-8'))
+          rows = {r['repo_id']: r for r in m['candidates']}
+          cg = rows['google/codegemma-2b']
+          lfm = rows['LiquidAI/LFM2.5-2.6B-Base']
+          bitnet = rows['microsoft/bitnet-b1.58-2B-4T-bf16']
+          assert cg['revision_status'] == 'EXACT_FULL_SHA'
+          assert cg['current_revision'] == 'e7583edabd3dd48a9c705974a9456852f1205ab1'
+          assert 'CURRENT_FULL_REVISION_UNRESOLVED_WITHOUT_TERMS_ACCEPTANCE' not in cg['material_flags']
+          assert 'REVISION_DRIFT_SINCE_INITIAL_B005' not in cg['material_flags']
+          assert 'REVISION_IDENTITY_RESOLVED_BY_PUBLIC_METADATA_REFRESH' in cg['material_flags']
+          assert lfm['revision_status'] == 'EXACT_FULL_SHA'
+          assert lfm['current_revision'] == 'c57bdaed1ef166fe3095dda07f4a5e789ad5321e'
+          assert 'FULL_SHA_PIN_REQUIRED' not in lfm['material_flags']
+          assert 'REVISION_DRIFT_SINCE_INITIAL_B005' not in lfm['material_flags']
+          assert 'REVISION_IDENTITY_RESOLVED_FROM_SHORT_SHA' in lfm['material_flags']
+          assert 'REVISION_DRIFT_SINCE_INITIAL_B005' in bitnet['material_flags']
+          assert m['scope']['model_weight_access'] is False
+          assert m['scope']['tokenizer_artifact_download'] is False
+          assert m['scope']['gated_terms_acceptance'] is False
+          assert m['no_weight_access_performed'] is True
+          assert m['no_authority_created'] is True
+          print('B005_PREMERGE_REPAIRED_SEMANTICS=PASS')
+          PY
+          git diff --check "$EXPECTED_MAIN"..."$EXPECTED_HEAD"
+
+      - name: Install candidate tooling
+        working-directory: candidate
+        run: python -m pip install -e '.[dev]'
+
+      - name: Frozen gate - pytest
+        working-directory: candidate
+        run: pytest -q
+
+      - name: Frozen gate - Ruff
+        working-directory: candidate
+        run: ruff check src tests
+
+      - name: Frozen gate - mypy
+        working-directory: candidate
+        run: mypy
+
+      - name: Frozen gate - offline validate
+        working-directory: candidate
+        run: python -m mstr_qualify validate
+
+      - name: Final immutable main and head check
+        working-directory: canonical
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main research/000b-b005-code-backbone-rescan-v2
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/research/000b-b005-code-backbone-rescan-v2)" = "$EXPECTED_HEAD"
+          echo "B005_PREMERGE_MAIN=$EXPECTED_MAIN"
+          echo "B005_PREMERGE_HEAD=$EXPECTED_HEAD"
