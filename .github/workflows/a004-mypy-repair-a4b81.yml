@@ -1,0 +1,78 @@
+name: A004 guarded mypy repair
+
+on:
+  push:
+    branches:
+      - evidence/a004-mypy-repair-a4b81
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_HEAD: a4b81fb8fe147f8ea88e6bf1c654a39e81e187c8
+      TARGET_BRANCH: feat/000a-a004-agent-state
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - name: Checkout guarded target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Verify target head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+
+      - name: Apply minimal mypy repair
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path("src/mstr_qualify/state/agent_state.py")
+          text = path.read_text(encoding="utf-8")
+          old = "    return value\n\n\ndef _record_failure("
+          new = "    return cast(list[Any], value)\n\n\ndef _record_failure("
+          if text.count(old) != 1:
+              raise SystemExit("expected exactly one _required_list return site")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+      - name: Verify mutation scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          test "$(git diff --name-only)" = "src/mstr_qualify/state/agent_state.py"
+          git diff -- src/mstr_qualify/state/agent_state.py
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Verify all frozen gates before commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q
+          ruff check src tests
+          mypy
+          python -m mstr_qualify validate
+
+      - name: Commit and fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/mstr_qualify/state/agent_state.py
+          git commit -m "fix(mstr-000a): satisfy strict mypy gate"
+          git push origin HEAD:"$TARGET_BRANCH"
+          echo "NEW_HEAD=$(git rev-parse HEAD)"
