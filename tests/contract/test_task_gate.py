@@ -416,3 +416,48 @@ def test_real_evaluation_requires_clean_local_canonical_main(tmp_path: Path) -> 
             catalog_path=catalog_path,
         )
     assert dirty_error.value.code == "task_gate.dirty_checkout"
+
+def test_undeclared_not_required_state_cannot_satisfy_predecessor(tmp_path: Path) -> None:
+    catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
+    data = json.loads(catalog_path.read_text(encoding="utf-8"))
+    data["tasks"]["B001"]["canonical_state"] = "NOT_REQUIRED_FAKE"
+    catalog_path.write_text(json.dumps(data), encoding="utf-8")
+
+    result = evaluate_task_eligibility(
+        "B002",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    predecessor = result["prerequisite_results"][0]
+    assert result["eligible"] is False
+    assert predecessor["observed_state"] == "NOT_REQUIRED_FAKE"
+    assert predecessor["satisfied"] is False
+    assert "prerequisite.not_terminal" in predecessor["reasons"]
+    assert "prerequisite.state_checkbox_conflict" in predecessor["reasons"]
+
+def test_declared_not_required_state_can_satisfy_predecessor(tmp_path: Path) -> None:
+    catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
+    data = json.loads(catalog_path.read_text(encoding="utf-8"))
+    data["tasks"]["B001"]["canonical_state"] = "NOT_REQUIRED_FIXTURE"
+    data["tasks"]["B001"]["closeout_rule"] = {
+        "terminal_states": [
+  "COMPLETE_CANONICAL",
+  "NOT_REQUIRED_FIXTURE",
+        ]
+    }
+    catalog_path.write_text(json.dumps(data), encoding="utf-8")
+
+    result = evaluate_task_eligibility(
+        "B002",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    predecessor = result["prerequisite_results"][0]
+    assert result["eligible"] is True
+    assert predecessor["observed_state"] == "NOT_REQUIRED_FIXTURE"
+    assert predecessor["satisfied"] is True
+    assert predecessor["reasons"] == []

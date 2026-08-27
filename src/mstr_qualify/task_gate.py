@@ -309,16 +309,22 @@ def _node_sha256(node: dict[str, Any]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def _terminal_state(state: object) -> bool:
-    return state in _TERMINAL_COMPLETE or (
-        isinstance(state, str) and state.startswith("NOT_REQUIRED")
+def _declared_terminal_state(node: dict[str, Any]) -> bool:
+    state = node["canonical_state"]
+    return state in node["closeout_rule"]["terminal_states"]
+
+
+def _prerequisite_completion_state(node: dict[str, Any]) -> bool:
+    return (
+        _declared_terminal_state(node)
+        and node["canonical_state"] != "SUPERSEDED_CANONICAL"
     )
 
 
-def _checkbox_consistent(state: object, checked: bool | None) -> bool:
+def _checkbox_consistent(node: dict[str, Any], checked: bool | None) -> bool:
     if checked is None:
         return False
-    return checked is _terminal_state(state)
+    return checked is _declared_terminal_state(node)
 
 
 def _path_pattern_present(root: Path, raw: str) -> bool:
@@ -393,9 +399,9 @@ def _prerequisite_result(catalog: TaskCatalog, task_id: str) -> dict[str, Any]:
             "reasons": ["prerequisite.missing_task_binding"],
         }
     state = node["canonical_state"]
-    consistent = _checkbox_consistent(state, catalog.checked.get(task_id))
+    consistent = _checkbox_consistent(node, catalog.checked.get(task_id))
     evidence_present, missing = _required_closeout_paths_present(catalog.repository_root, node)
-    terminal = _terminal_state(state) and state != "SUPERSEDED_CANONICAL"
+    terminal = _prerequisite_completion_state(node)
     reasons: list[str] = []
     if not terminal:
         reasons.append("prerequisite.not_terminal")
@@ -574,15 +580,13 @@ def evaluate_task_eligibility(
     supersession_satisfied = not superseded
     supersession_reasons = [] if supersession_satisfied else ["task.superseded"]
 
-    checkbox_consistent = _checkbox_consistent(
-        node["canonical_state"], catalog.checked.get(task_id)
-    )
+    checkbox_consistent = _checkbox_consistent(node, catalog.checked.get(task_id))
     state_reasons = [] if checkbox_consistent else ["task.state_checkbox_conflict"]
 
     reasons: list[str] = []
     if node["canonical_state"] == "BLOCKED":
         reasons.append("task.blocked")
-    elif _terminal_state(node["canonical_state"]):
+    elif _declared_terminal_state(node):
         reasons.append("task.already_terminal")
     elif node["canonical_state"] != "PENDING" and node["canonical_state"] != "ACTIVE":
         reasons.append("task.state_not_executable")
