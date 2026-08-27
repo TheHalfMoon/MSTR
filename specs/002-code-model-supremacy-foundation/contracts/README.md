@@ -21,6 +21,8 @@ schemas/mstr-task-eligibility-v0.schema.json
 
 `mstr.task-node.v0` freezes task state, prerequisites, outputs/evidence outputs, supersession, closeout rules, external-effect classes, exact-authority requirements, and candidate-pool prerequisites. `mstr.task-eligibility.v0` freezes the structured result consumed by B002 and later automation. It is fail-closed: `eligible=true` requires every represented prerequisite/authority/supersession/state/candidate-pool check to be satisfied and permits no top-level failure reason; `eligible=false` requires at least one reason.
 
+For authority-gated external effects, `required_authority_id` is a foreign-key identity for an **already-canonical authority record/envelope**. The referenced authority—not the TaskNode—owns the exact authorized effect scope and any applicable cost/resource ceilings required by the constitution and canonical task. Task schema validation and B002 eligibility verification never create, widen, or replace that authority. Duplicating mutable scope/cost limits into TaskNode would create a second authority surface and is therefore intentionally avoided.
+
 Remaining planned contracts:
 
 ```text
