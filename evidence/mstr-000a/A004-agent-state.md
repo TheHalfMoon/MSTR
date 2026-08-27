@@ -2,9 +2,13 @@
 
 **Workstream:** MSTR-000A  
 **Task:** A004  
-**State:** IMPLEMENTATION_ACTIVE / NOT_COMPLETE_CANONICAL  
-**Canonical branch base:** `ead69ae26265b133c782ae8fd2795c126253a3b6`  
+**State:** COMPLETE_CANONICAL
+**Canonical branch base:** `ead69ae26265b133c782ae8fd2795c126253a3b6`
 **Branch:** `feat/000a-a004-agent-state`
+**Implementation PR:** `#45`
+**Final implementation head:** `d0098548766232c9fa1a879941978d1735ef9e4a`
+**Canonical merge:** `564096fc9e8ec3e2b0aa9505926e15f66b00ce74`
+**Final exact-head qualification run:** `33067884925`
 
 ## Scope
 
@@ -199,9 +203,9 @@ The current tests are written to check:
 18. edit/tool failure retention;
 19. empty-log rejection.
 
-## Static review reconciliation
+## Final review reconciliation
 
-Qodo exact-head review history to date:
+Qodo review found and closed three material issues during A004 development:
 
 ```text
 FINDING_1 = tool.requested incorrectly populated commands_run
@@ -209,37 +213,64 @@ FINDING_2 = verifier.result lacked source provenance enforcement
 FINDING_3 = compaction_records could grow without bound across repeated compaction
 ```
 
-Findings 1 and 2 were confirmed closed by Qodo on head
-`336ed346d65edb9283c081634938954d834d5860`.
+The final implementation candidate additionally resolved repository quality-gate findings without changing
+A004 semantics:
 
-Finding 3 was then corrected by replacing append-only compaction metadata with the fixed field vocabulary
-and cumulative hash-chain aggregation described above. Regression coverage was added. Because this changed
-the head again, a new exact-head review is required before any static-review-clean claim.
+```text
+RUFF_REMEDIATION = a4b81fb8fe147f8ea88e6bf1c654a39e81e187c8
+STRICT_MYPY_REMEDIATION = d0098548766232c9fa1a879941978d1735ef9e4a
+```
+
+Qodo re-reviewed exact final head `d0098548766232c9fa1a879941978d1735ef9e4a` against the then-canonical
+main and reported no material findings. The final strict-typing cast was confirmed as non-behavioral: it does
+not alter projection semantics, compaction, replay, or event-source authority.
 
 ## Validation truth
 
-The current environment cannot resolve `github.com` for an exact repository checkout. Therefore the
-repository quality gates have **not** been executed on the current feature head.
+A dedicated GitHub-hosted evidence run checked out the exact final implementation SHA itself in detached-head
+mode, verified a clean working tree, installed the repository development tooling, and executed every frozen
+quality gate. Historical or pre-push results were not substituted for this run.
 
 ```text
-A004_TARGETED_TEST = NOT_RUN
-pytest -q = NOT_RUN
-ruff check src tests = NOT_RUN
-mypy = NOT_RUN
-python -m mstr_qualify validate = NOT_RUN
-GITHUB_ACTIONS = NOT_CLAIMED
+FINAL_HEAD = d0098548766232c9fa1a879941978d1735ef9e4a
+FINAL_EXACT_HEAD_RUN = 33067884925
+pytest -q = PASS (404 passed)
+ruff check src tests = PASS
+mypy = PASS (24 source files)
+python -m mstr_qualify validate = PASS
+VALID_FIXTURES_PASSED = 8
+INVALID_FIXTURES_REJECTED = 8
 ```
 
-No source inspection, reviewer statement, or reconstructed test is substituted for a frozen quality gate.
-A004 must remain `NOT_COMPLETE_CANONICAL` and must not merge until exact-head gate evidence exists.
+PR #45 was then marked ready only after the exact-head review and quality gates were clean. Immediately before
+merge, canonical `main`, the PR head, mergeability, and review-thread state were re-read. GitHub merged with an
+`expected_head_sha` guard, and post-merge verification established:
+
+```text
+A004_PR = 45
+A004_FINAL_HEAD = d0098548766232c9fa1a879941978d1735ef9e4a
+A004_MERGE = 564096fc9e8ec3e2b0aa9505926e15f66b00ce74
+POST_MERGE_MAIN = 564096fc9e8ec3e2b0aa9505926e15f66b00ce74
+PR_45_MERGED = YES
+```
 
 ## Canonical boundary
 
 ```text
-A004_IMPLEMENTATION = PRESENT_ON_FEATURE_BRANCH
-A004_STATIC_REVIEW = PENDING_REVIEW_OF_CURRENT_HEAD
-A004_QUALITY_GATES = NOT_RUN
-A004_COMPLETE_CANONICAL = NO
-TASK_CHECKBOX_UPDATED = NO
-A005_AUTHORIZED_BY_THIS_BRANCH = NO
+A004_IMPLEMENTATION = CANONICAL_ON_MAIN
+A004_STATIC_REVIEW = PASS / NO_MATERIAL_FINDINGS_AT_FINAL_HEAD
+A004_QUALITY_GATES = PASS_AT_EXACT_FINAL_HEAD
+A004_COMPLETE_CANONICAL = YES
+TASK_CHECKBOX_UPDATED = YES
+A005_ENTRY_PREREQUISITE_A004 = SATISFIED
+MODEL_WEIGHT_ACCESS = NONE
+MODEL_EXECUTION = NONE
+TOKENIZER_EXECUTION = NONE
+PAID_COMPUTE = NONE
+LARGE_DATASET_INGESTION = NONE
+WEIGHT_CHANGING_TRAINING = NONE
+PRODUCTION_RELEASE = NONE
 ```
+
+This closeout does not itself authorize any external effect. Subsequent task eligibility remains governed by
+the live repository task graph, prerequisites, active-path ownership, and external-effect gates.
