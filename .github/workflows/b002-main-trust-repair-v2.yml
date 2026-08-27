@@ -43,6 +43,31 @@ jobs:
           python /tmp/b002_main_trust_repair.py
           python - <<'PY'
           from pathlib import Path
+
+          contract = Path("tests/contract/test_task_gate.py")
+          text = contract.read_text(encoding="utf-8")
+          newline = chr(10)
+          replacements = (
+              (
+                  'write_text("feature' + newline + '", encoding="utf-8")',
+                  'write_text("feature" + chr(10), encoding="utf-8")',
+              ),
+              (
+                  'handle.write("' + newline + '")',
+                  'handle.write(chr(10))',
+              ),
+              (
+                  'write_text("drift' + newline + '", encoding="utf-8")',
+                  'write_text("drift" + chr(10), encoding="utf-8")',
+              ),
+          )
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"generated regression string mismatch: {old!r}: {count}")
+              text = text.replace(old, new, 1)
+          contract.write_text(text, encoding="utf-8")
+
           for raw in (
               "src/mstr_qualify/cli.py",
               "src/mstr_qualify/task_gate.py",
