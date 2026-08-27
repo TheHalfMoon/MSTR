@@ -38,7 +38,7 @@ The research/training system may use cloud GPU compute when separately authorize
 
 The original MSTR-000 candidate scan was designed before the product mission became explicitly code-specialized. T021 filtered out many specialized variants while seeking compact permissive foundations. That heuristic is no longer sufficient: a code-specialized base can now be the preferred foundation if it satisfies rights, trainability, quantization, and universal-laptop evidence.
 
-A concrete example is `JetBrains/Mellum-4b-base`: Apache-2.0, 4B, 8K, code-optimized, trained on more than four trillion tokens and designed for local/developer-tool use. It is not preselected as a winner, but its omission proves that the old search policy is no longer product-aligned.
+A concrete example is `JetBrains/Mellum-4b-base`: it is not preselected as a winner, but its omission proves that the old search policy is no longer product-aligned. Exact current upstream facts and rights must be revalidated by B005/B006 rather than copied from this planning document.
 
 The amendment also addresses a live governance finding: model-independent MSTR-000A work began before the old `T034_COMPLETE_CANONICAL` entry declaration. Rather than conceal the drift, the program will machine-enforce dependencies and distinguish early-safe infrastructure from candidate-dependent convergence tasks.
 
@@ -89,7 +89,7 @@ Model-independent tasks may proceed before T034 where they do not consume unqual
 The following remain blocked until exact prerequisites are satisfied:
 
 - new candidate weight access requires a separate exact acquisition authority if the frozen T027/T028 envelope does not cover it;
-- Q4/runtime qualification of new candidates requires verified acquisition;
+- every newly relevant qualification candidate requires equivalent Q4/runtime/raw evidence whether or not new artifact acquisition is necessary;
 - headline cross-harness tournament requires a stable comparable candidate pool;
 - final backbone/finalist selection requires equivalent evidence cells;
 - any weight-changing training requires the later explicit founder training gate.
@@ -97,29 +97,26 @@ The following remain blocked until exact prerequisites are satisfied:
 ## Corrected Pre-Training Convergence
 
 ```text
-MSTR-000 local qualification (T030-T034)
-          ┐
-          ├── parallel where independent
-MSTR-000A contracts/replay/env/verifier/trajectory foundation (A001-A018)
-          ┐
-          ├── parallel where independent
-MSTR-000B governance + mission-aligned rescan + data/training-signal contracts
-          │
-          v
-STABLE PRODUCT-ALIGNED CANDIDATE POOL
-          +
-QUALIFIED LOOP / VERIFIER / TRAJECTORY CONTRACTS
-          +
-DATA / CURRICULUM / VERIFIER-HEALTH CONTRACTS
-          │
-          v
-CROSS-HARNESS + DIRECTION-TO-DONE TOURNAMENT
-          │
-          v
-TRAINING RECIPE / DATA PREFLIGHT
-          │
-          v
-SEPARATE EXPLICIT WEIGHT-CHANGING TRAINING GATE
++--------------------------+   +--------------------------+   +--------------------------+
+| MSTR-000                 |   | MSTR-000A EARLY_SAFE    |   | MSTR-000B EARLY_SAFE    |
+| T030-T034 local/Q4       |   | A001-A018 loop/harness  |   | governance + rescan +   |
+| candidate qualification  |   | env/verifier/trajectory |   | data/training contracts |
++------------+-------------+   +------------+-------------+   +------------+-------------+
+             |                              |                              |
+             +------------------------------+------------------------------+
+                                            |
+                                            v
+                         STABLE PRODUCT-ALIGNED CANDIDATE POOL
+                         + QUALIFIED LOOP/VERIFIER/DATA CONTRACTS
+                                            |
+                                            v
+                         CROSS-HARNESS + DIRECTION-TO-DONE CONVERGENCE
+                                            |
+                                            v
+                              TRAINING RECIPE / DATA PREFLIGHT
+                                            |
+                                            v
+                         SEPARATE EXPLICIT WEIGHT-CHANGING TRAINING GATE
 ```
 
 No stale task graph may authorize a bypass.
@@ -207,13 +204,14 @@ MSTR should generate part of its own curriculum under a fail-closed verifier pip
 
 ```text
 student proposes tasks/solutions/tests
+-> bind seed + per-artifact provenance and rights
 -> sandbox executes
--> verifier validates
--> provenance/contamination checks
+-> independent verifier + verifier-health validates
+-> contamination/difficulty checks
 -> only clean verified examples become positive training candidates
 ```
 
-Self-generated data is preferred where it matches the student's own distribution. Stronger teacher models may rescue frontier tasks only when output rights are compatible and independent execution/verifier evidence proves the result. Teacher output is never truth merely because the teacher is larger.
+Self-generated data is preferred where it matches the student's own distribution. Stronger teacher models may rescue frontier tasks only when concrete-output rights are compatible and independent execution/verifier evidence proves the result. Teacher output is never truth merely because the teacher is larger.
 
 ## Pillar 6 — Student-Frontier Curriculum
 
@@ -247,6 +245,7 @@ The product default remains one model plus deterministic verifiers, not three se
 
 Test-generation curriculum includes:
 
+- per-example provenance, rights and contamination evidence;
 - reproduce-before-fix;
 - targeted regression tests;
 - boundary/error-path tests;
@@ -300,7 +299,7 @@ L0 CONTRACT/SMOKE
 -> L4 Q4 UNIVERSAL-LAPTOP REGRESSION
 ```
 
-Only promising experiments advance. Failed/crashed/invalid experiments remain in the ledger.
+Only promising experiments advance. Failed/crashed/invalid experiments remain in the ledger. Every material result carries the exact `MaterialResultIdentity`; missing identity invalidates promotion.
 
 The mutable experimental surface may include data mix, FIM ratios, state compaction, context policy, verifier cadence, adapter method/rank, curriculum thresholds, and quantization recipe. Hidden tasks, evaluator authority, product constraints, contamination rules, and rights are frozen per campaign.
 
@@ -347,25 +346,29 @@ The 8K product should prefer compact `AgentState` + recent relevant evidence + m
 
 ## Pillar 13 — Q4 Is the Product
 
-Quantized behavior is evaluated after every material training stage.
+Quantized behavior is evaluated after every material weight-changing stage and promotion is fail closed.
 
 ```text
-checkpoint/master
--> export
--> canonical Q4
+source checkpoint
+-> merged master
+-> verify merged-master SHA-256
+-> export with pinned export tool + exact revision + recipe hash
+-> canonical Q4 with pinned quantizer + exact revision + recipe hash
+-> verify canonical-Q4 SHA-256
 -> raw coding/FIM
 -> tool/edit/recovery
 -> Direction-to-Done
--> 8GB/CPU regression
+-> 8GB/CPU regression where required
+-> Q4PromotionRecord = PROMOTED | REJECTED
 ```
 
-A BF16 improvement that disappears or regresses badly at the release quantization is not accepted as a product improvement.
+A checkpoint may become the parent of another material weight-changing stage **only** when its `Q4PromotionRecord` is `PROMOTED`. Missing hashes, ambiguous tool/recipe identity, failed artifact integrity, failed Q4 regression, or a failed universal-laptop gate rejects promotion. A BF16/FP16/master-only improvement is not an accepted product improvement and cannot silently seed the next material stage.
 
 ## Pillar 14 — Training Method Tournament
 
 Framework convenience does not choose the training method.
 
-For compact finalists, a bounded equivalent method tournament SHOULD include, where technically supported:
+For compact finalists, a bounded equivalent method tournament **MUST include every technically supported arm** from:
 
 ```text
 16-bit LoRA
@@ -374,7 +377,7 @@ For compact finalists, a bounded equivalent method tournament SHOULD include, wh
 4-bit QLoRA + rsLoRA
 ```
 
-Full fine-tuning is not default and requires separate evidence/authority. Method selection is based on DVCR, TTVC, direct coding/FIM, Q4 regression, stability, cost, and reproducibility.
+Every unsupported arm must record the exact backbone/framework compatibility reason and evidence identity. Full fine-tuning is not default and requires separate evidence/authority. Method selection is based on DVCR, TTVC, direct coding/FIM, Q4 regression, stability, cost, and reproducibility.
 
 Unsloth is a preferred implementation candidate for Colab-accessible experiments, not an architectural lock-in.
 
@@ -447,8 +450,8 @@ CURRICULUM_DIFFICULTY_CONTRACT = FROZEN
 VERIFIER_HEALTH_CONTRACT = FROZEN
 TEST_GENERATION_CURRICULUM = FROZEN
 MULTI_FIDELITY_RESEARCH_LADDER = FROZEN
-Q4_REGRESSION_PROTOCOL = FROZEN
-TRAINING_METHOD_TOURNAMENT = PREFLIGHTED
+Q4_PROMOTION_CONTRACT = FROZEN_FAIL_CLOSED
+TRAINING_METHOD_TOURNAMENT = PREFLIGHTED_WITH_ALL_SUPPORTED_ARMS_OR_EXACT_OMISSION_REASONS
 EXPLICIT_FOUNDER_WEIGHT_CHANGE_AUTHORITY = PRESENT
 ```
 
