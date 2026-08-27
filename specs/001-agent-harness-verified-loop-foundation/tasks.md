@@ -12,7 +12,7 @@ FOUNDER_MAC_LARGE_ARTIFACTS = ZERO
 
 ## Sequence Amendment
 
-The original blanket `ENTRY_GATE = T034_COMPLETE_CANONICAL` is superseded because model-independent MSTR-000A infrastructure can safely advance before candidate convergence and live history already contains canonical A001/A002 work.
+The original blanket `ENTRY_GATE = T034_COMPLETE_CANONICAL` is superseded because model-independent MSTR-000A infrastructure can safely advance before candidate convergence and live history already contains canonical A001/A002/A003 work.
 
 ```text
 EARLY_SAFE = A001-A018 when each exact prerequisite is satisfied and no unqualified candidate result is consumed
@@ -31,9 +31,10 @@ T029–T034 in MSTR-000 remain active according to their own canonical state and
   Outputs: `schemas/mstr-run-event-v0.schema.json`, event fixtures, serialization tests, `evidence/mstr-000a/A002-event-contract.md`.  
   Canonical implementation: PR #37 / merge `5693749dd560979496efad488789ec35b2c2a84d`.
 
-- [ ] **A003 Implement append-oriented event log + monotonic sequence validation + deterministic replay.**  
+- [x] **A003 Implement append-oriented event log + monotonic sequence validation + deterministic replay.**  
   Must prove model-visible history reconstruction from events.  
-  Outputs: implementation under `src/mstr_qualify/`, unit/contract tests, `evidence/mstr-000a/A003-event-log-replay.md`.
+  Outputs: implementation under `src/mstr_qualify/`, unit/contract tests, `evidence/mstr-000a/A003-event-log-replay.md`.  
+  Canonical implementation: PR #38 / head `41122ae8dee65b2a6b3c6b188cf335d74088b06f` / merge `2c02eb68a32264c86f69eb7ffc1c99ad87328376`.
 
 - [ ] **A004 Implement `AgentState` projection and bounded compaction.**  
   Must preserve uncertainty, verifier failures, changed files, known failures, and remaining work.  
