@@ -7,6 +7,8 @@
   "required": [
     "schema_version",
     "task_id",
+    "task_node_schema_version",
+    "task_node_sha256",
     "canonical_main",
     "eligible",
     "prerequisite_results",
@@ -14,11 +16,14 @@
     "supersession_result",
     "state_consistency_result",
     "candidate_pool_result",
+    "semantic_checks",
     "reasons"
   ],
   "properties": {
     "schema_version": {"const": "mstr.task-eligibility.v0"},
     "task_id": {"type": "string", "minLength": 1},
+    "task_node_schema_version": {"const": "mstr.task-node.v0"},
+    "task_node_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "canonical_main": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "eligible": {"type": "boolean"},
     "prerequisite_results": {"type": "array", "items": {"$ref": "#/$defs/prerequisiteResult"}},
@@ -26,6 +31,7 @@
     "supersession_result": {"$ref": "#/$defs/supersessionResult"},
     "state_consistency_result": {"$ref": "#/$defs/stateConsistencyResult"},
     "candidate_pool_result": {"$ref": "#/$defs/candidatePoolResult"},
+    "semantic_checks": {"$ref": "#/$defs/semanticChecks"},
     "reasons": {"type": "array", "items": {"type": "string", "minLength": 1}}
   },
   "$defs": {
@@ -104,6 +110,28 @@
           "then": {"properties": {"requirement_id": {"type": "string", "minLength": 1}}}
         }
       ]
+    },
+    "semanticChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_node_binding_verified",
+        "prerequisite_set_complete",
+        "prerequisite_states_satisfied",
+        "authority_requirement_complete",
+        "candidate_pool_requirement_complete",
+        "supersession_check_complete",
+        "state_consistency_check_complete"
+      ],
+      "properties": {
+        "task_node_binding_verified": {"type": "boolean"},
+        "prerequisite_set_complete": {"type": "boolean"},
+        "prerequisite_states_satisfied": {"type": "boolean"},
+        "authority_requirement_complete": {"type": "boolean"},
+        "candidate_pool_requirement_complete": {"type": "boolean"},
+        "supersession_check_complete": {"type": "boolean"},
+        "state_consistency_check_complete": {"type": "boolean"}
+      }
     }
   },
   "allOf": [
@@ -166,6 +194,17 @@
                 "then": {"properties": {"observed_pool_id": {"type": "string", "minLength": 1}}}
               }
             ]
+          },
+          "semantic_checks": {
+            "properties": {
+              "task_node_binding_verified": {"const": true},
+              "prerequisite_set_complete": {"const": true},
+              "prerequisite_states_satisfied": {"const": true},
+              "authority_requirement_complete": {"const": true},
+              "candidate_pool_requirement_complete": {"const": true},
+              "supersession_check_complete": {"const": true},
+              "state_consistency_check_complete": {"const": true}
+            }
           }
         }
       },
