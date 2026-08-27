@@ -386,82 +386,81 @@ def test_unsafe_candidate_pool_id_cannot_traverse_decision_directory(tmp_path: P
     assert "candidate_pool.canonical_decision_missing_or_invalid" in result["reasons"]
 
 
-\
-    def test_real_evaluation_requires_verified_main_refs(tmp_path: Path) -> None:
-        catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
-        _git(tmp_path, "init", "-b", "main")
-        _git(tmp_path, "config", "user.name", "B002 Test")
-        _git(tmp_path, "config", "user.email", "b002@example.invalid")
-        _git(tmp_path, "add", ".")
-        _git(tmp_path, "commit", "-m", "fixture main")
-        head = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=tmp_path,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-        _git(tmp_path, "update-ref", "refs/remotes/origin/main", head)
+def test_real_evaluation_requires_verified_main_refs(tmp_path: Path) -> None:
+    catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
+    _git(tmp_path, "init", "-b", "main")
+    _git(tmp_path, "config", "user.name", "B002 Test")
+    _git(tmp_path, "config", "user.email", "b002@example.invalid")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-m", "fixture main")
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    _git(tmp_path, "update-ref", "refs/remotes/origin/main", head)
 
-        result = evaluate_task_eligibility(
+    result = evaluate_task_eligibility(
+        "B002",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+    )
+    assert result["eligible"] is True
+    assert result["canonical_main"] == head
+
+    _git(tmp_path, "switch", "-c", "feature")
+    (tmp_path / "feature.txt").write_text("feature" + chr(10), encoding="utf-8")
+    _git(tmp_path, "add", "feature.txt")
+    _git(tmp_path, "commit", "-m", "feature commit")
+    with pytest.raises(QualificationError) as feature:
+        evaluate_task_eligibility(
             "B002",
             repository_root=tmp_path,
             catalog_path=catalog_path,
         )
-        assert result["eligible"] is True
-        assert result["canonical_main"] == head
+    assert feature.value.code == "task_gate.not_canonical_main"
 
-        _git(tmp_path, "switch", "-c", "feature")
-        (tmp_path / "feature.txt").write_text("feature" + chr(10), encoding="utf-8")
-        _git(tmp_path, "add", "feature.txt")
-        _git(tmp_path, "commit", "-m", "feature commit")
-        with pytest.raises(QualificationError) as feature:
-            evaluate_task_eligibility(
-                "B002",
-                repository_root=tmp_path,
-                catalog_path=catalog_path,
-            )
-        assert feature.value.code == "task_gate.not_canonical_main"
-
-        _git(tmp_path, "switch", "main")
-        with catalog_path.open("a", encoding="utf-8") as handle:
-            handle.write(chr(10))
-        with pytest.raises(QualificationError) as dirty:
-            evaluate_task_eligibility(
-                "B002",
-                repository_root=tmp_path,
-                catalog_path=catalog_path,
-            )
-        assert dirty.value.code == "task_gate.dirty_checkout"
+    _git(tmp_path, "switch", "main")
+    with catalog_path.open("a", encoding="utf-8") as handle:
+        handle.write(chr(10))
+    with pytest.raises(QualificationError) as dirty:
+        evaluate_task_eligibility(
+            "B002",
+            repository_root=tmp_path,
+            catalog_path=catalog_path,
+        )
+    assert dirty.value.code == "task_gate.dirty_checkout"
 
 
-    def test_real_evaluation_rejects_main_tracking_ref_drift(tmp_path: Path) -> None:
-        catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
-        _git(tmp_path, "init", "-b", "main")
-        _git(tmp_path, "config", "user.name", "B002 Test")
-        _git(tmp_path, "config", "user.email", "b002@example.invalid")
-        _git(tmp_path, "add", ".")
-        _git(tmp_path, "commit", "-m", "fixture main")
-        first_head = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=tmp_path,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-        _git(tmp_path, "update-ref", "refs/remotes/origin/main", first_head)
+def test_real_evaluation_rejects_main_tracking_ref_drift(tmp_path: Path) -> None:
+    catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
+    _git(tmp_path, "init", "-b", "main")
+    _git(tmp_path, "config", "user.name", "B002 Test")
+    _git(tmp_path, "config", "user.email", "b002@example.invalid")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-m", "fixture main")
+    first_head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    _git(tmp_path, "update-ref", "refs/remotes/origin/main", first_head)
 
-        (tmp_path / "main-drift.txt").write_text("drift" + chr(10), encoding="utf-8")
-        _git(tmp_path, "add", "main-drift.txt")
-        _git(tmp_path, "commit", "-m", "local main drift")
+    (tmp_path / "main-drift.txt").write_text("drift" + chr(10), encoding="utf-8")
+    _git(tmp_path, "add", "main-drift.txt")
+    _git(tmp_path, "commit", "-m", "local main drift")
 
-        with pytest.raises(QualificationError) as drift:
-            evaluate_task_eligibility(
-                "B002",
-                repository_root=tmp_path,
-                catalog_path=catalog_path,
-            )
-        assert drift.value.code == "task_gate.main_ref_mismatch"
+    with pytest.raises(QualificationError) as drift:
+        evaluate_task_eligibility(
+            "B002",
+            repository_root=tmp_path,
+            catalog_path=catalog_path,
+        )
+    assert drift.value.code == "task_gate.main_ref_mismatch"
 
 def test_undeclared_not_required_state_cannot_satisfy_predecessor(tmp_path: Path) -> None:
     catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
@@ -656,7 +655,7 @@ def test_authority_ceiling_requires_model_units_and_nonnegative_limits(tmp_path:
             canonical_main=_CANONICAL_MAIN,
         )
         assert result["eligible"] is False
-        assert result["authority_result"]["satisfied"] is False\
+        assert result["authority_result"]["satisfied"] is False
 
 
 def test_tasks_file_symlink_outside_repository_is_rejected(tmp_path: Path) -> None:
