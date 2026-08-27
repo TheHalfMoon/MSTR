@@ -6,6 +6,7 @@ Command families implemented by this task:
 mstr-qualify validate [paths...]
 mstr-qualify rights <candidate-config>
 mstr-qualify candidate static <candidate-config>
+mstr-qualify task eligible <TASK_ID>
 mstr-qualify manifest validate <manifest> [--kind {candidate,task,benchmark}]
 ```
 
@@ -47,6 +48,7 @@ from .schemas import (
     load_schema,
     validation_errors,
 )
+from .task_gate import evaluate_task_eligibility
 
 _EXIT_OK = 0
 _EXIT_FAIL_CLOSED = 1
@@ -471,6 +473,19 @@ def run_manifest_validate(path: Path, kind: str | None) -> tuple[int, dict[str, 
 
 
 # ---------------------------------------------------------------------------
+# task eligibility
+# ---------------------------------------------------------------------------
+
+
+def run_task_eligible(task_id: str) -> tuple[int, dict[str, Any]]:
+    """Evaluate one canonical task without mutating repository state."""
+
+    result = evaluate_task_eligibility(task_id)
+    exit_code = _EXIT_OK if result["eligible"] else _EXIT_FAIL_CLOSED
+    return exit_code, result
+
+
+# ---------------------------------------------------------------------------
 # parser and dispatch
 # ---------------------------------------------------------------------------
 
@@ -513,6 +528,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     static_parser.add_argument("candidate_config", type=Path)
 
+    task_parser = subparsers.add_parser(
+        "task",
+        help="offline canonical task-gate checks",
+    )
+    task_subparsers = task_parser.add_subparsers(dest="task_command", required=True)
+    task_eligible_parser = task_subparsers.add_parser(
+        "eligible",
+        help="evaluate one task against canonical repository-local state",
+    )
+    task_eligible_parser.add_argument("task_id")
+
     manifest_parser = subparsers.add_parser(
         "manifest",
         help="manifest subcommands (validate only in T010)",
@@ -544,6 +570,14 @@ def _dispatch(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
             "unknown candidate subcommand",
             code="cli.subcommand_unknown",
             details={"subcommand": str(args.candidate_command)},
+        )
+    if args.command == "task":
+        if args.task_command == "eligible":
+            return run_task_eligible(args.task_id)
+        raise QualificationError(
+            "unknown task subcommand",
+            code="cli.subcommand_unknown",
+            details={"subcommand": str(args.task_command)},
         )
     if args.command == "manifest":
         if args.manifest_command == "validate":

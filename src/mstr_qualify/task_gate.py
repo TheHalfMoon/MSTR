@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from .errors import QualificationError
-from .schemas import validation_errors, validate_instance
+from .schemas import validate_instance, validation_errors
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_TASK_CATALOG = _REPOSITORY_ROOT / "configs" / "task-gate" / "mstr-000b.json"
@@ -156,9 +156,15 @@ def load_task_catalog(
     tasks = raw.get("tasks")
     unresolved = raw.get("unresolved_bindings", {})
     if not isinstance(workstream_id, str) or not workstream_id:
-        raise QualificationError("catalog workstream_id is invalid", code="task_gate.catalog_workstream")
+        raise QualificationError(
+            "catalog workstream_id is invalid",
+            code="task_gate.catalog_workstream",
+        )
     if not isinstance(tasks_file_raw, str) or not tasks_file_raw:
-        raise QualificationError("catalog tasks_file is invalid", code="task_gate.catalog_tasks_file")
+        raise QualificationError(
+            "catalog tasks_file is invalid",
+            code="task_gate.catalog_tasks_file",
+        )
     if not isinstance(defaults, dict) or not isinstance(tasks, dict):
         raise QualificationError(
             "catalog defaults/tasks must be objects",
