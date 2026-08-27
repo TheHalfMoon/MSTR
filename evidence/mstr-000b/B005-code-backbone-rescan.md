@@ -126,11 +126,12 @@ Sources:
 
 CodeGemma 2B is directly mission-aligned: a pre-trained code model built on Gemma and further trained primarily on code/math/synthetic data for code completion/FIM-style tasks.
 
-However, the public Hugging Face page requires login and acceptance of Gemma conditions. B005 did **not** accept those terms. Consequently the current full main revision remains intentionally unresolved in the discovery manifest rather than being guessed from another ref.
+At the initial scan, the public Hugging Face page required login and acceptance of Gemma conditions, so B005 did **not** accept those terms and left the full revision unresolved. The canonical refresh below later resolved the exact repository SHA from the public metadata API without accepting terms; the access gate itself remains unchanged.
 
 ```text
 ACCESS_GATE = CLICKTHROUGH_AND_LOGIN_REQUIRED
-CURRENT_FULL_REVISION = UNRESOLVED_WITHOUT_TERMS_ACCEPTANCE
+INITIAL_SCAN_FULL_REVISION = UNRESOLVED_WITHOUT_TERMS_ACCEPTANCE
+REFRESHED_PUBLIC_METADATA_REVISION = e7583edabd3dd48a9c705974a9456852f1205ab1
 ```
 
 This is a B006 rights/accountless-release issue, not authority to cross the gate.
@@ -170,7 +171,7 @@ Sources:
 
 Public metadata identifies a pre-trained, text-only 2.69B base checkpoint for fine-tuning, designed for on-device use with a 131,072-token context. This makes it relevant to the universal-laptop search even though it is not code-specialized.
 
-The public tree exposed the current short revision `c57bdae`, but B005 did not obtain a trustworthy full SHA from the metadata surface used here. The manifest therefore records `SHORT_SHA_ONLY`; B006 must pin an exact immutable full revision before any serious classification or later access envelope.
+The initial scan exposed only the short revision `c57bdae`. The canonical refresh below later resolved that same commit identity to full SHA `c57bdaed1ef166fe3095dda07f4a5e789ad5321e` through public metadata. This is identity resolution, not upstream revision drift.
 
 The `lfm1.0` license is nonstandard and requires an exact B006 rights decision.
 
@@ -204,7 +205,7 @@ B006 must create/reconcile candidate records and classify every newly relevant m
 2. perform exact rights decisions for StarCoder2, Stable Code, CodeGemma, Falcon-H1 and LFM2.5;
 3. resolve the Qwen3.5 clean-foundation provenance ambiguity;
 4. reconcile Yi-Coder parameter/provenance metadata;
-5. pin a full immutable LFM2.5 revision before any later serious admission/access decision;
+5. preserve the full immutable LFM2.5 revision resolved by the canonical refresh and keep its nonstandard-license review fail-closed;
 6. preserve CodeGemma's gated state without accepting terms absent explicit authority;
 7. keep BitNet's 4K context mismatch visible unless later evidence proves an acceptable path.
 
@@ -259,11 +260,11 @@ These rows are discovery references only and are intentionally **not** added to 
 
 ### Existing-row exact-revision revalidation
 
-The refresh re-queried current public metadata for every pre-existing B005 discovery row. When upstream `main` changed, the manifest updates to the exact new SHA and adds `REVISION_DRIFT_SINCE_INITIAL_B005` rather than hiding the drift.
+The refresh re-queried current public metadata for every pre-existing B005 discovery row. It distinguishes actual upstream `main` movement from identity resolution when the initial scan had only an unresolved or short SHA.
 
-- `google/codegemma-2b`: `UNRESOLVED` -> `e7583edabd3dd48a9c705974a9456852f1205ab1`; public metadata license tag `gemma`; gated `manual`.
-- `microsoft/bitnet-b1.58-2B-4T-bf16`: `9e5d75862231a20855f2fecdee031f9c2e961864` -> `276681394656abdadb8e80e5b2c3db5e5d7fcaff`; public metadata license tag `mit`; gated `false`.
-- `LiquidAI/LFM2.5-2.6B-Base`: `c57bdae` -> `c57bdaed1ef166fe3095dda07f4a5e789ad5321e`; public metadata license tag `other`; gated `false`.
+- `google/codegemma-2b`: identity resolved from `UNRESOLVED` to `e7583edabd3dd48a9c705974a9456852f1205ab1` via public metadata; license tag `gemma`; gated `manual`; no terms accepted. This is not evidence of upstream revision drift.
+- `microsoft/bitnet-b1.58-2B-4T-bf16`: actual upstream revision drift `9e5d75862231a20855f2fecdee031f9c2e961864` -> `276681394656abdadb8e80e5b2c3db5e5d7fcaff`; public metadata license tag `mit`; gated `false`.
+- `LiquidAI/LFM2.5-2.6B-Base`: short SHA `c57bdae` resolved to the same commit identity `c57bdaed1ef166fe3095dda07f4a5e789ad5321e`; public metadata license tag `other`; gated `false`. This is not upstream revision drift.
 
 The refreshed canonical-input binding pins the exact current Git blob SHA for every repository input consumed by B005. Any later drift before merge invalidates the branch and requires re-evaluation.
 
