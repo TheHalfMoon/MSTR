@@ -1,0 +1,146 @@
+name: Build guarded B003 drift detector
+
+on:
+  push:
+    branches:
+      - evidence/b003-build-0754d55
+
+permissions:
+  contents: write
+
+jobs:
+  build-b003:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 0754d552752c2f6c099df2b480de99028e2e26e5
+      TARGET_BRANCH: feat/000b-b003-drift-detector
+      BUILDER_BRANCH: evidence/b003-build-0754d55
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - name: Checkout guarded B003 branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Verify exact B003 entry state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH" "$BUILDER_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+
+      - name: Materialize bounded B003 implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p src/mstr_qualify tests/unit tests/integration tests/fixtures evidence/mstr-000b
+          git show "refs/remotes/origin/$BUILDER_BRANCH:tools/evidence/b003_task_drift.py" > src/mstr_qualify/task_drift.py
+          git show "refs/remotes/origin/$BUILDER_BRANCH:tools/evidence/b003_test_task_drift.py" > tests/unit/test_task_drift.py
+          git show "refs/remotes/origin/$BUILDER_BRANCH:tools/evidence/b003_test_task_drift_cli.py" > tests/integration/test_task_drift_cli.py
+          git show "refs/remotes/origin/$BUILDER_BRANCH:tools/evidence/b003_task_drift_cases.json" > tests/fixtures/task_drift_cases.json
+          git show "refs/remotes/origin/$BUILDER_BRANCH:tools/evidence/B003-drift-detector.md" > evidence/mstr-000b/B003-drift-detector.md
+          git show "refs/remotes/origin/$BUILDER_BRANCH:tools/evidence/b003_apply.py" > /tmp/b003_apply.py
+          python /tmp/b003_apply.py
+
+      - name: Verify exact B003 scope and syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          python -m py_compile \
+            src/mstr_qualify/task_drift.py \
+            src/mstr_qualify/cli.py \
+            tests/unit/test_task_drift.py \
+            tests/integration/test_task_drift_cli.py
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          changed = set(subprocess.run(
+              ['git', 'diff', '--name-only'], check=True, capture_output=True, text=True
+          ).stdout.splitlines())
+          expected = {
+              'evidence/mstr-000b/B003-drift-detector.md',
+              'src/mstr_qualify/cli.py',
+              'src/mstr_qualify/task_drift.py',
+              'tests/fixtures/task_drift_cases.json',
+              'tests/integration/test_task_drift_cli.py',
+              'tests/unit/test_task_drift.py',
+          }
+          assert changed == expected, (changed, expected)
+          fixture = json.loads(Path('tests/fixtures/task_drift_cases.json').read_text(encoding='utf-8'))
+          assert len(fixture['cases']) == 6
+          evidence = Path('evidence/mstr-000b/B003-drift-detector.md').read_text(encoding='utf-8')
+          assert '**State:** IMPLEMENTATION_ACTIVE' in evidence
+          assert 'ENTRY_GATE_TASK = B003' in evidence
+          assert 'ENTRY_GATE_CANONICAL_MAIN = 0754d552752c2f6c099df2b480de99028e2e26e5' in evidence
+          assert 'ENTRY_GATE_ELIGIBLE = true' in evidence
+          catalog = json.loads(Path('configs/task-gate/mstr-000b.json').read_text(encoding='utf-8'))
+          assert catalog['tasks']['B003']['canonical_state'] == 'PENDING'
+          tasks = Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text(encoding='utf-8')
+          assert '- [ ] **B003 Implement canonical drift detector.**' in tasks
+          PY
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Run targeted B003 tests
+        run: pytest -q tests/unit/test_task_drift.py tests/integration/test_task_drift_cli.py
+
+      - name: Prove detector sees current canonical main as clean
+        shell: bash
+        run: |
+          set -euo pipefail
+          git worktree add --detach /tmp/b003-canonical-main "$EXPECTED_MAIN"
+          python - <<'PY'
+          from pathlib import Path
+          from mstr_qualify.task_drift import detect_canonical_drift
+          report = detect_canonical_drift(repository_root=Path('/tmp/b003-canonical-main'))
+          assert report['canonical_main'] == '0754d552752c2f6c099df2b480de99028e2e26e5', report
+          assert report['status'] == 'clean', report
+          assert report['findings'] == [], report
+          assert report['tasks_checked'] == 34, report
+          print('CURRENT_CANONICAL_DRIFT_STATUS=clean')
+          PY
+
+      - name: Frozen gate - pytest
+        run: pytest -q
+
+      - name: Frozen gate - Ruff
+        run: ruff check src tests
+
+      - name: Frozen gate - mypy
+        run: mypy
+
+      - name: Frozen gate - offline validate
+        run: python -m mstr_qualify validate
+
+      - name: Guarded commit and fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            evidence/mstr-000b/B003-drift-detector.md \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/task_drift.py \
+            tests/fixtures/task_drift_cases.json \
+            tests/integration/test_task_drift_cli.py \
+            tests/unit/test_task_drift.py
+          test -z "$(git diff --name-only)"
+          git commit -m "feat(mstr-000b): implement B003 drift detector"
+          git push origin HEAD:"$TARGET_BRANCH"
+          echo "B003_IMPLEMENTATION_HEAD=$(git rev-parse HEAD)"
