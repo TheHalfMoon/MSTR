@@ -81,7 +81,7 @@
   "global_findings": [
     "llama.cpp pinned source contains explicit or family conversion/runtime paths for Mellum, StarCoder2, StableLM/Stable Code, Falcon-H1, LFM2, BitNet, Granite, Mistral3, Qwen, Gemma, and SmolLM3-related runtime support; these are source-presence findings only.",
     "Unsloth pinned source contains direct family code/evidence for Falcon-H1, Granite, LFM2, and Qwen3.5-era paths, but source presence is not exact-candidate training qualification.",
-    "PEFT pinned main explicitly documents silent partial target-module skip risk on hybrid architectures; B009 therefore requires exact module-coverage auditing for hybrid candidates before adapter training.",
+    "PEFT pinned main explicitly documents silent partial target-module skip risk on hybrid architectures; B009 therefore requires exact module-coverage auditing for Falcon-H1/LFM2-style hybrid candidates and explicit component-scope auditing for mixed-component Ministral training.",
     "TRL is treated as a generic trainer layer only when the underlying Transformers/model path is valid; B009 does not infer candidate-specific trainability from TRL presence.",
     "No GGUF conversion, quantization, tokenizer export, adapter training, or model inference was executed."
   ],
@@ -163,18 +163,17 @@
       "repo_id": "ibm-granite/granite-4.1-3b-base",
       "revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
       "source_class": "EXISTING_T022",
-      "architecture_family": "granite_hybrid_family",
-      "transformers": "SOURCE_REGISTERED_FAMILY_NOT_EXECUTED",
+      "architecture_family": "granite_dense_decoder",
+      "transformers": "SOURCE_REGISTERED_NATIVE_GRANITEFORCAUSALLM_NOT_EXECUTED",
       "unsloth": "SOURCE_EVIDENCE_PRESENT_FOR_GRANITE_FAMILY_NOT_EXACT_MODEL_EXECUTED",
-      "peft": "HYBRID_TARGET_MODULE_AUDIT_REQUIRED",
-      "trl": "GENERIC_TRAINER_COMPATIBILITY_NOT_MODEL_EXECUTED",
+      "peft": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
+      "trl": "GENERIC_CAUSAL_LM_PATH_NOT_MODEL_EXECUTED",
       "llama_cpp": "GRANITE_CONVERTER_SOURCE_PRESENT_NOT_EXECUTED",
       "hazards": [
-        "CONTEXT_EXTENSION_CLAIM_SEPARATE_FROM_TRAINED_SEQUENCE",
-        "HYBRID_ADAPTER_TARGET_MODULE_SILENT_SKIP_RISK"
+        "CONTEXT_EXTENSION_CLAIM_SEPARATE_FROM_TRAINED_SEQUENCE"
       ],
       "restrictions": [
-        "Enumerate actual trainable module names before PEFT use.",
+        "Pinned public config identifies GraniteForCausalLM/model_type=granite and the model card describes a dense decoder-only transformer; do not apply hybrid-module warnings to this 3B checkpoint.",
         "Do not infer exact 4.1-3B Unsloth support from family-level files alone."
       ]
     },
