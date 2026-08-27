@@ -255,7 +255,7 @@ def _required_list(builder: _Builder, name: str) -> list[Any]:
     value = getattr(builder, name)
     if value is None:
         raise AssertionError(f"internal builder list {name} was not initialized")
-    return value
+    return cast(list[Any], value)
 
 
 def _record_failure(
