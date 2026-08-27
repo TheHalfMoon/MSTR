@@ -1,0 +1,71 @@
+name: B002 final exact-head qualification
+
+on:
+  push:
+    branches:
+      - evidence/b002-6aa4647-final-gates
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    env:
+      TARGET_SHA: 6aa46472d5913765aebeadc0f1b5a6524ba39a6c
+      EXPECTED_MAIN: 856a7993f64a7f17ead6f6c019c5668724444ed4
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - name: Checkout exact B002 head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify immutable identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Record toolchain
+        shell: bash
+        run: |
+          python --version
+          pytest --version
+          ruff --version
+          mypy --version
+
+      - name: B002 targeted tests
+        run: pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+
+      - name: Frozen gate 1 - pytest
+        run: pytest -q
+
+      - name: Frozen gate 2 - ruff
+        run: ruff check src tests
+
+      - name: Frozen gate 3 - mypy
+        run: mypy
+
+      - name: Frozen gate 4 - offline validate
+        run: python -m mstr_qualify validate
+
+      - name: Verify exact target remained immutable
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          git diff --exit-code
