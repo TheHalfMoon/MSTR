@@ -41,9 +41,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: `schemas/mstr-task-node-v0.schema.json`, `schemas/mstr-task-eligibility-v0.schema.json`, fixtures, `evidence/mstr-000b/B001-task-contract.md`.
   Canonical implementation: PR #40 / final head `5e81f5a572c6f8409e67ccde7cc1a4aa556b30ea` / merge `773555e9861d1c901c12718832821a98f472833f`.
 
-- [ ] **B002 Implement offline task eligibility validator.**  
-  Conceptual CLI: `python -m mstr_qualify task eligible <TASK_ID>`. Fail closed on missing predecessor, stale/superseded task, missing explicit authority, candidate-pool prerequisite, or canonical-state conflict. Validator performs no mutation. B001/B002 bootstrap uses manual exact-prerequisite verification; after B002 becomes canonical there is no general bypass.  
+- [x] **B002 Implement offline task eligibility validator.**
+  Conceptual CLI: `python -m mstr_qualify task eligible <TASK_ID>`. Fail closed on missing predecessor, stale/superseded task, missing explicit authority, candidate-pool prerequisite, or canonical-state conflict. Validator performs no mutation. B001/B002 bootstrap uses manual exact-prerequisite verification; after B002 becomes canonical there is no general bypass.
   Outputs: `src/mstr_qualify/task_gate.py`, CLI wiring, unit/contract tests, `evidence/mstr-000b/B002-task-gate.md`.
+  Canonical implementation: PR #48 / final head `9905237b0685b50059112d19e2708ba6357283b6` / merge `298a97e957fe98edec2c9fdd3f78f0f909ec09fa`.
 
 - [ ] **B003 Implement canonical drift detector.**  
   Prerequisite: B002 `COMPLETE_CANONICAL` and an exact-main `eligible=true` result. Compare task checkboxes/state/evidence/PR merge records where machine-readable. Detect examples such as implementation merged while task remains active, or task executed before declared entry gate.  
