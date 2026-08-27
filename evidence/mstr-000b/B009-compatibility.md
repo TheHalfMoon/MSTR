@@ -69,9 +69,10 @@ The pinned PEFT main explicitly documents a hybrid-architecture hazard: when som
 This is material for hybrid or mixed architectures, especially:
 
 - `tiiuae/Falcon-H1-3B-Base`;
-- Granite hybrid-family candidates;
 - `LiquidAI/LFM2.5-2.6B-Base`;
 - any multimodal/mixed-component Ministral training scope.
+
+Granite 4.1 3B is explicitly **not** in this hybrid-warning set: its pinned public config identifies `GraniteForCausalLM` / `model_type=granite`, and its model card describes a dense decoder-only transformer.
 
 Before adapter training, qualification must enumerate exact module names and prove intended adapter coverage. A training run that merely starts is insufficient evidence.
 
@@ -83,9 +84,10 @@ Before adapter training, qualification must enumerate exact module names and pro
 - Parameter-accounting and component-cost issues from B005 remain unresolved.
 
 **Granite 4.1 3B Base**
+- Public config identifies `GraniteForCausalLM` / `model_type=granite`.
+- The model card describes a dense decoder-only transformer, so B009 does not apply the PEFT hybrid-module warning to this checkpoint.
 - Family support exists in both Unsloth and llama.cpp source.
-- Exact 4.1-3B path remains unexecuted.
-- Hybrid target-module coverage must be audited.
+- Exact 4.1-3B train/save/export/runtime path remains unexecuted.
 
 **Qwen2.5-Coder-1.5B / Mellum / StarCoder2 / Stable Code / CodeGemma**
 - FIM and code-special-token preservation is qualification-critical.
@@ -149,10 +151,10 @@ B010 owns those decisions after B006 rights/provenance and B007/B008 evidence ar
 
 ## Validation / authority state
 
-Current decision artifact blob after source-evidence binding:
+Current decision artifact blob after source-evidence binding and Granite architecture correction:
 
 ```text
-B009_DECISION_BLOB = 82a537706b22f2daaa636da839e4fb0043735f80
+B009_DECISION_BLOB = 6a07e95b3276c050fec0022ebee7b96578e9052c
 ```
 
 No repository quality gate or candidate execution is claimed by this evidence:
