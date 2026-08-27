@@ -1,16 +1,27 @@
 # Research — MSTR-000A Verified Agent Harness + Direction-to-Done Foundation
 
-**Research date:** 2026-08-26  
+**Research date:** 2026-08-26; sequencing reconciliation 2026-08-27  
 **Purpose:** Identify the highest-leverage harness, loop, environment, verifier, training-signal, and self-improvement patterns for a very small code-specialized model whose primary job is to turn terse software direction into verified working software.
 
 ## Research Question
 
 What changes to the current MSTR plan most increase the probability that a <=3 GB Q4, 8 GB RAM, CPU-usable model becomes exceptionally strong at real coding/building rather than merely scoring well on isolated code benchmarks?
 
+## Sequence Reconciliation
+
+The source findings below remain valid. The original conclusion that all MSTR-000A implementation followed T034 was a planning simplification and is superseded by the canonical early-safe/convergence split when the MSTR-000B amendment merges:
+
+```text
+A001-A018 = may proceed early when exact dependencies hold and no unqualified candidate/external authority is consumed
+A019-A024 = convergence-gated on equivalent candidate qualification + MSTR-000B candidate/verifier/research prerequisites
+```
+
+This is a sequencing correction, not a change to the research conclusion that environment/verifier/harness foundations must exist before weight-changing agent training.
+
 ## Decision Summary
 
 1. **Train and serve inside compatible loop semantics.** Agent behavior must not be taught under a materially different tool/edit/state protocol from production.
-2. **Move executable environment + verifier MVP before weight-changing agent training.** Training signal quality depends on runnable tasks and trustworthy rewards.
+2. **Build executable environment + verifier foundations before weight-changing agent training.** Training signal quality depends on runnable tasks and trustworthy rewards.
 3. **Make the agent loop a first-class contract.** Prompt/tool schemas alone are insufficient for long-horizon software completion.
 4. **Use a minimal default harness, not a permanent multi-agent scaffold.** A small model must learn software engineering rather than overfit one elaborate scaffold.
 5. **Keep raw / neutral harness / optimized MSTR / WePLD system surfaces separate.** Harness improvements are valuable but are not raw model gains.
@@ -224,13 +235,13 @@ MSTR adoption:
 
 ```text
 BUILD LOOP
-Direction -> Orient -> Goal -> Localize -> Plan -> Act -> Observe -> Verify -> Recover -> Stop
+Direction -> bounded state graph -> independent verification -> recovery/stop
 
 ENVIRONMENT LOOP
 Checkout -> Discover health targets -> Setup -> Reset -> Independent verify -> Admit/reject
 
 RESEARCH LOOP
-Baseline -> Hypothesis -> Bounded mutation -> Run -> Evaluate -> Keep/discard/crash -> Repeat
+Baseline -> Hypothesis -> Bounded mutation -> Run -> Evaluate -> Keep/discard/crash/invalid -> Repeat
 ```
 
 The loops share typed identities/evidence but have different authority surfaces.
@@ -245,21 +256,35 @@ DETERMINISTIC/INDEPENDENT VERIFIER
 
 Optional planner/checker/subagent arms must earn their extra token/RAM/latency cost.
 
-### Training Sequence
+### Corrected Pre-Training Sequence
 
 ```text
-T029-T034 local/Q4/runtime qualification
--> MSTR-000A loop + harness + env/verifier + trajectory foundation
--> freeze final interaction semantics
--> comparable candidate tournament
--> data/recipe preflight
--> separate founder training gate
--> code/FIM continued training where justified
+MSTR-000 existing candidate Q4/runtime qualification
+          | parallel where independent
+          +--------------------------+
+          |                          |
+          v                          v
+MSTR-000A A001-A018           MSTR-000B early-safe foundation
+          |                          |
+          +------------+-------------+
+                       |
+                       v
+stable/equivalent product-aligned candidate pool
++ loop/verifier/data/curriculum prerequisites
+                       |
+                       v
+A019-A024 cross-harness / Direction-to-Done convergence
+                       |
+                       v
+separate founder weight-changing training gate
+                       |
+                       v
+code/FIM continued training where evidence justifies
 -> execution-grounded SFT
 -> preference/recovery training
 -> bounded executable agent RL
--> Q4 regression
--> same Direction-to-Done / neutral / WePLD evaluation surfaces
+-> Q4 regression after material stages
+-> same raw / neutral / MSTR / WePLD evaluation surfaces
 ```
 
 ## Open Research Questions for Implementation
@@ -271,4 +296,4 @@ These are evidence questions, not planning blockers:
 - Whether a learned verifier adds enough value over deterministic verifiers to justify runtime/training cost.
 - Which environment isolation substrate is smallest and safest for the MVP.
 - How much WePLD guidance helps MSTR without reducing standalone/general harness robustness.
-- Which FIM mixture most improves agentic coding per token for the selected backbone.
+- Which FIM/data mixture most improves agentic coding per token for the selected product-aligned backbone.
