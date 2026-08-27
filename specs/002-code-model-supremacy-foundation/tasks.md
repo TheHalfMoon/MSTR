@@ -36,7 +36,7 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
 
 # Phase G — Machine Governance and Drift Prevention
 
-- [ ] **B001 Freeze machine-readable TaskNode / TaskEligibilityResult contracts.**  
+- [x] **B001 Freeze machine-readable TaskNode / TaskEligibilityResult contracts.**  
   Define task state, prerequisites, outputs, supersession, external-effect class, authority mapping, candidate-pool requirements, and closeout rules. Include fixtures for every authority-gated external-effect class missing `required_authority_id`, and candidate-dependent tasks missing `candidate_pool_requirement_id`; each must fail closed.  
   Outputs: `schemas/mstr-task-node-v0.schema.json`, `schemas/mstr-task-eligibility-v0.schema.json`, fixtures, `evidence/mstr-000b/B001-task-contract.md`.
 
