@@ -30,6 +30,7 @@ This is a sequencing correction, not a change to the research conclusion that en
 8. **Build an autoresearch loop around frozen evaluation.** The agent may mutate bounded experimental surfaces, never the metric/verifier/hidden answer.
 9. **Use selective context.** `NO_RETRIEVAL` must be a valid outcome; more context is not always better.
 10. **Treat WePLD as the strongest Half Moon system integration, not as a mandatory standalone dependency.**
+11. **Treat Q4 promotion as a checkpoint-parent gate.** A master-checkpoint gain is not allowed to seed the next material stage until export identity, artifact integrity, required Q4 regression, and applicable universal-laptop gates pass.
 
 ---
 
@@ -259,33 +260,36 @@ Optional planner/checker/subagent arms must earn their extra token/RAM/latency c
 ### Corrected Pre-Training Sequence
 
 ```text
-MSTR-000 existing candidate Q4/runtime qualification
-          | parallel where independent
-          +--------------------------+
-          |                          |
-          v                          v
-MSTR-000A A001-A018           MSTR-000B early-safe foundation
-          |                          |
-          +------------+-------------+
-                       |
-                       v
++--------------------------+   +--------------------------+   +--------------------------+
+| MSTR-000                 |   | MSTR-000A EARLY_SAFE    |   | MSTR-000B EARLY_SAFE    |
+| candidate Q4/runtime     |   | A001-A018 loop/harness  |   | governance/data/contracts|
++------------+-------------+   +------------+-------------+   +------------+-------------+
+             |                              |                              |
+             +------------------------------+------------------------------+
+                                            |
+                                            v
 stable/equivalent product-aligned candidate pool
 + loop/verifier/data/curriculum prerequisites
-                       |
-                       v
+                                            |
+                                            v
 A019-A024 cross-harness / Direction-to-Done convergence
-                       |
-                       v
+                                            |
+                                            v
 separate founder weight-changing training gate
-                       |
-                       v
+                                            |
+                                            v
 code/FIM continued training where evidence justifies
--> execution-grounded SFT
--> preference/recovery training
--> bounded executable agent RL
--> Q4 regression after material stages
+-> export + identity-bound Q4 qualification
+-> only PROMOTED checkpoint may parent execution-grounded SFT
+-> export + identity-bound Q4 qualification
+-> only PROMOTED checkpoint may parent preference/recovery training
+-> export + identity-bound Q4 qualification
+-> only PROMOTED checkpoint may parent bounded executable agent RL
+-> export + identity-bound Q4 qualification
 -> same raw / neutral / MSTR / WePLD evaluation surfaces
 ```
+
+The exact number/order of material stages is governed by later specs, but the invariant is fixed: **no material checkpoint becomes a later-stage parent without a successful `Q4PromotionRecord` binding source/merged/Q4 hashes, export and quantizer revisions/recipes, integrity, required regression, and applicable universal-laptop gates.**
 
 ## Open Research Questions for Implementation
 
