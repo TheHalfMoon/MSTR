@@ -66,7 +66,7 @@
       ]
     },
     "B004": {
-      "canonical_state": "PENDING",
+      "canonical_state": "COMPLETE_CANONICAL",
       "evidence_outputs": [
         "evidence/mstr-000b/B004-000a-sequence-reconciliation.md"
       ],

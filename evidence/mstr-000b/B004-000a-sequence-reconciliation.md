@@ -2,8 +2,19 @@
 
 **Workstream:** MSTR-000B
 **Task:** B004
-**State:** IMPLEMENTATION_ACTIVE
+**State:** COMPLETE_CANONICAL
+**Implementation PR:** `#52`
+**Final implementation head:** `9b8ad22e59e096409b753a6264e61ee59a966dc4`
+**Canonical implementation merge:** `fa90726a6415cab0b655acae4768c7343cc6370c`
 **Entry canonical main:** `d0e90740924f6991da361536e7f835eb55ae9145`
+
+```text
+ENTRY_GATE_TASK = B004
+ENTRY_GATE_CANONICAL_MAIN = d0e90740924f6991da361536e7f835eb55ae9145
+ENTRY_GATE_ELIGIBLE = true
+ENTRY_GATE_RUN = 33095418967
+ENTRY_GATE_JOB = 98598942120
+```
 
 ## Exact-main entry gate
 
@@ -89,6 +100,26 @@ PRIVATE_USER_TRACE_INGESTION = NONE
 FOUNDER_MAC_LARGE_ARTIFACTS = ZERO
 ```
 
-## Closeout rule
+## Canonical implementation and closeout evidence
 
-B004 remains `IMPLEMENTATION_ACTIVE` until this exact implementation head is independently qualified and reviewed, merged with an expected-head guard, and post-merge canonical main is verified. A separate closeout must then align the MSTR-000B B004 task checkbox/catalog/evidence state. B005 or any other successor work must use its own exact eligibility gate and authority boundary; B004 grants none by implication.
+```text
+IMPLEMENTATION_PR = #52
+FINAL_IMPLEMENTATION_HEAD = 9b8ad22e59e096409b753a6264e61ee59a966dc4
+IMPLEMENTATION_MERGE = fa90726a6415cab0b655acae4768c7343cc6370c
+FINAL_EXACT_HEAD_QUALIFICATION_RUN = 33096742489
+FINAL_EXACT_HEAD_QUALIFICATION_JOB = 98603517596
+FINAL_REVIEW = QODO_NO_MATERIAL_ISSUES
+POST_MERGE_VERIFICATION_RUN = 33097244928
+POST_MERGE_VERIFICATION_JOB = 98605255855
+POST_MERGE_B004_ELIGIBLE = true / pre-closeout expected
+POST_MERGE_CANONICAL_DRIFT = clean
+POST_MERGE_PYTEST = 498 passed
+POST_MERGE_RUFF = PASS
+POST_MERGE_MYPY = PASS / 26 source files
+POST_MERGE_VALIDATE = PASS / 10 valid / 10 invalid rejected
+STATE = COMPLETE_CANONICAL
+```
+
+The `COMPLETE_CANONICAL` markers in this branch are prospective closeout state only. They become canonical only when the exact qualified and reviewed closeout head is merged to `main` with an expected-head guard. Immediately afterward, post-closeout verification must prove production B004 terminal, production B005 `eligible=true`, canonical drift clean, and all frozen repository gates green before B004 completion is claimed or any B005 material mutation begins.
+
+This transition grants no model-weight, tokenizer, inference, training, paid-compute, or dataset authority. B005 remains subject to its own exact-main `eligible=true` gate and its explicit `No weight access` boundary.
