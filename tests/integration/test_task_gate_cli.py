@@ -81,17 +81,17 @@ def test_task_eligible_b004_terminal_returns_one(
     validate_instance("mstr-task-eligibility-v0", payload)
 
 
-def test_task_eligible_b005_successor_returns_zero(
+def test_task_eligible_b006_successor_returns_zero(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    expected = evaluate_task_snapshot("B005", canonical_main=_CANONICAL_MAIN)
+    expected = evaluate_task_snapshot("B006", canonical_main=_CANONICAL_MAIN)
     monkeypatch.setattr(
         "mstr_qualify.cli.evaluate_task_eligibility",
         lambda task_id: expected,
     )
 
-    exit_code = main(["task", "eligible", "B005"])
+    exit_code = main(["task", "eligible", "B006"])
     payload = _stdout_json(capsys)
 
     assert exit_code == 0

@@ -128,12 +128,23 @@ def test_b004_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b005_is_eligible_after_b004_closeout() -> None:
+def test_b005_is_terminal_after_canonical_closeout() -> None:
     result = evaluate_task_snapshot("B005", canonical_main=_CANONICAL_MAIN)
 
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert "task.already_terminal" in result["reasons"]
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b006_is_eligible_after_b005_closeout() -> None:
+    result = evaluate_task_snapshot("B006", canonical_main=_CANONICAL_MAIN)
+
     assert result["eligible"] is True
-    assert result["prerequisite_results"] == []
     assert result["reasons"] == []
+    assert result["prerequisite_results"][0]["task_id"] == "B005"
+    assert result["prerequisite_results"][0]["satisfied"] is True
     validate_instance("mstr-task-eligibility-v0", result)
 
 
