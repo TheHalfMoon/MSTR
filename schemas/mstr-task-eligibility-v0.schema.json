@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mstr.local/schemas/mstr-task-eligibility-v0.json",
+  "title": "MSTR TaskEligibilityResult v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "canonical_main",
+    "eligible",
+    "prerequisite_results",
+    "authority_result",
+    "supersession_result",
+    "state_consistency_result",
+    "candidate_pool_result",
+    "reasons"
+  ],
+  "properties": {
+    "schema_version": {"const": "mstr.task-eligibility.v0"},
+    "task_id": {"type": "string", "minLength": 1},
+    "canonical_main": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "eligible": {"type": "boolean"},
+    "prerequisite_results": {"type": "array", "items": {"$ref": "#/$defs/prerequisiteResult"}},
+    "authority_result": {"$ref": "#/$defs/authorityResult"},
+    "supersession_result": {"$ref": "#/$defs/supersessionResult"},
+    "state_consistency_result": {"$ref": "#/$defs/stateConsistencyResult"},
+    "candidate_pool_result": {"$ref": "#/$defs/candidatePoolResult"},
+    "reasons": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "taskState": {
+      "oneOf": [
+        {"enum": ["PENDING", "ACTIVE", "BLOCKED", "COMPLETE_CANONICAL", "SUPERSEDED_CANONICAL"]},
+        {"type": "string", "pattern": "^NOT_REQUIRED(?:_[A-Z0-9]+)*$"}
+      ]
+    },
+    "reasonList": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "prerequisiteResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "required_state", "observed_state", "evidence_present", "satisfied", "reasons"],
+      "properties": {
+        "task_id": {"type": "string", "minLength": 1},
+        "required_state": {"$ref": "#/$defs/taskState"},
+        "observed_state": {"oneOf": [{"$ref": "#/$defs/taskState"}, {"type": "null"}]},
+        "evidence_present": {"type": "boolean"},
+        "satisfied": {"type": "boolean"},
+        "reasons": {"$ref": "#/$defs/reasonList"}
+      }
+    },
+    "authorityResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "authority_id", "satisfied", "reasons"],
+      "properties": {
+        "required": {"type": "boolean"},
+        "authority_id": {"type": ["string", "null"], "minLength": 1},
+        "satisfied": {"type": "boolean"},
+        "reasons": {"$ref": "#/$defs/reasonList"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"required": {"const": true}}, "required": ["required"]},
+          "then": {"properties": {"authority_id": {"type": "string", "minLength": 1}}}
+        }
+      ]
+    },
+    "supersessionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["superseded", "superseded_by", "satisfied", "reasons"],
+      "properties": {
+        "superseded": {"type": "boolean"},
+        "superseded_by": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "satisfied": {"type": "boolean"},
+        "reasons": {"$ref": "#/$defs/reasonList"}
+      }
+    },
+    "stateConsistencyResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observed_state", "satisfied", "reasons"],
+      "properties": {
+        "observed_state": {"oneOf": [{"$ref": "#/$defs/taskState"}, {"type": "null"}]},
+        "satisfied": {"type": "boolean"},
+        "reasons": {"$ref": "#/$defs/reasonList"}
+      }
+    },
+    "candidatePoolResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "requirement_id", "observed_pool_id", "satisfied", "reasons"],
+      "properties": {
+        "required": {"type": "boolean"},
+        "requirement_id": {"type": ["string", "null"], "minLength": 1},
+        "observed_pool_id": {"type": ["string", "null"], "minLength": 1},
+        "satisfied": {"type": "boolean"},
+        "reasons": {"$ref": "#/$defs/reasonList"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"required": {"const": true}}, "required": ["required"]},
+          "then": {"properties": {"requirement_id": {"type": "string", "minLength": 1}}}
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"eligible": {"const": true}}, "required": ["eligible"]},
+      "then": {
+        "properties": {
+          "reasons": {"maxItems": 0},
+          "prerequisite_results": {
+            "items": {
+              "allOf": [
+                {"$ref": "#/$defs/prerequisiteResult"},
+                {"properties": {"satisfied": {"const": true}}}
+              ]
+            }
+          },
+          "authority_result": {
+            "allOf": [
+              {"$ref": "#/$defs/authorityResult"},
+              {"properties": {"satisfied": {"const": true}}}
+            ]
+          },
+          "supersession_result": {
+            "allOf": [
+              {"$ref": "#/$defs/supersessionResult"},
+              {"properties": {"satisfied": {"const": true}}}
+            ]
+          },
+          "state_consistency_result": {
+            "allOf": [
+              {"$ref": "#/$defs/stateConsistencyResult"},
+              {"properties": {"satisfied": {"const": true}}}
+            ]
+          },
+          "candidate_pool_result": {
+            "allOf": [
+              {"$ref": "#/$defs/candidatePoolResult"},
+              {"properties": {"satisfied": {"const": true}}}
+            ]
+          }
+        }
+      },
+      "else": {"properties": {"reasons": {"minItems": 1}}}
+    }
+  ]
+}
