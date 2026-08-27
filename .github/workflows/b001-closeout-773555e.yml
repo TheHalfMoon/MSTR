@@ -1,0 +1,165 @@
+name: B001 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/b001-closeout-773555e
+
+permissions:
+  contents: write
+
+jobs:
+  closeout:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 773555e9861d1c901c12718832821a98f472833f
+      TARGET_BRANCH: docs/000b-b001-canonicalize
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - name: Checkout guarded closeout branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Verify canonical implementation merge base
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+
+      - name: Record B001 canonical closeout
+        shell: python
+        run: |
+          from pathlib import Path
+
+          evidence = Path("evidence/mstr-000b/B001-task-contract.md")
+          text = evidence.read_text(encoding="utf-8")
+          old_header = (
+              "**Workstream:** MSTR-000B  \n"
+              "**Task:** B001  \n"
+              "**State:** IMPLEMENTATION_ACTIVE / NOT_COMPLETE_CANONICAL  \n"
+              "**Canonical base at branch creation:** `e1b3cbd74ae0a74a80e3f345faef56da13818149`  \n"
+              "**Branch:** `feat/000b-b001-task-contracts`  \n"
+              "**Last implementation head before this evidence refresh:** `ccda5c748157fa91417d0be112296e03eb6cb8ee`\n\n"
+              "This document is implementation evidence only. B001 remains unchecked until the required exact-head quality gates, exact-head review, merge, and canonical closeout are all satisfied.\n"
+          )
+          new_header = (
+              "**Workstream:** MSTR-000B\n"
+              "**Task:** B001\n"
+              "**State:** COMPLETE_CANONICAL\n"
+              "**Canonical base at branch creation:** `e1b3cbd74ae0a74a80e3f345faef56da13818149`\n"
+              "**Branch:** `feat/000b-b001-task-contracts`\n"
+              "**Implementation PR:** `#40`\n"
+              "**Final implementation head:** `5e81f5a572c6f8409e67ccde7cc1a4aa556b30ea`\n"
+              "**Canonical implementation merge:** `773555e9861d1c901c12718832821a98f472833f`\n"
+              "**Final exact-head qualification run:** `33069035959`\n\n"
+              "This document records the canonical B001 implementation and post-merge closeout. B001 freezes contracts only; B002 remains the separate task that implements the offline eligibility validator.\n"
+          )
+          if text.count(old_header) != 1:
+              raise SystemExit("B001 evidence header did not match expected pre-closeout state")
+          text = text.replace(old_header, new_header, 1)
+
+          cutoff = "## Historical validation — stale after head changes"
+          if text.count(cutoff) != 1:
+              raise SystemExit("B001 stale-validation section marker not found exactly once")
+          prefix = text[:text.index(cutoff)]
+          final_sections = (
+              "## Final exact-head qualification\n\n"
+              "After reconciliation with canonical main and the strict-mypy repair in `_dedicated_fixture`, a dedicated evidence-only GitHub-hosted workflow checked out the exact final implementation SHA itself in detached-head mode, verified exact identity and a clean working tree, and executed every frozen repository quality gate.\n\n"
+              "```text\n"
+              "FINAL_HEAD = 5e81f5a572c6f8409e67ccde7cc1a4aa556b30ea\n"
+              "FINAL_EXACT_HEAD_RUN = 33069035959\n"
+              "pytest -q = PASS (444 passed)\n"
+              "ruff check src tests = PASS\n"
+              "mypy = PASS (24 source files)\n"
+              "python -m mstr_qualify validate = PASS\n"
+              "VALID_FIXTURES_PASSED = 10\n"
+              "INVALID_FIXTURES_REJECTED = 10\n"
+              "```\n\n"
+              "The preceding guarded reconciliation run also proved that the final PR diff against then-canonical main was exactly the declared 17 B001 paths. Historical focused runs and pre-push runs were not substituted for the final exact-head qualification.\n\n"
+              "## Final exact-head review\n\n"
+              "Qodo re-reviewed exact final candidate `5e81f5a572c6f8409e67ccde7cc1a4aa556b30ea` against canonical main `c2d0ee8a6b9d47275c4d309cd187c1ed0d35fb02` and reported no new code-review findings. The review re-checked authority gating, candidate-pool binding, fail-closed eligibility semantics, supersession, prerequisite/state evidence, repository-path safety, CLI/fixture behavior, runtime/design identity, and current-main reconciliation.\n\n"
+              "All historical inline review threads were resolved before merge.\n\n"
+              "## Canonical merge and post-merge verification\n\n"
+              "Immediately before merge, live main, exact PR head, the 17-file changed-path set, mergeability, and review-thread state were re-read. PR #40 was merged with an `expected_head_sha` guard, preventing a merge if the reviewed/qualified head had moved. Post-merge GitHub truth established:\n\n"
+              "```text\n"
+              "B001_PR = 40\n"
+              "B001_FINAL_HEAD = 5e81f5a572c6f8409e67ccde7cc1a4aa556b30ea\n"
+              "B001_MERGE = 773555e9861d1c901c12718832821a98f472833f\n"
+              "POST_MERGE_MAIN = 773555e9861d1c901c12718832821a98f472833f\n"
+              "PR_40_MERGED = YES\n"
+              "```\n\n"
+              "## Canonical authority and successor boundary\n\n"
+              "```text\n"
+              "B001_CONTRACTS = CANONICAL_ON_MAIN\n"
+              "B001_EXACT_HEAD_REVIEW = CLEAN\n"
+              "B001_QUALITY_GATES = PASS_AT_EXACT_FINAL_HEAD\n"
+              "B001_COMPLETE_CANONICAL = YES\n"
+              "TASK_CHECKBOX_UPDATED = YES\n"
+              "B002_PREREQUISITE_B001 = SATISFIED\n"
+              "B001_AUTHORIZES_MODEL_ACCESS = NO\n"
+              "B001_AUTHORIZES_TRAINING = NO\n"
+              "B001_AUTHORIZES_PAID_COMPUTE = NO\n"
+              "B001_AUTHORIZES_LARGE_INGEST = NO\n"
+              "B001_AUTHORIZES_PRODUCTION_RELEASE = NO\n"
+              "```\n\n"
+              "This closeout does not itself implement B002 and creates no external-effect authority. B002 eligibility and execution remain governed by the live repository task graph and the explicit bootstrap sequencing in MSTR-000B.\n"
+          )
+          evidence.write_text(prefix + final_sections, encoding="utf-8")
+
+          tasks = Path("specs/002-code-model-supremacy-foundation/tasks.md")
+          task_text = tasks.read_text(encoding="utf-8")
+          old_task = (
+              "- [ ] **B001 Freeze machine-readable TaskNode / TaskEligibilityResult contracts.**  \n"
+              "  Define task state, prerequisites, outputs, supersession, external-effect class, authority mapping, candidate-pool requirements, and closeout rules. Include fixtures for every authority-gated external-effect class missing `required_authority_id`, and candidate-dependent tasks missing `candidate_pool_requirement_id`; each must fail closed.  \n"
+              "  Outputs: `schemas/mstr-task-node-v0.schema.json`, `schemas/mstr-task-eligibility-v0.schema.json`, fixtures, `evidence/mstr-000b/B001-task-contract.md`.\n"
+          )
+          new_task = (
+              "- [x] **B001 Freeze machine-readable TaskNode / TaskEligibilityResult contracts.**\n"
+              "  Define task state, prerequisites, outputs, supersession, external-effect class, authority mapping, candidate-pool requirements, and closeout rules. Include fixtures for every authority-gated external-effect class missing `required_authority_id`, and candidate-dependent tasks missing `candidate_pool_requirement_id`; each must fail closed.\n"
+              "  Outputs: `schemas/mstr-task-node-v0.schema.json`, `schemas/mstr-task-eligibility-v0.schema.json`, fixtures, `evidence/mstr-000b/B001-task-contract.md`.\n"
+              "  Canonical implementation: PR #40 / final head `5e81f5a572c6f8409e67ccde7cc1a4aa556b30ea` / merge `773555e9861d1c901c12718832821a98f472833f`.\n"
+          )
+          if task_text.count(old_task) != 1:
+              raise SystemExit("B001 task entry did not match expected unchecked state")
+          tasks.write_text(task_text.replace(old_task, new_task, 1), encoding="utf-8")
+
+      - name: Verify closeout mutation scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          actual="$(git diff --name-only | sort)"
+          expected="$(printf '%s\n' evidence/mstr-000b/B001-task-contract.md specs/002-code-model-supremacy-foundation/tasks.md | sort)"
+          test "$actual" = "$expected"
+          git diff -- evidence/mstr-000b/B001-task-contract.md specs/002-code-model-supremacy-foundation/tasks.md
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Verify frozen gates on closeout candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q
+          ruff check src tests
+          mypy
+          python -m mstr_qualify validate
+
+      - name: Commit and fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add evidence/mstr-000b/B001-task-contract.md specs/002-code-model-supremacy-foundation/tasks.md
+          git commit -m "docs(mstr-000b): canonicalize B001 closeout"
+          git push origin HEAD:"$TARGET_BRANCH"
+          echo "CLOSEOUT_HEAD=$(git rev-parse HEAD)"
