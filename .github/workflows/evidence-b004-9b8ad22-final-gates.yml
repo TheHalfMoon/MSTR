@@ -1,0 +1,116 @@
+name: Evidence B004 exact-head qualification v2
+
+on:
+  push:
+    branches:
+      - evidence/b004-9b8ad22-final-gates
+
+permissions:
+  contents: read
+
+env:
+  TARGET_SHA: 9b8ad22e59e096409b753a6264e61ee59a966dc4
+  EXPECTED_MAIN: d0e90740924f6991da361536e7f835eb55ae9145
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact B004 implementation head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact identities and four-file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          git fetch origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git merge-base "$TARGET_SHA" "$EXPECTED_MAIN")" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+          git diff --check "$EXPECTED_MAIN..$TARGET_SHA"
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+          expected = {
+              'docs/canonical/CURRENT_STATE.md',
+              'docs/canonical/PROGRAM_ROADMAP.md',
+              'specs/001-agent-harness-verified-loop-foundation/tasks.md',
+              'evidence/mstr-000b/B004-000a-sequence-reconciliation.md',
+          }
+          changed = set(subprocess.run(
+              ['git', 'diff', '--name-only', 'd0e90740924f6991da361536e7f835eb55ae9145..HEAD'],
+              check=True, capture_output=True, text=True,
+          ).stdout.splitlines())
+          assert changed == expected, (changed, expected)
+          current = Path('docs/canonical/CURRENT_STATE.md').read_text(encoding='utf-8')
+          assert 'ACTIVE_IMPLEMENTATION_TASK = B004_000A_SEQUENCE_RECONCILIATION / ENTRY_GATE_PROVEN' in current
+          assert 'CURRENT_ELIGIBLE_MSTR_000B_TASK = B004' in current
+          assert 'NEXT_ELIGIBLE_MSTR_000B_TASK = B004' not in current
+          assert 'A004 = COMPLETE_CANONICAL / AGENT_STATE_PROJECTION_AND_BOUNDED_COMPACTION' in current
+          assert 'A005-A018 = PENDING / EARLY_SAFE_ONLY_WHEN_EXACT_PREREQUISITES_PASS' in current
+          assert 'A019-A024 = PENDING / CONVERGENCE_GATED' in current
+          assert 'Until PR #39 is reviewed and merged' not in current
+          tasks = Path('specs/001-agent-harness-verified-loop-foundation/tasks.md').read_text(encoding='utf-8')
+          assert 'A005-A018 = PENDING / EARLY_SAFE only with exact prerequisites' in tasks
+          assert 'A019-A024 = PENDING / CONVERGENCE_GATED' in tasks
+          evidence = Path('evidence/mstr-000b/B004-000a-sequence-reconciliation.md').read_text(encoding='utf-8')
+          assert '**State:** IMPLEMENTATION_ACTIVE' in evidence
+          for identity in (
+              'b4547f9393644586f893f5cd7ddd420f82bc6f2a',
+              '5693749dd560979496efad488789ec35b2c2a84d',
+              '41122ae8dee65b2a6b3c6b188cf335d74088b06f',
+              '2c02eb68a32264c86f69eb7ffc1c99ad87328376',
+              'd0098548766232c9fa1a879941978d1735ef9e4a',
+              '564096fc9e8ec3e2b0aa9505926e15f66b00ce74',
+              'c91d603ab3175260348706b3f879b86900511510',
+              'c2d0ee8a6b9d47275c4d309cd187c1ed0d35fb02',
+              'e1b3cbd74ae0a74a80e3f345faef56da13818149',
+          ):
+              assert identity in evidence, identity
+          for effect in (
+              'MODEL_WEIGHT_ACCESS = NONE',
+              'MODEL_EXECUTION = NONE',
+              'TOKENIZER_EXECUTION = NONE',
+              'PAID_COMPUTE = NONE',
+              'WEIGHT_CHANGING_TRAINING = NONE',
+              'LARGE_DATASET_INGESTION = NONE',
+          ):
+              assert effect in evidence, effect
+          PY
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Frozen gate - pytest
+        run: pytest -q
+
+      - name: Frozen gate - Ruff
+        run: ruff check src tests
+
+      - name: Frozen gate - mypy
+        run: mypy
+
+      - name: Frozen gate - offline validate
+        run: python -m mstr_qualify validate
+
+      - name: Verify immutable exact head and unchanged live main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test -z "$(git status --short)"
+          git fetch origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          echo "FINAL_B004_SHA=$(git rev-parse HEAD)"
+          echo "FINAL_LIVE_MAIN_SHA=$(git rev-parse refs/remotes/origin/main)"
