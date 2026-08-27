@@ -36,9 +36,10 @@ T029–T034 in MSTR-000 remain active according to their own canonical state and
   Outputs: implementation under `src/mstr_qualify/`, unit/contract tests, `evidence/mstr-000a/A003-event-log-replay.md`.  
   Canonical implementation: PR #38 / head `41122ae8dee65b2a6b3c6b188cf335d74088b06f` / merge `2c02eb68a32264c86f69eb7ffc1c99ad87328376`.
 
-- [ ] **A004 Implement `AgentState` projection and bounded compaction.**  
-  Must preserve uncertainty, verifier failures, changed files, known failures, and remaining work.  
+- [x] **A004 Implement `AgentState` projection and bounded compaction.**
+  Must preserve uncertainty, verifier failures, changed files, known failures, and remaining work.
   Outputs: projection/compaction module, adversarial compaction fixtures, `evidence/mstr-000a/A004-agent-state.md`.
+  Canonical implementation: PR #45 / final head `d0098548766232c9fa1a879941978d1735ef9e4a` / merge `564096fc9e8ec3e2b0aa9505926e15f66b00ce74`.
 
 **Checkpoint A:** event log is authoritative; model history and AgentState are reproducible projections.
 

@@ -198,7 +198,8 @@ def _dedicated_fixture(kind: str, schema_name: str) -> object | None:
     if not path.is_file():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        parsed: object = json.loads(path.read_text(encoding="utf-8"))
+        return parsed
     except OSError as exc:
         raise QualificationError(
             "canonical dedicated schema fixture is unreadable",

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mstr.local/specs/002-code-model-supremacy-foundation/contracts/b005-canonical-input-binding-v1.schema.json",
+  "title": "MSTR-000B B005 Canonical Input Binding v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format_version",
+    "task_id",
+    "workstream_id",
+    "canonical_main_sha",
+    "format_semantics",
+    "semantics",
+    "canonical_inputs",
+    "branch_mutation_policy",
+    "authority"
+  ],
+  "properties": {
+    "format_version": {"const": "mstr.b005.canonical-input-binding.v1"},
+    "task_id": {"const": "B005"},
+    "workstream_id": {"const": "MSTR-000B"},
+    "canonical_main_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "format_semantics": {"type": "string", "minLength": 1},
+    "semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonical_main_sha", "feature_branch_head", "exact_head_equivalence_rule"],
+      "properties": {
+        "canonical_main_sha": {"type": "string", "minLength": 1},
+        "feature_branch_head": {"type": "string", "minLength": 1},
+        "exact_head_equivalence_rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "canonical_inputs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "blob_sha"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "blob_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+        }
+      }
+    },
+    "branch_mutation_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonical_input_paths_may_change_in_b005_branch",
+        "b005_outputs_may_change_during_review",
+        "review_required_after_material_output_change"
+      ],
+      "properties": {
+        "canonical_input_paths_may_change_in_b005_branch": {"const": false},
+        "b005_outputs_may_change_during_review": {"const": true},
+        "review_required_after_material_output_change": {"const": true}
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["creates_project_authority", "creates_model_access_authority", "creates_candidate_admission"],
+      "properties": {
+        "creates_project_authority": {"const": false},
+        "creates_model_access_authority": {"const": false},
+        "creates_candidate_admission": {"const": false}
+      }
+    }
+  }
+}
