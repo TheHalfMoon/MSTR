@@ -21,9 +21,9 @@
 
 ## Before B005 Rescan
 
-- [ ] Metadata-only network scope confirmed.
-- [ ] No model weight access needed.
-- [ ] Rights schema/current candidate schema read.
+- [x] Metadata-only network scope confirmed.
+- [x] No model weight access needed.
+- [x] Rights schema/current candidate schema read.
 
 ## Before B011
 
