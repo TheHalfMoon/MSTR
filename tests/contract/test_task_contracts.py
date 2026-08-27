@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -9,6 +10,7 @@ from mstr_qualify.schemas import validate_instance
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "tests" / "fixtures" / "mstr-000b" / "B001" / "task-node-fail-closed.json"
+VALID_SCHEMA_FIXTURES = ROOT / "tests" / "fixtures" / "schemas" / "valid"
 
 AUTHORITY_GATED_CLASSES = {
     "MODEL_WEIGHT_ACCESS",
@@ -24,8 +26,12 @@ AUTHORITY_GATED_CLASSES = {
 }
 
 
-def _fixtures() -> dict[str, object]:
+def _fixtures() -> dict[str, Any]:
     return json.loads(FIXTURE.read_text(encoding="utf-8"))
+
+
+def _valid_fixture(schema_name: str) -> dict[str, Any]:
+    return json.loads((VALID_SCHEMA_FIXTURES / f"{schema_name}.json").read_text(encoding="utf-8"))
 
 
 def test_every_authority_gated_class_has_a_missing_authority_fixture() -> None:
@@ -53,33 +59,31 @@ def test_candidate_dependent_task_without_pool_requirement_fails_closed() -> Non
         validate_instance("mstr-task-node-v0", record, schema_dir=ROOT / "schemas")
 
 
+def test_closeout_rule_rejects_nonterminal_task_state() -> None:
+    record = _valid_fixture("mstr-task-node-v0")
+    record["closeout_rule"]["terminal_states"] = ["ACTIVE"]
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-task-node-v0", record, schema_dir=ROOT / "schemas")
+
+
 def test_eligible_result_cannot_hide_a_failed_authority_check() -> None:
-    record = json.loads(
-        (
-            ROOT
-            / "tests"
-            / "fixtures"
-            / "schemas"
-            / "valid"
-            / "mstr-task-eligibility-v0.json"
-        ).read_text(encoding="utf-8")
-    )
+    record = _valid_fixture("mstr-task-eligibility-v0")
     record["authority_result"]["satisfied"] = False
     with pytest.raises(ValueError, match="validation failed"):
         validate_instance("mstr-task-eligibility-v0", record, schema_dir=ROOT / "schemas")
 
 
-def test_ineligible_result_requires_a_reason() -> None:
-    record = json.loads(
-        (
-            ROOT
-            / "tests"
-            / "fixtures"
-            / "schemas"
-            / "valid"
-            / "mstr-task-eligibility-v0.json"
-        ).read_text(encoding="utf-8")
+def test_required_candidate_pool_must_bind_observed_pool_identity() -> None:
+    record = _valid_fixture("mstr-task-eligibility-v0")
+    record["candidate_pool_result"].update(
+        {"required": True, "requirement_id": "candidate-pool-required", "observed_pool_id": None}
     )
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-task-eligibility-v0", record, schema_dir=ROOT / "schemas")
+
+
+def test_ineligible_result_requires_a_reason() -> None:
+    record = _valid_fixture("mstr-task-eligibility-v0")
     record["eligible"] = False
     with pytest.raises(ValueError, match="validation failed"):
         validate_instance("mstr-task-eligibility-v0", record, schema_dir=ROOT / "schemas")
