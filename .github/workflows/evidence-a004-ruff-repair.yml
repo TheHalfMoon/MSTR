@@ -1,0 +1,98 @@
+name: A004 Ruff blocker repair
+
+on:
+  push:
+    branches:
+      - evidence/a004-ruff-repair
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_HEAD: b3f63d9c4a597062ee3da2e252cc31fdcc2d6ab7
+      TARGET_BRANCH: feat/000a-a004-agent-state
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - name: Checkout guarded target branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/000a-a004-agent-state
+          fetch-depth: 0
+
+      - name: Verify target head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          echo "TARGET_HEAD=$(git rev-parse HEAD)"
+          git status --short
+
+      - name: Apply exact minimal Ruff repairs
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file_path = Path(path)
+              text = file_path.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one match, found {count}")
+              file_path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          replace_once(
+              "src/mstr_qualify/harness/event_log.py",
+              "def validate_event(event: dict[str, Any], expected_seq: int, expected_prev: str | None) -> EventEntry:\n",
+              "def validate_event(\n    event: dict[str, Any], expected_seq: int, expected_prev: str | None\n) -> EventEntry:\n",
+          )
+          replace_once(
+              "src/mstr_qualify/state/agent_state.py",
+              "import hashlib\nimport json\nfrom dataclasses import asdict, dataclass, replace\nfrom typing import Any, Literal, Sequence, cast\n",
+              "import hashlib\nimport json\nfrom collections.abc import Sequence\nfrom dataclasses import asdict, dataclass, replace\nfrom typing import Any, Literal, cast\n",
+          )
+          replace_once(
+              "tests/unit/harness/test_event_log.py",
+              "import json\nfrom pathlib import Path\n\nimport pytest\n",
+              "import pytest\n",
+          )
+
+      - name: Verify mutation scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          test "$(git diff --name-only | sort)" = "$(printf '%s\n' \
+            src/mstr_qualify/harness/event_log.py \
+            src/mstr_qualify/state/agent_state.py \
+            tests/unit/harness/test_event_log.py | sort)"
+          git diff -- src/mstr_qualify/harness/event_log.py src/mstr_qualify/state/agent_state.py tests/unit/harness/test_event_log.py
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Verify Ruff and full tests before commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruff check src tests
+          pytest -q
+
+      - name: Commit and fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/mstr_qualify/harness/event_log.py src/mstr_qualify/state/agent_state.py tests/unit/harness/test_event_log.py
+          git commit -m "fix(mstr-000a): satisfy frozen Ruff gate"
+          git push origin HEAD:"$TARGET_BRANCH"
+          echo "NEW_HEAD=$(git rev-parse HEAD)"
