@@ -9,32 +9,68 @@ Before changing the repository, read in this exact order:
 3. `docs/canonical/CURRENT_STATE.md`
 4. `docs/canonical/PROGRAM_ROADMAP.md`
 5. `docs/canonical/AGENT_HARNESS_AND_RESEARCH_LOOP_STRATEGY.md`
-6. the active `specs/<id>-*/spec.md`
-7. that spec's `clarification-closeout.md`
-8. `research.md`
-9. `plan.md`
-10. `data-model.md`
-11. `contracts/README.md` and relevant schemas
-12. `quickstart.md`
-13. `checklists/implementation-readiness.md`
-14. `tasks.md`
-15. `implementation-handoff.md`
+6. `docs/canonical/CODE_MODEL_SUPREMACY_STRATEGY.md`
+7. the active `specs/<id>-*/spec.md`
+8. that spec's `clarification-closeout.md`
+9. `research.md`
+10. `plan.md`
+11. `data-model.md`
+12. `contracts/README.md` and relevant schemas
+13. `quickstart.md`
+14. `checklists/implementation-readiness.md`
+15. `tasks.md`
+16. `implementation-handoff.md`
 
 Do not reconstruct requirements from chat history when the canonical package answers the question.
 
-### Mandatory post-T034 sequence
+## Mandatory Pre-Training Convergence
 
-The founder-directed MSTR-000A sequence amendment is binding after it becomes canonical:
+MSTR now has two interposed pre-training foundations:
 
 ```text
-T029-T034 = CONTINUE UNDER MSTR-000
-T034_COMPLETE_CANONICAL
--> MSTR-000A VERIFIED AGENT HARNESS + DIRECTION-TO-DONE FOUNDATION
--> downstream interaction/tournament/data-recipe reconciliation
--> separate explicit weight-changing training gate
+MSTR-000A = verified agent harness + Direction-to-Done foundation
+MSTR-000B = code-model supremacy / backbone + data + curriculum + verifier-health foundation
 ```
 
-No agent may use stale MSTR-000 task numbering to bypass MSTR-000A and jump from T034 directly to weight-changing training. The implementation package is `specs/001-agent-harness-verified-loop-foundation/`.
+The old blanket rule that all MSTR-000A implementation waits for T034 is superseded by exact task dependencies:
+
+```text
+EARLY_SAFE MSTR-000A A001-A018
+  = may proceed when exact prerequisites are satisfied and no unqualified candidate result or external-effect authority is consumed
+
+MSTR-000 T030-T034
+  = continue under their own canonical task graph
+
+MSTR-000B early-safe governance/backbone-metadata/data-contract work
+  = may proceed when exact prerequisites are satisfied
+
+CONVERGENCE
+  = candidate-dependent A019-A024 / final tournament / training preflight require the stable product-aligned candidate pool and MSTR-000B prerequisites
+```
+
+No stale MSTR-000 or MSTR-000A task numbering may bypass MSTR-000B and jump to weight-changing training.
+
+Canonical packages:
+- `specs/001-agent-harness-verified-loop-foundation/`
+- `specs/002-code-model-supremacy-foundation/`
+
+## Machine Task Eligibility
+
+MSTR-000B introduces a machine-readable task/dependency gate.
+
+Bootstrap is explicit:
+
+```text
+B001 = manual exact-prerequisite verification + ordinary exact-head governance
+B002 = manual exact-prerequisite verification + ordinary exact-head governance
+B003+ = machine eligibility REQUIRED once B002 is COMPLETE_CANONICAL
+```
+
+Before B002 is canonical, there is no validator command to run; agents MUST manually apply the exact task prerequisites and may not interpret the missing validator as authority to bypass them.
+
+Once B002 is `COMPLETE_CANONICAL`, autonomous implementation agents MUST run the task eligibility validator against the exact current `main` before every material B003+ task execution and again before its merge. Any `eligible=false`, validator error, unresolved prerequisite, supersession, missing authority, candidate-pool mismatch, or material canonical-state drift is a hard stop.
+
+The validator verifies existing authority; it never creates authority.
 
 ## Spec Kit Workflow
 
@@ -71,6 +107,8 @@ MODEL_OUTPUT != PROJECT_AUTHORITY
 BENCHMARK_SCORE != BACKBONE_SELECTION
 PUBLIC_LEADERBOARD != MSTR_TRUTH
 HARNESS_GAIN != MODEL_GAIN
+TEACHER_OUTPUT != VERIFIED_TRUTH
+TESTS_PASS != VERIFIER_HEALTH_BY_ITSELF
 ```
 
 Live canonical GitHub truth overrides stale handoffs.
@@ -81,6 +119,9 @@ The primary MSTR release must remain usable on ordinary laptops without a discre
 
 ```text
 UNIVERSAL_LAPTOP_PRIMARY = REQUIRED
+REFERENCE_TOTAL_RAM = 8_GB
+REFERENCE_CONTEXT = 8K
+PRIMARY_Q4_ARTIFACT_TARGET <= 3_GB
 DISCRETE_GPU_REQUIREMENT = PROHIBITED
 CLOUD_REQUIREMENT = PROHIBITED
 ACCOUNT_REQUIREMENT = PROHIBITED
@@ -99,9 +140,16 @@ MSTR's primary optimization target is software engineering, not general assistan
 PRIMARY_PURPOSE = SOFTWARE_DIRECTION_TO_VERIFIED_WORKING_CODE
 PRIMARY_QUALITY_METRIC = DIRECTION_TO_VERIFIED_COMPLETION_RATE
 PRIMARY_SPEED_METRIC = TTVC
+PRIMARY_EFFICIENCY_TARGET = VERIFIED_SOFTWARE_CAPABILITY_PER_GB
 ```
 
 General reasoning remains a guardrail/capability only where it supports software planning, implementation, debugging, verification, and safe execution.
+
+## Backbone Search Rule
+
+Because MSTR is explicitly code-specialized, code-specialized base/foundation models MUST NOT be excluded merely for specialization. They compete under the same exact rights, provenance, Q4/runtime, tokenizer, trainability, raw-code, and universal-laptop gates as general foundations.
+
+No named model is preselected. `JetBrains/Mellum-4b-base` is a mandatory rescan candidate because its omission demonstrates the old scan gap, not because it is assumed to win.
 
 ## License and Distribution Invariant
 
@@ -119,16 +167,17 @@ Teacher/API output terms, datasets, runtime dependencies, tokenizer/vision compo
 
 ## Current Phase and External-Effect Authority
 
-MSTR-000 is preconstruction/qualification. It may build the qualification harness, manifests, tests, fixtures, evidence, context experiments, and verifier/environment MVP defined by its task graph.
+MSTR-000, MSTR-000A, and MSTR-000B are pre-training qualification/foundation workstreams. They may build the qualification harness, manifests, tests, fixtures, evidence, context experiments, loop/harness/environment/verifier infrastructure, task-gate infrastructure, metadata rescans, and training-signal contracts defined by their task graphs.
 
 No task may infer authority for:
 
 ```text
-MODEL_WEIGHT_ACCESS
+NEW MODEL_WEIGHT_ACCESS OUTSIDE EXACT CANONICAL ENVELOPE
 GATED_TERMS_ACCEPTANCE
 PAID_MODEL_API_EXECUTION
 RENTED_COMPUTE
 LARGE_DATASET_INGESTION
+WEIGHT_CHANGING_TRAINING
 LONG_TRAINING
 LARGE_SCALE_RL
 PRODUCTION_RELEASE
@@ -136,17 +185,24 @@ PRODUCTION_RELEASE
 
 unless the exact canonical task explicitly grants that authority and states scope/cost/resource ceilings where relevant.
 
-Until MSTR-000 closes:
+MSTR-000A and MSTR-000B grant no weight-changing training authority.
 
-```text
-FINAL_BACKBONE_ADMISSION = PROHIBITED_BEFORE_EVIDENCE
-LONG_TRAINING = PROHIBITED
-LARGE_DATASET_INGESTION = PROHIBITED
-LARGE_SCALE_RL = PROHIBITED
-PRODUCTION_RELEASE_CLAIMS = PROHIBITED
-```
+## Training-Signal Integrity
 
-MSTR-000A is an interposed pre-training workstream. It grants no weight-changing training authority. Its purpose is to freeze/qualify the Build Loop, harness surfaces, environment/verifier MVP, Direction-to-Done evaluation, trajectory contracts, and bounded research loop before agent post-training.
+Clean positive training data must satisfy stage-specific provenance, contamination, rights, and verifier-health gates.
+
+MSTR-000B establishes:
+- Data Constitution;
+- software-evolution records;
+- execution-filtered student self-alignment;
+- bounded teacher rescue;
+- checkpoint-relative difficulty/frontier curriculum;
+- verifier-health records;
+- test-generation and greenfield/feature curricula;
+- multi-fidelity research promotion;
+- Q4-in-the-loop regression.
+
+Failed trajectories remain evidence. Contaminated/leaked/authority-violating examples fail closed. Teacher outputs do not bypass independent verification.
 
 ## Evidence Identity
 
@@ -159,10 +215,11 @@ Every material model/runtime result must bind evidence to exact identities where
 - runtime commit/version and build flags;
 - OS, CPU, RAM, thread count and acceleration backend;
 - context length and cache settings;
-- prompt/tool/edit contract version;
+- prompt/tool/edit/loop contract version;
 - task/benchmark manifest;
-- verifier policy;
+- verifier policy + verifier-health identity;
 - seed/sampling config;
+- data/difficulty identity for training evidence;
 - result/failure classification;
 - paid/resource cost if any.
 
@@ -190,6 +247,8 @@ TTVC = TIME_TO_VERIFIED_COMPLETION
 
 DVCR and TTVC must be reported together. A fast failed run is not a successful TTVC result.
 
+For long-horizon/multi-round claims also report repository-health effects where measurable. A model that repeatedly solves tasks by accumulating severe technical debt is not the best software builder.
+
 For the universal-laptop release, whole-system usability matters: model RSS alone is insufficient. Measure MSTR alongside the reference OS/editor workload and reject sustained swap thrashing, OOM behavior, or severe interactive degradation.
 
 ## Implementation Discipline
@@ -198,14 +257,15 @@ For each task:
 
 1. verify exact canonical base;
 2. read task prerequisites and output paths;
-3. create a focused branch;
-4. implement the smallest compliant change;
-5. add contract/unit/integration/security tests required by the task;
-6. run focused and full applicable test gates;
-7. record evidence;
-8. update the task checkbox only when evidence exists;
-9. update canonical state only when the state actually changes;
-10. open/review/merge without destructive history rewriting.
+3. if task is B001/B002, manually verify its exact prerequisites; if task is B003+ and B002 is canonical, require an exact-main `eligible=true` result before execution and again before merge;
+4. create a focused branch;
+5. implement the smallest compliant change;
+6. add contract/unit/integration/security tests required by the task;
+7. run focused and full applicable test gates;
+8. record evidence;
+9. update the task checkbox only when evidence exists and canonical closeout requirements are satisfied;
+10. update canonical state only when the state actually changes;
+11. open/review/merge without destructive history rewriting.
 
 No force-push is required.
 

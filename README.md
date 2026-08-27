@@ -2,12 +2,13 @@
 
 MSTR is an independent research and engineering project for building an **extremely capable code-specialized software-engineering model and runtime that ordinary people can install and run locally on an ordinary laptop**.
 
-The primary goal is not general chat breadth. MSTR is being optimized to take a software direction, understand the repository and constraints, build the requested change, verify it, recover from failures, and finish with working code.
+The primary goal is not general chat breadth. MSTR is optimized to take a software direction, understand the repository and constraints, build the requested change, verify it, recover from failures, and finish with working code.
 
 ```text
 PRIMARY_PURPOSE = SOFTWARE_DIRECTION_TO_VERIFIED_WORKING_CODE
 PRIMARY_QUALITY_METRIC = DIRECTION_TO_VERIFIED_COMPLETION_RATE
 PRIMARY_SPEED_METRIC = TTVC
+PRIMARY_EFFICIENCY_TARGET = VERIFIED_SOFTWARE_CAPABILITY_PER_GB
 ```
 
 ## Primary Product Invariant
@@ -31,28 +32,39 @@ TELEMETRY_DEFAULT = OFF
 WINDOWS + LINUX + MACOS = REQUIRED_PLATFORM_FAMILIES
 ```
 
-These remain qualification targets until measured MSTR-000 closeout freezes the final support floor.
-
 ## What MSTR Is Trying to Be Best At
-
-MSTR is optimized for the software-building loop:
 
 ```text
 DIRECTION
--> ORIENT
 -> UNDERSTAND REPOSITORY + CONSTRAINTS
 -> LOCALIZE
--> PLAN MINIMALLY
+-> PLAN ONLY AS MUCH AS NEEDED
 -> ACT
--> OBSERVE
--> VERIFY
+-> TEST / VERIFY
 -> RECOVER WHEN WRONG
 -> VERIFIED DONE
 ```
 
 The builder cannot make its own unverified `done` statement project truth. Successful completion is derived from independent verification.
 
-General reasoning is preserved where it improves planning, implementation, debugging, verification, and safe execution. It is not the primary optimization target.
+General reasoning is preserved where it improves software planning, implementation, debugging, verification, and safe execution. It is not the primary optimization target.
+
+## Code Model Supremacy Thesis
+
+MSTR does not try to beat larger models by imitating their scale. It concentrates model capacity and training signal on software building.
+
+```text
+CODE-SPECIALIZED FOUNDATION
+× CODE/SOFTWARE CONTINUED TRAINING
+× SOFTWARE-EVOLUTION DATA
+× EXECUTION-FILTERED STUDENT SELF-ALIGNMENT
+× STUDENT-FRONTIER CURRICULUM
+× HEALTHY VERIFIERS
+× TRAIN/SERVE HARNESS CONSISTENCY
+× Q4 PRODUCT REGRESSION
+```
+
+The durable Half Moon advantage is intended to be the combined system of model weights, data/evolution factory, verifier health, Direction-to-Done evaluation, MSTR harness, bounded autoresearch, and WePLD integration.
 
 ## Development Method
 
@@ -64,45 +76,48 @@ Start with:
 2. `docs/canonical/CURRENT_STATE.md`
 3. `docs/canonical/PROGRAM_ROADMAP.md`
 4. `docs/canonical/AGENT_HARNESS_AND_RESEARCH_LOOP_STRATEGY.md`
-5. `docs/canonical/TRAINING_EXECUTION_STRATEGY.md`
-6. `specs/000-universal-laptop-interaction-contract/`
-7. `specs/001-agent-harness-verified-loop-foundation/`
-8. `docs/handoffs/MSTR-RESUME-AFTER-WEPLD.md`
+5. `docs/canonical/CODE_MODEL_SUPREMACY_STRATEGY.md`
+6. `docs/canonical/TRAINING_EXECUTION_STRATEGY.md`
+7. the exact active Spec Kit package(s)
 
-MSTR workstreams use full Spec Kit packages: specification, clarification closeout, research, plan, data model/contracts, quickstart, implementation handoff, readiness checklist, evidence, and dependency-ordered tasks.
-
-## Current State
-
-Live `docs/canonical/CURRENT_STATE.md` is authoritative. At the time the MSTR-000A planning package was authored:
+Current pre-training foundation packages:
 
 ```text
-MSTR-000 = ACTIVE
-T000-T028 = COMPLETE_CANONICAL
-T029 = ACTIVE/NEXT Q4 QUANTIZATION QUALIFICATION
-FINAL_BACKBONE = UNSELECTED
-WEIGHT_CHANGING_TRAINING = NOT_AUTHORIZED
+specs/001-agent-harness-verified-loop-foundation/
+specs/002-code-model-supremacy-foundation/
 ```
 
-The founder-directed sequence amendment preserves T029–T034, then requires MSTR-000A before any weight-changing agent training:
+## Pre-Training Architecture
+
+MSTR co-designs model, harness, environments, verification, data, curriculum and deployment.
+
+The early foundations are parallel when their exact prerequisites hold. MSTR-000 T030-T034 gates candidate-dependent convergence only; it does not globally gate model-independent A/B work.
 
 ```text
-T029 -> T030 -> T031 -> T032 -> T033 -> T034
-                                      |
-                                      v
-                     MSTR-000A VERIFIED AGENT HARNESS
-                                      |
-                                      v
-                  interaction/tournament/data preflight
-                                      |
-                                      v
-                  separate explicit training authorization
++--------------------------+   +--------------------------+   +--------------------------+
+| MSTR-000                 |   | MSTR-000A EARLY_SAFE    |   | MSTR-000B EARLY_SAFE    |
+| T030-T034 candidate/Q4   |   | A001-A018 loop/harness  |   | task gates / metadata / |
+| runtime qualification    |   | env/verifier/trajectory |   | data/curriculum contracts|
++------------+-------------+   +------------+-------------+   +------------+-------------+
+             |                              |                              |
+             +------------------------------+------------------------------+
+                                            |
+                                            v
+                    STABLE / EQUIVALENT PRODUCT-ALIGNED CANDIDATE POOL
+                    + REQUIRED LOOP / VERIFIER / DATA / RESEARCH CONTRACTS
+                                            |
+                                            v
+                               A019-A024 / B-CONVERGENCE
+                                            |
+                                            v
+                              SEPARATE EXPLICIT TRAINING GATE
 ```
+
+Candidate-dependent tournament/training convergence is explicitly gated; model-independent early work is not.
 
 ## Agent Harness Strategy
 
-MSTR co-designs model, harness, environments, verification, and training signal.
-
-Required score surfaces remain separate:
+Required score surfaces:
 
 ```text
 RAW_MODEL
@@ -111,7 +126,7 @@ MSTR_NATIVE_HARNESS
 MSTR_PLUS_WEPLD
 ```
 
-The default architecture is intentionally small:
+Default runtime topology:
 
 ```text
 ONE MSTR BUILDER
@@ -119,9 +134,9 @@ ONE MSTR BUILDER
 INDEPENDENT DETERMINISTIC VERIFIER
 ```
 
-Multi-agent/planner/checker designs are experimental arms that must earn their additional latency, tokens, RAM, and complexity.
+Multi-agent/planner/checker designs are optional measured arms, not default laptop complexity.
 
-MSTR-000A also establishes three bounded loops:
+MSTR uses three bounded loops:
 
 ```text
 BUILD LOOP        = direction -> verified completion
@@ -129,7 +144,29 @@ ENVIRONMENT LOOP  = checkout -> runnable/reproducible task environment
 RESEARCH LOOP     = baseline -> bounded experiment -> keep/discard/crash
 ```
 
-See `docs/canonical/AGENT_HARNESS_AND_RESEARCH_LOOP_STRATEGY.md` and `specs/001-agent-harness-verified-loop-foundation/`.
+## MSTR-000B: What It Adds Before Training
+
+MSTR-000B makes the plan materially stronger by requiring:
+
+- machine task/dependency eligibility enforcement;
+- a new mission-aligned compact-backbone rescan that includes code-specialized bases;
+- tokenizer/code-density economics for the 8K product;
+- a Data Constitution;
+- software-evolution records;
+- execution-filtered student self-alignment;
+- bounded teacher rescue under rights/verifier gates;
+- checkpoint-relative difficulty/frontier curriculum;
+- verifier-health records;
+- test-generation curriculum;
+- feature/greenfield curriculum;
+- multi-fidelity autoresearch promotion;
+- adaptive test-time compute/selective context;
+- fail-closed Q4-in-the-loop checkpoint promotion;
+- equivalent LoRA/rsLoRA/QLoRA method preflight where supported;
+- Repository Health Delta over repeated work;
+- cross-harness robustness.
+
+`JetBrains/Mellum-4b-base` is a mandatory rescan candidate because it demonstrates a gap in the older search policy; it is not preselected as a winner or authorized for weight access.
 
 ## WePLD Integration
 
@@ -145,35 +182,26 @@ MSTR's future training plan treats **Google Colab + Unsloth as the primary acces
 
 ```text
 Google Colab = GPU execution environment
-Unsloth     = preferred efficient training framework candidate
+Unsloth = preferred efficient training framework candidate
 MSTR runtime = separate local/offline end-user product
 ```
 
-The program does **not** preselect a final backbone or precision. Training must consume the frozen MSTR loop/tool/edit/state/verifier semantics rather than use an unrelated scaffold and hope the behavior transfers later.
-
-The intended learning sequence is evidence-driven:
+The training sequence is evidence-driven:
 
 ```text
-strong code/FIM prior
--> verified execution-grounded trajectories
--> coding/repository/tool/edit/recovery SFT
--> preference/recovery training where justified
--> bounded executable agent RL where authorized
--> Q4 regression
--> same Direction-to-Done / neutral / MSTR / WePLD evaluation surfaces
+strong product-aligned code prior
+-> code/FIM continued training
+-> execution-filtered self-alignment
+-> software-evolution + Direction-to-Done SFT
+-> failure/recovery/preference training
+-> bounded executable RL
+-> export + integrity + Q4 regression after each material stage
+-> only Q4-qualified checkpoint may parent the next material stage
 ```
 
-Future code/FIM research should include ordinary FIM, instruction-aware FIM, function/dependency-aware FIM, cross-file/repository FIM, and an experimental action/observation continuation arm where evidence supports it.
+Training method is not preselected. Where supported, equivalent 16-bit LoRA, 16-bit LoRA+rsLoRA, 4-bit QLoRA, and 4-bit QLoRA+rsLoRA cells must be compared before committing to a method; every unsupported arm requires an exact recorded reason. Full fine-tuning is non-default.
 
-Every later run must be resumable, pinned, hashed, and regression-tested. See `docs/canonical/TRAINING_EXECUTION_STRATEGY.md`.
-
-## Product Thesis
-
-> **the smallest model that can reliably turn software direction into verified working code**
-
-MSTR optimizes maximum verified software-engineering utility per GB, per second, per token/tool action, and per unit of training evidence.
-
-Mandatory product metrics include:
+## Product Metrics
 
 ```text
 DVCR = Direction-to-Verified-Completion Rate
@@ -182,17 +210,19 @@ FPAR = First-Pass Accept Rate
 ESR  = Edit-Survival Rate
 RSR  = Repair Success Rate
 TER  = Tool Error Rate
+RHD  = Repository Health Delta
 ```
 
-Model quality, repository localization, deterministic editing, tool reliability, executable verification, local inference, quantization, context management, end-to-end TTVC, and failure recovery are designed together.
+MSTR also tracks tokens/tool calls/context consumed per verified completion, artifact size, RAM/whole-laptop pressure, and harness overhead.
 
 ## Program Roadmap
 
 ```text
 MSTR-000   Qualification Harness + Universal Laptop / Interaction / Backbone Qualification
 MSTR-000A  Verified Agent Harness + Direction-to-Done Foundation
-MSTR-001   Data Engine + Bounded Code/FIM Mid-Training
-MSTR-002   Coding SFT + Repository / Tool / Planning / Recovery Behavior
+MSTR-000B  Code Model Supremacy Pre-Training Foundation
+MSTR-001   Data Engine + Code/FIM Continued/Mid-Training
+MSTR-002   Execution-Grounded Coding SFT + Recovery
 MSTR-003   Environment Factory Expansion + Agentic RL
 MSTR-004   Local Inference Speed Co-Design
 MSTR-005   Packaging + Security + Privacy + Offline Release Engineering
@@ -201,26 +231,20 @@ MSTR-007   MSTR v1 Release
 MSTR-008   Post-Release Evidence + Improvement Loop
 ```
 
-Later workstreams remain implementation-deferred until predecessor evidence is canonical.
-
-## External-Effect Gates
-
-```text
-T028 = explicitly authorized/canonical candidate-weight acquisition path
-T053_OR_SUCCESSOR = separately authorized bounded weight-changing adaptation gate
-```
-
-MSTR-000A does not authorize training, paid compute, large dataset ingestion, or production trace ingestion.
-
 ## Hard Boundaries
 
 ```text
 NO FINAL BACKBONE SELECTION WITHOUT EVIDENCE
+NO NEW MODEL WEIGHT ACCESS WITHOUT EXACT AUTHORITY
+NO WEIGHT-CHANGING TRAINING WITHOUT EXACT AUTHORITY
 NO LONG TRAINING WITHOUT EXACT AUTHORITY
 NO LARGE DATASET INGESTION WITHOUT EXACT AUTHORITY
 NO LARGE-SCALE RL WITHOUT EXACT AUTHORITY
 NO PRODUCTION MODEL RELEASE WITHOUT EXACT AUTHORITY
 NO HARNESS GAIN REPORTED AS RAW MODEL GAIN
+NO TEACHER OUTPUT TREATED AS VERIFIED TRUTH
+NO WEAK/BROKEN VERIFIER USED AS CLEAN TRAINING AUTHORITY
+NO MASTER-ONLY CHECKPOINT PROMOTED PAST REQUIRED Q4 GATE
 NO SILENT HARDWARE-FLOOR INCREASE
 NO PRIVATE USER REPOSITORY TRAINING INGEST BY DEFAULT
 NO HIDDEN TELEMETRY
