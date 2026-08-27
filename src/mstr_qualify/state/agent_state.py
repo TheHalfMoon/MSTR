@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import asdict, dataclass, replace
-from typing import Any, Literal, Sequence
+from typing import Any, Literal, Sequence, cast
 
 from mstr_qualify.harness.event_log import EventEntry, replay
 
@@ -78,12 +78,13 @@ class CompactionPolicy:
     max_critical_items: int = 128
 
     def __post_init__(self) -> None:
-        for name, value in (
+        fields = (
             ("max_context_items", self.max_context_items),
             ("max_command_items", self.max_command_items),
             ("max_pass_verifier_results", self.max_pass_verifier_results),
             ("max_critical_items", self.max_critical_items),
-        ):
+        )
+        for name, value in fields:
             if value < 0:
                 raise StateProjectionError(
                     f"{name} must be non-negative",
@@ -147,9 +148,33 @@ class _Builder:
         self.remaining_work = []
 
 
-def _items(values: Sequence[str], seq: int, *, uncertain: bool = False) -> list[StateItem]:
+_SOURCE_POLICY: dict[str, frozenset[str]] = {
+    "run.goal_admitted": frozenset({"user", "harness", "system"}),
+    "context.observed": frozenset(
+        {"user", "harness", "tool", "environment", "system"}
+    ),
+    "plan.updated": frozenset({"model", "harness", "system"}),
+    "tool.result": frozenset({"tool", "harness", "environment", "system"}),
+    "edit.applied": frozenset({"tool", "harness", "environment", "system"}),
+    "edit.rejected": frozenset({"tool", "harness", "environment", "system"}),
+    "verifier.result": frozenset({"verifier"}),
+    "recovery.result": frozenset({"harness", "tool", "verifier", "system"}),
+    "run.failed": frozenset({"harness", "verifier", "system"}),
+    "run.escalated": frozenset({"harness", "verifier", "system"}),
+}
+
+
+def _items(
+    values: Sequence[str],
+    seq: int,
+    *,
+    uncertain: bool = False,
+) -> list[StateItem]:
     status: EpistemicStatus = "UNCERTAIN" if uncertain else "FACT"
-    return [StateItem(value=value, source_seq=seq, epistemic_status=status) for value in values]
+    return [
+        StateItem(value=value, source_seq=seq, epistemic_status=status)
+        for value in values
+    ]
 
 
 def _string(payload: dict[str, Any], key: str, seq: int) -> str | None:
@@ -175,9 +200,14 @@ def _strings(payload: dict[str, Any], key: str, seq: int) -> list[str]:
                 code="state.payload_type_error",
             )
         return [value]
-    if not isinstance(value, list) or any(not isinstance(item, str) or not item.strip() for item in value):
+    if not isinstance(value, list):
         raise StateProjectionError(
-            f"event seq={seq} field {key!r} must be a string or list of non-empty strings",
+            f"event seq={seq} field {key!r} must be string or string list",
+            code="state.payload_type_error",
+        )
+    if any(not isinstance(item, str) or not item.strip() for item in value):
+        raise StateProjectionError(
+            f"event seq={seq} field {key!r} contains an invalid item",
             code="state.payload_type_error",
         )
     return list(value)
@@ -195,6 +225,19 @@ def _bool(payload: dict[str, Any], key: str, seq: int) -> bool | None:
     return value
 
 
+def _require_source(raw: dict[str, Any]) -> None:
+    event_type = raw["event_type"]
+    allowed = _SOURCE_POLICY.get(event_type)
+    if allowed is None:
+        return
+    source = raw["source"]
+    if source not in allowed:
+        raise StateProjectionError(
+            f"event {event_type!r} from source {source!r} cannot author AgentState facts",
+            code="state.source_not_authoritative",
+        )
+
+
 def _append_unique(target: list[StateItem], values: Sequence[StateItem]) -> None:
     existing = {item.value for item in target}
     for item in values:
@@ -210,7 +253,12 @@ def _required_list(builder: _Builder, name: str) -> list[Any]:
     return value
 
 
-def _record_failure(builder: _Builder, category: str, detail: str, seq: int) -> None:
+def _record_failure(
+    builder: _Builder,
+    category: str,
+    detail: str,
+    seq: int,
+) -> None:
     failures = _required_list(builder, "known_failures")
     failures.append(FailureRecord(category=category, detail=detail, source_seq=seq))
 
@@ -235,7 +283,8 @@ def _apply_goal(builder: _Builder, payload: dict[str, Any], seq: int) -> None:
 
 
 def _apply_context(builder: _Builder, payload: dict[str, Any], seq: int) -> None:
-    repo_values = _strings(payload, "repo_map", seq) + _strings(payload, "repo_entries", seq)
+    repo_values = _strings(payload, "repo_map", seq)
+    repo_values.extend(_strings(payload, "repo_entries", seq))
     _append_unique(_required_list(builder, "repo_map"), _items(repo_values, seq))
     _append_unique(
         _required_list(builder, "files_inspected"),
@@ -256,35 +305,42 @@ def _apply_plan(builder: _Builder, payload: dict[str, Any], seq: int) -> None:
         )
     builder.current_plan = _items(plan, seq)
     if "remaining_work" in payload:
-        builder.remaining_work = _items(_strings(payload, "remaining_work", seq), seq)
+        builder.remaining_work = _items(
+            _strings(payload, "remaining_work", seq),
+            seq,
+        )
     if "next_action" in payload:
         next_action = _string(payload, "next_action", seq)
-        builder.next_action = None if next_action is None else StateItem(next_action, seq)
+        if next_action is None:
+            builder.next_action = None
+        else:
+            builder.next_action = StateItem(next_action, seq)
     _append_unique(
         _required_list(builder, "working_hypotheses"),
         _items(_strings(payload, "hypotheses", seq), seq, uncertain=True),
     )
 
 
-def _apply_tool_requested(builder: _Builder, payload: dict[str, Any], seq: int) -> None:
-    command = _string(payload, "command", seq)
-    if command is not None:
-        _required_list(builder, "commands_run").append(StateItem(command, seq))
-
-
 def _apply_tool_result(builder: _Builder, payload: dict[str, Any], seq: int) -> None:
     command = _string(payload, "command", seq)
     if command is not None:
-        commands = _required_list(builder, "commands_run")
-        if not commands or commands[-1].value != command:
-            commands.append(StateItem(command, seq))
+        _required_list(builder, "commands_run").append(StateItem(command, seq))
     success = _bool(payload, "success", seq)
     if success is False:
-        detail = _string(payload, "error", seq) or _string(payload, "detail", seq) or "tool failed"
+        detail = (
+            _string(payload, "error", seq)
+            or _string(payload, "detail", seq)
+            or "tool failed"
+        )
         _record_failure(builder, "TOOL_ERROR", detail, seq)
 
 
-def _apply_edit(builder: _Builder, event_type: str, payload: dict[str, Any], seq: int) -> None:
+def _apply_edit(
+    builder: _Builder,
+    event_type: str,
+    payload: dict[str, Any],
+    seq: int,
+) -> None:
     if event_type == "edit.applied":
         paths = _strings(payload, "changed_files", seq)
         path = _string(payload, "path", seq)
@@ -295,9 +351,16 @@ def _apply_edit(builder: _Builder, event_type: str, payload: dict[str, Any], seq
                 f"edit.applied at seq={seq} requires path or changed_files",
                 code="state.changed_file_missing",
             )
-        _append_unique(_required_list(builder, "changed_files"), _items(paths, seq))
+        _append_unique(
+            _required_list(builder, "changed_files"),
+            _items(paths, seq),
+        )
         return
-    detail = _string(payload, "reason", seq) or _string(payload, "error", seq) or "edit rejected"
+    detail = (
+        _string(payload, "reason", seq)
+        or _string(payload, "error", seq)
+        or "edit rejected"
+    )
     _record_failure(builder, "BAD_PATCH", detail, seq)
 
 
@@ -311,36 +374,48 @@ def _apply_verifier(builder: _Builder, payload: dict[str, Any], seq: int) -> Non
         )
     if status_raw not in {"PASS", "FAIL", "ERROR", "UNKNOWN"}:
         raise StateProjectionError(
-            f"verifier.result at seq={seq} has unsupported status {status_raw!r}",
+            f"verifier.result at seq={seq} has invalid status {status_raw!r}",
             code="state.verifier_status_invalid",
         )
-    status: VerifierStatus = status_raw  # type: ignore[assignment]
+    status = cast(VerifierStatus, status_raw)
     detail = _string(payload, "detail", seq) or ""
     results = _required_list(builder, "verifier_results")
     results.append(VerifierResult(verifier_id, status, detail, seq))
     if status != "PASS":
+        suffix = f": {detail}" if detail else ""
         _record_failure(
             builder,
             "VERIFIER_FAILURE",
-            f"{verifier_id}: {status}{': ' + detail if detail else ''}",
+            f"{verifier_id}: {status}{suffix}",
             seq,
         )
 
 
-def _apply_terminal_failure(builder: _Builder, event_type: str, payload: dict[str, Any], seq: int) -> None:
+def _apply_terminal_failure(
+    builder: _Builder,
+    event_type: str,
+    payload: dict[str, Any],
+    seq: int,
+) -> None:
     detail = (
         _string(payload, "failure", seq)
         or _string(payload, "reason", seq)
         or _string(payload, "detail", seq)
         or event_type
     )
-    category = "AUTHORITY_VIOLATION" if "authority" in detail.lower() else "INCOMPLETE_IMPLEMENTATION"
+    if "authority" in detail.lower():
+        category = "AUTHORITY_VIOLATION"
+    else:
+        category = "INCOMPLETE_IMPLEMENTATION"
     _record_failure(builder, category, detail, seq)
 
 
 def _project_entries(log: Sequence[EventEntry]) -> AgentState:
     if not log:
-        raise StateProjectionError("AgentState requires at least one event", code="state.empty_log")
+        raise StateProjectionError(
+            "AgentState requires at least one event",
+            code="state.empty_log",
+        )
     run_id = log[0].raw["run_id"]
     builder = _Builder(run_id=run_id)
 
@@ -348,7 +423,10 @@ def _project_entries(log: Sequence[EventEntry]) -> AgentState:
         raw = entry.raw
         seq = raw["seq"]
         if raw["run_id"] != run_id:
-            raise StateProjectionError("mixed run ids are not projectable", code="state.mixed_run_ids")
+            raise StateProjectionError(
+                "mixed run ids are not projectable",
+                code="state.mixed_run_ids",
+            )
         payload = raw["payload"]
         if not isinstance(payload, dict):
             raise StateProjectionError(
@@ -356,14 +434,20 @@ def _project_entries(log: Sequence[EventEntry]) -> AgentState:
                 code="state.payload_type_error",
             )
         event_type = raw["event_type"]
+
+        # A compaction event describes a model-visible summary. Reprojecting
+        # facts from that summary would create a second, circular authority
+        # surface. The original events remain sufficient to reconstruct state.
+        if event_type == "context.compacted":
+            continue
+
+        _require_source(raw)
         if event_type == "run.goal_admitted":
             _apply_goal(builder, payload, seq)
-        elif event_type in {"context.observed", "context.compacted"}:
+        elif event_type == "context.observed":
             _apply_context(builder, payload, seq)
         elif event_type == "plan.updated":
             _apply_plan(builder, payload, seq)
-        elif event_type == "tool.requested":
-            _apply_tool_requested(builder, payload, seq)
         elif event_type == "tool.result":
             _apply_tool_result(builder, payload, seq)
         elif event_type in {"edit.applied", "edit.rejected"}:
@@ -375,7 +459,12 @@ def _project_entries(log: Sequence[EventEntry]) -> AgentState:
         elif event_type == "recovery.result":
             if _bool(payload, "success", seq) is False:
                 detail = _string(payload, "detail", seq) or "recovery failed"
-                _record_failure(builder, "INCOMPLETE_IMPLEMENTATION", detail, seq)
+                _record_failure(
+                    builder,
+                    "INCOMPLETE_IMPLEMENTATION",
+                    detail,
+                    seq,
+                )
 
     return AgentState(
         run_id=run_id,
@@ -390,7 +479,9 @@ def _project_entries(log: Sequence[EventEntry]) -> AgentState:
         commands_run=tuple(_required_list(builder, "commands_run")),
         verifier_results=tuple(_required_list(builder, "verifier_results")),
         known_failures=tuple(_required_list(builder, "known_failures")),
-        working_hypotheses=tuple(_required_list(builder, "working_hypotheses")),
+        working_hypotheses=tuple(
+            _required_list(builder, "working_hypotheses")
+        ),
         remaining_work=tuple(_required_list(builder, "remaining_work")),
         next_action=builder.next_action,
         derived_through_seq=log[-1].raw["seq"],
@@ -403,8 +494,16 @@ def project_agent_state(events: Sequence[dict[str, Any]]) -> AgentState:
 
 
 def _canonical_digest(values: Sequence[Any]) -> str:
-    serializable = [asdict(value) if hasattr(value, "__dataclass_fields__") else value for value in values]
-    payload = json.dumps(serializable, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    serializable = [
+        asdict(value) if hasattr(value, "__dataclass_fields__") else value
+        for value in values
+    ]
+    payload = json.dumps(
+        serializable,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -417,28 +516,37 @@ def _compact_sequence(
         return values, None
     omitted = values[: len(values) - limit] if limit else values
     kept = values[-limit:] if limit else ()
-    return kept, CompactionRecord(field, len(omitted), _canonical_digest(omitted))
+    record = CompactionRecord(
+        field=field,
+        omitted_count=len(omitted),
+        omitted_sha256=_canonical_digest(omitted),
+    )
+    return kept, record
 
 
 def _critical_count(state: AgentState) -> int:
-    nonpass_verifiers = sum(result.status != "PASS" for result in state.verifier_results)
-    scalar_count = int(state.goal is not None) + int(state.next_action is not None)
-    return scalar_count + sum(
-        (
-            len(state.acceptance_criteria),
-            len(state.non_goals),
-            len(state.constraints),
-            len(state.current_plan),
-            len(state.changed_files),
-            nonpass_verifiers,
-            len(state.known_failures),
-            len(state.working_hypotheses),
-            len(state.remaining_work),
-        )
+    nonpass_verifiers = sum(
+        result.status != "PASS" for result in state.verifier_results
     )
+    scalar_count = int(state.goal is not None) + int(state.next_action is not None)
+    groups = (
+        len(state.acceptance_criteria),
+        len(state.non_goals),
+        len(state.constraints),
+        len(state.current_plan),
+        len(state.changed_files),
+        nonpass_verifiers,
+        len(state.known_failures),
+        len(state.working_hypotheses),
+        len(state.remaining_work),
+    )
+    return scalar_count + sum(groups)
 
 
-def compact_agent_state(state: AgentState, policy: CompactionPolicy | None = None) -> AgentState:
+def compact_agent_state(
+    state: AgentState,
+    policy: CompactionPolicy | None = None,
+) -> AgentState:
     """Bound non-critical history without erasing decision-critical evidence.
 
     Goal/acceptance/constraints/current plan/changed files/all verifier failures,
@@ -455,35 +563,48 @@ def compact_agent_state(state: AgentState, policy: CompactionPolicy | None = Non
         )
 
     records: list[CompactionRecord] = list(state.compaction_records)
-    repo_map, record = _compact_sequence("repo_map", state.repo_map, active_policy.max_context_items)
+    repo_map, record = _compact_sequence(
+        "repo_map",
+        state.repo_map,
+        active_policy.max_context_items,
+    )
     if record is not None:
         records.append(record)
     files_inspected, record = _compact_sequence(
-        "files_inspected", state.files_inspected, active_policy.max_context_items
+        "files_inspected",
+        state.files_inspected,
+        active_policy.max_context_items,
     )
     if record is not None:
         records.append(record)
     commands_run, record = _compact_sequence(
-        "commands_run", state.commands_run, active_policy.max_command_items
+        "commands_run",
+        state.commands_run,
+        active_policy.max_command_items,
     )
     if record is not None:
         records.append(record)
 
-    pass_results = [result for result in state.verifier_results if result.status == "PASS"]
-    kept_passes = pass_results[-active_policy.max_pass_verifier_results :]
-    if active_policy.max_pass_verifier_results == 0:
-        kept_passes = []
+    pass_results = [
+        result for result in state.verifier_results if result.status == "PASS"
+    ]
+    limit = active_policy.max_pass_verifier_results
+    kept_passes = pass_results[-limit:] if limit else []
     omitted_passes = pass_results[: len(pass_results) - len(kept_passes)]
     if omitted_passes:
         records.append(
             CompactionRecord(
-                "verifier_results.pass",
-                len(omitted_passes),
-                _canonical_digest(omitted_passes),
+                field="verifier_results.pass",
+                omitted_count=len(omitted_passes),
+                omitted_sha256=_canonical_digest(omitted_passes),
             )
         )
-    nonpass = [result for result in state.verifier_results if result.status != "PASS"]
-    verifier_results = tuple(sorted((*nonpass, *kept_passes), key=lambda result: result.source_seq))
+    nonpass = [
+        result for result in state.verifier_results if result.status != "PASS"
+    ]
+    verifier_results = tuple(
+        sorted((*nonpass, *kept_passes), key=lambda result: result.source_seq)
+    )
 
     return replace(
         state,
