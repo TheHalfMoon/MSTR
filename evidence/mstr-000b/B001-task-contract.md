@@ -41,10 +41,10 @@ specs/002-code-model-supremacy-foundation/contracts/mstr-task-eligibility-v0.sch
 Exact blob identities on the implementation branch:
 
 ```text
-TASK_NODE_RUNTIME_BLOB = dcd823ce4251273da23f170a70cca9db35c9791d
-TASK_NODE_DESIGN_BLOB  = dcd823ce4251273da23f170a70cca9db35c9791d
-ELIGIBILITY_RUNTIME_BLOB = 759d0a2c0deff39be21eb19a0af576765debd5c0
-ELIGIBILITY_DESIGN_BLOB  = 759d0a2c0deff39be21eb19a0af576765debd5c0
+TASK_NODE_RUNTIME_BLOB = 928efeb537627dcc05d622c66d6bfb154f4dc452
+TASK_NODE_DESIGN_BLOB  = 928efeb537627dcc05d622c66d6bfb154f4dc452
+ELIGIBILITY_RUNTIME_BLOB = fa60056de6e3abd908a97be939cafb76590719fa
+ELIGIBILITY_DESIGN_BLOB  = fa60056de6e3abd908a97be939cafb76590719fa
 BYTE_IDENTICAL_DESIGN_RUNTIME = YES
 ```
 
@@ -61,6 +61,8 @@ The contract freezes:
 - parallel-safety declaration;
 - supersedes / superseded-by identities;
 - machine-readable closeout terminal states and required output/evidence/merge conditions.
+
+Closeout is fail-closed: `terminal_states[]` may contain only `COMPLETE_CANONICAL`, `SUPERSEDED_CANONICAL`, or an explicit `NOT_REQUIRED...` state. `PENDING`, `ACTIVE`, and `BLOCKED` cannot be declared terminal closeout states.
 
 Authority-gated external-effect classes are exactly:
 
@@ -111,6 +113,10 @@ eligible=true
 
 eligible=false
   -> at least one top-level reason required
+
+candidate_pool_result.required=true
+  -> requirement_id is non-empty
+  -> observed_pool_id is non-empty
 ```
 
 The validator implementation remains B002; B001 freezes only the machine contracts and does not create authority or mutate task state at runtime.
@@ -122,6 +128,8 @@ B001 adds:
 - dedicated valid + invalid fixtures for both registered schemas;
 - one explicit missing-authority fixture for every authority-gated external-effect class;
 - one candidate-dependent fixture missing `candidate_pool_requirement_id`;
+- rejection of nonterminal closeout states;
+- rejection of a required candidate-pool result without an observed pool identity;
 - a focused contract test proving those cases fail closed;
 - generic schema-test support for per-schema fixture files and MSTR-000B-owned design sources.
 
@@ -132,10 +140,10 @@ PYTHONPATH=src pytest -q tests/contract/test_task_contracts.py tests/contract/te
   -k 'task_contracts or mstr-task-node-v0 or mstr-task-eligibility-v0'
 ```
 
-Result:
+Result after final contract hardening:
 
 ```text
-22 passed, 34 deselected in 1.08s
+24 passed, 34 deselected in 1.07s
 ```
 
 This focused run reconstructed only the exact schema-loading surface needed for B001 because the execution environment could not clone GitHub over DNS. It is valid evidence for the new schema semantics, not a claim that the entire repository suite ran.
