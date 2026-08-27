@@ -1,0 +1,147 @@
+name: Guard B003 Qodo fail-closed repair
+
+on:
+  push:
+    branches:
+      - evidence/b003-qodo-repair-a915
+
+permissions:
+  contents: write
+
+jobs:
+  repair-b003:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_HEAD: a9150691d4f79012224cd27deb5c806d1f8bfcff
+      EXPECTED_MAIN: 0754d552752c2f6c099df2b480de99028e2e26e5
+      TARGET_BRANCH: feat/000b-b003-drift-detector
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - name: Checkout exact guarded target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Verify live repair preconditions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+
+      - name: Apply bounded fail-closed identity repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: Path, old: str, new: str, label: str) -> None:
+              text = path.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label} match count: {count}')
+              path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          source = Path('src/mstr_qualify/task_drift.py')
+          replace_once(
+              source,
+              '    if implementation is not None:\n',
+              '''    identity_values = {\n        "implementation_pr": evidence_pr,\n        "final_head": evidence_head,\n        "merge_sha": evidence_merge,\n    }\n    identity_comparison_required = (\n        implementation is not None\n        or bool(history_merges)\n        or any(value is not None for value in identity_values.values())\n    )\n    if identity_comparison_required:\n        missing_identity_fields = sorted(\n            field for field, value in identity_values.items() if value is None\n        )\n        if missing_identity_fields:\n            findings.append(\n                _finding(\n                    task_id,\n                    "evidence.implementation_identity_missing",\n                    missing_fields=missing_identity_fields,\n                )\n            )\n\n    if implementation is not None:\n''',
+              'identity fail-closed insertion',
+          )
+
+          test_path = Path('tests/unit/test_task_drift.py')
+          replace_once(
+              test_path,
+              '''    elif name == "implementation_merged_while_active":\n        _merge_b003_implementation(root, include_gate=True)\n    elif name in {"valid_terminal_b003", "entry_gate_after_implementation"}:\n''',
+              '''    elif name == "implementation_merged_while_active":\n        _merge_b003_implementation(root, include_gate=True)\n    elif name == "terminal_missing_identity_field":\n        gate_main, final_head, merge_sha = _merge_b003_implementation(root, include_gate=True)\n        _close_b003(\n            root,\n            gate_main=gate_main,\n            final_head=final_head,\n            merge_sha=merge_sha,\n        )\n        evidence = root / "evidence" / "mstr-000b" / "B003.md"\n        text = evidence.read_text(encoding="utf-8")\n        identity_line = f"**Final implementation head:** `{final_head}`\\n"\n        assert text.count(identity_line) == 1\n        evidence.write_text(text.replace(identity_line, "", 1), encoding="utf-8")\n        _commit_main(root, "remove mandatory B003 identity field")\n    elif name in {"valid_terminal_b003", "entry_gate_after_implementation"}:\n''',
+              'terminal missing identity fixture case',
+          )
+
+          fixture = Path('tests/fixtures/task_drift_cases.json')
+          replace_once(
+              fixture,
+              '''    {\n      "name": "implementation_merged_while_active",\n      "expected_codes": ["implementation.merged_while_active"]\n    },\n    {\n      "name": "valid_terminal_b003",\n''',
+              '''    {\n      "name": "implementation_merged_while_active",\n      "expected_codes": [\n        "implementation.merged_while_active",\n        "evidence.implementation_identity_missing"\n      ]\n    },\n    {\n      "name": "terminal_missing_identity_field",\n      "expected_codes": ["evidence.implementation_identity_missing"]\n    },\n    {\n      "name": "valid_terminal_b003",\n''',
+              'fixture expected identity findings',
+          )
+          PY
+
+      - name: Verify repair scope and syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          python -m py_compile src/mstr_qualify/task_drift.py tests/unit/test_task_drift.py
+          python - <<'PY'
+          import subprocess
+          expected = {
+              'src/mstr_qualify/task_drift.py',
+              'tests/unit/test_task_drift.py',
+              'tests/fixtures/task_drift_cases.json',
+          }
+          changed = set(subprocess.run(
+              ['git', 'diff', '--name-only'], check=True, capture_output=True, text=True
+          ).stdout.splitlines())
+          assert changed == expected, (changed, expected)
+          PY
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Run targeted B003 tests
+        run: pytest -q tests/unit/test_task_drift.py tests/integration/test_task_drift_cli.py
+
+      - name: Prove repaired detector still sees canonical main as clean
+        shell: bash
+        run: |
+          set -euo pipefail
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git worktree add --detach /tmp/b003-main "$EXPECTED_MAIN"
+          git -C /tmp/b003-main update-ref refs/heads/main "$EXPECTED_MAIN"
+          git -C /tmp/b003-main update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python - <<'PY'
+          from pathlib import Path
+          from mstr_qualify.task_drift import detect_canonical_drift
+          report = detect_canonical_drift(repository_root=Path('/tmp/b003-main'))
+          assert report['status'] == 'clean', report
+          assert report['findings'] == [], report
+          assert report['tasks_checked'] == 34, report
+          print('REPAIRED_CANONICAL_DRIFT_STATUS=clean')
+          PY
+
+      - name: Frozen gate - pytest
+        run: pytest -q
+
+      - name: Frozen gate - Ruff
+        run: ruff check src tests
+
+      - name: Frozen gate - mypy
+        run: mypy
+
+      - name: Frozen gate - offline validate
+        run: python -m mstr_qualify validate
+
+      - name: Guarded fast-forward repair push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/mstr_qualify/task_drift.py tests/unit/test_task_drift.py tests/fixtures/task_drift_cases.json
+          git commit -m "fix(mstr-000b): fail closed on missing drift identity"
+          git push origin HEAD:"$TARGET_BRANCH"
+          echo "REPAIRED_B003_HEAD=$(git rev-parse HEAD)"
