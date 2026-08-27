@@ -1,0 +1,196 @@
+name: Guard B003 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/b003-closeout-build-8bea742
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: 8bea74269fb81a4c898b7a2864bf103d15fd98a9
+  TARGET_BRANCH: docs/000b-b003-canonicalize
+  IMPLEMENTATION_HEAD: f3ccad9d49ea9d0460f82d7ecfe64b649bd997cf
+  IMPLEMENTATION_MERGE: 8bea74269fb81a4c898b7a2864bf103d15fd98a9
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  build-closeout:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact closeout target base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Verify live closeout preconditions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+
+      - name: Apply bounded B003 closeout transition
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          def replace_once(path: Path, old: str, new: str, label: str) -> None:
+              text = path.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label} match count: {count}")
+              path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          # 1) Machine catalog state.
+          catalog = Path("configs/task-gate/mstr-000b.json")
+          payload = json.loads(catalog.read_text(encoding="utf-8"))
+          assert payload["tasks"]["B003"]["canonical_state"] == "PENDING"
+          payload["tasks"]["B003"]["canonical_state"] = "COMPLETE_CANONICAL"
+          catalog.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+          # 2) Canonical task checkbox + implementation identity.
+          tasks = Path("specs/002-code-model-supremacy-foundation/tasks.md")
+          replace_once(
+              tasks,
+              '''- [ ] **B003 Implement canonical drift detector.**  \n  Prerequisite: B002 `COMPLETE_CANONICAL` and an exact-main `eligible=true` result. Compare task checkboxes/state/evidence/PR merge records where machine-readable. Detect examples such as implementation merged while task remains active, or task executed before declared entry gate.  \n  Outputs: `src/mstr_qualify/task_drift.py`, tests/fixtures, `evidence/mstr-000b/B003-drift-detector.md`.\n''',
+              '''- [x] **B003 Implement canonical drift detector.**  \n  Prerequisite: B002 `COMPLETE_CANONICAL` and an exact-main `eligible=true` result. Compare task checkboxes/state/evidence/PR merge records where machine-readable. Detect examples such as implementation merged while task remains active, or task executed before declared entry gate.  \n  Outputs: `src/mstr_qualify/task_drift.py`, tests/fixtures, `evidence/mstr-000b/B003-drift-detector.md`.\n  Canonical implementation: PR #50 / final head `f3ccad9d49ea9d0460f82d7ecfe64b649bd997cf` / merge `8bea74269fb81a4c898b7a2864bf103d15fd98a9`.\n''',
+              "B003 task closeout",
+          )
+
+          # 3) Canonical evidence, including identities parsed by task drift.
+          evidence = Path("evidence/mstr-000b/B003-drift-detector.md")
+          evidence.write_text(
+              '''# B003 — Canonical Drift Detector Closeout Evidence\n\n**Workstream:** MSTR-000B\n**Task:** B003\n**State:** COMPLETE_CANONICAL\n**Implementation branch:** `feat/000b-b003-drift-detector`\n**Implementation PR:** `#50`\n**Final implementation head:** `f3ccad9d49ea9d0460f82d7ecfe64b649bd997cf`\n**Canonical implementation merge:** `8bea74269fb81a4c898b7a2864bf103d15fd98a9`\n\n## Mandatory exact-main entry gate\n\n```text\nENTRY_GATE_TASK = B003\nENTRY_GATE_CANONICAL_MAIN = 0754d552752c2f6c099df2b480de99028e2e26e5\nENTRY_GATE_ELIGIBLE = true\nENTRY_GATE_RUN = 33083687113\nENTRY_GATE_JOB = 98557431219\n```\n\nB003 implementation began only after B002 was `COMPLETE_CANONICAL` and the exact-main production task gate returned `eligible=true`.\n\n## Final implementation qualification\n\nExact-head qualification run `33091769930`, job `98586178496`, checked out final implementation head `f3ccad9d49ea9d0460f82d7ecfe64b649bd997cf` detached and verified canonical entry main `0754d552752c2f6c099df2b480de99028e2e26e5`.\n\n```text\nB003_FIXTURE_CASES = 13\nB003_TARGETED_TESTS = PASS (9 passed)\nB003_EXACT_MAIN_ELIGIBLE = true\nCANONICAL_DRIFT_STATUS = clean\npytest -q = PASS (496 passed)\nruff check src tests = PASS\nmypy = PASS (26 source files)\npython -m mstr_qualify validate = PASS\nVALID_FIXTURES = 10\nINVALID_FIXTURES_REJECTED = 10\nFINAL_B003_SHA = f3ccad9d49ea9d0460f82d7ecfe64b649bd997cf\nFINAL_MAIN_SHA = 0754d552752c2f6c099df2b480de99028e2e26e5\n```\n\nFresh CodeRabbit exact-head review on `f3ccad9d49ea9d0460f82d7ecfe64b649bd997cf` found no material issue after the review-driven fail-closed and terminal-state repairs. Existing inline review threads were resolved before merge.\n\nPre-merge gate v2 run `33092154255` re-proved production `task eligible B003 => true` on live main and used the exact feature-head detector to prove canonical drift was clean immediately before merge.\n\n## Canonical implementation merge and post-merge proof\n\nPR #50 merged with expected-head guard on exact `f3ccad9d49ea9d0460f82d7ecfe64b649bd997cf`, producing canonical merge `8bea74269fb81a4c898b7a2864bf103d15fd98a9`.\n\nPost-merge verification run `33092318536`, job `98588109465`, executed on exact canonical main `8bea74269fb81a4c898b7a2864bf103d15fd98a9` and passed:\n\n```text\nPOSTMERGE_B003_ELIGIBLE_PENDING_CLOSEOUT = true\nPOSTMERGE_DRIFT_CODES = entry_gate.final_head_missing,evidence.implementation_identity_missing,implementation.merged_while_active\nB003_TARGETED_TESTS = PASS (9 passed)\npytest -q = PASS (496 passed)\nruff check src tests = PASS\nmypy = PASS (26 source files)\npython -m mstr_qualify validate = PASS\nFINAL_MAIN_SHA = 8bea74269fb81a4c898b7a2864bf103d15fd98a9\n```\n\nThose three drift findings are the expected pre-closeout state: implementation was merged while B003 remained active and the implementation identities had not yet been canonicalized. This closeout aligns the task checkbox, machine catalog, task implementation record, and evidence identities so the detector can prove the resulting candidate state clean.\n\n## Authority boundary\n\n```text\nMODEL_WEIGHT_ACCESS = NONE\nMODEL_EXECUTION = NONE\nTOKENIZER_EXECUTION = NONE\nGATED_TERMS_ACCEPTANCE = NONE\nPAID_MODEL_API_EXECUTION = NONE\nPAID_COMPUTE = NONE\nRENTED_COMPUTE = NONE\nLARGE_DATASET_INGESTION = NONE\nWEIGHT_CHANGING_TRAINING = NONE\nLONG_TRAINING = NONE\nLARGE_SCALE_RL = NONE\nPRODUCTION_RELEASE = NONE\nPRIVATE_USER_TRACE_INGESTION = NONE\nFOUNDER_MAC_LARGE_ARTIFACTS = ZERO\n```\n\n## Closeout rule\n\nThis document becomes canonical only after the separate B003 closeout PR itself passes exact-head qualification and review, merges with an expected-head guard, and post-closeout canonical main proves: B003 is terminal, B004 is `eligible=true`, `task drift` is `clean`, and all frozen repository gates pass. Until that merge and post-closeout verification, B003 remains a closeout candidate rather than a completed claim.\n''',
+              encoding="utf-8",
+          )
+
+          # 4) Contract expectations: B003 terminal, B004 successor eligible.
+          contract = Path("tests/contract/test_task_gate.py")
+          replace_once(
+              contract,
+              '''    assert catalog.nodes["B001"]["canonical_state"] == "COMPLETE_CANONICAL"\n    assert catalog.nodes["B002"]["canonical_state"] == "COMPLETE_CANONICAL"\n''',
+              '''    assert catalog.nodes["B001"]["canonical_state"] == "COMPLETE_CANONICAL"\n    assert catalog.nodes["B002"]["canonical_state"] == "COMPLETE_CANONICAL"\n    assert catalog.nodes["B003"]["canonical_state"] == "COMPLETE_CANONICAL"\n''',
+              "catalog B003 canonical assertion",
+          )
+          replace_once(
+              contract,
+              '''def test_b003_is_eligible_after_b002_closeout_is_canonical() -> None:\n    result = evaluate_task_snapshot("B003", canonical_main=_CANONICAL_MAIN)\n\n    assert result["eligible"] is True\n    assert result["prerequisite_results"][0]["task_id"] == "B002"\n    assert result["prerequisite_results"][0]["observed_state"] == "COMPLETE_CANONICAL"\n    assert result["prerequisite_results"][0]["satisfied"] is True\n    assert result["reasons"] == []\n    validate_instance("mstr-task-eligibility-v0", result)\n''',
+              '''def test_b003_is_terminal_after_canonical_closeout() -> None:\n    result = evaluate_task_snapshot("B003", canonical_main=_CANONICAL_MAIN)\n\n    assert result["eligible"] is False\n    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"\n    assert result["state_consistency_result"]["satisfied"] is True\n    assert "task.already_terminal" in result["reasons"]\n    validate_instance("mstr-task-eligibility-v0", result)\n\n\ndef test_b004_is_eligible_after_b003_closeout_is_canonical() -> None:\n    result = evaluate_task_snapshot("B004", canonical_main=_CANONICAL_MAIN)\n\n    assert result["eligible"] is True\n    assert result["prerequisite_results"][0]["task_id"] == "B003"\n    assert result["prerequisite_results"][0]["observed_state"] == "COMPLETE_CANONICAL"\n    assert result["prerequisite_results"][0]["satisfied"] is True\n    assert result["reasons"] == []\n    validate_instance("mstr-task-eligibility-v0", result)\n''',
+              "B003/B004 contract transition",
+          )
+
+          # 5) CLI expectations: B003 terminal, B004 successor eligible.
+          integration = Path("tests/integration/test_task_gate_cli.py")
+          replace_once(
+              integration,
+              '''def test_task_eligible_b003_successor_returns_zero(\n    monkeypatch: pytest.MonkeyPatch,\n    capsys: pytest.CaptureFixture[str],\n) -> None:\n    expected = evaluate_task_snapshot("B003", canonical_main=_CANONICAL_MAIN)\n    monkeypatch.setattr(\n        "mstr_qualify.cli.evaluate_task_eligibility",\n        lambda task_id: expected,\n    )\n\n    exit_code = main(["task", "eligible", "B003"])\n    payload = _stdout_json(capsys)\n\n    assert exit_code == 0\n    assert payload == expected\n    assert payload["eligible"] is True\n    assert payload["reasons"] == []\n    validate_instance("mstr-task-eligibility-v0", payload)\n''',
+              '''def test_task_eligible_b003_terminal_returns_one(\n    monkeypatch: pytest.MonkeyPatch,\n    capsys: pytest.CaptureFixture[str],\n) -> None:\n    expected = evaluate_task_snapshot("B003", canonical_main=_CANONICAL_MAIN)\n    monkeypatch.setattr(\n        "mstr_qualify.cli.evaluate_task_eligibility",\n        lambda task_id: expected,\n    )\n\n    exit_code = main(["task", "eligible", "B003"])\n    payload = _stdout_json(capsys)\n\n    assert exit_code == 1\n    assert payload == expected\n    assert payload["eligible"] is False\n    assert "task.already_terminal" in payload["reasons"]\n    validate_instance("mstr-task-eligibility-v0", payload)\n\n\ndef test_task_eligible_b004_successor_returns_zero(\n    monkeypatch: pytest.MonkeyPatch,\n    capsys: pytest.CaptureFixture[str],\n) -> None:\n    expected = evaluate_task_snapshot("B004", canonical_main=_CANONICAL_MAIN)\n    monkeypatch.setattr(\n        "mstr_qualify.cli.evaluate_task_eligibility",\n        lambda task_id: expected,\n    )\n\n    exit_code = main(["task", "eligible", "B004"])\n    payload = _stdout_json(capsys)\n\n    assert exit_code == 0\n    assert payload == expected\n    assert payload["eligible"] is True\n    assert payload["reasons"] == []\n    validate_instance("mstr-task-eligibility-v0", payload)\n''',
+              "B003/B004 CLI transition",
+          )
+          PY
+
+      - name: Verify bounded closeout scope and syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          python -m py_compile tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          expected = {
+              'configs/task-gate/mstr-000b.json',
+              'evidence/mstr-000b/B003-drift-detector.md',
+              'specs/002-code-model-supremacy-foundation/tasks.md',
+              'tests/contract/test_task_gate.py',
+              'tests/integration/test_task_gate_cli.py',
+          }
+          changed = set(subprocess.run(
+              ['git', 'diff', '--name-only'], check=True, capture_output=True, text=True
+          ).stdout.splitlines())
+          assert changed == expected, (changed, expected)
+          payload = json.loads(Path('configs/task-gate/mstr-000b.json').read_text(encoding='utf-8'))
+          assert payload['tasks']['B003']['canonical_state'] == 'COMPLETE_CANONICAL'
+          text = Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text(encoding='utf-8')
+          assert '- [x] **B003 Implement canonical drift detector.**' in text
+          assert 'Canonical implementation: PR #50 / final head `f3ccad9d49ea9d0460f82d7ecfe64b649bd997cf` / merge `8bea74269fb81a4c898b7a2864bf103d15fd98a9`.' in text
+          PY
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Verify closeout task-gate and drift transition
+        shell: bash
+        run: |
+          set -euo pipefail
+          git update-ref refs/heads/main HEAD
+          git update-ref refs/remotes/origin/main HEAD
+          set +e
+          python -m mstr_qualify task eligible B003 > /tmp/b003.json
+          b003_rc=$?
+          set -e
+          test "$b003_rc" -eq 1
+          python -m mstr_qualify task eligible B004 > /tmp/b004.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          b003 = json.load(open('/tmp/b003.json', encoding='utf-8'))
+          b004 = json.load(open('/tmp/b004.json', encoding='utf-8'))
+          drift = json.load(open('/tmp/drift.json', encoding='utf-8'))
+          assert b003['eligible'] is False and 'task.already_terminal' in b003['reasons'], b003
+          assert b004['eligible'] is True and b004['reasons'] == [], b004
+          assert drift['status'] == 'clean' and drift['findings'] == [], drift
+          assert drift['tasks_checked'] == 34, drift
+          print('B003_CLOSEOUT_CANDIDATE_TERMINAL=true')
+          print('B004_CLOSEOUT_CANDIDATE_ELIGIBLE=true')
+          print('B003_CLOSEOUT_CANDIDATE_DRIFT=clean')
+          PY
+
+      - name: Run targeted governance tests
+        run: pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/unit/test_task_drift.py tests/integration/test_task_drift_cli.py
+
+      - name: Frozen gate - pytest
+        run: pytest -q
+
+      - name: Frozen gate - Ruff
+        run: ruff check src tests
+
+      - name: Frozen gate - mypy
+        run: mypy
+
+      - name: Frozen gate - offline validate
+        run: python -m mstr_qualify validate
+
+      - name: Guarded fast-forward closeout push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B003-drift-detector.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py
+          git commit -m "docs(mstr-000b): canonicalize B003 closeout"
+          git push origin HEAD:"$TARGET_BRANCH"
+          echo "B003_CLOSEOUT_HEAD=$(git rev-parse HEAD)"
