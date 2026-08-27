@@ -1,0 +1,518 @@
+{
+  "catalog_version": "mstr.task-catalog.v0",
+  "defaults": {
+    "candidate_dependent": false,
+    "closeout_rule": {
+      "completion_requires_merge": true,
+      "require_all_evidence_outputs": true,
+      "require_all_outputs": false,
+      "terminal_states": [
+        "COMPLETE_CANONICAL"
+      ]
+    },
+    "external_effect_class": "NO_EXTERNAL_EFFECT",
+    "outputs": [],
+    "parallel_safe": false,
+    "superseded_by": [],
+    "supersedes": []
+  },
+  "tasks": {
+    "B001": {
+      "canonical_state": "COMPLETE_CANONICAL",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B001-task-contract.md"
+      ],
+      "outputs": [
+        "schemas/mstr-task-node-v0.schema.json",
+        "schemas/mstr-task-eligibility-v0.schema.json"
+      ],
+      "prerequisites": []
+    },
+    "B002": {
+      "canonical_state": "PENDING",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B002-task-gate.md"
+      ],
+      "outputs": [
+        "src/mstr_qualify/task_gate.py",
+        "src/mstr_qualify/cli.py",
+        "configs/task-gate/mstr-000b.json"
+      ],
+      "prerequisites": [
+        "B001"
+      ]
+    },
+    "B003": {
+      "canonical_state": "PENDING",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B003-drift-detector.md"
+      ],
+      "outputs": [
+        "src/mstr_qualify/task_drift.py",
+        "tests/**/*task_drift*.py",
+        "tests/fixtures/**/*task_drift*"
+      ],
+      "prerequisites": [
+        "B002"
+      ]
+    },
+    "B004": {
+      "canonical_state": "PENDING",
+      "evidence_outputs": [
+        "evidence/mstr-000b/B004-000a-sequence-reconciliation.md"
+      ],
+      "prerequisites": [
+        "B003"
+      ]
+    },
+    "B005": {
+      "canonical_state": "PENDING",
+      "evidence_outputs": [
+        "evidence/mstr-000b/B005-code-backbone-rescan.md"
+      ],
+      "prerequisites": []
+    },
+    "B006": {
+      "canonical_state": "PENDING",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/candidates/*.md"
+      ],
+      "outputs": [
+        "artifacts/candidates/*.json"
+      ],
+      "prerequisites": [
+        "B005"
+      ]
+    },
+    "B007": {
+      "canonical_state": "PENDING",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B007-tokenizer-protocol.md"
+      ],
+      "outputs": [
+        "benchmarks/manifests/B007-tokenizer-economics.json"
+      ],
+      "prerequisites": [
+        "B006"
+      ]
+    },
+    "B008": {
+      "canonical_state": "PENDING",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B008-tokenizer-economics.md"
+      ],
+      "outputs": [
+        "artifacts/results/tokenizer/B008/*.json"
+      ],
+      "prerequisites": [
+        "B007"
+      ]
+    },
+    "B009": {
+      "canonical_state": "PENDING",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B009-compatibility.md"
+      ],
+      "outputs": [
+        "artifacts/decisions/B009-training-runtime-compatibility.json"
+      ],
+      "prerequisites": [
+        "B008"
+      ]
+    },
+    "B010": {
+      "canonical_state": "PENDING",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B010-weight-access-preflight.md"
+      ],
+      "outputs": [
+        "artifacts/manifests/B010-new-candidate-weight-access.json"
+      ],
+      "prerequisites": [
+        "B009"
+      ]
+    },
+    "B011": {
+      "canonical_state": "BLOCKED",
+      "closeout_rule": {
+        "terminal_states": [
+          "COMPLETE_CANONICAL",
+          "NOT_REQUIRED_NO_NEW_ACCESS"
+        ]
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B011-acquisition.md"
+      ],
+      "external_effect_class": "MODEL_WEIGHT_ACCESS",
+      "prerequisites": [
+        "B002",
+        "B010"
+      ],
+      "required_authority_id": "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"
+    },
+    "B012": {
+      "canonical_state": "PENDING",
+      "closeout_rule": {
+        "terminal_states": [
+          "COMPLETE_CANONICAL",
+          "NOT_REQUIRED_NO_NEW_CANDIDATES"
+        ]
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B012-new-candidate-qualification.md"
+      ],
+      "prerequisites": [
+        "B002",
+        "B010",
+        "B011"
+      ]
+    },
+    "B013": {
+      "canonical_state": "BLOCKED",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B013-candidate-pool.md"
+      ],
+      "outputs": [
+        "artifacts/decisions/B013-stable-candidate-pool.json"
+      ],
+      "prerequisites": [
+        "B002",
+        "B012"
+      ]
+    },
+    "B014": {
+      "canonical_state": "PENDING",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B014-data-constitution.md"
+      ],
+      "outputs": [
+        "docs/data/MSTR_DATA_CONSTITUTION.md"
+      ],
+      "prerequisites": []
+    },
+    "B015": {
+      "canonical_state": "PENDING",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B015-language-mix.md"
+      ],
+      "outputs": [
+        "artifacts/decisions/B015-language-target-policy.json"
+      ],
+      "prerequisites": [
+        "B014"
+      ]
+    },
+    "B016": {
+      "canonical_state": "PENDING",
+      "evidence_outputs": [
+        "evidence/mstr-000b/B016-software-evolution.md"
+      ],
+      "prerequisites": [
+        "B014"
+      ]
+    },
+    "B017": {
+      "canonical_state": "PENDING",
+      "evidence_outputs": [
+        "evidence/mstr-000b/B017-evolution-fixture-pilot.md"
+      ],
+      "prerequisites": [
+        "B016"
+      ]
+    },
+    "B018": {
+      "canonical_state": "PENDING",
+      "evidence_outputs": [
+        "evidence/mstr-000b/B018-self-alignment-contract.md"
+      ],
+      "prerequisites": [
+        "B014"
+      ]
+    },
+    "B019": {
+      "canonical_state": "PENDING",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B019-teacher-policy.md"
+      ],
+      "outputs": [
+        "docs/data/TEACHER_RESCUE_POLICY.md"
+      ],
+      "prerequisites": [
+        "B018"
+      ]
+    },
+    "B020": {
+      "canonical_state": "PENDING",
+      "evidence_outputs": [
+        "evidence/mstr-000b/B020-difficulty-contract.md"
+      ],
+      "prerequisites": [
+        "B014"
+      ]
+    },
+    "B021": {
+      "canonical_state": "PENDING",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B021-frontier-sampler.md"
+      ],
+      "outputs": [
+        "src/mstr_qualify/curriculum/"
+      ],
+      "prerequisites": [
+        "B020"
+      ]
+    },
+    "B022": {
+      "canonical_state": "PENDING",
+      "evidence_outputs": [
+        "evidence/mstr-000b/B022-verifier-health.md"
+      ],
+      "prerequisites": [
+        "B014"
+      ]
+    },
+    "B023": {
+      "canonical_state": "PENDING",
+      "evidence_outputs": [
+        "evidence/mstr-000b/B023-verifier-health-implementation.md"
+      ],
+      "prerequisites": [
+        "A006",
+        "A014",
+        "B002",
+        "B022"
+      ]
+    },
+    "B024": {
+      "canonical_state": "PENDING",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B024-test-curriculum.md"
+      ],
+      "outputs": [
+        "docs/data/TEST_GENERATION_CURRICULUM.md"
+      ],
+      "prerequisites": [
+        "B023"
+      ]
+    },
+    "B025": {
+      "canonical_state": "PENDING",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B025-greenfield-curriculum.md"
+      ],
+      "outputs": [
+        "docs/data/GREENFIELD_FEATURE_CURRICULUM.md"
+      ],
+      "prerequisites": [
+        "B014"
+      ]
+    },
+    "B026": {
+      "canonical_state": "PENDING",
+      "evidence_outputs": [
+        "evidence/mstr-000b/B026-research-ladder.md"
+      ],
+      "prerequisites": [
+        "B022",
+        "B024",
+        "B025"
+      ]
+    },
+    "B027": {
+      "canonical_state": "PENDING",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B027-ladder-pilot.md"
+      ],
+      "outputs": [
+        "artifacts/results/research/B027/"
+      ],
+      "prerequisites": [
+        "B026"
+      ]
+    },
+    "B028": {
+      "canonical_state": "PENDING",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B028-training-methods.md"
+      ],
+      "outputs": [
+        "artifacts/manifests/B028-method-tournament-preflight.json",
+        "docs/training/Q4_PROMOTION_CONTRACT.md"
+      ],
+      "prerequisites": [
+        "B009",
+        "B014",
+        "B022"
+      ]
+    },
+    "B029": {
+      "canonical_state": "BLOCKED",
+      "evidence_outputs": [
+        "evidence/mstr-000b/B029-adaptive-inference.md"
+      ],
+      "prerequisites": [
+        "B020"
+      ]
+    },
+    "B030": {
+      "canonical_state": "BLOCKED",
+      "evidence_outputs": [
+        "evidence/mstr-000b/B030-long-horizon-quality.md"
+      ],
+      "prerequisites": [
+        "B024",
+        "B025"
+      ]
+    },
+    "B031": {
+      "canonical_state": "BLOCKED",
+      "evidence_outputs": [
+        "evidence/mstr-000b/B031-tournament-reconciliation.md"
+      ],
+      "prerequisites": [
+        "A019",
+        "A020",
+        "B002",
+        "B003",
+        "B004",
+        "B015",
+        "B017",
+        "B019",
+        "B021",
+        "B023",
+        "B024",
+        "B025",
+        "B027",
+        "B028",
+        "B029",
+        "B030"
+      ]
+    },
+    "B032": {
+      "canonical_state": "PENDING",
+      "evidence_outputs": [
+        "evidence/mstr-000b/B032-downstream-contracts.md"
+      ],
+      "prerequisites": [
+        "B031"
+      ]
+    },
+    "B033": {
+      "canonical_state": "PENDING",
+      "evidence_outputs": [
+        "evidence/mstr-000b/B033-independent-review.md"
+      ],
+      "prerequisites": [
+        "B032"
+      ]
+    },
+    "B034": {
+      "canonical_state": "PENDING",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
+      "evidence_outputs": [
+        "evidence/mstr-000b/B034-closeout.md"
+      ],
+      "outputs": [
+        "artifacts/decisions/B034-mstr-000b-closeout.json"
+      ],
+      "prerequisites": [
+        "B001",
+        "B002",
+        "B003",
+        "B004",
+        "B005",
+        "B006",
+        "B007",
+        "B008",
+        "B009",
+        "B010",
+        "B011",
+        "B012",
+        "B013",
+        "B014",
+        "B015",
+        "B016",
+        "B017",
+        "B018",
+        "B019",
+        "B020",
+        "B021",
+        "B022",
+        "B023",
+        "B024",
+        "B025",
+        "B026",
+        "B027",
+        "B028",
+        "B029",
+        "B030",
+        "B031",
+        "B032",
+        "B033"
+      ]
+    }
+  },
+  "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",
+  "unresolved_bindings": {
+    "B011": "B010 must first determine whether new access is required. Until that decision is canonical, B011 remains BLOCKED under MODEL_WEIGHT_ACCESS. The access path must bind exact founder authority; the no-access path must explicitly change the node to NO_EXTERNAL_EFFECT before closing NOT_REQUIRED_NO_NEW_ACCESS.",
+    "B013": "Existing-candidate T034 or canonical-equivalent hard-gate identity must be bound before B013 is unblocked.",
+    "B023": "External MSTR-000A prerequisites A006 and A014 are intentionally fail-closed until exact cross-workstream bindings are reconciled.",
+    "B029": "Required MSTR-000A loop/context contract identities must be bound before B029 is unblocked.",
+    "B030": "A019-ready harness surface identities must be bound before B030 is unblocked.",
+    "B031": "A019/A020 are external prerequisites and must be canonical before B031."
+  },
+  "workstream_id": "MSTR-000B"
+}
