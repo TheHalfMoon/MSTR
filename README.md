@@ -91,26 +91,29 @@ specs/002-code-model-supremacy-foundation/
 
 MSTR co-designs model, harness, environments, verification, data, curriculum and deployment.
 
+The early foundations are parallel when their exact prerequisites hold. MSTR-000 T030-T034 gates candidate-dependent convergence only; it does not globally gate model-independent A/B work.
+
 ```text
-MSTR-000 qualification/Q4/runtime
-        |
-        +---------------------+
-        |                     |
-        v                     v
-MSTR-000A                  MSTR-000B
-agent loop/harness         backbone/data/curriculum/verifier-health
-        |                     |
-        +----------+----------+
-                   |
-                   v
-        stable comparable candidate pool
-        + Direction-to-Done convergence
-                   |
-                   v
-        separate explicit training gate
++--------------------------+   +--------------------------+   +--------------------------+
+| MSTR-000                 |   | MSTR-000A EARLY_SAFE    |   | MSTR-000B EARLY_SAFE    |
+| T030-T034 candidate/Q4   |   | A001-A018 loop/harness  |   | task gates / metadata / |
+| runtime qualification    |   | env/verifier/trajectory |   | data/curriculum contracts|
++------------+-------------+   +------------+-------------+   +------------+-------------+
+             |                              |                              |
+             +------------------------------+------------------------------+
+                                            |
+                                            v
+                    STABLE / EQUIVALENT PRODUCT-ALIGNED CANDIDATE POOL
+                    + REQUIRED LOOP / VERIFIER / DATA / RESEARCH CONTRACTS
+                                            |
+                                            v
+                               A019-A024 / B-CONVERGENCE
+                                            |
+                                            v
+                              SEPARATE EXPLICIT TRAINING GATE
 ```
 
-Model-independent early work may proceed in parallel only under exact task prerequisites. Candidate-dependent tournament/training convergence is explicitly gated.
+Candidate-dependent tournament/training convergence is explicitly gated; model-independent early work is not.
 
 ## Agent Harness Strategy
 
@@ -158,7 +161,7 @@ MSTR-000B makes the plan materially stronger by requiring:
 - feature/greenfield curriculum;
 - multi-fidelity autoresearch promotion;
 - adaptive test-time compute/selective context;
-- Q4-in-the-loop promotion;
+- fail-closed Q4-in-the-loop checkpoint promotion;
 - equivalent LoRA/rsLoRA/QLoRA method preflight where supported;
 - Repository Health Delta over repeated work;
 - cross-harness robustness.
@@ -192,10 +195,11 @@ strong product-aligned code prior
 -> software-evolution + Direction-to-Done SFT
 -> failure/recovery/preference training
 -> bounded executable RL
--> Q4 regression after each material stage
+-> export + integrity + Q4 regression after each material stage
+-> only Q4-qualified checkpoint may parent the next material stage
 ```
 
-Training method is not preselected. Where supported, equivalent LoRA/rsLoRA and QLoRA/rsLoRA cells are compared before committing to a method. Full fine-tuning is non-default.
+Training method is not preselected. Where supported, equivalent 16-bit LoRA, 16-bit LoRA+rsLoRA, 4-bit QLoRA, and 4-bit QLoRA+rsLoRA cells must be compared before committing to a method; every unsupported arm requires an exact recorded reason. Full fine-tuning is non-default.
 
 ## Product Metrics
 
@@ -240,6 +244,7 @@ NO PRODUCTION MODEL RELEASE WITHOUT EXACT AUTHORITY
 NO HARNESS GAIN REPORTED AS RAW MODEL GAIN
 NO TEACHER OUTPUT TREATED AS VERIFIED TRUTH
 NO WEAK/BROKEN VERIFIER USED AS CLEAN TRAINING AUTHORITY
+NO MASTER-ONLY CHECKPOINT PROMOTED PAST REQUIRED Q4 GATE
 NO SILENT HARDWARE-FLOOR INCREASE
 NO PRIVATE USER REPOSITORY TRAINING INGEST BY DEFAULT
 NO HIDDEN TELEMETRY
