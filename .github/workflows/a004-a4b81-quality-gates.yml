@@ -1,0 +1,61 @@
+name: A004 exact-head quality gates
+
+on:
+  push:
+    branches:
+      - evidence/a004-a4b81-quality-gates
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    env:
+      TARGET_SHA: a4b81fb8fe147f8ea88e6bf1c654a39e81e187c8
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - name: Checkout exact target
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Verify exact target identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          echo "TARGET_HEAD=$(git rev-parse HEAD)"
+          test -z "$(git status --short)"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project development tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Record toolchain identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python --version
+          pytest --version
+          ruff --version
+          mypy --version
+          git diff --exit-code
+
+      - name: pytest
+        run: pytest -q
+
+      - name: ruff
+        run: ruff check src tests
+
+      - name: mypy
+        run: mypy
+
+      - name: mstr qualify
+        run: python -m mstr_qualify validate
