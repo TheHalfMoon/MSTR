@@ -77,3 +77,27 @@ FOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO
 ```
 
 This evidence creates no candidate admission or model-access authority.
+
+## Canonical refresh validation — 2026-08-27
+
+The historical instance identities above remain evidence for PR #41. The canonical B005 refresh supersedes those *instance* blobs for current closeout purposes while retaining the same two task-local Draft 2020-12 schemas.
+
+```text
+REFRESH_CANONICAL_MAIN = 986b174b2bf79ce53a3e67b9b02c55cbe6981303
+REFRESH_ENTRY_GATE_RUN = 33103275261
+REFRESH_ENTRY_GATE_JOB = 98626338825
+PUBLIC_METADATA_NETWORK = huggingface.co/api/models/<repo> ONLY
+MODEL_WEIGHT_ACCESS = NONE
+TOKENIZER_ARTIFACT_DOWNLOAD = NONE
+GATED_TERMS_ACCEPTANCE = NONE
+```
+
+The guarded refresh workflow MUST, before pushing its candidate head:
+
+1. self-check both Draft 2020-12 schemas;
+2. validate both refreshed JSON instances;
+3. reject negative mutations that set `scope.model_weight_access=true` or `authority.creates_model_access_authority=true`;
+4. verify every canonical-input Git blob against exact canonical main;
+5. run the frozen repository quality gates.
+
+The exact refresh-head qualification and merge identities are intentionally recorded later in B005 canonical closeout evidence, not preclaimed here.

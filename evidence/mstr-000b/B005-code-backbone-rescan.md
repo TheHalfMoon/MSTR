@@ -210,6 +210,63 @@ B006 must create/reconcile candidate records and classify every newly relevant m
 
 B006 itself creates no weight-access authority. Any later model artifact access remains governed by B010/B011 and the exact canonical authority chain.
 
+## Canonical current-state refresh — 2026-08-27
+
+This refresh is executed only because the historical B005 implementation predates the canonical B002/B003 machine-gate enforcement and its canonical-input binding no longer matches current `main`. It does not replace the historical evidence; it rebinds B005 to current canonical repository inputs and current public upstream metadata before closeout.
+
+### Exact-main entry gate
+
+```text
+ENTRY_GATE_TASK = B005
+ENTRY_GATE_CANONICAL_MAIN = 986b174b2bf79ce53a3e67b9b02c55cbe6981303
+ENTRY_GATE_ELIGIBLE = true
+ENTRY_GATE_RUN = 33103275261
+ENTRY_GATE_JOB = 98626338825
+```
+
+The entry-gate run also proved B004 terminal, canonical task drift clean, and the frozen repository gates green on the same exact canonical main.
+
+### Refresh boundary
+
+```text
+PUBLIC_METADATA_ENDPOINT_CLASS = huggingface.co/api/models/<repo>
+MODEL_WEIGHT_ACCESS = NONE
+MODEL_FILE_RESOLVE_OR_DOWNLOAD = NONE
+TOKENIZER_ARTIFACT_DOWNLOAD = NONE
+MODEL_EXECUTION = NONE
+GATED_TERMS_ACCEPTANCE = NONE
+PAID_COMPUTE = NONE
+LARGE_DATASET_INGESTION = NONE
+WEIGHT_CHANGING_TRAINING = NONE
+NEW_AUTHORITY_CREATED = NO
+```
+
+The refresh queries only public model metadata and records exact upstream repository revisions. It never calls model-file `resolve` endpoints and never downloads model or tokenizer artifacts.
+
+### Newly serious compact review cells
+
+- `LiquidAI/LFM2.5-1.2B-Base` — exact current revision `7453bca97ca1e67754c4035a4b4c584e1c9dd725`; pre-trained text-only 1.17B base, 32,768 context, on-device-oriented; nonstandard Liquid license metadata requires fail-closed B006 rights review.
+- `Qwen/Qwen3.5-0.8B-Base` — exact current revision `dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68`; 0.8B language model, 262,144 native context, Apache-2.0; the card simultaneously says pre-trained-only and `Pre-training & Post-training`, so B006 must reconcile provenance and vision-component cost before primary admission.
+
+Both are added to `newly_relevant_for_b006`. Neither is admitted or authorized for weight access by B005.
+
+### Frontier references screened out before B006 qualification
+
+- `zai-org/GLM-5.3-Flash` — exact current revision `04c4e9e95c5da8862dced7e5056455116f83a7e0`; MIT; 320B total / 18B active; 1,048,576 configured context. Useful coding/agentic reference, but far outside the universal-laptop primary product scale.
+- `moonshotai/Kimi-K2-Base` — exact current revision `ce72df012259dcc55d945e890f815fe7ef69159c`; modified MIT; 1T total / 32B active; 131,072 context. It is a foundation checkpoint but is likewise outside the primary product scale.
+
+These rows are discovery references only and are intentionally **not** added to `newly_relevant_for_b006`; no B012 qualification burden or access implication is created for them.
+
+### Existing-row exact-revision revalidation
+
+The refresh re-queried current public metadata for every pre-existing B005 discovery row. When upstream `main` changed, the manifest updates to the exact new SHA and adds `REVISION_DRIFT_SINCE_INITIAL_B005` rather than hiding the drift.
+
+- `google/codegemma-2b`: `UNRESOLVED` -> `e7583edabd3dd48a9c705974a9456852f1205ab1`; public metadata license tag `gemma`; gated `manual`.
+- `microsoft/bitnet-b1.58-2B-4T-bf16`: `9e5d75862231a20855f2fecdee031f9c2e961864` -> `276681394656abdadb8e80e5b2c3db5e5d7fcaff`; public metadata license tag `mit`; gated `false`.
+- `LiquidAI/LFM2.5-2.6B-Base`: `c57bdae` -> `c57bdaed1ef166fe3095dda07f4a5e789ad5321e`; public metadata license tag `other`; gated `false`.
+
+The refreshed canonical-input binding pins the exact current Git blob SHA for every repository input consumed by B005. Any later drift before merge invalidates the branch and requires re-evaluation.
+
 ## Closeout state
 
 B005 implementation artifacts now exist on the feature branch, but B005 is **not** marked `COMPLETE_CANONICAL` in `tasks.md` before governed review and merge.
