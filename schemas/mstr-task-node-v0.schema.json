@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mstr.local/schemas/mstr-task-node-v0.json",
+  "title": "MSTR TaskNode v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "workstream_id",
+    "title",
+    "canonical_state",
+    "prerequisites",
+    "outputs",
+    "evidence_outputs",
+    "candidate_dependent",
+    "external_effect_class",
+    "parallel_safe",
+    "supersedes",
+    "superseded_by",
+    "closeout_rule"
+  ],
+  "properties": {
+    "schema_version": {"const": "mstr.task-node.v0"},
+    "task_id": {"type": "string", "minLength": 1},
+    "workstream_id": {"type": "string", "minLength": 1},
+    "title": {"type": "string", "minLength": 1},
+    "canonical_state": {"$ref": "#/$defs/taskState"},
+    "prerequisites": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "outputs": {"type": "array", "items": {"$ref": "#/$defs/repoPath"}, "uniqueItems": true},
+    "evidence_outputs": {"type": "array", "items": {"$ref": "#/$defs/repoPath"}, "uniqueItems": true},
+    "candidate_dependent": {"type": "boolean"},
+    "candidate_pool_requirement_id": {"type": ["string", "null"], "minLength": 1},
+    "external_effect_class": {
+      "description": "Classifies the strongest external effect the task may require. This field never grants authority.",
+      "enum": [
+        "NO_EXTERNAL_EFFECT",
+        "PUBLIC_METADATA_READ",
+        "TOKENIZER_METADATA_OR_SMALL_FILES",
+        "MODEL_WEIGHT_ACCESS",
+        "GATED_TERMS_ACCEPTANCE",
+        "PAID_MODEL_API_EXECUTION",
+        "PAID_COMPUTE",
+        "RENTED_COMPUTE",
+        "LARGE_DATASET_INGESTION",
+        "WEIGHT_CHANGING_TRAINING",
+        "LONG_TRAINING",
+        "LARGE_SCALE_RL",
+        "PRODUCTION_RELEASE"
+      ]
+    },
+    "required_authority_id": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "Foreign-key reference to an already-canonical authority record or envelope. The referenced authority owns the exact effect scope and any applicable cost/resource ceilings; this identifier never creates or broadens authority."
+    },
+    "parallel_safe": {"type": "boolean"},
+    "supersedes": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "superseded_by": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "closeout_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["terminal_states", "require_all_outputs", "require_all_evidence_outputs", "completion_requires_merge"],
+      "properties": {
+        "terminal_states": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/terminalTaskState"}, "uniqueItems": true},
+        "require_all_outputs": {"type": "boolean"},
+        "require_all_evidence_outputs": {"type": "boolean"},
+        "completion_requires_merge": {"type": "boolean"},
+        "notes": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    }
+  },
+  "$defs": {
+    "taskState": {
+      "oneOf": [
+        {"enum": ["PENDING", "ACTIVE", "BLOCKED", "COMPLETE_CANONICAL", "SUPERSEDED_CANONICAL"]},
+        {"type": "string", "pattern": "^NOT_REQUIRED(?:_[A-Z0-9]+)*$"}
+      ]
+    },
+    "terminalTaskState": {
+      "oneOf": [
+        {"enum": ["COMPLETE_CANONICAL", "SUPERSEDED_CANONICAL"]},
+        {"type": "string", "pattern": "^NOT_REQUIRED(?:_[A-Z0-9]+)*$"}
+      ]
+    },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Repository-relative POSIX-style path. Absolute paths, Windows drive-qualified paths, backslashes, colon-qualified paths, and parent traversal are prohibited.",
+      "pattern": "^(?!/)(?!.*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "external_effect_class": {
+            "enum": [
+              "MODEL_WEIGHT_ACCESS",
+              "GATED_TERMS_ACCEPTANCE",
+              "PAID_MODEL_API_EXECUTION",
+              "PAID_COMPUTE",
+              "RENTED_COMPUTE",
+              "LARGE_DATASET_INGESTION",
+              "WEIGHT_CHANGING_TRAINING",
+              "LONG_TRAINING",
+              "LARGE_SCALE_RL",
+              "PRODUCTION_RELEASE"
+            ]
+          }
+        },
+        "required": ["external_effect_class"]
+      },
+      "then": {
+        "required": ["required_authority_id"],
+        "properties": {"required_authority_id": {"type": "string", "minLength": 1}}
+      }
+    },
+    {
+      "if": {"properties": {"candidate_dependent": {"const": true}}, "required": ["candidate_dependent"]},
+      "then": {
+        "required": ["candidate_pool_requirement_id"],
+        "properties": {"candidate_pool_requirement_id": {"type": "string", "minLength": 1}}
+      }
+    }
+  ]
+}

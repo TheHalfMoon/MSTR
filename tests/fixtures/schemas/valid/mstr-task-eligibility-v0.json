@@ -1,0 +1,32 @@
+{
+  "schema_version": "mstr.task-eligibility.v0",
+  "task_id": "B005",
+  "task_node_schema_version": "mstr.task-node.v0",
+  "task_node_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "canonical_main": "e1b3cbd74ae0a74a80e3f345faef56da13818149",
+  "eligible": true,
+  "prerequisite_results": [
+    {
+      "task_id": "B002",
+      "required_state": "COMPLETE_CANONICAL",
+      "observed_state": "COMPLETE_CANONICAL",
+      "evidence_present": true,
+      "satisfied": true,
+      "reasons": []
+    }
+  ],
+  "authority_result": {"required": false, "authority_id": null, "satisfied": true, "reasons": []},
+  "supersession_result": {"superseded": false, "superseded_by": [], "satisfied": true, "reasons": []},
+  "state_consistency_result": {"observed_state": "PENDING", "satisfied": true, "reasons": []},
+  "candidate_pool_result": {"required": false, "requirement_id": null, "observed_pool_id": null, "satisfied": true, "reasons": []},
+  "semantic_checks": {
+    "task_node_binding_verified": true,
+    "prerequisite_set_complete": true,
+    "prerequisite_states_satisfied": true,
+    "authority_requirement_complete": true,
+    "candidate_pool_requirement_complete": true,
+    "supersession_check_complete": true,
+    "state_consistency_check_complete": true
+  },
+  "reasons": []
+}

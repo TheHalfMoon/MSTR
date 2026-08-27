@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mstr.local/schemas/mstr-task-eligibility-v0.json",
+  "title": "MSTR TaskEligibilityResult v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "task_node_schema_version",
+    "task_node_sha256",
+    "canonical_main",
+    "eligible",
+    "prerequisite_results",
+    "authority_result",
+    "supersession_result",
+    "state_consistency_result",
+    "candidate_pool_result",
+    "semantic_checks",
+    "reasons"
+  ],
+  "properties": {
+    "schema_version": {"const": "mstr.task-eligibility.v0"},
+    "task_id": {"type": "string", "minLength": 1},
+    "task_node_schema_version": {"const": "mstr.task-node.v0"},
+    "task_node_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "canonical_main": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "eligible": {"type": "boolean"},
+    "prerequisite_results": {"type": "array", "items": {"$ref": "#/$defs/prerequisiteResult"}},
+    "authority_result": {"$ref": "#/$defs/authorityResult"},
+    "supersession_result": {"$ref": "#/$defs/supersessionResult"},
+    "state_consistency_result": {"$ref": "#/$defs/stateConsistencyResult"},
+    "candidate_pool_result": {"$ref": "#/$defs/candidatePoolResult"},
+    "semantic_checks": {"$ref": "#/$defs/semanticChecks"},
+    "reasons": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "taskState": {
+      "oneOf": [
+        {"enum": ["PENDING", "ACTIVE", "BLOCKED", "COMPLETE_CANONICAL", "SUPERSEDED_CANONICAL"]},
+        {"type": "string", "pattern": "^NOT_REQUIRED(?:_[A-Z0-9]+)*$"}
+      ]
+    },
+    "reasonList": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "prerequisiteResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "required_state", "observed_state", "evidence_present", "satisfied", "reasons"],
+      "properties": {
+        "task_id": {"type": "string", "minLength": 1},
+        "required_state": {"$ref": "#/$defs/taskState"},
+        "observed_state": {"oneOf": [{"$ref": "#/$defs/taskState"}, {"type": "null"}]},
+        "evidence_present": {"type": "boolean"},
+        "satisfied": {"type": "boolean"},
+        "reasons": {"$ref": "#/$defs/reasonList"}
+      }
+    },
+    "authorityResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "authority_id", "satisfied", "reasons"],
+      "properties": {
+        "required": {"type": "boolean"},
+        "authority_id": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "description": "Observed canonical authority record/envelope identity; validating this field never creates authority."
+        },
+        "satisfied": {"type": "boolean"},
+        "reasons": {"$ref": "#/$defs/reasonList"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"required": {"const": true}}, "required": ["required"]},
+          "then": {"properties": {"authority_id": {"type": "string", "minLength": 1}}}
+        }
+      ]
+    },
+    "supersessionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["superseded", "superseded_by", "satisfied", "reasons"],
+      "properties": {
+        "superseded": {"type": "boolean"},
+        "superseded_by": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "satisfied": {"type": "boolean"},
+        "reasons": {"$ref": "#/$defs/reasonList"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"superseded": {"const": true}}, "required": ["superseded"]},
+          "then": {"properties": {"superseded_by": {"minItems": 1}}}
+        },
+        {
+          "if": {"properties": {"superseded": {"const": false}}, "required": ["superseded"]},
+          "then": {"properties": {"superseded_by": {"maxItems": 0}}}
+        }
+      ]
+    },
+    "stateConsistencyResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observed_state", "satisfied", "reasons"],
+      "properties": {
+        "observed_state": {"oneOf": [{"$ref": "#/$defs/taskState"}, {"type": "null"}]},
+        "satisfied": {"type": "boolean"},
+        "reasons": {"$ref": "#/$defs/reasonList"}
+      }
+    },
+    "candidatePoolResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "requirement_id", "observed_pool_id", "satisfied", "reasons"],
+      "properties": {
+        "required": {"type": "boolean"},
+        "requirement_id": {"type": ["string", "null"], "minLength": 1},
+        "observed_pool_id": {"type": ["string", "null"], "minLength": 1},
+        "satisfied": {"type": "boolean"},
+        "reasons": {"$ref": "#/$defs/reasonList"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"required": {"const": true}}, "required": ["required"]},
+          "then": {"properties": {"requirement_id": {"type": "string", "minLength": 1}}}
+        }
+      ]
+    },
+    "semanticChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_node_binding_verified",
+        "prerequisite_set_complete",
+        "prerequisite_states_satisfied",
+        "authority_requirement_complete",
+        "candidate_pool_requirement_complete",
+        "supersession_check_complete",
+        "state_consistency_check_complete"
+      ],
+      "properties": {
+        "task_node_binding_verified": {"type": "boolean"},
+        "prerequisite_set_complete": {"type": "boolean"},
+        "prerequisite_states_satisfied": {"type": "boolean"},
+        "authority_requirement_complete": {"type": "boolean"},
+        "candidate_pool_requirement_complete": {"type": "boolean"},
+        "supersession_check_complete": {"type": "boolean"},
+        "state_consistency_check_complete": {"type": "boolean"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"eligible": {"const": true}}, "required": ["eligible"]},
+      "then": {
+        "properties": {
+          "reasons": {"maxItems": 0},
+          "prerequisite_results": {
+            "items": {
+              "allOf": [
+                {"$ref": "#/$defs/prerequisiteResult"},
+                {
+                  "properties": {
+                    "observed_state": {"$ref": "#/$defs/taskState"},
+                    "evidence_present": {"const": true},
+                    "satisfied": {"const": true},
+                    "reasons": {"maxItems": 0}
+                  }
+                }
+              ]
+            }
+          },
+          "authority_result": {
+            "allOf": [
+              {"$ref": "#/$defs/authorityResult"},
+              {"properties": {"satisfied": {"const": true}, "reasons": {"maxItems": 0}}}
+            ]
+          },
+          "supersession_result": {
+            "allOf": [
+              {"$ref": "#/$defs/supersessionResult"},
+              {
+                "properties": {
+                  "superseded": {"const": false},
+                  "superseded_by": {"maxItems": 0},
+                  "satisfied": {"const": true},
+                  "reasons": {"maxItems": 0}
+                }
+              }
+            ]
+          },
+          "state_consistency_result": {
+            "allOf": [
+              {"$ref": "#/$defs/stateConsistencyResult"},
+              {
+                "properties": {
+                  "observed_state": {"$ref": "#/$defs/taskState"},
+                  "satisfied": {"const": true},
+                  "reasons": {"maxItems": 0}
+                }
+              }
+            ]
+          },
+          "candidate_pool_result": {
+            "allOf": [
+              {"$ref": "#/$defs/candidatePoolResult"},
+              {"properties": {"satisfied": {"const": true}, "reasons": {"maxItems": 0}}},
+              {
+                "if": {"properties": {"required": {"const": true}}, "required": ["required"]},
+                "then": {"properties": {"observed_pool_id": {"type": "string", "minLength": 1}}}
+              }
+            ]
+          },
+          "semantic_checks": {
+            "properties": {
+              "task_node_binding_verified": {"const": true},
+              "prerequisite_set_complete": {"const": true},
+              "prerequisite_states_satisfied": {"const": true},
+              "authority_requirement_complete": {"const": true},
+              "candidate_pool_requirement_complete": {"const": true},
+              "supersession_check_complete": {"const": true},
+              "state_consistency_check_complete": {"const": true}
+            }
+          }
+        }
+      },
+      "else": {"properties": {"reasons": {"minItems": 1}}}
+    }
+  ]
+}
