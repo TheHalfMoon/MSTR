@@ -1,13 +1,16 @@
 # B001 — Machine Task Contract Implementation Evidence
 
-**Workstream:** MSTR-000B  
-**Task:** B001  
-**State:** IMPLEMENTATION_ACTIVE / NOT_COMPLETE_CANONICAL  
-**Canonical base at branch creation:** `e1b3cbd74ae0a74a80e3f345faef56da13818149`  
-**Branch:** `feat/000b-b001-task-contracts`  
-**Last implementation head before this evidence refresh:** `ccda5c748157fa91417d0be112296e03eb6cb8ee`
+**Workstream:** MSTR-000B
+**Task:** B001
+**State:** COMPLETE_CANONICAL
+**Canonical base at branch creation:** `e1b3cbd74ae0a74a80e3f345faef56da13818149`
+**Branch:** `feat/000b-b001-task-contracts`
+**Implementation PR:** `#40`
+**Final implementation head:** `5e81f5a572c6f8409e67ccde7cc1a4aa556b30ea`
+**Canonical implementation merge:** `773555e9861d1c901c12718832821a98f472833f`
+**Final exact-head qualification run:** `33069035959`
 
-This document is implementation evidence only. B001 remains unchecked until the required exact-head quality gates, exact-head review, merge, and canonical closeout are all satisfied.
+This document records the canonical B001 implementation and post-merge closeout. B001 freezes contracts only; B002 remains the separate task that implements the offline eligibility validator.
 
 ## Bootstrap eligibility
 
@@ -167,57 +170,55 @@ B001 now includes coverage for:
 - CLI schema self-check requiring a valid and invalid fixture for every registered schema;
 - generic schema-test support for per-schema fixture files and MSTR-000B-owned design sources.
 
-## Historical validation — stale after head changes
+## Final exact-head qualification
 
-A prior isolated focused run reported:
+After reconciliation with canonical main and the strict-mypy repair in `_dedicated_fixture`, a dedicated evidence-only GitHub-hosted workflow checked out the exact final implementation SHA itself in detached-head mode, verified exact identity and a clean working tree, and executed every frozen repository quality gate.
 
 ```text
-27 passed, 34 deselected in 1.27s
+FINAL_HEAD = 5e81f5a572c6f8409e67ccde7cc1a4aa556b30ea
+FINAL_EXACT_HEAD_RUN = 33069035959
+pytest -q = PASS (444 passed)
+ruff check src tests = PASS
+mypy = PASS (24 source files)
+python -m mstr_qualify validate = PASS
+VALID_FIXTURES_PASSED = 10
+INVALID_FIXTURES_REJECTED = 10
 ```
 
-That run predates subsequent schema/CLI/test/review hardening. It is retained only as historical evidence and MUST NOT be reported as an exact-current-head PASS.
+The preceding guarded reconciliation run also proved that the final PR diff against then-canonical main was exactly the declared 17 B001 paths. Historical focused runs and pre-push runs were not substituted for the final exact-head qualification.
+
+## Final exact-head review
+
+Qodo re-reviewed exact final candidate `5e81f5a572c6f8409e67ccde7cc1a4aa556b30ea` against canonical main `c2d0ee8a6b9d47275c4d309cd187c1ed0d35fb02` and reported no new code-review findings. The review re-checked authority gating, candidate-pool binding, fail-closed eligibility semantics, supersession, prerequisite/state evidence, repository-path safety, CLI/fixture behavior, runtime/design identity, and current-main reconciliation.
+
+All historical inline review threads were resolved before merge.
+
+## Canonical merge and post-merge verification
+
+Immediately before merge, live main, exact PR head, the 17-file changed-path set, mergeability, and review-thread state were re-read. PR #40 was merged with an `expected_head_sha` guard, preventing a merge if the reviewed/qualified head had moved. Post-merge GitHub truth established:
 
 ```text
-HISTORICAL_FOCUSED_RESULT = STALE_AFTER_HEAD_CHANGE
+B001_PR = 40
+B001_FINAL_HEAD = 5e81f5a572c6f8409e67ccde7cc1a4aa556b30ea
+B001_MERGE = 773555e9861d1c901c12718832821a98f472833f
+POST_MERGE_MAIN = 773555e9861d1c901c12718832821a98f472833f
+PR_40_MERGED = YES
 ```
 
-## Required exact-head quality gates
-
-`configs/quality.toml` requires all of:
+## Canonical authority and successor boundary
 
 ```text
-pytest -q
-ruff check src tests
-mypy
-python -m mstr_qualify validate
-```
-
-Current qualification environment status after the latest implementation changes:
-
-```text
-FULL_PYTEST = NOT_RUN / exact repository checkout unavailable in current execution environment
-RUFF = UNAVAILABLE / executable absent; local no-index installation also unavailable
-MYPY_STRICT = UNAVAILABLE / executable absent; local no-index installation also unavailable
-OFFLINE_SCHEMA_SELFCHECK = NOT_RUN / exact full repository checkout unavailable
-CI = NOT_RUN / repository quality config explicitly records no generic CI workflow and no exact-head quality workflow is claimed
-```
-
-These are not PASS states. Because the quality gates are mandatory before `COMPLETE_CANONICAL`, B001 remains open and must not merge until a tool environment capable of executing the exact head records the required passing results.
-
-## Review state
-
-Earlier Qodo findings about premature completion, authority-envelope representation, CLI schema dispatch, dedicated-fixture self-checking, prerequisite evidence, supersession, and Windows path handling were remediated or rendered outdated by later commits. CodeRabbit's contradictory-supersession finding was also fixed with a bidirectional invariant and regression test.
-
-A fresh exact-current-head review is still required after the final evidence/PR-body update. No earlier review is reused as final-head evidence.
-
-## Authority state
-
-```text
+B001_CONTRACTS = CANONICAL_ON_MAIN
+B001_EXACT_HEAD_REVIEW = CLEAN
+B001_QUALITY_GATES = PASS_AT_EXACT_FINAL_HEAD
+B001_COMPLETE_CANONICAL = YES
+TASK_CHECKBOX_UPDATED = YES
+B002_PREREQUISITE_B001 = SATISFIED
 B001_AUTHORIZES_MODEL_ACCESS = NO
 B001_AUTHORIZES_TRAINING = NO
 B001_AUTHORIZES_PAID_COMPUTE = NO
 B001_AUTHORIZES_LARGE_INGEST = NO
 B001_AUTHORIZES_PRODUCTION_RELEASE = NO
-B002_TASK_ELIGIBILITY_VALIDATOR = STILL_PENDING
-B001_COMPLETE_CANONICAL = NO
 ```
+
+This closeout does not itself implement B002 and creates no external-effect authority. B002 eligibility and execution remain governed by the live repository task graph and the explicit bootstrap sequencing in MSTR-000B.

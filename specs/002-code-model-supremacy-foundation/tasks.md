@@ -36,9 +36,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
 
 # Phase G — Machine Governance and Drift Prevention
 
-- [ ] **B001 Freeze machine-readable TaskNode / TaskEligibilityResult contracts.**  
-  Define task state, prerequisites, outputs, supersession, external-effect class, authority mapping, candidate-pool requirements, and closeout rules. Include fixtures for every authority-gated external-effect class missing `required_authority_id`, and candidate-dependent tasks missing `candidate_pool_requirement_id`; each must fail closed.  
+- [x] **B001 Freeze machine-readable TaskNode / TaskEligibilityResult contracts.**
+  Define task state, prerequisites, outputs, supersession, external-effect class, authority mapping, candidate-pool requirements, and closeout rules. Include fixtures for every authority-gated external-effect class missing `required_authority_id`, and candidate-dependent tasks missing `candidate_pool_requirement_id`; each must fail closed.
   Outputs: `schemas/mstr-task-node-v0.schema.json`, `schemas/mstr-task-eligibility-v0.schema.json`, fixtures, `evidence/mstr-000b/B001-task-contract.md`.
+  Canonical implementation: PR #40 / final head `5e81f5a572c6f8409e67ccde7cc1a4aa556b30ea` / merge `773555e9861d1c901c12718832821a98f472833f`.
 
 - [ ] **B002 Implement offline task eligibility validator.**  
   Conceptual CLI: `python -m mstr_qualify task eligible <TASK_ID>`. Fail closed on missing predecessor, stale/superseded task, missing explicit authority, candidate-pool prerequisite, or canonical-state conflict. Validator performs no mutation. B001/B002 bootstrap uses manual exact-prerequisite verification; after B002 becomes canonical there is no general bypass.  
