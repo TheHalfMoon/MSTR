@@ -1,12 +1,29 @@
 # Contracts — MSTR-000B
 
-MSTR-000B introduces design contracts that implementation tasks will register into the runtime `schemas/` directory with tests and fixtures.
+MSTR-000B introduces design contracts that implementation tasks register into the runtime `schemas/` directory with tests and fixtures.
 
-Planned contracts:
+## Frozen by B001
 
 ```text
 mstr.task-node.v0
 mstr.task-eligibility.v0
+```
+
+B001 owns the byte-identical design/runtime schemas:
+
+```text
+specs/002-code-model-supremacy-foundation/contracts/mstr-task-node-v0.schema.json
+schemas/mstr-task-node-v0.schema.json
+
+specs/002-code-model-supremacy-foundation/contracts/mstr-task-eligibility-v0.schema.json
+schemas/mstr-task-eligibility-v0.schema.json
+```
+
+`mstr.task-node.v0` freezes task state, prerequisites, outputs/evidence outputs, supersession, closeout rules, external-effect classes, exact-authority requirements, and candidate-pool prerequisites. `mstr.task-eligibility.v0` freezes the structured result consumed by B002 and later automation. It is fail-closed: `eligible=true` requires every represented prerequisite/authority/supersession/state/candidate-pool check to be satisfied and permits no top-level failure reason; `eligible=false` requires at least one reason.
+
+Remaining planned contracts:
+
+```text
 mstr.backbone-candidate.v2
 mstr.tokenizer-economics.v0
 mstr.data-constitution.v0
@@ -40,4 +57,4 @@ mstr.candidate-pool-decision.v0
 11. `Q4PromotionRecord` is required after every material weight-changing stage. Only a `PROMOTED` record with verified merged-master/Q4 hashes, pinned export/quantizer revisions and recipes, and passing required Q4/laptop regressions may parent a later material stage.
 12. Q4 product evidence remains separate from master-checkpoint evidence.
 
-Schema implementation belongs to the exact B-task named in `tasks.md`; this planning package does not register incomplete runtime schemas prematurely.
+Schema implementation belongs to the exact B-task named in `tasks.md`; an unimplemented planned contract has no runtime authority.
