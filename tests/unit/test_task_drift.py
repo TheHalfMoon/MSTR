@@ -136,7 +136,12 @@ def _write_b003_evidence(
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def _merge_b003_implementation(root: Path, *, include_gate: bool) -> tuple[str, str, str]:
+def _merge_b003_implementation(
+    root: Path,
+    *,
+    include_gate: bool,
+    merge_style: str = "merge",
+) -> tuple[str, str, str]:
     gate_main = _git(root, "rev-parse", "HEAD")
     _git(root, "switch", "-c", "impl-b003")
     source = root / "src" / "fixture.py"
@@ -152,14 +157,22 @@ def _merge_b003_implementation(root: Path, *, include_gate: bool) -> tuple[str, 
     _git(root, "commit", "-m", "implement B003 fixture")
     final_head = _git(root, "rev-parse", "HEAD")
     _git(root, "switch", "main")
-    _git(
-        root,
-        "merge",
-        "--no-ff",
-        "impl-b003",
-        "-m",
-        "Merge pull request #3 from fixture/impl-b003",
-    )
+    if merge_style == "merge":
+        _git(
+            root,
+            "merge",
+            "--no-ff",
+            "impl-b003",
+            "-m",
+            "Merge pull request #3 from fixture/impl-b003",
+        )
+    elif merge_style == "squash":
+        _git(root, "merge", "--squash", "impl-b003")
+        _git(root, "commit", "-m", "implement B003 fixture (#3)")
+    elif merge_style == "rebase":
+        _git(root, "cherry-pick", final_head)
+    else:
+        raise AssertionError(f"unsupported merge style: {merge_style}")
     merge_sha = _git(root, "rev-parse", "HEAD")
     _git(root, "update-ref", "refs/remotes/origin/main", merge_sha)
     return gate_main, final_head, merge_sha
@@ -224,6 +237,35 @@ def _run_case(name: str, tmp_path: Path) -> set[str]:
         _commit_main(root, "introduce evidence drift")
     elif name == "implementation_merged_while_active":
         _merge_b003_implementation(root, include_gate=True)
+    elif name == "terminal_all_identity_missing":
+        gate_main = _git(root, "rev-parse", "HEAD")
+        tasks = root / "specs" / "002-code-model-supremacy-foundation" / "tasks.md"
+        text = tasks.read_text(encoding="utf-8")
+        text = text.replace("- [ ] **B003 Drift task.**", "- [x] **B003 Drift task.**", 1)
+        tasks.write_text(text, encoding="utf-8")
+        catalog = root / "configs" / "task-gate" / "mstr-000b.json"
+        payload = json.loads(catalog.read_text(encoding="utf-8"))
+        payload["tasks"]["B003"]["canonical_state"] = "COMPLETE_CANONICAL"
+        catalog.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        _write_b003_evidence(
+            root,
+            state="COMPLETE_CANONICAL",
+            gate_main=gate_main,
+        )
+        _commit_main(root, "terminal B003 without implementation identity")
+    elif name == "terminal_missing_state":
+        gate_main, final_head, merge_sha = _merge_b003_implementation(root, include_gate=True)
+        _close_b003(root, gate_main=gate_main, final_head=final_head, merge_sha=merge_sha)
+        evidence = root / "evidence" / "mstr-000b" / "B003.md"
+        text = evidence.read_text(encoding="utf-8")
+        state_line = "**State:** COMPLETE_CANONICAL\n"
+        assert text.count(state_line) == 1
+        evidence.write_text(text.replace(state_line, "", 1), encoding="utf-8")
+        _commit_main(root, "remove canonical evidence state")
+    elif name == "squash_implementation_merged_while_active":
+        _merge_b003_implementation(root, include_gate=True, merge_style="squash")
+    elif name == "rebase_implementation_merge_unverifiable":
+        _merge_b003_implementation(root, include_gate=True, merge_style="rebase")
     elif name == "terminal_missing_identity_field":
         gate_main, final_head, merge_sha = _merge_b003_implementation(root, include_gate=True)
         _close_b003(

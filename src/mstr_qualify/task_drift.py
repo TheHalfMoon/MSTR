@@ -50,7 +50,11 @@ _ENTRY_GATE_ELIGIBLE_RE = re.compile(
     r"^ENTRY_GATE_ELIGIBLE\s*=\s*(?P<value>true|false)\s*$",
     re.MULTILINE,
 )
-_MERGE_SUBJECT_RE = re.compile(r"^Merge pull request #(?P<pr>\d+)\b")
+_MERGE_SUBJECT_RES = (
+    re.compile(r"^Merge pull request #(?P<pr>\d+)\b"),
+    re.compile(r"^Merge PR #(?P<pr>\d+)\b"),
+    re.compile(r"\(#(?P<pr>\d+)\)\s*$"),
+)
 
 
 @dataclass(frozen=True)
@@ -248,6 +252,14 @@ def _parse_implementation_records(tasks_file: Path) -> dict[str, ImplementationR
     return records
 
 
+def _pr_from_commit_subject(subject: str) -> int | None:
+    for pattern in _MERGE_SUBJECT_RES:
+        match = pattern.search(subject)
+        if match is not None:
+            return int(match.group("pr"))
+    return None
+
+
 def _merge_commits_by_pr(root: Path) -> dict[int, tuple[str, ...]]:
     completed = _git(root, "log", "HEAD", "--format=%H%x09%s", code="task_drift.log")
     if completed.returncode != 0:
@@ -261,9 +273,9 @@ def _merge_commits_by_pr(root: Path) -> dict[int, tuple[str, ...]]:
         if "\t" not in line:
             continue
         sha, subject = line.split("\t", 1)
-        match = _MERGE_SUBJECT_RE.match(subject)
-        if match and _HEX40_RE.fullmatch(sha):
-            matches.setdefault(int(match.group("pr")), []).append(sha)
+        pr_number = _pr_from_commit_subject(subject)
+        if pr_number is not None and _HEX40_RE.fullmatch(sha):
+            matches.setdefault(pr_number, []).append(sha)
     return {key: tuple(value) for key, value in matches.items()}
 
 
@@ -370,7 +382,7 @@ def _scan_task(
                 canonical_state=node["canonical_state"],
             )
         )
-    if terminal and evidence_state is not None and evidence_state != "COMPLETE_CANONICAL":
+    if terminal and evidence_state != "COMPLETE_CANONICAL":
         findings.append(
             _finding(
                 task_id,
@@ -383,6 +395,14 @@ def _scan_task(
     history_merges: tuple[str, ...] = ()
     if evidence_pr is not None:
         history_merges = merge_history.get(int(evidence_pr), ())
+        if not history_merges:
+            findings.append(
+                _finding(
+                    task_id,
+                    "git.pr_merge_unverifiable",
+                    pr_number=evidence_pr,
+                )
+            )
         if len(history_merges) > 1:
             findings.append(
                 _finding(
@@ -409,7 +429,8 @@ def _scan_task(
         "merge_sha": evidence_merge,
     }
     identity_comparison_required = (
-        implementation is not None
+        (terminal and task_id not in {"B001", "B002"})
+        or implementation is not None
         or bool(history_merges)
         or any(value is not None for value in identity_values.values())
     )

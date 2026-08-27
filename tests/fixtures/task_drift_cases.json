@@ -20,6 +20,28 @@
       ]
     },
     {
+      "name": "terminal_all_identity_missing",
+      "expected_codes": ["evidence.implementation_identity_missing"]
+    },
+    {
+      "name": "terminal_missing_state",
+      "expected_codes": ["evidence.terminal_state_mismatch"]
+    },
+    {
+      "name": "squash_implementation_merged_while_active",
+      "expected_codes": [
+        "implementation.merged_while_active",
+        "evidence.implementation_identity_missing"
+      ]
+    },
+    {
+      "name": "rebase_implementation_merge_unverifiable",
+      "expected_codes": [
+        "git.pr_merge_unverifiable",
+        "evidence.implementation_identity_missing"
+      ]
+    },
+    {
       "name": "terminal_missing_identity_field",
       "expected_codes": ["evidence.implementation_identity_missing"]
     },
