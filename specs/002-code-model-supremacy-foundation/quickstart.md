@@ -11,15 +11,16 @@ FOUNDER_MAC_LARGE_ARTIFACTS = ZERO
 ```
 
 Before each task:
-1. fetch live main;
-2. inspect open PRs/reviews/checks;
-3. run the task eligibility validator once B002 is canonical;
-4. read exact task prerequisites and external-effect class;
-5. do not infer authority from this workstream.
+1. fetch exact live `main` and inspect open PRs/reviews/checks;
+2. read the exact task prerequisites/external-effect class;
+3. for B001/B002 only, manually verify exact prerequisites because the validator is not yet canonical;
+4. once B002 is `COMPLETE_CANONICAL`, require exact-main `eligible=true` before every material B003+ task execution and again before merge;
+5. fail closed on validator error/ineligible result, supersession, missing authority, candidate-pool mismatch, or canonical drift;
+6. do not infer external-effect or training authority from this workstream.
 
 ## Immediate Implementation Order
 
-The first safe implementation chain is:
+The bootstrap governance chain is:
 
 ```text
 B001 task contracts
@@ -28,7 +29,9 @@ B001 task contracts
 -> B004 sequence reconciliation
 ```
 
-In parallel, metadata-only backbone work may proceed:
+Only B001/B002 use manual gate verification. B003+ uses the canonical machine gate.
+
+In parallel, metadata-only backbone work may proceed under exact prerequisites:
 
 ```text
 B005 rescan
@@ -38,22 +41,34 @@ B005 rescan
 -> B009 compatibility matrix
 ```
 
-No new model artifact may be acquired until B010 is frozen and B011 has exact founder authorization.
+B010 separates `qualification_candidates[]` from `new_weight_access_required_candidates[]`. No new model artifact may be acquired until B011 has exact founder authorization for a non-empty access-required list. A candidate that needs no new acquisition may still require B012 equivalent qualification.
 
-## Data/Training-Signal Contract Order
+## Data / Training-Signal Contract Order
+
+B014 is the root of several parallel contract branches; they are not one serial chain:
 
 ```text
 B014 Data Constitution
--> B016 software evolution
--> B018 self-alignment
--> B020 difficulty
--> B022 verifier health
--> B024 test generation
--> B025 feature/greenfield
--> B026 research ladder
+  |
+  +-> B015 language/tooling policy
+  |
+  +-> B016 software evolution -> B017 fixture extractor
+  |
+  +-> B018 self-alignment -> B019 teacher-rescue policy
+  |
+  +-> B020 difficulty -> B021 frontier calibrator
+  |
+  +-> B022 verifier-health contract
+  |      + A006 finalizer + A014 shortcut battery + B002
+  |      -> B023 verifier-health evaluator
+  |      -> B024 test-generation curriculum
+  |
+  +-> B025 feature/greenfield curriculum
+
+B022 + B024 + B025 -> B026 research ladder
 ```
 
-Fixture-only validation is preferred before any large corpus or training proposal.
+Fixture-only validation is preferred before any large corpus or training proposal. Self-alignment, teacher, and generated-test admission must bind exact provenance, rights, contamination, and verifier-health evidence.
 
 ## Candidate Convergence
 
@@ -61,14 +76,34 @@ A new candidate joins headline comparison only after:
 
 ```text
 static rights/provenance PASS
-+ exact acquisition authority if needed
-+ verified artifact identity
-+ Q4/runtime/resource qualification
++ B010 qualification classification
++ exact acquisition authority if new access is needed
++ verified artifact identity where applicable
++ B012 equivalent Q4/runtime/resource/raw qualification
 + tokenizer economics
-+ comparable raw/code evidence
++ comparable evidence
 ```
 
-Then B013 may include it in the stable pool.
+`B011 = NOT_REQUIRED_NO_NEW_ACCESS` does not skip B012 when a qualification candidate exists.
+
+Then B013 may include the candidate in the stable pool.
+
+## Q4 Promotion
+
+Every material weight-changing checkpoint later in the program must pass:
+
+```text
+source checkpoint hash
+-> merged-master hash
+-> pinned export tool/revision + recipe hash
+-> canonical Q4 hash
+-> pinned quantizer/revision + recipe hash
+-> required Q4 regressions
+-> applicable universal-laptop gate
+-> Q4PromotionRecord = PROMOTED
+```
+
+Only a promoted checkpoint may parent the next material stage.
 
 ## Training Hard Stop
 
