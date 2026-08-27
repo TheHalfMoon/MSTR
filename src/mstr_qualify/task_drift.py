@@ -377,6 +377,19 @@ def _scan_task(
             )
 
     metadata = tuple(_parse_evidence(path, root) for path in _evidence_files(root, node))
+    if terminal and node["closeout_rule"]["require_all_evidence_outputs"]:
+        invalid_state_paths = sorted(
+            entry.path for entry in metadata if entry.state != "COMPLETE_CANONICAL"
+        )
+        if invalid_state_paths:
+            findings.append(
+                _finding(
+                    task_id,
+                    "evidence.terminal_state_mismatch",
+                    paths=invalid_state_paths,
+                )
+            )
+
     states = {entry.state for entry in metadata if entry.state is not None}
     prs = {entry.implementation_pr for entry in metadata if entry.implementation_pr is not None}
     heads = {entry.final_head for entry in metadata if entry.final_head is not None}

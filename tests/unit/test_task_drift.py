@@ -272,6 +272,18 @@ def _run_case(name: str, tmp_path: Path) -> set[str]:
         )
         catalog.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         _commit_main(root, "declare missing required B003 evidence")
+    elif name == "terminal_secondary_missing_state":
+        gate_main, final_head, merge_sha = _merge_b003_implementation(root, include_gate=True)
+        _close_b003(root, gate_main=gate_main, final_head=final_head, merge_sha=merge_sha)
+        catalog = root / "configs" / "task-gate" / "mstr-000b.json"
+        payload = json.loads(catalog.read_text(encoding="utf-8"))
+        payload["tasks"]["B003"]["evidence_outputs"].append(
+            "evidence/mstr-000b/B003-secondary.md"
+        )
+        catalog.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        secondary = root / "evidence" / "mstr-000b" / "B003-secondary.md"
+        secondary.write_text("# Secondary B003 evidence\n", encoding="utf-8")
+        _commit_main(root, "add required B003 evidence without terminal state")
     elif name == "squash_implementation_merged_while_active":
         _merge_b003_implementation(root, include_gate=True, merge_style="squash")
     elif name == "rebase_implementation_merge_unverifiable":

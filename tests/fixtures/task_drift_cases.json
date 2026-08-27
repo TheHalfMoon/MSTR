@@ -32,6 +32,10 @@
       "expected_codes": ["evidence.required_missing"]
     },
     {
+      "name": "terminal_secondary_missing_state",
+      "expected_codes": ["evidence.terminal_state_mismatch"]
+    },
+    {
       "name": "squash_implementation_merged_while_active",
       "expected_codes": [
         "implementation.merged_while_active",
