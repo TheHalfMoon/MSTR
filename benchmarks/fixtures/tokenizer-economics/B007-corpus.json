@@ -1,0 +1,146 @@
+{
+  "corpus_id": "B007-tokenizer-economics-v0",
+  "encoding": "UTF-8",
+  "entries": [
+    {
+      "byte_count": 213,
+      "category": "python",
+      "content_utf8": "from dataclasses import dataclass\n\n@dataclass(frozen=True)\nclass User:\n    user_id: str\n    active: bool\n\ndef active_ids(users: list[User]) -> list[str]:\n    return [user.user_id for user in users if user.active]\n",
+      "filename": "example.py",
+      "fixture_id": "python",
+      "sha256": "59311de128f93bade6d17cfa8eb09fda5595f016b692d3a51b73bfc1be913c19"
+    },
+    {
+      "byte_count": 300,
+      "category": "typescript",
+      "content_utf8": "type Result<T> = { ok: true; value: T } | { ok: false; error: string };\n\nexport function parsePort(value: string): Result<number> {\n  const port = Number(value);\n  return Number.isInteger(port) && port > 0 && port < 65536\n    ? { ok: true, value: port }\n    : { ok: false, error: \"invalid port\" };\n}\n",
+      "filename": "example.ts",
+      "fixture_id": "typescript",
+      "sha256": "f32f8ae7926462aab901e6b9ce08486744b1bc7bf6159f137435969280723a33"
+    },
+    {
+      "byte_count": 246,
+      "category": "javascript",
+      "content_utf8": "export async function retry(operation, attempts = 3) {\n  let lastError;\n  for (let index = 0; index < attempts; index += 1) {\n    try {\n      return await operation();\n    } catch (error) {\n      lastError = error;\n    }\n  }\n  throw lastError;\n}\n",
+      "filename": "example.js",
+      "fixture_id": "javascript",
+      "sha256": "6fcb751859d709e0aa825eaad4fd916836fba3f119663f31a2bd2fd7a76dc841"
+    },
+    {
+      "byte_count": 218,
+      "category": "rust",
+      "content_utf8": "#[derive(Debug, Clone, PartialEq, Eq)]\nstruct Task {\n    id: String,\n    done: bool,\n}\n\nfn pending_ids(tasks: &[Task]) -> Vec<&str> {\n    tasks.iter().filter(|task| !task.done).map(|task| task.id.as_str()).collect()\n}\n",
+      "filename": "example.rs",
+      "fixture_id": "rust",
+      "sha256": "6836d0527bcef155f7100182ca9973b6b9aaba2361e7c775aa85a88a5af0e7e2"
+    },
+    {
+      "byte_count": 191,
+      "category": "go",
+      "content_utf8": "package queue\n\nimport \"errors\"\n\nfunc Pop(items []string) (string, []string, error) {\n\tif len(items) == 0 {\n\t\treturn \"\", items, errors.New(\"empty queue\")\n\t}\n\treturn items[0], items[1:], nil\n}\n",
+      "filename": "example.go",
+      "fixture_id": "go",
+      "sha256": "4b8e768e97c44fe6a72da8fc2669a57db987f8d073129d06535fcd7d4d7e4838"
+    },
+    {
+      "byte_count": 268,
+      "category": "java",
+      "content_utf8": "import java.util.List;\n\npublic final class Example {\n    public static long positiveTotal(List<Integer> values) {\n        return values.stream()\n                .filter(value -> value > 0)\n                .mapToLong(Integer::longValue)\n                .sum();\n    }\n}\n",
+      "filename": "Example.java",
+      "fixture_id": "java",
+      "sha256": "8d975b70a8257c926bf8f0007001d15c5b1cea406077df45dd8281e2461cf8ba"
+    },
+    {
+      "byte_count": 229,
+      "category": "c",
+      "content_utf8": "#include <stddef.h>\n\nsize_t count_nonzero(const int *values, size_t length) {\n    size_t count = 0;\n    for (size_t i = 0; i < length; ++i) {\n        if (values[i] != 0) {\n            ++count;\n        }\n    }\n    return count;\n}\n",
+      "filename": "example.c",
+      "fixture_id": "c",
+      "sha256": "3229a2e4d715ff02399a760076e8a58343c911041be89977956e7b4a64510e40"
+    },
+    {
+      "byte_count": 271,
+      "category": "cpp",
+      "content_utf8": "#include <optional>\n#include <string>\n\nstd::optional<int> parse_count(const std::string& text) {\n    try {\n        int value = std::stoi(text);\n        return value >= 0 ? std::optional<int>{value} : std::nullopt;\n    } catch (...) {\n        return std::nullopt;\n    }\n}\n",
+      "filename": "example.cpp",
+      "fixture_id": "cpp",
+      "sha256": "784ed873ef9d60bfff4589e46bee14fe831a29e555746a581e797a333dd8206b"
+    },
+    {
+      "byte_count": 179,
+      "category": "sql",
+      "content_utf8": "SELECT project_id, COUNT(*) AS open_tasks\nFROM tasks\nWHERE status = 'open'\n  AND deleted_at IS NULL\nGROUP BY project_id\nHAVING COUNT(*) >= 2\nORDER BY open_tasks DESC, project_id;\n",
+      "filename": "query.sql",
+      "fixture_id": "sql",
+      "sha256": "1951366e3be5075147295c7f5b89e1080fe44f612942ddb39790db54ffd49fe1"
+    },
+    {
+      "byte_count": 157,
+      "category": "shell",
+      "content_utf8": "#!/usr/bin/env sh\nset -eu\n\nroot=\"${1:-.}\"\nfind \"$root\" -type f -name '*.json' -print0 |\n  while IFS= read -r -d '' file; do\n    printf '%s\\n' \"$file\"\n  done\n",
+      "filename": "script.sh",
+      "fixture_id": "shell",
+      "sha256": "ea9d37c88e0780b1b4af8c01c723b666056990e65c8c1537e2e77d44c7919ad1"
+    },
+    {
+      "byte_count": 108,
+      "category": "json",
+      "content_utf8": "{\n  \"service\": \"builder\",\n  \"retries\": 3,\n  \"features\": [\"lint\", \"test\"],\n  \"network\": {\"enabled\": false}\n}\n",
+      "filename": "config.json",
+      "fixture_id": "json",
+      "sha256": "5d70692e6251737b9c000b257328f8e1714158ce20496fbf983fc587d0d4fe7a"
+    },
+    {
+      "byte_count": 110,
+      "category": "yaml",
+      "content_utf8": "service: builder\nretries: 3\nfeatures:\n  - lint\n  - test\nnetwork:\n  enabled: false\npaths:\n  cache: .cache/mstr\n",
+      "filename": "config.yaml",
+      "fixture_id": "yaml",
+      "sha256": "ca12c345556a851d9dea5a6bb89382c3766e0981bdef74ff3b7add4c5590fbdc"
+    },
+    {
+      "byte_count": 118,
+      "category": "toml",
+      "content_utf8": "service = \"builder\"\nretries = 3\nfeatures = [\"lint\", \"test\"]\n\n[network]\nenabled = false\n\n[paths]\ncache = \".cache/mstr\"\n",
+      "filename": "config.toml",
+      "fixture_id": "toml",
+      "sha256": "2d371fae55e4eecd820c274e9ba9db1a24f77234e6fc9df34a86973ce68e0de5"
+    },
+    {
+      "byte_count": 277,
+      "category": "diff",
+      "content_utf8": "diff --git a/src/math.py b/src/math.py\nindex 1111111..2222222 100644\n--- a/src/math.py\n+++ b/src/math.py\n@@ -1,2 +1,4 @@\n def add(a, b):\n-    return a - b\n+    if not isinstance(a, int) or not isinstance(b, int):\n+        raise TypeError(\"integers required\")\n+    return a + b\n",
+      "filename": "change.diff",
+      "fixture_id": "diff",
+      "sha256": "559e35d7a2dbb5cffb2b5cf477ff5518b8452f4971b2956612fdb0823a0a4a06"
+    },
+    {
+      "byte_count": 329,
+      "category": "stack_trace",
+      "content_utf8": "Traceback (most recent call last):\n  File \"/workspace/app/main.py\", line 18, in <module>\n    run()\n  File \"/workspace/app/main.py\", line 11, in run\n    config = load_config(\"config.json\")\n  File \"/workspace/app/config.py\", line 27, in load_config\n    raise ValueError(\"missing field: service\")\nValueError: missing field: service\n",
+      "filename": "stacktrace.txt",
+      "fixture_id": "stack_trace",
+      "sha256": "c4ce75639ee025a0081ca6e43b86b2860415b7f0de1853e43719e8a02a8578cb"
+    },
+    {
+      "byte_count": 247,
+      "category": "file_paths",
+      "content_utf8": "src/mstr_qualify/task_gate.py\ntests/contract/test_task_contracts.py\nspecs/002-code-model-supremacy-foundation/contracts/mstr-task-node-v0.schema.json\n.github/workflows/release.yml\npackages/web/src/components/TaskCard.tsx\nCMakeLists.txt\nCargo.toml\n",
+      "filename": "paths.txt",
+      "fixture_id": "file_paths",
+      "sha256": "c470c5ea5ba8724c16c3a2ee40f2613bef3b6e5cc353d64033119f93de3065fe"
+    },
+    {
+      "byte_count": 156,
+      "category": "tool_json",
+      "content_utf8": "{\n  \"tool\": \"read_file\",\n  \"arguments\": {\n    \"path\": \"src/mstr_qualify/cli.py\",\n    \"start_line\": 40,\n    \"end_line\": 96\n  },\n  \"request_id\": \"req-0001\"\n}\n",
+      "filename": "tool-call.json",
+      "fixture_id": "tool_json",
+      "sha256": "068fcdb1bb4d65a0df110717cb7fff1117841d926065b01eca6bc90dca92fc97"
+    }
+  ],
+  "external_source_content": false,
+  "format_version": "mstr.tokenizer-economics-corpus.v0",
+  "newline": "LF",
+  "source_class": "REPOSITORY_AUTHORED_SYNTHETIC_FIXTURE"
+}
