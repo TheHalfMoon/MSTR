@@ -1,0 +1,122 @@
+name: Verify B019 post-closeout canonical state
+
+on:
+  push:
+    branches:
+      - evidence/b019-postcloseout-1badcb9
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: 1badcb9b159f99ed8f752a7412dfb5f52b995c01
+  EXPECTED_PARENT1: ac68e2ff9de9962807ab32ce983b2e808bf4fab9
+  EXPECTED_PARENT2: f8501a43fc3e4181915032d08767e6a4e4d1f84b
+  PR_NUMBER: '79'
+
+jobs:
+  merge_identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1badcb9b159f99ed8f752a7412dfb5f52b995c01
+          fetch-depth: 0
+      - name: Verify canonical closeout merge identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_PARENT1"
+          test "$(git rev-parse HEAD^2)" = "$EXPECTED_PARENT2"
+          test "$(git rev-parse HEAD^{tree})" = "$(git rev-parse $EXPECTED_PARENT2^{tree})"
+          pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
+          test "$(jq -r '.state' <<<"$pr")" = "closed"
+          test "$(jq -r '.merged' <<<"$pr")" = "true"
+          test "$(jq -r '.merge_commit_sha' <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$EXPECTED_PARENT2"
+
+  task_state:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1badcb9b159f99ed8f752a7412dfb5f52b995c01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify terminal B019 and successor gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          if mstr-qualify task eligible B019 > /tmp/b019.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and .authority_result.required == false and (.reasons | index("task.already_terminal") != null)' /tmp/b019.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+          mstr-qualify task eligible B020 > /tmp/b020.json
+          mstr-qualify task eligible B022 > /tmp/b022.json
+          mstr-qualify task eligible B025 > /tmp/b025.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b020.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b022.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b025.json
+          if mstr-qualify task eligible B021 > /tmp/b021.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "PENDING"' /tmp/b021.json
+          mstr-qualify task drift > /tmp/drift.json
+
+  focused:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1badcb9b159f99ed8f752a7412dfb5f52b995c01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-run B019 closeout regressions on canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_teacher_rescue_contract.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+
+  full_quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1badcb9b159f99ed8f752a7412dfb5f52b995c01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run frozen full quality on canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [merge_identity, task_state, focused, full_quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b019-postcloseout-1badcb9
+          fetch-depth: 0
+      - name: Final immutable canonical-main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
