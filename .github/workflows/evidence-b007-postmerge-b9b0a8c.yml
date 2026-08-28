@@ -1,0 +1,85 @@
+name: Verify B007 post-implementation b9b0a8c
+
+on:
+  push:
+    branches: [evidence/b007-postmerge-b9b0a8c]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: b9b0a8ca7b9b7528f5da518baa83b23e2348c6f6
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify exact main task state drift and outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B007 > /tmp/b007.json
+          set +e
+          python -m mstr_qualify task eligible B008 > /tmp/b008.json
+          b8_rc=$?
+          set -e
+          test "$b8_rc" -eq 1
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          main=os.environ['EXPECTED_MAIN']
+          b7=json.load(open('/tmp/b007.json'))
+          b8=json.load(open('/tmp/b008.json'))
+          drift=json.load(open('/tmp/drift.json'))
+          assert b7['canonical_main']==main and b7['task_id']=='B007', b7
+          assert b7['eligible'] is True and b7['reasons']==[], b7
+          assert b7['state_consistency_result']['observed_state']=='PENDING', b7
+          assert b8['canonical_main']==main and b8['task_id']=='B008', b8
+          assert b8['eligible'] is False, b8
+          assert 'prerequisite.unsatisfied:B007' in b8['reasons'], b8
+          assert b8['state_consistency_result']['observed_state']=='PENDING', b8
+          assert b8['prerequisite_results'][0]['task_id']=='B007'
+          assert b8['prerequisite_results'][0]['satisfied'] is False
+          assert drift['canonical_main']==main and drift['status']=='clean' and drift['findings']==[], drift
+          corpus=Path('benchmarks/fixtures/tokenizer-economics/B007-corpus.json').read_bytes()
+          manifest=json.loads(Path('benchmarks/manifests/B007-tokenizer-economics.json').read_text())
+          assert len(corpus)==10951
+          assert hashlib.sha256(corpus).hexdigest()=='425456fa39ae5dc67214b4871b1ac948c63bf9f0ae72a1407a5908d4a5c9e1d6'
+          assert manifest['canonical_main_sha']=='9b4e885f215fd922ecf79ff9e15bdb1479396668'
+          assert Path('evidence/mstr-000b/B007-tokenizer-protocol.md').is_file()
+          print('B007_POSTMERGE_PENDING_ELIGIBLE=PASS')
+          print('B008_BLOCKED_ONLY_BY_B007=PASS')
+          print('B007_OUTPUT_INTEGRITY=PASS')
+          print('CANONICAL_DRIFT=clean')
+          PY
+      - name: Frozen repository gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_b007_tokenizer_economics.py tests/contract/test_b007_protocol_fail_closed.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+      - name: Final exact-main immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo B007_POST_IMPLEMENTATION_EXACT_MAIN_VERIFY=PASS
