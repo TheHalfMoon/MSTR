@@ -1,0 +1,63 @@
+name: Independently review exact final B017 implementation head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: f7a386214a1346b75dd3311390aa1e19bf354bb1
+  EXPECTED_HEAD: 6bab90d46fca0323fe9c1d66f37a69e8b13d8ae3
+  TARGET_BRANCH: feat/mstr-000b-b017-evolution-fixture-pilot
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6bab90d46fca0323fe9c1d66f37a69e8b13d8ae3
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e '.[dev]'
+      - name: Bind live main, exact candidate, and immutable scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git merge-base "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "$EXPECTED_MAIN"
+          expected=$(printf '%s\n' evidence/mstr-000b/B017-evolution-fixture-pilot.md src/mstr_qualify/software_evolution.py tests/fixtures/software_evolution/b017-localization.json tests/fixtures/software_evolution/b017-edit.json tests/fixtures/software_evolution/b017-review-repair.json tests/unit/test_software_evolution_projection.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+      - name: Audit authority and frozen B016 surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in schemas/mstr-software-evolution-record-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-software-evolution-record-v0.schema.json src/mstr_qualify/schemas.py configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md configs/quality.toml pyproject.toml; do
+            git diff --quiet "$EXPECTED_MAIN" "$EXPECTED_HEAD" -- "$path"
+          done
+          ! git diff "$EXPECTED_MAIN...$EXPECTED_HEAD" | grep -Ei 'safetensors|model weights|paid api|production trace|private user data|training runtime' >/dev/null
+      - name: Adversarial future-history and lineage review
+        run: pytest -q tests/unit/test_software_evolution_projection.py tests/contract/test_software_evolution_contract.py
+      - name: Frozen schema selfcheck
+        run: python -m mstr_qualify validate
+      - name: Frozen full test suite
+        run: pytest -q
+      - name: Frozen lint
+        run: ruff check src tests
+      - name: Frozen strict typecheck
+        run: mypy
+      - name: Final remote immutability review
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B017_INDEPENDENT_ADVERSARIAL_REVIEW=PASS'
+          echo 'B011_REMAINS_BLOCKED=PASS'
