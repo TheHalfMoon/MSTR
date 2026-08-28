@@ -49,6 +49,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -59,6 +60,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1)"
           python -m mstr_qualify task eligible B017 > /tmp/b017.json
           if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
           python -m mstr_qualify task drift > /tmp/drift.json
@@ -70,6 +72,7 @@ jobs:
           assert b17['eligible'] is True
           assert b17['state_consistency_result']['observed_state'] == 'PENDING'
           assert b17['authority_result']['required'] is False
+          assert b17['authority_result']['satisfied'] is True
           assert b11['eligible'] is False
           assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
           assert b11['authority_result']['required'] is True
