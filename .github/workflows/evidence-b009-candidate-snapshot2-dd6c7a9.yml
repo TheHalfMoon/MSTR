@@ -1,0 +1,67 @@
+name: Bind exact B009 candidate identities
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: dd6c7a9b163f1f34e6cc3570da234078d39f4fce
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dd6c7a9b163f1f34e6cc3570da234078d39f4fce
+          fetch-depth: 0
+
+      - name: Bind current exact candidate identities and roles
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          rows = []
+          for path in sorted(Path('artifacts/candidates').glob('*.json')):
+              p = json.loads(path.read_text())
+              rights = p['rights']
+              row = {
+                  'candidate_id': p['candidate_id'],
+                  'candidate_role': p['candidate_role'],
+                  'status': p['status'],
+                  'upstream_id': p['upstream_id'],
+                  'upstream_revision': p['upstream_revision'],
+                  'architecture_family': p['architecture']['family'],
+                  'rights_decision': rights['decision'],
+                  'account_gate_required': rights['account_gate_required'],
+                  'clickthrough_gate_required': rights['clickthrough_gate_required'],
+              }
+              assert len(row['upstream_revision']) == 40
+              assert all(c in '0123456789abcdef' for c in row['upstream_revision'])
+              rows.append(row)
+          print('B009_CURRENT_CANDIDATE_IDENTITIES=')
+          print(json.dumps(rows, indent=2, sort_keys=True))
+          serious = [
+              row for row in rows
+              if row['status'] == 'static_qualified'
+              and row['rights_decision'] == 'pass_permissive'
+              and row['account_gate_required'] is False
+              and row['clickthrough_gate_required'] is False
+          ]
+          assert len(rows) == 19
+          assert len(serious) == 10
+          print('B009_CURRENT_SERIOUS_IDENTITIES=')
+          print(json.dumps(serious, indent=2, sort_keys=True))
+          print('B009_CURRENT_IDENTITY_BINDING=PASS')
+          PY
+          git fetch origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
