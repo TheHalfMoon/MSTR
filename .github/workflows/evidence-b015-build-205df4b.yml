@@ -1,0 +1,604 @@
+name: Build and qualify B015 language target policy
+
+on:
+  push:
+    branches:
+      - evidence/b015-build-205df4b
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: 205df4be5f2e25bd28b697816eac3ea6ce361aed
+  TARGET_BRANCH: feat/000b-b015-language-target-policy
+  ENTRY_RUN: '33166914253'
+  ENTRY_JOB: '98834411321'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 205df4be5f2e25bd28b697816eac3ea6ce361aed
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Guard exact B015 entry and target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B015_BUILD_ENTRY=PASS'
+      - name: Materialize policy evidence and contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          policy = {
+              "artifact_version": "mstr.b015.language-target-policy.v1",
+              "policy_id": "MSTR-LANGUAGE-TARGET-POLICY-v0",
+              "task_id": "B015",
+              "state": "IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT",
+              "canonical_main_at_entry": "205df4be5f2e25bd28b697816eac3ea6ce361aed",
+              "entry_gate": {
+                  "task_id": "B015",
+                  "canonical_main": "205df4be5f2e25bd28b697816eac3ea6ce361aed",
+                  "run_id": 33166914253,
+                  "job_id": 98834411321,
+                  "eligible": True,
+                  "drift": "clean",
+                  "external_effect_class": "NO_EXTERNAL_EFFECT",
+              },
+              "scope": {
+                  "dimension": "LANGUAGE_AND_TOOLING",
+                  "measurement_denominator": "LANGUAGE_TOOLING_SLICE",
+                  "stage_specific_manifest_required": True,
+                  "fixed_final_percentages": False,
+                  "software_role_mix_owned_by": "MSTR-DATA-CONSTITUTION-v0 and stage-specific manifests",
+                  "applies_to_workstreams": ["MSTR-001", "MSTR-002", "MSTR-003"],
+                  "interpretation": "Replay floors are capacity-preservation guardrails, not market-share estimates or claims of optimal final mixture weights.",
+              },
+              "decision_basis": {
+                  "product_invariants": [
+                      "software direction to verified working code",
+                      "8 GB RAM / CPU-usable / 8K / Q4<=3 GB universal-laptop product",
+                      "Windows + Linux + macOS platform families",
+                      "build, config, shell, SQL, tests, diffs, and repository work are first-class software tasks",
+                      "long-tail breadth must earn capacity through product/evaluation evidence",
+                  ],
+                  "repository_evidence": [
+                      {
+                          "source": "specs/002-code-model-supremacy-foundation/spec.md",
+                          "fact": "FR-023 requires an evidence-derived language/tooling mix and rejects marketing breadth as a capacity objective.",
+                      },
+                      {
+                          "source": "specs/002-code-model-supremacy-foundation/plan.md",
+                          "fact": "B007/B015 planning explicitly covers Python, TypeScript/JavaScript, Rust, Go, Java, C/C++, SQL, shell, JSON/YAML/TOML, diffs, stack traces, paths, and tool JSON.",
+                      },
+                      {
+                          "source": "docs/data/MSTR_DATA_CONSTITUTION.md",
+                          "fact": "B014 delegates language percentages/tiers to B015 and requires the canonical language target policy before training admission.",
+                      },
+                  ],
+                  "external_evidence": [
+                      {
+                          "source_id": "github_octoverse_2025",
+                          "observed_at": "2026-08-28",
+                          "url": "https://github.blog/news-insights/octoverse/octoverse-a-new-developer-joins-github-every-second-as-ai-leads-typescript-to-1/",
+                          "observations": [
+                              "TypeScript became GitHub's most-used language in August 2025, ahead of Python and JavaScript.",
+                              "Java and C# were fourth and fifth; PHP, Shell, C++, HCL, and Go were also in GitHub's 2025 top ten.",
+                              "The combined JavaScript and TypeScript ecosystem remained larger than Python on GitHub.",
+                          ],
+                      },
+                      {
+                          "source_id": "stackoverflow_2025_technology",
+                          "observed_at": "2026-08-28",
+                          "url": "https://survey.stackoverflow.co/2025/technology",
+                          "observations": [
+                              "Python adoption increased by seven percentage points from 2024 to 2025 and spans AI, data science, and backend work.",
+                              "Rust was the most admired programming language in the 2025 survey at 72 percent.",
+                              "Python developers showed strong interest in Rust and Go for performance-oriented systems work.",
+                          ],
+                      },
+                      {
+                          "source_id": "jetbrains_developer_ecosystem_2025",
+                          "observed_at": "2026-08-28",
+                          "url": "https://blog.jetbrains.com/research/2025/10/state-of-developer-ecosystem-2025/",
+                          "observations": [
+                              "The report is based on 24,534 developers across 194 countries.",
+                              "TypeScript had the strongest five-year real-world usage rise; Rust, Go, and Kotlin also gained share.",
+                              "Top stated next-language adoption included Go 11 percent, Rust 10 percent, Python 7 percent, Kotlin 6 percent, and TypeScript 6 percent.",
+                          ],
+                      },
+                  ],
+              },
+              "tiers": {
+                  "core": [
+                      {"id": "typescript", "reason": "current GitHub leadership, typed web/full-stack ecosystem, and greenfield relevance"},
+                      {"id": "python", "reason": "broad backend, automation, AI/data, scripting, and fast-growing adoption"},
+                      {"id": "javascript", "reason": "massive installed web/runtime ecosystem and legacy/maintenance complement to TypeScript"},
+                      {"id": "java", "reason": "large enterprise/server ecosystem and sustained GitHub usage"},
+                      {"id": "csharp", "reason": "large Windows/cloud/game/enterprise ecosystem and top-five GitHub usage"},
+                      {"id": "c", "reason": "systems, embedded, native interfaces, build/toolchain maintenance, and portability"},
+                      {"id": "cpp", "reason": "systems/performance/native application ecosystem and explicit MSTR tokenizer/evaluation coverage"},
+                  ],
+                  "secondary": [
+                      {"id": "go", "reason": "cloud/infrastructure/backend usage and high stated adoption intent"},
+                      {"id": "rust", "reason": "systems/safety growth, high developer admiration, and increasing adoption"},
+                      {"id": "php", "reason": "large deployed web ecosystem despite lower growth momentum"},
+                      {"id": "kotlin", "reason": "JVM/Android relevance and sustained ecosystem growth"},
+                      {"id": "swift", "reason": "Apple-platform software relevance within the required macOS platform family"},
+                  ],
+                  "long_tail": {
+                      "initial_targets": ["ruby", "dart", "scala", "elixir", "zig", "lua", "r", "objective-c"],
+                      "per_language_minimum_percent": 0,
+                      "admission_rule": "A long-tail language receives stage allocation only when product tasks, evaluation failures, customer/developer demand, repository distribution, or strategic platform evidence justifies the capacity. Marketing completeness is not evidence.",
+                  },
+              },
+              "tooling_channels": [
+                  {"id": "shell_posix", "group": "shell", "examples": ["sh", "bash", "zsh"]},
+                  {"id": "powershell", "group": "shell", "examples": ["PowerShell"]},
+                  {"id": "sql", "group": "sql", "examples": ["SQL"]},
+                  {"id": "structured_config", "group": "structured_config", "examples": ["JSON", "YAML", "TOML"]},
+                  {"id": "package_build_manifests", "group": "build_ci", "examples": ["package.json", "pyproject.toml", "Cargo.toml", "go.mod", "pom.xml", "build.gradle", "*.csproj"]},
+                  {"id": "build_systems", "group": "build_ci", "examples": ["Makefile", "CMake", "Ninja", "Dockerfile"]},
+                  {"id": "ci_workflows", "group": "build_ci", "examples": ["GitHub Actions", "generic CI YAML"]},
+                  {"id": "infra_config", "group": "infra_config", "examples": ["HCL", "Terraform"]},
+              ],
+              "replay_policy": {
+                  "denominator": "LANGUAGE_TOOLING_SLICE",
+                  "aggregate_minimum_percent": {
+                      "core_programming": 55,
+                      "secondary_programming": 15,
+                      "tooling_config": 15,
+                  },
+                  "long_tail_maximum_percent": 15,
+                  "core_language_minimum_percent": {
+                      "typescript": 8,
+                      "python": 8,
+                      "javascript": 6,
+                      "java": 6,
+                      "csharp": 5,
+                      "c": 4,
+                      "cpp": 4,
+                  },
+                  "secondary_language_minimum_percent": {
+                      "go": 3,
+                      "rust": 3,
+                      "php": 2,
+                      "kotlin": 2,
+                      "swift": 2,
+                  },
+                  "tooling_group_minimum_percent": {
+                      "shell": 4,
+                      "sql": 3,
+                      "structured_config": 3,
+                      "build_ci": 3,
+                      "infra_config": 2,
+                  },
+                  "flexible_allocation_rule": "After all minima are satisfied, remaining language/tooling capacity is assigned by stage-specific product/evaluation evidence. Long-tail total may not exceed its cap without a canonical B015 amendment.",
+                  "no_silent_zero_rule": "A core or secondary target with admissible source material may not be silently omitted; any inability to meet its minimum requires a canonical exception with exact reason and impact analysis.",
+              },
+              "stage_manifest_rules": [
+                  "Declare the accounting unit and denominator used for language/tooling weights.",
+                  "Declare core, secondary, tooling/config, and long-tail totals; all allocated shares must sum to 100 percent of the language/tooling slice.",
+                  "Meet every aggregate, per-language, and tooling-group replay floor unless a canonical B015 amendment explicitly changes the policy.",
+                  "Do not infer software-role CODE/FIM/TEST/DIFF ratios from B015; those remain stage-specific under the Data Constitution.",
+                  "Preserve provenance, rights, contamination, dedup, benchmark exclusion, and verifier-health gates from MSTR-DATA-CONSTITUTION-v0.",
+                  "Do not admit private user repositories or production traces by default.",
+              ],
+              "refresh_policy": {
+                  "before_each_material_training_stage": True,
+                  "annual_external_evidence_refresh": True,
+                  "tier_change_requires_canonical_amendment": True,
+                  "triggers": [
+                      "material shift in public repository language distribution",
+                      "MSTR evaluation shows repeated product-critical weakness",
+                      "platform/toolchain strategy changes",
+                      "source availability or rights make a replay floor infeasible",
+                  ],
+              },
+              "authority_boundary": {
+                  "model_weight_access": False,
+                  "model_execution": False,
+                  "large_dataset_ingestion": False,
+                  "private_user_data_ingestion": False,
+                  "production_trace_ingestion": False,
+                  "paid_compute": False,
+                  "paid_model_api": False,
+                  "weight_changing_training": False,
+                  "large_scale_rl": False,
+                  "production_release": False,
+              },
+          }
+
+          policy_path = Path('artifacts/decisions/B015-language-target-policy.json')
+          policy_path.parent.mkdir(parents=True, exist_ok=True)
+          policy_path.write_text(json.dumps(policy, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+
+          evidence = '''# B015 — Programming Language and Tooling Target Policy
+
+**Task:** `B015`  
+**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT  
+**Policy:** `MSTR-LANGUAGE-TARGET-POLICY-v0`  
+**Canonical main at entry:** `205df4be5f2e25bd28b697816eac3ea6ce361aed`  
+**Entry gate:** run `33166914253` / job `98834411321` / `eligible=true` / drift clean  
+**External effect:** `NO_EXTERNAL_EFFECT`
+
+## Decision
+
+B015 freezes the language/tooling dimension required by `MSTR-DATA-CONSTITUTION-v0`. It does **not** freeze one final universal training mixture. Stage manifests still choose exact weights from evidence, but they must preserve the replay floors below so a narrow SFT/RL or fashionable ecosystem does not silently erase core coding capability.
+
+### Core programming tier
+
+```text
+TypeScript
+Python
+JavaScript
+Java
+C#
+C
+C++
+```
+
+These languages cover the dominant GitHub/web/backend/enterprise/native software surfaces while preserving the systems/native work explicitly present in the MSTR product and tokenizer/evaluation plan.
+
+### Secondary programming tier
+
+```text
+Go
+Rust
+PHP
+Kotlin
+Swift
+```
+
+This tier preserves important cloud/infrastructure, systems/safety, deployed-web, JVM/Android, and Apple-platform work without giving every ecosystem equal capacity merely for breadth.
+
+### Long-tail tier
+
+Initial bounded targets are Ruby, Dart, Scala, Elixir, Zig, Lua, R, and Objective-C. They have no per-language replay minimum. Stage allocation requires product tasks, evaluation failures, repository distribution, developer/customer demand, or strategic platform evidence. Marketing completeness is explicitly not evidence.
+
+### Mandatory tooling/config channels
+
+```text
+POSIX shell + Bash/Zsh
+PowerShell
+SQL
+JSON / YAML / TOML
+package/build manifests
+Make / CMake / Ninja / Dockerfile
+CI workflows
+HCL / Terraform
+```
+
+PowerShell is explicit because Windows is a required MSTR platform family. Shell, SQL, build, CI, and configuration are software-building skills rather than peripheral long-tail syntax.
+
+## Replay floors
+
+All percentages below are measured inside the stage's declared `LANGUAGE_TOOLING_SLICE`; they are **capacity-preservation guardrails**, not market-share estimates and not a claim that the final mixture is globally optimal.
+
+```text
+CORE_PROGRAMMING_AGGREGATE_MIN = 55%
+SECONDARY_PROGRAMMING_AGGREGATE_MIN = 15%
+TOOLING_CONFIG_AGGREGATE_MIN = 15%
+LONG_TAIL_AGGREGATE_MAX = 15%
+```
+
+Core per-language minima:
+
+```text
+TypeScript 8%
+Python     8%
+JavaScript 6%
+Java       6%
+C#         5%
+C          4%
+C++        4%
+```
+
+Secondary per-language minima:
+
+```text
+Go     3%
+Rust   3%
+PHP    2%
+Kotlin 2%
+Swift  2%
+```
+
+Tooling-group minima:
+
+```text
+shell             4%
+SQL               3%
+structured config 3%
+build + CI        3%
+infrastructure    2%
+```
+
+After floors are met, the remainder is stage-specific and evidence-selected. A stage cannot silently zero an admissible core/secondary language. Any floor reduction or long-tail-cap increase requires a canonical B015 amendment with exact rationale and impact analysis.
+
+B015 does not own the software-role mixture. It therefore does not set CODE/FIM/TEST/DIFF percentages; those remain stage-specific under B014.
+
+## Evidence basis
+
+### Canonical repository evidence
+
+- `spec.md` FR-023 requires the language/tooling mixture to follow intended product usage and evidence, not marketing breadth.
+- `plan.md` and B007 already require representative coverage including Python, TypeScript/JavaScript, Rust, Go, Java, C/C++, SQL, shell, structured configuration, diffs, paths, stack traces, and tool JSON.
+- `MSTR_DATA_CONSTITUTION.md` deliberately delegates canonical language tiers/weights to B015 and requires the policy to be bound before training admission.
+- The MSTR product must remain useful across Windows, Linux, and macOS, so shell/build/config behavior is part of product coverage rather than an optional language tail.
+
+### External ecosystem evidence — supporting, not sole authority
+
+Observed 2026-08-28:
+
+1. GitHub Octoverse 2025: https://github.blog/news-insights/octoverse/octoverse-a-new-developer-joins-github-every-second-as-ai-leads-typescript-to-1/
+   - TypeScript became GitHub's #1 language in August 2025, ahead of Python and JavaScript.
+   - Java and C# were #4/#5; PHP, Shell, C++, HCL, and Go were also top-ten languages.
+   - JavaScript + TypeScript together remained larger than Python on GitHub.
+2. Stack Overflow Developer Survey 2025: https://survey.stackoverflow.co/2025/technology
+   - Python adoption rose seven percentage points from 2024 to 2025.
+   - Rust was the most admired language at 72%.
+   - Python developers showed strong interest in Rust and Go for performance-oriented systems programming.
+3. JetBrains State of Developer Ecosystem 2025: https://blog.jetbrains.com/research/2025/10/state-of-developer-ecosystem-2025/
+   - Based on 24,534 developers across 194 countries.
+   - TypeScript showed the strongest five-year real-world usage rise; Rust, Go, and Kotlin also gained share.
+   - Stated next-language adoption was led by Go (11%) and Rust (10%), with Python (7%), Kotlin (6%), and TypeScript (6%) also prominent.
+
+The external sources use different methodologies and are not converted into token percentages. B015 uses them to identify durable/high-value ecosystems, then applies MSTR's software-building mission and capacity constraints.
+
+## Stage-manifest requirements
+
+Every downstream material stage that carries a language/tooling slice must:
+
+1. declare the accounting unit and denominator;
+2. make all four bucket totals inspectable and sum allocated shares to 100%;
+3. satisfy aggregate, per-language, and tooling-group replay floors;
+4. preserve B014 provenance, rights, contamination, dedup, benchmark-exclusion, verifier-health, and private-data rules;
+5. refresh the evidence before each material training stage and record any inability to satisfy a floor;
+6. use a canonical B015 amendment for tier/floor changes rather than silently changing the policy.
+
+## Authority boundary
+
+```text
+MODEL_WEIGHT_ACCESS = NONE
+MODEL_EXECUTION = NONE
+LARGE_DATASET_INGESTION = NONE
+PRIVATE_USER_DATA_INGESTION = NONE
+PRODUCTION_TRACE_INGESTION = NONE
+PAID_COMPUTE = NONE
+PAID_MODEL_API = NONE
+WEIGHT_CHANGING_TRAINING = NONE
+LARGE_SCALE_RL = NONE
+PRODUCTION_RELEASE = NONE
+```
+
+This task freezes a policy only. It does not admit a corpus, execute a model, or authorize training.
+'''
+          evidence_path = Path('evidence/mstr-000b/B015-language-mix.md')
+          evidence_path.parent.mkdir(parents=True, exist_ok=True)
+          evidence_path.write_text(evidence, encoding='utf-8')
+
+          tests = r'''from __future__ import annotations
+
+import json
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[2]
+POLICY_PATH = ROOT / "artifacts" / "decisions" / "B015-language-target-policy.json"
+EVIDENCE_PATH = ROOT / "evidence" / "mstr-000b" / "B015-language-mix.md"
+DATA_CONSTITUTION_PATH = ROOT / "docs" / "data" / "MSTR_DATA_CONSTITUTION.md"
+
+
+def _policy() -> dict[str, object]:
+    decoded = json.loads(POLICY_PATH.read_text(encoding="utf-8"))
+    assert isinstance(decoded, dict)
+    return decoded
+
+
+def test_b015_policy_identity_and_exact_entry_gate() -> None:
+    policy = _policy()
+    assert policy["artifact_version"] == "mstr.b015.language-target-policy.v1"
+    assert policy["policy_id"] == "MSTR-LANGUAGE-TARGET-POLICY-v0"
+    assert policy["task_id"] == "B015"
+    assert policy["state"] == "IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT"
+    assert policy["canonical_main_at_entry"] == "205df4be5f2e25bd28b697816eac3ea6ce361aed"
+    entry = policy["entry_gate"]
+    assert isinstance(entry, dict)
+    assert entry == {
+        "canonical_main": "205df4be5f2e25bd28b697816eac3ea6ce361aed",
+        "drift": "clean",
+        "eligible": True,
+        "external_effect_class": "NO_EXTERNAL_EFFECT",
+        "job_id": 98834411321,
+        "run_id": 33166914253,
+        "task_id": "B015",
+    }
+
+
+def test_b015_language_tiers_are_disjoint_and_product_bounded() -> None:
+    policy = _policy()
+    tiers = policy["tiers"]
+    assert isinstance(tiers, dict)
+    core = {item["id"] for item in tiers["core"]}
+    secondary = {item["id"] for item in tiers["secondary"]}
+    long_tail = set(tiers["long_tail"]["initial_targets"])
+    assert core == {"typescript", "python", "javascript", "java", "csharp", "c", "cpp"}
+    assert secondary == {"go", "rust", "php", "kotlin", "swift"}
+    assert core.isdisjoint(secondary)
+    assert core.isdisjoint(long_tail)
+    assert secondary.isdisjoint(long_tail)
+    assert tiers["long_tail"]["per_language_minimum_percent"] == 0
+    assert "Marketing completeness is not evidence" in tiers["long_tail"]["admission_rule"]
+
+
+def test_b015_replay_floors_are_coherent_and_leave_evidence_selected_capacity() -> None:
+    policy = _policy()
+    replay = policy["replay_policy"]
+    aggregate = replay["aggregate_minimum_percent"]
+    assert aggregate == {
+        "core_programming": 55,
+        "secondary_programming": 15,
+        "tooling_config": 15,
+    }
+    assert replay["long_tail_maximum_percent"] == 15
+    assert sum(aggregate.values()) == 85
+    assert sum(replay["core_language_minimum_percent"].values()) == 41
+    assert sum(replay["secondary_language_minimum_percent"].values()) == 12
+    assert sum(replay["tooling_group_minimum_percent"].values()) == 15
+    assert sum(replay["core_language_minimum_percent"].values()) <= aggregate["core_programming"]
+    assert sum(replay["secondary_language_minimum_percent"].values()) <= aggregate["secondary_programming"]
+    assert replay["denominator"] == "LANGUAGE_TOOLING_SLICE"
+
+
+def test_b015_tooling_channels_cover_cross_platform_build_config_shell_and_sql() -> None:
+    policy = _policy()
+    channels = policy["tooling_channels"]
+    ids = {item["id"] for item in channels}
+    assert {
+        "shell_posix",
+        "powershell",
+        "sql",
+        "structured_config",
+        "package_build_manifests",
+        "build_systems",
+        "ci_workflows",
+        "infra_config",
+    } <= ids
+    groups = {item["group"] for item in channels}
+    assert {"shell", "sql", "structured_config", "build_ci", "infra_config"} <= groups
+
+
+def test_b015_uses_stage_specific_mixes_without_stealing_role_mix_authority() -> None:
+    policy = _policy()
+    scope = policy["scope"]
+    assert scope["stage_specific_manifest_required"] is True
+    assert scope["fixed_final_percentages"] is False
+    rules = policy["stage_manifest_rules"]
+    assert any("sum to 100 percent" in rule for rule in rules)
+    assert any("Do not infer software-role" in rule for rule in rules)
+    constitution = DATA_CONSTITUTION_PATH.read_text(encoding="utf-8")
+    assert "REQUIRED_POLICY_TASK = B015" in constitution
+    assert "FIXED_PERCENTAGES_IN_B014 = FALSE" in constitution
+
+
+def test_b015_external_sources_and_non_authority_are_explicit() -> None:
+    policy = _policy()
+    sources = policy["decision_basis"]["external_evidence"]
+    assert {source["source_id"] for source in sources} == {
+        "github_octoverse_2025",
+        "stackoverflow_2025_technology",
+        "jetbrains_developer_ecosystem_2025",
+    }
+    assert all(source["observed_at"] == "2026-08-28" for source in sources)
+    boundary = policy["authority_boundary"]
+    assert boundary
+    assert all(value is False for value in boundary.values())
+    evidence = EVIDENCE_PATH.read_text(encoding="utf-8")
+    assert "IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT" in evidence
+    assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
+    assert "LARGE_DATASET_INGESTION = NONE" in evidence
+    assert "MODEL_WEIGHT_ACCESS = NONE" in evidence
+'''
+          test_path = Path('tests/contract/test_b015_language_target_policy.py')
+          test_path.parent.mkdir(parents=True, exist_ok=True)
+          test_path.write_text(tests, encoding='utf-8')
+          PY
+          git diff --check
+          expected=$(printf '%s\n' \
+            artifacts/decisions/B015-language-target-policy.json \
+            evidence/mstr-000b/B015-language-mix.md \
+            tests/contract/test_b015_language_target_policy.py | sort)
+          actual=$(git diff --name-only | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only | wc -l)" -eq 3
+          echo 'B015_IMPLEMENTATION_SCOPE=PASS'
+      - name: Commit candidate and prove implementation-state machine truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add artifacts/decisions/B015-language-target-policy.json evidence/mstr-000b/B015-language-mix.md tests/contract/test_b015_language_target_policy.py
+          git commit -m 'feat(mstr-000b): freeze B015 language target policy'
+          CANDIDATE=$(git rev-parse HEAD)
+          echo "CANDIDATE=$CANDIDATE" >> "$GITHUB_ENV"
+          git branch -f main "$CANDIDATE"
+          git update-ref refs/remotes/origin/main "$CANDIDATE"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B015 > /tmp/b015.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then
+            echo 'B011 unexpectedly eligible' >&2
+            exit 1
+          fi
+          python - <<'PY'
+          import json
+          b15 = json.load(open('/tmp/b015.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          b11 = json.load(open('/tmp/b011.json'))
+          assert b15['eligible'] is True
+          assert b15['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b15['authority_result']['required'] is False
+          assert b15['authority_result']['satisfied'] is True
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          print('B015_IMPLEMENTED_PENDING_CLOSEOUT=PASS')
+          print('B011_REMAINS_BLOCKED=PASS')
+          PY
+      - name: Run B015 and frozen repository gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_b015_language_target_policy.py tests/contract/test_data_constitution_contract.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check "$EXPECTED_MAIN...$CANDIDATE"
+          expected=$(printf '%s\n' \
+            artifacts/decisions/B015-language-target-policy.json \
+            evidence/mstr-000b/B015-language-mix.md \
+            tests/contract/test_b015_language_target_policy.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$CANDIDATE" | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$CANDIDATE" | wc -l)" -eq 3
+          echo 'B015_FROZEN_GATES=PASS'
+      - name: Restore live truth and push target only after PASS
+        shell: bash
+        run: |
+          set -euo pipefail
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse "$CANDIDATE^")" = "$EXPECTED_MAIN"
+          git push origin "$CANDIDATE:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$CANDIDATE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo "B015_IMPLEMENTATION_HEAD=$CANDIDATE"
+          echo 'B015_BUILD=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
