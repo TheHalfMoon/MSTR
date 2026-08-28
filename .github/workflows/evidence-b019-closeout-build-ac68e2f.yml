@@ -1,0 +1,87 @@
+name: Build B019 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/b019-closeout-build-ac68e2f
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: ac68e2ff9de9962807ab32ce983b2e808bf4fab9
+      TARGET_BRANCH: docs/000b-b019-canonicalize
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b019-closeout-build-ac68e2f
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Bind immutable baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          python -m py_compile tools/evidence/build_b019_closeout.py
+          git worktree add --detach /tmp/b019-closeout "$EXPECTED_MAIN"
+          test "$(git -C /tmp/b019-closeout rev-parse HEAD)" = "$EXPECTED_MAIN"
+      - name: Materialize exact closeout candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/evidence/build_b019_closeout.py /tmp/b019-closeout
+          git -C /tmp/b019-closeout add -N .
+          git -C /tmp/b019-closeout diff --check
+          expected=$(printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B019-teacher-policy.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_task_gate.py \
+            tests/contract/test_teacher_rescue_contract.py \
+            tests/integration/test_task_gate_cli.py | sort)
+          actual=$(git -C /tmp/b019-closeout diff --name-only | sort)
+          test "$actual" = "$expected"
+      - name: Install candidate environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/b019-closeout
+          python -m pip install -e '.[dev]'
+      - name: Run focused closeout regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/b019-closeout
+          pytest -q tests/contract/test_teacher_rescue_contract.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+      - name: Run frozen full quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/b019-closeout
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+      - name: Recheck immutable remote state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+      - name: Commit and fast-forward closeout branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/b019-closeout
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add configs/task-gate/mstr-000b.json evidence/mstr-000b/B019-teacher-policy.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_task_gate.py tests/contract/test_teacher_rescue_contract.py tests/integration/test_task_gate_cli.py
+          git commit -m "docs(mstr-000b): canonicalize B019 closeout"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          git push origin HEAD:refs/heads/$TARGET_BRANCH
