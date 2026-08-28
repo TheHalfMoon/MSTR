@@ -1,0 +1,32 @@
+name: Diagnose B017 frozen gates
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 76d267e15ea468aa675d98f27d6b16492ac7094d
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dev dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Offline validate
+        continue-on-error: true
+        run: python -m mstr_qualify validate
+      - name: Full pytest
+        continue-on-error: true
+        run: pytest -q
+      - name: Ruff
+        continue-on-error: true
+        run: ruff check src tests
+      - name: Mypy
+        continue-on-error: true
+        run: mypy src
