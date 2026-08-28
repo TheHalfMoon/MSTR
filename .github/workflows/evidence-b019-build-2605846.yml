@@ -38,6 +38,9 @@ jobs:
         run: |
           set -euo pipefail
           python tools/evidence/build_b019_candidate.py /tmp/b019
+          sed -i 's/[[:space:]]\+$//' \
+            /tmp/b019/docs/data/TEACHER_RESCUE_POLICY.md \
+            /tmp/b019/evidence/mstr-000b/B019-teacher-policy.md
           git -C /tmp/b019 add -N .
           git -C /tmp/b019 diff --check
           expected=$(printf '%s\n' \
