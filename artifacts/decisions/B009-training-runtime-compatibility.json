@@ -1,0 +1,737 @@
+{
+  "artifact_version": "mstr.b009.training-runtime-compatibility.v1",
+  "authority_boundary": {
+    "conversion_execution": false,
+    "founder_machine_large_artifacts": 0,
+    "gated_terms_acceptance": false,
+    "large_dataset_ingestion": false,
+    "model_execution": false,
+    "model_weight_access": false,
+    "paid_compute": false,
+    "quantization_execution": false,
+    "tokenizer_artifact_download": false,
+    "training_execution": false
+  },
+  "b010_handoff": {
+    "new_weight_access_required_candidates": "NOT_DECIDED_BY_B009",
+    "qualification_candidates": "NOT_DECIDED_BY_B009",
+    "rule": "B010 must combine this source-level matrix with canonical B006 rights/provenance and B007/B008 evidence before deciding qualification/access envelopes."
+  },
+  "candidate_inventory": {
+    "record_count": 19,
+    "reference_or_non_serious_count": 9,
+    "serious_candidate_ids": [
+      "granite-4.1-3b",
+      "mellum-4b",
+      "ministral-3-3b",
+      "qwen2.5-coder-1.5b",
+      "qwen3-4b",
+      "qwen3.5-0.8b-control",
+      "qwen3.5-2b",
+      "qwen3.5-4b",
+      "smollm3-3b",
+      "yi-coder-1.5b"
+    ],
+    "serious_static_qualified_count": 10
+  },
+  "canonical_main_at_execution": "dd6c7a9b163f1f34e6cc3570da234078d39f4fce",
+  "cross_cutting_findings": [
+    "Qwen3.5 is a hybrid multimodal architecture; exact adapter coverage and text/vision scope require later artifact-backed qualification.",
+    "PEFT default LoRA target-module mappings are observed for llama, qwen2, and qwen3, but not for granite, mellum, ministral3, qwen3_5, or smollm3 in the pinned constants source.",
+    "TRL SFTTrainer is a generic orchestration layer over Transformers/PEFT model objects; its source presence is not candidate-specific trainability evidence.",
+    "llama.cpp converter class registration is source-level conversion evidence only and does not prove conversion success, quantization fidelity, or runtime correctness.",
+    "FIM/code-special-token candidates require tokenizer/export preservation checks during later artifact-backed qualification."
+  ],
+  "entry_gate": {
+    "canonical_main": "dd6c7a9b163f1f34e6cc3570da234078d39f4fce",
+    "eligible": true,
+    "job_id": 98799035575,
+    "run_id": 33156075625,
+    "task_id": "B009"
+  },
+  "framework_source_snapshot": {
+    "llama_cpp": {
+      "branch": "master",
+      "repository": "ggml-org/llama.cpp",
+      "revision": "d077b4c21466cfad678b07b05b557599f4db3974"
+    },
+    "peft": {
+      "branch": "main",
+      "repository": "huggingface/peft",
+      "revision": "13414e66235139fad4102dfd3c9502958dbdc92b"
+    },
+    "transformers": {
+      "branch": "main",
+      "repository": "huggingface/transformers",
+      "revision": "a8e8d144f6b8e71b93678a274b65d3a319f71921"
+    },
+    "trl": {
+      "branch": "main",
+      "repository": "huggingface/trl",
+      "revision": "89bfc6a54a263bee77fee55aba177a75c8aecf55"
+    },
+    "unsloth": {
+      "branch": "main",
+      "repository": "unslothai/unsloth",
+      "revision": "411b40615ac88ac657497e5ca9e9da9b334d841e"
+    }
+  },
+  "interpretation_policy": {
+    "b009_can_promote_candidate": false,
+    "b010_owns_qualification_and_new_access_lists": true,
+    "converter_source_is_conversion_pass": false,
+    "converter_source_is_quantization_pass": false,
+    "generic_path_is_exact_model_pass": false,
+    "source_registered_is_runtime_pass": false,
+    "trainer_source_is_trainability_pass": false
+  },
+  "reference_candidates": [
+    {
+      "account_gate_required": false,
+      "architecture_family": "arcee (ArceeForCausalLM, text-only)",
+      "candidate_id": "afm-4.5b-base",
+      "candidate_role": "reference_only",
+      "clickthrough_gate_required": false,
+      "compatibility_scope": "INFORMATIONAL_REFERENCE_ONLY",
+      "promotion_from_b009_allowed": false,
+      "rights_decision": "pass_permissive",
+      "status": "reference_only",
+      "upstream_id": "arcee-ai/AFM-4.5B-Base",
+      "upstream_revision": "dab7922f9c868d479b365410304f466b007b1c5a"
+    },
+    {
+      "account_gate_required": false,
+      "architecture_family": "bitnet",
+      "candidate_id": "bitnet-b1.58-2b4t-control",
+      "candidate_role": "control",
+      "clickthrough_gate_required": false,
+      "compatibility_scope": "INFORMATIONAL_REFERENCE_ONLY",
+      "promotion_from_b009_allowed": false,
+      "rights_decision": "fail",
+      "status": "reference_only",
+      "upstream_id": "microsoft/bitnet-b1.58-2B-4T-bf16",
+      "upstream_revision": "276681394656abdadb8e80e5b2c3db5e5d7fcaff"
+    },
+    {
+      "account_gate_required": true,
+      "architecture_family": "gemma",
+      "candidate_id": "codegemma-2b-reference",
+      "candidate_role": "reference_only",
+      "clickthrough_gate_required": true,
+      "compatibility_scope": "INFORMATIONAL_REFERENCE_ONLY",
+      "promotion_from_b009_allowed": false,
+      "rights_decision": "fail",
+      "status": "reference_only",
+      "upstream_id": "google/codegemma-2b",
+      "upstream_revision": "e7583edabd3dd48a9c705974a9456852f1205ab1"
+    },
+    {
+      "account_gate_required": false,
+      "architecture_family": "falcon_h1",
+      "candidate_id": "falcon-h1-3b-legal-review",
+      "candidate_role": "reference_only",
+      "clickthrough_gate_required": false,
+      "compatibility_scope": "INFORMATIONAL_REFERENCE_ONLY",
+      "promotion_from_b009_allowed": false,
+      "rights_decision": "fail",
+      "status": "discovered",
+      "upstream_id": "tiiuae/Falcon-H1-3B-Base",
+      "upstream_revision": "c096902c69be0eed2e5369d3420a8bb960d293e1"
+    },
+    {
+      "account_gate_required": false,
+      "architecture_family": "lfm2",
+      "candidate_id": "lfm2.5-1.2b-reference",
+      "candidate_role": "reference_only",
+      "clickthrough_gate_required": false,
+      "compatibility_scope": "INFORMATIONAL_REFERENCE_ONLY",
+      "promotion_from_b009_allowed": false,
+      "rights_decision": "fail",
+      "status": "reference_only",
+      "upstream_id": "LiquidAI/LFM2.5-1.2B-Base",
+      "upstream_revision": "7453bca97ca1e67754c4035a4b4c584e1c9dd725"
+    },
+    {
+      "account_gate_required": false,
+      "architecture_family": "lfm2",
+      "candidate_id": "lfm2.5-2.6b-reference",
+      "candidate_role": "reference_only",
+      "clickthrough_gate_required": false,
+      "compatibility_scope": "INFORMATIONAL_REFERENCE_ONLY",
+      "promotion_from_b009_allowed": false,
+      "rights_decision": "fail",
+      "status": "reference_only",
+      "upstream_id": "LiquidAI/LFM2.5-2.6B-Base",
+      "upstream_revision": "c57bdaed1ef166fe3095dda07f4a5e789ad5321e"
+    },
+    {
+      "account_gate_required": false,
+      "architecture_family": "qwen2",
+      "candidate_id": "qwen2.5-coder-3b-reference",
+      "candidate_role": "reference_only",
+      "clickthrough_gate_required": false,
+      "compatibility_scope": "INFORMATIONAL_REFERENCE_ONLY",
+      "promotion_from_b009_allowed": false,
+      "rights_decision": "fail",
+      "status": "reference_only",
+      "upstream_id": "Qwen/Qwen2.5-Coder-3B",
+      "upstream_revision": "09d9bc5d376b0cfa0100a0694ea7de7232525803"
+    },
+    {
+      "account_gate_required": false,
+      "architecture_family": "stablelm",
+      "candidate_id": "stable-code-3b-reference",
+      "candidate_role": "reference_only",
+      "clickthrough_gate_required": false,
+      "compatibility_scope": "INFORMATIONAL_REFERENCE_ONLY",
+      "promotion_from_b009_allowed": false,
+      "rights_decision": "fail",
+      "status": "reference_only",
+      "upstream_id": "stabilityai/stable-code-3b",
+      "upstream_revision": "5cee3fa2905e7a03c4a1b0bc02f39da7ceaa6cb5"
+    },
+    {
+      "account_gate_required": false,
+      "architecture_family": "starcoder2",
+      "candidate_id": "starcoder2-3b-reference",
+      "candidate_role": "reference_only",
+      "clickthrough_gate_required": false,
+      "compatibility_scope": "INFORMATIONAL_REFERENCE_ONLY",
+      "promotion_from_b009_allowed": false,
+      "rights_decision": "fail",
+      "status": "reference_only",
+      "upstream_id": "bigcode/starcoder2-3b",
+      "upstream_revision": "733247c55e3f73af49ce8e9c7949bf14af205928"
+    }
+  ],
+  "serious_candidates": [
+    {
+      "architecture_family": "granite",
+      "b009_interpretation": "SOURCE_EVIDENCE_REQUIRES_ARTIFACT_BACKED_QUALIFICATION",
+      "candidate_id": "granite-4.1-3b",
+      "candidate_role": "foundation",
+      "llama_cpp": {
+        "conversion_status": "UNEXECUTED",
+        "evidence_class": "CONVERTER_CLASS_REGISTERED",
+        "quantization_status": "UNEXECUTED",
+        "runtime_status": "UNVERIFIED",
+        "source_paths": [
+          "conversion/__init__.py"
+        ]
+      },
+      "peft": {
+        "default_lora_target_modules_observed": null,
+        "evidence_class": "GENERIC_ADAPTER_LAYER",
+        "exact_target_module_coverage_status": "UNEXECUTED",
+        "source_paths": [
+          "src/peft/utils/constants.py"
+        ]
+      },
+      "promotion_from_b009_allowed": false,
+      "qualification_hazards": [
+        "PEFT_DEFAULT_TARGET_MAPPING_NOT_OBSERVED_FOR_GRANITE"
+      ],
+      "rights_decision": "pass_permissive",
+      "transformers": {
+        "evidence_class": "SOURCE_REGISTERED",
+        "exact_candidate_load_status": "UNEXECUTED",
+        "source_paths": [
+          "src/transformers/models/granite/modeling_granite.py"
+        ]
+      },
+      "trl": {
+        "evidence_class": "GENERIC_TRAINER_PATH",
+        "exact_candidate_training_status": "UNEXECUTED",
+        "source_paths": [
+          "trl/trainer/sft_trainer.py"
+        ]
+      },
+      "unsloth": {
+        "evidence_class": "DIRECT_FAMILY_SOURCE",
+        "exact_train_save_export_status": "UNEXECUTED",
+        "source_paths": [
+          "unsloth/models/granite.py"
+        ]
+      },
+      "upstream_id": "ibm-granite/granite-4.1-3b-base",
+      "upstream_revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96"
+    },
+    {
+      "architecture_family": "llama",
+      "b009_interpretation": "SOURCE_EVIDENCE_REQUIRES_ARTIFACT_BACKED_QUALIFICATION",
+      "candidate_id": "mellum-4b",
+      "candidate_role": "foundation",
+      "llama_cpp": {
+        "conversion_status": "UNEXECUTED",
+        "evidence_class": "CONVERTER_CLASS_REGISTERED",
+        "quantization_status": "UNEXECUTED",
+        "runtime_status": "UNVERIFIED",
+        "source_paths": [
+          "conversion/__init__.py"
+        ]
+      },
+      "peft": {
+        "default_lora_target_modules_observed": null,
+        "evidence_class": "GENERIC_ADAPTER_LAYER",
+        "exact_target_module_coverage_status": "UNEXECUTED",
+        "source_paths": [
+          "src/peft/utils/constants.py"
+        ]
+      },
+      "promotion_from_b009_allowed": false,
+      "qualification_hazards": [
+        "FIM_SPECIAL_TOKEN_EXPORT_PRESERVATION_REQUIRED",
+        "PEFT_DEFAULT_TARGET_MAPPING_NOT_OBSERVED_FOR_MELLUM"
+      ],
+      "rights_decision": "pass_permissive",
+      "transformers": {
+        "evidence_class": "SOURCE_REGISTERED",
+        "exact_candidate_load_status": "UNEXECUTED",
+        "source_paths": [
+          "src/transformers/models/mellum/modeling_mellum.py"
+        ]
+      },
+      "trl": {
+        "evidence_class": "GENERIC_TRAINER_PATH",
+        "exact_candidate_training_status": "UNEXECUTED",
+        "source_paths": [
+          "trl/trainer/sft_trainer.py"
+        ]
+      },
+      "unsloth": {
+        "evidence_class": "SOURCE_AWARE_GENERIC_PATH",
+        "exact_train_save_export_status": "UNEXECUTED",
+        "source_paths": [
+          "unsloth/import_fixes.py"
+        ]
+      },
+      "upstream_id": "JetBrains/Mellum-4b-base",
+      "upstream_revision": "83cce2605fbdf6a3868627e9b0a5924e0072b94d"
+    },
+    {
+      "architecture_family": "mistral3",
+      "b009_interpretation": "SOURCE_EVIDENCE_REQUIRES_ARTIFACT_BACKED_QUALIFICATION",
+      "candidate_id": "ministral-3-3b",
+      "candidate_role": "foundation",
+      "llama_cpp": {
+        "conversion_status": "UNEXECUTED",
+        "evidence_class": "CONVERTER_CLASS_REGISTERED",
+        "quantization_status": "UNEXECUTED",
+        "runtime_status": "UNVERIFIED",
+        "source_paths": [
+          "conversion/__init__.py"
+        ]
+      },
+      "peft": {
+        "default_lora_target_modules_observed": null,
+        "evidence_class": "GENERIC_ADAPTER_LAYER",
+        "exact_target_module_coverage_status": "UNEXECUTED",
+        "source_paths": [
+          "src/peft/utils/constants.py"
+        ]
+      },
+      "promotion_from_b009_allowed": false,
+      "qualification_hazards": [
+        "TEXT_VS_VISION_COMPONENT_SCOPE_REQUIRED",
+        "PEFT_DEFAULT_TARGET_MAPPING_NOT_OBSERVED_FOR_MINISTRAL3"
+      ],
+      "rights_decision": "pass_permissive",
+      "transformers": {
+        "evidence_class": "SOURCE_REGISTERED",
+        "exact_candidate_load_status": "UNEXECUTED",
+        "source_paths": [
+          "src/transformers/models/ministral3/modeling_ministral3.py"
+        ]
+      },
+      "trl": {
+        "evidence_class": "GENERIC_TRAINER_PATH",
+        "exact_candidate_training_status": "UNEXECUTED",
+        "source_paths": [
+          "trl/trainer/sft_trainer.py"
+        ]
+      },
+      "unsloth": {
+        "evidence_class": "NO_DIRECT_SOURCE_HIT_IN_PINNED_REVIEW",
+        "exact_train_save_export_status": "UNEXECUTED",
+        "source_paths": []
+      },
+      "upstream_id": "mistralai/Ministral-3-3B-Base-2512",
+      "upstream_revision": "6f9c4b12a95b139af68670a6713616b757923735"
+    },
+    {
+      "architecture_family": "qwen2",
+      "b009_interpretation": "SOURCE_EVIDENCE_REQUIRES_ARTIFACT_BACKED_QUALIFICATION",
+      "candidate_id": "qwen2.5-coder-1.5b",
+      "candidate_role": "control",
+      "llama_cpp": {
+        "conversion_status": "UNEXECUTED",
+        "evidence_class": "CONVERTER_CLASS_REGISTERED",
+        "quantization_status": "UNEXECUTED",
+        "runtime_status": "UNVERIFIED",
+        "source_paths": [
+          "conversion/__init__.py"
+        ]
+      },
+      "peft": {
+        "default_lora_target_modules_observed": [
+          "q_proj",
+          "v_proj"
+        ],
+        "evidence_class": "GENERIC_ADAPTER_LAYER",
+        "exact_target_module_coverage_status": "UNEXECUTED",
+        "source_paths": [
+          "src/peft/utils/constants.py"
+        ]
+      },
+      "promotion_from_b009_allowed": false,
+      "qualification_hazards": [
+        "FIM_SPECIAL_TOKEN_EXPORT_PRESERVATION_REQUIRED"
+      ],
+      "rights_decision": "pass_permissive",
+      "transformers": {
+        "evidence_class": "SOURCE_REGISTERED",
+        "exact_candidate_load_status": "UNEXECUTED",
+        "source_paths": [
+          "src/transformers/models/qwen2/modeling_qwen2.py"
+        ]
+      },
+      "trl": {
+        "evidence_class": "GENERIC_TRAINER_PATH",
+        "exact_candidate_training_status": "UNEXECUTED",
+        "source_paths": [
+          "trl/trainer/sft_trainer.py"
+        ]
+      },
+      "unsloth": {
+        "evidence_class": "DIRECT_FAMILY_SOURCE",
+        "exact_train_save_export_status": "UNEXECUTED",
+        "source_paths": [
+          "unsloth/models/qwen2.py"
+        ]
+      },
+      "upstream_id": "Qwen/Qwen2.5-Coder-1.5B",
+      "upstream_revision": "df3ce67c0e24480f20468b6ef2894622d69eb73b"
+    },
+    {
+      "architecture_family": "qwen3",
+      "b009_interpretation": "SOURCE_EVIDENCE_REQUIRES_ARTIFACT_BACKED_QUALIFICATION",
+      "candidate_id": "qwen3-4b",
+      "candidate_role": "control",
+      "llama_cpp": {
+        "conversion_status": "UNEXECUTED",
+        "evidence_class": "CONVERTER_CLASS_REGISTERED",
+        "quantization_status": "UNEXECUTED",
+        "runtime_status": "UNVERIFIED",
+        "source_paths": [
+          "conversion/__init__.py"
+        ]
+      },
+      "peft": {
+        "default_lora_target_modules_observed": [
+          "q_proj",
+          "v_proj"
+        ],
+        "evidence_class": "GENERIC_ADAPTER_LAYER",
+        "exact_target_module_coverage_status": "UNEXECUTED",
+        "source_paths": [
+          "src/peft/utils/constants.py"
+        ]
+      },
+      "promotion_from_b009_allowed": false,
+      "qualification_hazards": [
+        "FIM_SPECIAL_TOKEN_EXPORT_PRESERVATION_REQUIRED"
+      ],
+      "rights_decision": "pass_permissive",
+      "transformers": {
+        "evidence_class": "SOURCE_REGISTERED",
+        "exact_candidate_load_status": "UNEXECUTED",
+        "source_paths": [
+          "src/transformers/models/qwen3/modeling_qwen3.py"
+        ]
+      },
+      "trl": {
+        "evidence_class": "GENERIC_TRAINER_PATH",
+        "exact_candidate_training_status": "UNEXECUTED",
+        "source_paths": [
+          "trl/trainer/sft_trainer.py"
+        ]
+      },
+      "unsloth": {
+        "evidence_class": "DIRECT_FAMILY_SOURCE",
+        "exact_train_save_export_status": "UNEXECUTED",
+        "source_paths": [
+          "unsloth/models/qwen3.py"
+        ]
+      },
+      "upstream_id": "Qwen/Qwen3-4B-Base",
+      "upstream_revision": "906bfd4b4dc7f14ee4320094d8b41684abff8539"
+    },
+    {
+      "architecture_family": "qwen3_5",
+      "b009_interpretation": "SOURCE_EVIDENCE_REQUIRES_ARTIFACT_BACKED_QUALIFICATION",
+      "candidate_id": "qwen3.5-0.8b-control",
+      "candidate_role": "control",
+      "llama_cpp": {
+        "conversion_status": "UNEXECUTED",
+        "evidence_class": "CONVERTER_CLASS_REGISTERED",
+        "quantization_status": "UNEXECUTED",
+        "runtime_status": "UNVERIFIED",
+        "source_paths": [
+          "conversion/__init__.py"
+        ]
+      },
+      "peft": {
+        "default_lora_target_modules_observed": null,
+        "evidence_class": "GENERIC_ADAPTER_LAYER",
+        "exact_target_module_coverage_status": "UNEXECUTED",
+        "source_paths": [
+          "src/peft/utils/constants.py"
+        ]
+      },
+      "promotion_from_b009_allowed": false,
+      "qualification_hazards": [
+        "HYBRID_ATTENTION_TARGET_MODULE_COVERAGE_REQUIRED",
+        "MULTIMODAL_COMPONENT_SCOPE_REQUIRED",
+        "FIM_SPECIAL_TOKEN_EXPORT_PRESERVATION_REQUIRED",
+        "PEFT_DEFAULT_TARGET_MAPPING_NOT_OBSERVED_FOR_QWEN3_5"
+      ],
+      "rights_decision": "pass_permissive",
+      "transformers": {
+        "evidence_class": "SOURCE_REGISTERED",
+        "exact_candidate_load_status": "UNEXECUTED",
+        "source_paths": [
+          "src/transformers/models/qwen3_5/modeling_qwen3_5.py"
+        ]
+      },
+      "trl": {
+        "evidence_class": "GENERIC_TRAINER_PATH",
+        "exact_candidate_training_status": "UNEXECUTED",
+        "source_paths": [
+          "trl/trainer/sft_trainer.py"
+        ]
+      },
+      "unsloth": {
+        "evidence_class": "SOURCE_AWARE_GENERIC_PATH",
+        "exact_train_save_export_status": "UNEXECUTED",
+        "source_paths": [
+          "unsloth/models/loader.py"
+        ]
+      },
+      "upstream_id": "Qwen/Qwen3.5-0.8B-Base",
+      "upstream_revision": "dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68"
+    },
+    {
+      "architecture_family": "qwen3_5",
+      "b009_interpretation": "SOURCE_EVIDENCE_REQUIRES_ARTIFACT_BACKED_QUALIFICATION",
+      "candidate_id": "qwen3.5-2b",
+      "candidate_role": "foundation",
+      "llama_cpp": {
+        "conversion_status": "UNEXECUTED",
+        "evidence_class": "CONVERTER_CLASS_REGISTERED",
+        "quantization_status": "UNEXECUTED",
+        "runtime_status": "UNVERIFIED",
+        "source_paths": [
+          "conversion/__init__.py"
+        ]
+      },
+      "peft": {
+        "default_lora_target_modules_observed": null,
+        "evidence_class": "GENERIC_ADAPTER_LAYER",
+        "exact_target_module_coverage_status": "UNEXECUTED",
+        "source_paths": [
+          "src/peft/utils/constants.py"
+        ]
+      },
+      "promotion_from_b009_allowed": false,
+      "qualification_hazards": [
+        "HYBRID_ATTENTION_TARGET_MODULE_COVERAGE_REQUIRED",
+        "MULTIMODAL_COMPONENT_SCOPE_REQUIRED",
+        "FIM_SPECIAL_TOKEN_EXPORT_PRESERVATION_REQUIRED",
+        "PEFT_DEFAULT_TARGET_MAPPING_NOT_OBSERVED_FOR_QWEN3_5"
+      ],
+      "rights_decision": "pass_permissive",
+      "transformers": {
+        "evidence_class": "SOURCE_REGISTERED",
+        "exact_candidate_load_status": "UNEXECUTED",
+        "source_paths": [
+          "src/transformers/models/qwen3_5/modeling_qwen3_5.py"
+        ]
+      },
+      "trl": {
+        "evidence_class": "GENERIC_TRAINER_PATH",
+        "exact_candidate_training_status": "UNEXECUTED",
+        "source_paths": [
+          "trl/trainer/sft_trainer.py"
+        ]
+      },
+      "unsloth": {
+        "evidence_class": "SOURCE_AWARE_GENERIC_PATH",
+        "exact_train_save_export_status": "UNEXECUTED",
+        "source_paths": [
+          "unsloth/models/loader.py"
+        ]
+      },
+      "upstream_id": "Qwen/Qwen3.5-2B-Base",
+      "upstream_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c"
+    },
+    {
+      "architecture_family": "qwen3_5",
+      "b009_interpretation": "SOURCE_EVIDENCE_REQUIRES_ARTIFACT_BACKED_QUALIFICATION",
+      "candidate_id": "qwen3.5-4b",
+      "candidate_role": "foundation",
+      "llama_cpp": {
+        "conversion_status": "UNEXECUTED",
+        "evidence_class": "CONVERTER_CLASS_REGISTERED",
+        "quantization_status": "UNEXECUTED",
+        "runtime_status": "UNVERIFIED",
+        "source_paths": [
+          "conversion/__init__.py"
+        ]
+      },
+      "peft": {
+        "default_lora_target_modules_observed": null,
+        "evidence_class": "GENERIC_ADAPTER_LAYER",
+        "exact_target_module_coverage_status": "UNEXECUTED",
+        "source_paths": [
+          "src/peft/utils/constants.py"
+        ]
+      },
+      "promotion_from_b009_allowed": false,
+      "qualification_hazards": [
+        "HYBRID_ATTENTION_TARGET_MODULE_COVERAGE_REQUIRED",
+        "MULTIMODAL_COMPONENT_SCOPE_REQUIRED",
+        "FIM_SPECIAL_TOKEN_EXPORT_PRESERVATION_REQUIRED",
+        "PEFT_DEFAULT_TARGET_MAPPING_NOT_OBSERVED_FOR_QWEN3_5"
+      ],
+      "rights_decision": "pass_permissive",
+      "transformers": {
+        "evidence_class": "SOURCE_REGISTERED",
+        "exact_candidate_load_status": "UNEXECUTED",
+        "source_paths": [
+          "src/transformers/models/qwen3_5/modeling_qwen3_5.py"
+        ]
+      },
+      "trl": {
+        "evidence_class": "GENERIC_TRAINER_PATH",
+        "exact_candidate_training_status": "UNEXECUTED",
+        "source_paths": [
+          "trl/trainer/sft_trainer.py"
+        ]
+      },
+      "unsloth": {
+        "evidence_class": "SOURCE_AWARE_GENERIC_PATH",
+        "exact_train_save_export_status": "UNEXECUTED",
+        "source_paths": [
+          "unsloth/models/loader.py"
+        ]
+      },
+      "upstream_id": "Qwen/Qwen3.5-4B-Base",
+      "upstream_revision": "1001bb4d826a52d1f399e183466143f4da7b741b"
+    },
+    {
+      "architecture_family": "smollm3",
+      "b009_interpretation": "SOURCE_EVIDENCE_REQUIRES_ARTIFACT_BACKED_QUALIFICATION",
+      "candidate_id": "smollm3-3b",
+      "candidate_role": "foundation",
+      "llama_cpp": {
+        "conversion_status": "UNEXECUTED",
+        "evidence_class": "CONVERTER_CLASS_REGISTERED",
+        "quantization_status": "UNEXECUTED",
+        "runtime_status": "UNVERIFIED",
+        "source_paths": [
+          "conversion/__init__.py"
+        ]
+      },
+      "peft": {
+        "default_lora_target_modules_observed": null,
+        "evidence_class": "GENERIC_ADAPTER_LAYER",
+        "exact_target_module_coverage_status": "UNEXECUTED",
+        "source_paths": [
+          "src/peft/utils/constants.py"
+        ]
+      },
+      "promotion_from_b009_allowed": false,
+      "qualification_hazards": [
+        "UNSLOTH_DIRECT_FAMILY_SUPPORT_UNPROVEN"
+      ],
+      "rights_decision": "pass_permissive",
+      "transformers": {
+        "evidence_class": "SOURCE_REGISTERED",
+        "exact_candidate_load_status": "UNEXECUTED",
+        "source_paths": [
+          "src/transformers/models/smollm3/modeling_smollm3.py"
+        ]
+      },
+      "trl": {
+        "evidence_class": "GENERIC_TRAINER_PATH",
+        "exact_candidate_training_status": "UNEXECUTED",
+        "source_paths": [
+          "trl/trainer/sft_trainer.py"
+        ]
+      },
+      "unsloth": {
+        "evidence_class": "NO_DIRECT_SOURCE_HIT_IN_PINNED_REVIEW",
+        "exact_train_save_export_status": "UNEXECUTED",
+        "source_paths": []
+      },
+      "upstream_id": "HuggingFaceTB/SmolLM3-3B-Base",
+      "upstream_revision": "d78a42f79198603e614095753484a04c10c2b940"
+    },
+    {
+      "architecture_family": "llama (LlamaForCausalLM, text-only)",
+      "b009_interpretation": "SOURCE_EVIDENCE_REQUIRES_ARTIFACT_BACKED_QUALIFICATION",
+      "candidate_id": "yi-coder-1.5b",
+      "candidate_role": "control",
+      "llama_cpp": {
+        "conversion_status": "UNEXECUTED",
+        "evidence_class": "CONVERTER_CLASS_REGISTERED",
+        "quantization_status": "UNEXECUTED",
+        "runtime_status": "UNVERIFIED",
+        "source_paths": [
+          "conversion/__init__.py"
+        ]
+      },
+      "peft": {
+        "default_lora_target_modules_observed": [
+          "q_proj",
+          "v_proj"
+        ],
+        "evidence_class": "GENERIC_ADAPTER_LAYER",
+        "exact_target_module_coverage_status": "UNEXECUTED",
+        "source_paths": [
+          "src/peft/utils/constants.py"
+        ]
+      },
+      "promotion_from_b009_allowed": false,
+      "qualification_hazards": [
+        "GENERIC_LLAMA_PATH_REQUIRES_EXACT_MODEL_QUALIFICATION"
+      ],
+      "rights_decision": "pass_permissive",
+      "transformers": {
+        "evidence_class": "SOURCE_REGISTERED",
+        "exact_candidate_load_status": "UNEXECUTED",
+        "source_paths": [
+          "src/transformers/models/llama/modeling_llama.py"
+        ]
+      },
+      "trl": {
+        "evidence_class": "GENERIC_TRAINER_PATH",
+        "exact_candidate_training_status": "UNEXECUTED",
+        "source_paths": [
+          "trl/trainer/sft_trainer.py"
+        ]
+      },
+      "unsloth": {
+        "evidence_class": "GENERIC_LLAMA_PATH",
+        "exact_train_save_export_status": "UNEXECUTED",
+        "source_paths": [
+          "unsloth/models/llama.py"
+        ]
+      },
+      "upstream_id": "01-ai/Yi-Coder-1.5B",
+      "upstream_revision": "00e59e64f47d3c78e4cfbdd345888479797e8109"
+    }
+  ],
+  "state": "IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT",
+  "task_id": "B009"
+}
