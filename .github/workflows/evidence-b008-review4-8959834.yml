@@ -1,0 +1,423 @@
+name: Complete self-contained B008 adversarial review
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 7f2fe43797db4b94103ca07c172de5672806f624
+      EXPECTED_HEAD: 895983470f72128ad698023b3578553ed1cfe7c4
+      TARGET_BRANCH: feat/000b-b008-tokenizer-economics
+      CORPUS_SHA256: 425456fa39ae5dc67214b4871b1ac948c63bf9f0ae72a1407a5908d4a5c9e1d6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 895983470f72128ad698023b3578553ed1cfe7c4
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bind review to exact immutable candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | wc -l)" -eq 13
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B008_REVIEW4_IDENTITY=PASS'
+
+      - name: Recompute corpus/result/evidence invariants independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import math
+          import re
+          from collections import Counter, defaultdict
+          from pathlib import Path
+
+          corpus_path = Path("benchmarks/fixtures/tokenizer-economics/B007-corpus.json")
+          manifest_path = Path("benchmarks/manifests/B007-tokenizer-economics.json")
+          evidence_path = Path("evidence/mstr-000b/B008-tokenizer-economics.md")
+          expected_corpus_sha = "425456fa39ae5dc67214b4871b1ac948c63bf9f0ae72a1407a5908d4a5c9e1d6"
+
+          corpus_raw = corpus_path.read_bytes()
+          assert hashlib.sha256(corpus_raw).hexdigest() == expected_corpus_sha
+          corpus = json.loads(corpus_raw)
+          manifest = json.loads(manifest_path.read_text())
+          assert manifest["corpus"]["fixture_sha256"] == expected_corpus_sha
+          assert manifest["corpus"]["decoded_content_bytes"] == 3605
+          assert manifest["corpus"]["entry_count"] == 34
+          required_categories = manifest["corpus"]["required_categories"]
+          assert len(required_categories) == 17
+          entries = {entry["fixture_id"]: entry for entry in corpus["entries"]}
+          assert len(entries) == 34
+          identifier_re = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+          def structural(category: str, text: str):
+              if category == "diff":
+                  lines = text.splitlines()
+                  return {
+                      "hunk_count": sum(line.startswith("@@") for line in lines),
+                      "added_line_count": sum(
+                          line.startswith("+") and not line.startswith("+++") for line in lines
+                      ),
+                      "deleted_line_count": sum(
+                          line.startswith("-") and not line.startswith("---") for line in lines
+                      ),
+                      "context_line_count": sum(line.startswith(" ") for line in lines),
+                      "renames_or_binary_markers_present": any(
+                          marker in text for marker in ("rename from", "rename to", "Binary files")
+                      ),
+                  }
+              if category == "file_paths":
+                  paths = [line for line in text.splitlines() if line]
+                  extensions = Counter()
+                  max_depth = 0
+                  for value in paths:
+                      normalized = value.replace("\\", "/")
+                      parts = [part for part in normalized.split("/") if part]
+                      max_depth = max(max_depth, len(parts))
+                      suffix = Path(parts[-1]).suffix.lower() if parts else ""
+                      if suffix:
+                          extensions[suffix] += 1
+                  return {
+                      "path_count": len(paths),
+                      "max_depth": max_depth,
+                      "extension_counts": dict(sorted(extensions.items())),
+                      "windows_or_unc_path_present": any(
+                          re.match(r"^[A-Za-z]:\\", value) or value.startswith("//")
+                          for value in paths
+                      ),
+                      "unicode_path_present": any(
+                          any(ord(char) > 127 for char in value) for value in paths
+                      ),
+                  }
+              if category == "stack_trace":
+                  lines = text.splitlines()
+                  if text.startswith("Traceback"):
+                      family = "python"
+                      frames = sum(line.lstrip().startswith("File ") for line in lines)
+                  else:
+                      family = "node"
+                      frames = sum(line.lstrip().startswith("at ") for line in lines)
+                  return {
+                      "frame_count": frames,
+                      "runtime_family": family,
+                      "async_or_cause_markers_present": (
+                          "async " in text or "Caused by:" in text
+                      ),
+                  }
+              if category == "tool_json":
+                  value = json.loads(text)
+                  counts = {"arrays": 0, "objects": 0, "max_depth": 0, "error": False}
+
+                  def walk(node, depth):
+                      counts["max_depth"] = max(counts["max_depth"], depth)
+                      if isinstance(node, dict):
+                          counts["objects"] += 1
+                          counts["error"] = counts["error"] or "error" in node
+                          for child in node.values():
+                              walk(child, depth + 1)
+                      elif isinstance(node, list):
+                          counts["arrays"] += 1
+                          for child in node:
+                              walk(child, depth + 1)
+
+                  walk(value, 1)
+                  return {
+                      "max_json_nesting_depth": counts["max_depth"],
+                      "array_count": counts["arrays"],
+                      "object_count": counts["objects"],
+                      "error_object_present": counts["error"],
+                  }
+              return None
+
+          expected_structural = {
+              entry["fixture_id"]: structural(entry["category"], entry["content_utf8"])
+              for entry in corpus["entries"]
+              if entry["category"] in {"diff", "file_paths", "stack_trace", "tool_json"}
+          }
+          assert len(expected_structural) == 8
+
+          results = []
+          result_paths = sorted(Path("artifacts/results/tokenizer/B008").glob("*.json"))
+          assert len(result_paths) == 10
+          for path in result_paths:
+              result = json.loads(path.read_text())
+              assert result["protocol_id"] == "MSTR-TOKENIZER-ECONOMICS-v0"
+              assert result["corpus_fixture_sha256"] == expected_corpus_sha
+              assert result["measurement_failures"] == []
+              assert result["executor_identity"] == "github-actions:33153206993:build"
+              assert result["measurement_runtime_identity"]["executor_identity"] == result[
+                  "executor_identity"
+              ]
+              inventory = result["loaded_tokenizer_artifact_sha256_inventory"]
+              assert len(inventory) == 1
+              assert inventory[0]["path"] == "tokenizer.json"
+              assert inventory[0]["bytes"] > 0
+              assert re.fullmatch(r"[0-9a-f]{64}", inventory[0]["sha256"])
+              acquisition = result["acquisition_source_and_provenance"]
+              assert acquisition["filename"] == "tokenizer.json"
+              assert acquisition["requested_remote_files"] == ["tokenizer.json"]
+              assert acquisition["authenticated"] is False
+
+              rows = result["per_entry_metrics"]
+              assert len(rows) == 34
+              assert {row["fixture_id"] for row in rows} == set(entries)
+              grouped = defaultdict(list)
+              for row in rows:
+                  fixture = entries[row["fixture_id"]]
+                  assert row["category"] == fixture["category"]
+                  assert row["profile"] == fixture["profile"]
+                  assert row["byte_count"] == len(fixture["content_utf8"].encode("utf-8"))
+                  assert row["character_count"] == len(fixture["content_utf8"])
+                  assert row["identifier_like_occurrence_count"] == len(
+                      list(identifier_re.finditer(fixture["content_utf8"]))
+                  )
+                  assert row["token_count"] > 0
+                  assert math.isclose(
+                      row["bytes_per_token"], row["byte_count"] / row["token_count"]
+                  )
+                  assert math.isclose(
+                      row["characters_per_token"],
+                      row["character_count"] / row["token_count"],
+                  )
+                  assert row["offset_mapping_observed"] is True
+                  assert row["overflow_count"] == 0
+                  grouped[row["category"]].append(row)
+
+              category_rows = {row["category"]: row for row in result["per_category_metrics"]}
+              assert set(category_rows) == set(required_categories)
+              for category in required_categories:
+                  values = grouped[category]
+                  summary = category_rows[category]
+                  total_bytes = sum(row["byte_count"] for row in values)
+                  total_chars = sum(row["character_count"] for row in values)
+                  total_tokens = sum(row["token_count"] for row in values)
+                  assert summary["entry_count"] == len(values) == 2
+                  assert summary["total_bytes"] == total_bytes
+                  assert summary["total_characters"] == total_chars
+                  assert summary["total_tokens"] == total_tokens
+                  assert math.isclose(
+                      summary["weighted_bytes_per_token"], total_bytes / total_tokens
+                  )
+                  assert math.isclose(
+                      summary["weighted_characters_per_token"], total_chars / total_tokens
+                  )
+
+              total_bytes = sum(row["byte_count"] for row in rows)
+              total_chars = sum(row["character_count"] for row in rows)
+              total_tokens = sum(row["token_count"] for row in rows)
+              aggregate = result["aggregate_metrics"]
+              assert total_bytes == aggregate["total_bytes"] == 3605
+              assert total_chars == aggregate["total_characters"]
+              assert total_tokens == aggregate["total_tokens"]
+              assert math.isclose(
+                  aggregate["weighted_bytes_per_token"], total_bytes / total_tokens
+              )
+              assert math.isclose(
+                  aggregate["weighted_characters_per_token"], total_chars / total_tokens
+              )
+              assert aggregate["estimated_effective_payload_bytes_at_8192_tokens"] == math.floor(
+                  (total_bytes / total_tokens) * 8192
+              )
+
+              observed = {
+                  row["fixture_id"]: {
+                      key: value
+                      for key, value in row.items()
+                      if key not in {"fixture_id", "category"}
+                  }
+                  for row in result["structural_observations"]
+              }
+              assert set(observed) == set(expected_structural)
+              for fixture_id, expected in expected_structural.items():
+                  assert observed[fixture_id] == expected
+              results.append(result)
+
+          evidence = evidence_path.read_text()
+          assert not any(line != line.rstrip() for line in evidence.splitlines())
+          table_pattern = re.compile(
+              r"^\| `([^`]+)` \| ([0-9.]+) \| (\d+) \| (\d+) \| "
+              r"(\d+) \| (\d+) \| (\d+) \| (\d+) \|$",
+              re.M,
+          )
+          parsed = [
+              (
+                  cid,
+                  float(bpt),
+                  int(total),
+                  int(payload),
+                  int(diff),
+                  int(stack),
+                  int(tool),
+                  int(paths),
+              )
+              for cid, bpt, total, payload, diff, stack, tool, paths in table_pattern.findall(evidence)
+          ]
+          results.sort(
+              key=lambda result: result["aggregate_metrics"]["weighted_bytes_per_token"],
+              reverse=True,
+          )
+          expected_rows = []
+          for result in results:
+              aggregate = result["aggregate_metrics"]
+              categories = {row["category"]: row for row in result["per_category_metrics"]}
+              expected_rows.append(
+                  (
+                      result["candidate_id"],
+                      round(aggregate["weighted_bytes_per_token"], 6),
+                      aggregate["total_tokens"],
+                      aggregate["estimated_effective_payload_bytes_at_8192_tokens"],
+                      categories["diff"]["total_tokens"],
+                      categories["stack_trace"]["total_tokens"],
+                      categories["tool_json"]["total_tokens"],
+                      categories["file_paths"]["total_tokens"],
+                  )
+              )
+          assert parsed == expected_rows
+          assert "not a context-window claim" in evidence
+          assert "do not establish population-level code efficiency" in evidence
+          assert "model quality" in evidence and "production fitness" in evidence
+          print('B008_REVIEW4_RESULT_EVIDENCE=PASS')
+          PY
+
+      - name: AST-audit tokenizer-only source and canonical candidate gating
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import ast
+          import json
+          from pathlib import Path
+
+          source = Path("benchmarks/tokenizer_economics/b008_measure.py").read_text()
+          tree = ast.parse(source)
+          calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
+
+          hub_calls = [
+              node
+              for node in calls
+              if isinstance(node.func, ast.Name) and node.func.id == "hf_hub_download"
+          ]
+          assert len(hub_calls) == 1
+          hub_kwargs = {
+              kw.arg: kw.value for kw in hub_calls[0].keywords if kw.arg is not None
+          }
+          assert isinstance(hub_kwargs["filename"], ast.Constant)
+          assert hub_kwargs["filename"].value == "tokenizer.json"
+          assert isinstance(hub_kwargs["token"], ast.Constant)
+          assert hub_kwargs["token"].value is False
+          assert {"repo_id", "revision", "local_dir"} <= set(hub_kwargs)
+
+          tokenizer_loads = [
+              node
+              for node in calls
+              if isinstance(node.func, ast.Attribute)
+              and node.func.attr == "from_file"
+              and isinstance(node.func.value, ast.Name)
+              and node.func.value.id == "Tokenizer"
+          ]
+          assert len(tokenizer_loads) == 1
+
+          tokenizer_encode_calls = [
+              node
+              for node in calls
+              if isinstance(node.func, ast.Attribute)
+              and node.func.attr == "encode"
+              and isinstance(node.func.value, ast.Name)
+              and node.func.value.id == "tok"
+          ]
+          assert len(tokenizer_encode_calls) == 2
+          for node in tokenizer_encode_calls:
+              special = [kw for kw in node.keywords if kw.arg == "add_special_tokens"]
+              assert len(special) == 1
+              assert isinstance(special[0].value, ast.Constant)
+              assert special[0].value.value is False
+
+          for forbidden in (
+              "AutoTokenizer",
+              "AutoModel",
+              "snapshot_download",
+              "from_pretrained",
+              "trust_remote_code",
+              "safetensors",
+              "pytorch_model",
+              ".gguf",
+          ):
+              assert forbidden not in source, forbidden
+          assert 'candidate.get("status") != "static_qualified"' in source
+          assert 'rights.get("decision") == "pass_permissive"' in source
+          assert 'rights.get("account_gate_required") is False' in source
+          assert 'rights.get("clickthrough_gate_required") is False' in source
+          assert "shutil.rmtree(work, ignore_errors=True)" in source
+
+          candidates = {}
+          for path in sorted(Path("artifacts/candidates").glob("*.json")):
+              candidate = json.loads(path.read_text())
+              rights = candidate.get("rights", {})
+              if candidate.get("status") != "static_qualified":
+                  continue
+              if rights.get("decision") != "pass_permissive":
+                  continue
+              if rights.get("account_gate_required") is not False:
+                  continue
+              if rights.get("clickthrough_gate_required") is not False:
+                  continue
+              candidates[candidate["candidate_id"]] = candidate
+          assert len(candidates) == 10
+          result_ids = {
+              json.loads(path.read_text())["candidate_id"]
+              for path in Path("artifacts/results/tokenizer/B008").glob("*.json")
+          }
+          assert result_ids == set(candidates)
+          for path in Path("artifacts/results/tokenizer/B008").glob("*.json"):
+              result = json.loads(path.read_text())
+              candidate = candidates[result["candidate_id"]]
+              assert result["tokenizer_id"] == candidate["upstream_id"]
+              assert result["tokenizer_revision"] == candidate["upstream_revision"]
+
+          assert not list(Path(".").rglob("tokenizer.json"))
+          forbidden_files = []
+          for pattern in (
+              "*.safetensors",
+              "*.gguf",
+              "*.pt",
+              "*.pth",
+              "*.ckpt",
+              "*.onnx",
+          ):
+              forbidden_files.extend(Path(".").rglob(pattern))
+          assert not forbidden_files, forbidden_files
+          print('B008_REVIEW4_SOURCE_AUTHORITY=PASS')
+          PY
+
+      - name: Focused regression and final live-ref recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_b008_tokenizer_economics_results.py
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo "B008_INDEPENDENT_REVIEWED_HEAD=$EXPECTED_HEAD"
+          echo 'B008_INDEPENDENT_ADVERSARIAL_REVIEW=PASS'
