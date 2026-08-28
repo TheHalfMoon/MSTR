@@ -1,0 +1,267 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mstr.local/schemas/mstr-software-evolution-record-v0.json",
+  "title": "MSTR Software Evolution Record v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_id",
+    "repository_identity",
+    "base_revision",
+    "direction_identity",
+    "visible_context_manifest",
+    "change_events",
+    "test_ci_events",
+    "review_events",
+    "recovery_events",
+    "final_revision",
+    "final_verifier_identity",
+    "future_history_boundary",
+    "provenance",
+    "rights",
+    "contamination_status"
+  ],
+  "properties": {
+    "schema_version": {"const": "mstr.software-evolution-record.v0"},
+    "record_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "repository_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository_id", "source_class", "vcs_type"],
+      "properties": {
+        "repository_id": {"type": "string", "minLength": 1, "maxLength": 512},
+        "source_class": {
+          "enum": [
+            "PUBLIC_OPEN_SOURCE_REPOSITORY",
+            "PUBLIC_DATASET_COMPATIBLE_RIGHTS",
+            "REPOSITORY_OWNED_FIXTURE",
+            "SYNTHETIC_VERIFIED",
+            "STUDENT_GENERATED_VERIFIED",
+            "TEACHER_OUTPUT_VERIFIED"
+          ]
+        },
+        "vcs_type": {"enum": ["GIT", "OTHER_VERSIONED_SOURCE"]}
+      }
+    },
+    "base_revision": {"type": "string", "minLength": 1, "maxLength": 512},
+    "direction_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direction_id", "direction_kind", "source_identity", "content_identity"],
+      "properties": {
+        "direction_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "direction_kind": {
+          "enum": [
+            "ISSUE",
+            "PULL_REQUEST",
+            "FEATURE_DIRECTION",
+            "BUG_DIRECTION",
+            "MAINTENANCE_DIRECTION",
+            "REVIEW_DIRECTION"
+          ]
+        },
+        "source_identity": {"type": "string", "minLength": 1, "maxLength": 512},
+        "content_identity": {"type": "string", "minLength": 1, "maxLength": 512}
+      }
+    },
+    "issue_pr_identity": {"type": "string", "minLength": 1, "maxLength": 512},
+    "visible_context_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_id",
+        "target_event_id",
+        "cutoff_sequence",
+        "visible_artifact_ids",
+        "visible_event_ids",
+        "excluded_future_event_ids"
+      ],
+      "properties": {
+        "manifest_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "target_event_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "cutoff_sequence": {"type": "integer", "minimum": 0},
+        "visible_artifact_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 512}
+        },
+        "visible_event_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 256}
+        },
+        "excluded_future_event_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 256}
+        }
+      }
+    },
+    "change_events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/change_event"}
+    },
+    "test_ci_events": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/test_ci_event"}
+    },
+    "review_events": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/review_event"}
+    },
+    "recovery_events": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/recovery_event"}
+    },
+    "final_revision": {"type": "string", "minLength": 1, "maxLength": 512},
+    "final_verifier_identity": {"type": "string", "minLength": 1, "maxLength": 512},
+    "future_history_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boundary_id",
+        "projection_mode",
+        "target_event_id",
+        "cutoff_sequence",
+        "final_revision_visibility",
+        "future_patch_visibility",
+        "future_test_result_visibility",
+        "future_review_visibility"
+      ],
+      "properties": {
+        "boundary_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "projection_mode": {"enum": ["FORWARD_STEP", "RETROSPECTIVE_REVIEW"]},
+        "target_event_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "cutoff_sequence": {"type": "integer", "minimum": 0},
+        "final_revision_visibility": {"$ref": "#/$defs/future_visibility"},
+        "future_patch_visibility": {"$ref": "#/$defs/future_visibility"},
+        "future_test_result_visibility": {"$ref": "#/$defs/future_visibility"},
+        "future_review_visibility": {"$ref": "#/$defs/future_visibility"},
+        "retrospective_context_reason": {"type": "string", "minLength": 1, "maxLength": 1024}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"projection_mode": {"const": "FORWARD_STEP"}}},
+          "then": {
+            "properties": {
+              "final_revision_visibility": {"const": "HIDDEN"},
+              "future_patch_visibility": {"const": "HIDDEN"},
+              "future_test_result_visibility": {"const": "HIDDEN"},
+              "future_review_visibility": {"const": "HIDDEN"}
+            },
+            "not": {"required": ["retrospective_context_reason"]}
+          }
+        },
+        {
+          "if": {"properties": {"projection_mode": {"const": "RETROSPECTIVE_REVIEW"}}},
+          "then": {"required": ["retrospective_context_reason"]}
+        }
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_identity", "source_revision", "acquisition_or_fixture_identity", "lineage_status"],
+      "properties": {
+        "source_identity": {"type": "string", "minLength": 1, "maxLength": 512},
+        "source_revision": {"type": "string", "minLength": 1, "maxLength": 512},
+        "acquisition_or_fixture_identity": {"type": "string", "minLength": 1, "maxLength": 512},
+        "lineage_status": {"enum": ["COMPLETE", "INCOMPLETE", "UNRESOLVED"]}
+      }
+    },
+    "rights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["license_or_terms_identity", "decision"],
+      "properties": {
+        "license_or_terms_identity": {"type": "string", "minLength": 1, "maxLength": 512},
+        "decision": {"enum": ["COMPATIBLE", "INCOMPATIBLE", "UNRESOLVED"]}
+      }
+    },
+    "contamination_status": {"enum": ["CLEAR", "DETECTED", "UNRESOLVED"]}
+  },
+  "$defs": {
+    "event_visibility": {
+      "enum": ["MODEL_VISIBLE", "VERIFIER_ONLY", "FUTURE_HIDDEN"]
+    },
+    "future_visibility": {
+      "enum": ["HIDDEN", "VISIBLE_AS_RETROSPECTIVE_CONTEXT"]
+    },
+    "change_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "sequence",
+        "model_visibility",
+        "before_revision",
+        "after_revision",
+        "change_artifact_identity"
+      ],
+      "properties": {
+        "event_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "sequence": {"type": "integer", "minimum": 0},
+        "model_visibility": {"$ref": "#/$defs/event_visibility"},
+        "before_revision": {"type": "string", "minLength": 1, "maxLength": 512},
+        "after_revision": {"type": "string", "minLength": 1, "maxLength": 512},
+        "change_artifact_identity": {"type": "string", "minLength": 1, "maxLength": 512}
+      }
+    },
+    "test_ci_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "sequence",
+        "model_visibility",
+        "revision",
+        "event_kind",
+        "result",
+        "evidence_identity"
+      ],
+      "properties": {
+        "event_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "sequence": {"type": "integer", "minimum": 0},
+        "model_visibility": {"$ref": "#/$defs/event_visibility"},
+        "revision": {"type": "string", "minLength": 1, "maxLength": 512},
+        "event_kind": {"enum": ["TEST", "CI", "BUILD", "STATIC_CHECK"]},
+        "result": {"enum": ["PASS", "FAIL", "ERROR", "SKIPPED"]},
+        "evidence_identity": {"type": "string", "minLength": 1, "maxLength": 512}
+      }
+    },
+    "review_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "sequence", "model_visibility", "revision", "feedback_identity"],
+      "properties": {
+        "event_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "sequence": {"type": "integer", "minimum": 0},
+        "model_visibility": {"$ref": "#/$defs/event_visibility"},
+        "revision": {"type": "string", "minLength": 1, "maxLength": 512},
+        "feedback_identity": {"type": "string", "minLength": 1, "maxLength": 512}
+      }
+    },
+    "recovery_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "sequence",
+        "model_visibility",
+        "trigger_event_id",
+        "action",
+        "resulting_revision"
+      ],
+      "properties": {
+        "event_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "sequence": {"type": "integer", "minimum": 0},
+        "model_visibility": {"$ref": "#/$defs/event_visibility"},
+        "trigger_event_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "action": {"enum": ["REPAIR", "RETRY", "REVERT", "ROLLBACK", "REPLAN"]},
+        "resulting_revision": {"type": "string", "minLength": 1, "maxLength": 512}
+      }
+    }
+  }
+}
