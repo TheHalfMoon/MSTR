@@ -1,0 +1,101 @@
+name: Qualify exact B017 implementation head v2
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: f7a386214a1346b75dd3311390aa1e19bf354bb1
+      EXPECTED_HEAD: e0d4a64929376f91a7aef502abedc2bc4645afbc
+      TARGET_BRANCH: feat/mstr-000b-b017-evolution-fixture-pilot
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+      - name: Install dev dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Prove exact-main eligibility and blocking
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify task eligible B017 > /tmp/b017.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          b17=json.load(open('/tmp/b017.json')); b11=json.load(open('/tmp/b011.json')); drift=json.load(open('/tmp/drift.json'))
+          assert b17['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert b17['eligible'] is True and b17['reasons']==[]
+          assert b17['state_consistency_result']['observed_state']=='PENDING'
+          assert b17['authority_result']['required'] is False
+          assert b11['eligible'] is False and b11['state_consistency_result']['observed_state']=='BLOCKED'
+          assert b11['authority_result']['required'] is True and b11['authority_result']['satisfied'] is False
+          assert drift['status']=='clean' and drift['findings']==[]
+          PY
+      - name: Bind exact candidate and immutable scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git merge-base "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          git checkout --detach "$EXPECTED_HEAD"
+          expected=$(printf '%s\n' \
+            evidence/mstr-000b/B017-evolution-fixture-pilot.md \
+            src/mstr_qualify/software_evolution.py \
+            tests/fixtures/software_evolution/b017-localization.json \
+            tests/fixtures/software_evolution/b017-edit.json \
+            tests/fixtures/software_evolution/b017-review-repair.json \
+            tests/unit/test_software_evolution_projection.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | wc -l)" -eq 6
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          for path in \
+            schemas/mstr-software-evolution-record-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-software-evolution-record-v0.schema.json \
+            src/mstr_qualify/schemas.py \
+            configs/task-gate/mstr-000b.json \
+            specs/002-code-model-supremacy-foundation/tasks.md; do
+            git diff --quiet "$EXPECTED_MAIN" "$EXPECTED_HEAD" -- "$path"
+          done
+      - name: Focused B017 contract and projection tests
+        run: pytest -q tests/unit/test_software_evolution_projection.py tests/contract/test_software_evolution_contract.py
+      - name: Offline schema validation
+        run: python -m mstr_qualify validate
+      - name: Full repository tests
+        run: pytest -q
+      - name: Ruff full configured paths
+        run: ruff check src tests
+      - name: Strict mypy
+        run: mypy src
+      - name: Final immutable remote recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B017_EXACT_HEAD_QUALIFICATION=PASS'
+          echo 'B011_REMAINS_BLOCKED=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
