@@ -1,0 +1,107 @@
+name: Verify B005 post-closeout bd4ad13
+
+on:
+  push:
+    branches: [evidence/b005-postcloseout-bd4ad13]
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: bd4ad13f076ba2a44cf9bf6cd7ba95d39119eba5
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify exact canonical main entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+          echo "B005_POSTCLOSEOUT_ENTRY_IDENTITY=PASS"
+      - name: Install canonical tooling
+        run: python -m pip install -e '.[dev]'
+      - name: Verify B005 terminal canonical state
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          python -m mstr_qualify task eligible B005 > /tmp/b005.json
+          rc=$?
+          set -e
+          python - "$rc" <<'PY'
+          import json, os, sys
+          rc=int(sys.argv[1])
+          payload=json.load(open('/tmp/b005.json',encoding='utf-8'))
+          assert payload['task_id']=='B005'
+          assert payload['canonical_main']==os.environ['EXPECTED_MAIN']
+          state=payload['state_consistency_result']
+          assert state['observed_state']=='COMPLETE_CANONICAL', state
+          assert state['satisfied'] is True, state
+          assert payload['eligible'] is False, payload
+          assert 'task.already_terminal' in payload['reasons'], payload['reasons']
+          assert rc != 0
+          print('B005_COMPLETE_CANONICAL_TERMINAL=PASS')
+          PY
+      - name: Verify B006 production eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify task eligible B006 > /tmp/b006.json
+          python - <<'PY'
+          import json, os
+          payload=json.load(open('/tmp/b006.json',encoding='utf-8'))
+          assert payload['task_id']=='B006'
+          assert payload['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert payload['eligible'] is True, payload
+          assert payload['state_consistency_result']['observed_state']=='PENDING'
+          prereqs=payload['prerequisite_results']
+          assert len(prereqs)==1 and prereqs[0]['task_id']=='B005'
+          assert prereqs[0]['satisfied'] is True, prereqs[0]
+          assert prereqs[0]['evidence_present'] is True, prereqs[0]
+          print('B006_PRODUCTION_ELIGIBLE=PASS')
+          PY
+      - name: Verify canonical drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          payload=json.load(open('/tmp/drift.json',encoding='utf-8'))
+          assert payload['status']=='clean', payload
+          assert payload['findings']==[], payload
+          print(f"B005_POSTCLOSEOUT_DRIFT=PASS tasks_checked={payload['tasks_checked']}")
+          PY
+      - name: Pytest
+        run: pytest -q
+      - name: Ruff
+        run: ruff check src tests
+      - name: Mypy
+        run: mypy
+      - name: Validate
+        run: python -m mstr_qualify validate
+      - name: Verify exact canonical main exit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --short)"
+          echo "B005_POSTCLOSEOUT_IMMUTABLE_FINAL=PASS"
