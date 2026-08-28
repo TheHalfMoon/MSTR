@@ -1,0 +1,151 @@
+name: Adversarial review B015 implementation a8cafd9
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 205df4be5f2e25bd28b697816eac3ea6ce361aed
+      EXPECTED_HEAD: a8cafd95378a0795ac1d20e61cc3b758a0fad710
+      TARGET_BRANCH: feat/000b-b015-language-target-policy
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a8cafd95378a0795ac1d20e61cc3b758a0fad710
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact review target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | wc -l)" -eq 3
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+      - name: Attack tier overlap and capacity accounting
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = json.loads(Path('artifacts/decisions/B015-language-target-policy.json').read_text())
+          core = [x['id'] for x in p['tiers']['core']]
+          secondary = [x['id'] for x in p['tiers']['secondary']]
+          tail = p['tiers']['long_tail']['initial_targets']
+          assert len(core) == len(set(core))
+          assert len(secondary) == len(set(secondary))
+          assert len(tail) == len(set(tail))
+          assert not (set(core) & set(secondary))
+          assert not (set(core) & set(tail))
+          assert not (set(secondary) & set(tail))
+          r = p['replay_policy']
+          assert sum(r['aggregate_minimum_percent'].values()) == 85
+          assert r['long_tail_maximum_percent'] == 15
+          assert sum(r['aggregate_minimum_percent'].values()) + r['long_tail_maximum_percent'] == 100
+          assert sum(r['core_language_minimum_percent'].values()) == 41
+          assert sum(r['secondary_language_minimum_percent'].values()) == 12
+          assert sum(r['tooling_group_minimum_percent'].values()) == 15
+          assert set(r['core_language_minimum_percent']) == set(core)
+          assert set(r['secondary_language_minimum_percent']) == set(secondary)
+          print('B015_REVIEW_CAPACITY_ACCOUNTING=PASS')
+          PY
+      - name: Attack platform and tooling blind spots
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = json.loads(Path('artifacts/decisions/B015-language-target-policy.json').read_text())
+          channels = {x['id']: x for x in p['tooling_channels']}
+          required = {'shell_posix','powershell','sql','structured_config','package_build_manifests','build_systems','ci_workflows','infra_config'}
+          assert required <= set(channels)
+          groups = {x['group'] for x in channels.values()}
+          assert {'shell','sql','structured_config','build_ci','infra_config'} <= groups
+          assert 'PowerShell' in channels['powershell']['examples']
+          assert {'sh','bash','zsh'} <= set(channels['shell_posix']['examples'])
+          assert 'SQL' in channels['sql']['examples']
+          assert {'JSON','YAML','TOML'} <= set(channels['structured_config']['examples'])
+          print('B015_REVIEW_TOOLING_COVERAGE=PASS')
+          PY
+      - name: Attack authority and scope escalation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = json.loads(Path('artifacts/decisions/B015-language-target-policy.json').read_text())
+          a = p['authority_boundary']
+          required_false = {
+              'model_weight_access','model_execution','large_dataset_ingestion',
+              'private_user_data_ingestion','production_trace_ingestion','paid_compute',
+              'paid_model_api','weight_changing_training','large_scale_rl','production_release',
+          }
+          assert set(a) == required_false
+          assert all(a[k] is False for k in required_false)
+          scope = p['scope']
+          assert scope['stage_specific_manifest_required'] is True
+          assert scope['fixed_final_percentages'] is False
+          assert scope['measurement_denominator'] == 'LANGUAGE_TOOLING_SLICE'
+          text = Path('evidence/mstr-000b/B015-language-mix.md').read_text()
+          for marker in ['MODEL_WEIGHT_ACCESS = NONE','MODEL_EXECUTION = NONE','LARGE_DATASET_INGESTION = NONE','PAID_COMPUTE = NONE','PAID_MODEL_API = NONE','WEIGHT_CHANGING_TRAINING = NONE','PRODUCTION_RELEASE = NONE']:
+              assert marker in text
+          assert 'does **not** freeze one final universal training mixture' in text
+          print('B015_REVIEW_AUTHORITY_BOUNDARY=PASS')
+          PY
+      - name: Attack evidence misuse and silent marketing breadth
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = json.loads(Path('artifacts/decisions/B015-language-target-policy.json').read_text())
+          ext = p['decision_basis']['external_evidence']
+          assert len(ext) == 3
+          assert {x['source_id'] for x in ext} == {'github_octoverse_2025','stackoverflow_2025_technology','jetbrains_developer_ecosystem_2025'}
+          for source in ext:
+              assert source['observed_at'] == '2026-08-28'
+              assert source['url'].startswith('https://')
+              assert source['observations']
+          tail = p['tiers']['long_tail']
+          assert tail['per_language_minimum_percent'] == 0
+          assert 'Marketing completeness is not evidence.' in tail['admission_rule']
+          assert p['refresh_policy']['before_each_material_training_stage'] is True
+          assert p['refresh_policy']['tier_change_requires_canonical_amendment'] is True
+          print('B015_REVIEW_EVIDENCE_DISCIPLINE=PASS')
+          PY
+      - name: Run focused contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_b015_language_target_policy.py
+          ruff check tests/contract/test_b015_language_target_policy.py
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B015_ADVERSARIAL_REVIEW=PASS'
+      - name: Final remote identity recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B015_REVIEW_REMOTE_RECHECK=PASS'
