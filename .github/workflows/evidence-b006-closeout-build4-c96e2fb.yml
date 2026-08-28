@@ -1,0 +1,90 @@
+name: Build lint-clean B006 closeout c96e2fb
+
+on:
+  push:
+    branches: [evidence/b006-closeout-build4-c96e2fb]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: c96e2fb228a7f3fb0399484a9e6bb1e1d1eb086c
+      TARGET_BRANCH: docs/000b-b006-canonicalize
+      SOURCE_BUILDER_BRANCH: evidence/b006-closeout-build-c96e2fb
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/000b-b006-canonicalize
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-prove exact entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH" "$SOURCE_BUILDER_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          git branch -f main "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B006 > /tmp/b006-entry.json
+          python -m mstr_qualify task drift > /tmp/drift-entry.json
+          python - <<'PY'
+          import json, os
+          b=json.load(open('/tmp/b006-entry.json'))
+          d=json.load(open('/tmp/drift-entry.json'))
+          assert b['canonical_main']==os.environ['EXPECTED_MAIN'] and b['task_id']=='B006',b
+          assert b['eligible'] is True and b['reasons']==[],b
+          assert b['state_consistency_result']['observed_state']=='PENDING',b
+          assert d['canonical_main']==os.environ['EXPECTED_MAIN'] and d['status']=='clean' and d['findings']==[],d
+          print('B006_CLOSEOUT_ENTRY_V4=PASS')
+          PY
+      - name: Extract builder scripts with deterministic formatting repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "origin/$SOURCE_BUILDER_BRANCH:.github/workflows/evidence-b006-closeout-build-c96e2fb.yml" > /tmp/source-builder.yml
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+          src=Path('/tmp/source-builder.yml').read_text()
+          names={
+            'Apply exact five-file closeout':'/tmp/apply.sh',
+            'Prospectively verify closeout and frozen gates':'/tmp/verify.sh',
+            'Commit and push with final guards':'/tmp/commit.sh',
+          }
+          for name,out in names.items():
+              marker=f'      - name: {name}\n'
+              assert src.count(marker)==1,name
+              section=src.split(marker,1)[1]
+              if '\n      - name:' in section:
+                  section=section.split('\n      - name:',1)[0]
+              run_marker='        run: |\n'
+              assert run_marker in section,name
+              Path(out).write_text(textwrap.dedent(section.split(run_marker,1)[1]))
+          p=Path('/tmp/apply.sh')
+          body=p.read_text()
+          needle='git diff --check\n'
+          assert body.count(needle)>=1
+          repair='''python - <<'PYFIX'\nfrom pathlib import Path\n\nt=Path('specs/002-code-model-supremacy-foundation/tasks.md')\ns=t.read_text()\ns=s.replace(\n    '- [x] **B006 Create/reconcile candidate records for newly relevant code-specialized models.**  \\n',\n    '- [x] **B006 Create/reconcile candidate records for newly relevant code-specialized models.**\\n',\n    1,\n)\nt.write_text(s)\n\ne=Path('evidence/mstr-000b/candidates/B006-candidate-reconciliation.md')\ne.write_text(e.read_text().rstrip() + '\\n')\n\nc=Path('tests/contract/test_task_gate.py')\ns=c.read_text()\ns=s.replace(\n    '    evidence = tmp_path / "evidence" / "mstr-000b" / "candidates" / "B006-candidate-reconciliation.md"\\n',\n    '    evidence = (\\n'\n    '        tmp_path\\n'\n    '        / "evidence"\\n'\n    '        / "mstr-000b"\\n'\n    '        / "candidates"\\n'\n    '        / "B006-candidate-reconciliation.md"\\n'\n    '    )\\n',\n    1,\n)\ns=s.replace(\n    '            "outputs": [], "candidate_dependent": False, "external_effect_class": "NO_EXTERNAL_EFFECT",\\n',\n    '            "outputs": [],\\n'\n    '            "candidate_dependent": False,\\n'\n    '            "external_effect_class": "NO_EXTERNAL_EFFECT",\\n',\n    1,\n)\ns=s.replace(\n    '            "B007": {"canonical_state": "PENDING", "prerequisites": ["B006"], "evidence_outputs": []},\\n',\n    '            "B007": {\\n'\n    '                "canonical_state": "PENDING",\\n'\n    '                "prerequisites": ["B006"],\\n'\n    '                "evidence_outputs": [],\\n'\n    '            },\\n',\n    1,\n)\nc.write_text(s)\nPYFIX\ngit diff --check\n'''
+          body=body.replace(needle,repair,1)
+          p.write_text(body)
+          print('LINT_CLEAN_APPLY_SCRIPT=PASS')
+          PY
+      - name: Apply exact lint-clean five-file closeout
+        shell: bash
+        run: bash /tmp/apply.sh
+      - name: Verify prospective closeout and frozen gates
+        shell: bash
+        run: bash /tmp/verify.sh
+      - name: Commit and push guarded closeout
+        shell: bash
+        run: bash /tmp/commit.sh
