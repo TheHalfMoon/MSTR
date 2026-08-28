@@ -117,7 +117,8 @@ for text in (policy, evidence):
         "B022_VERIFIER_HEALTH_AUTHORITY = NONE",
     ):
         assert phrase in text
-assert "does not create or widen that authority" in policy
+assert "It never creates that authority." in policy
+assert "referencing already-canonical authority" in policy
 assert "SOLUTION` and `TEST` outputs are execution-required" in policy
 assert "SOLUTION` and `TEST` outputs cannot declare execution optional" in evidence
 assert "test_b019_solution_and_test_outputs_cannot_opt_out_of_execution" in tests
