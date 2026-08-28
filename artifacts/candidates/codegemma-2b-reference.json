@@ -1,0 +1,50 @@
+{
+  "schema_version": "mstr.candidate.v1",
+  "candidate_id": "codegemma-2b-reference",
+  "upstream_id": "google/codegemma-2b",
+  "upstream_revision": "e7583edabd3dd48a9c705974a9456852f1205ab1",
+  "candidate_role": "reference_only",
+  "status": "reference_only",
+  "rights": {
+    "decision": "fail",
+    "license_name": "Gemma Terms of Use",
+    "terms_urls": [
+      "https://huggingface.co/google/codegemma-2b/tree/e7583edabd3dd48a9c705974a9456852f1205ab1",
+      "https://ai.google.dev/gemma/terms"
+    ],
+    "personal_use": "yes",
+    "commercial_use": "yes",
+    "modification": "yes",
+    "fine_tuning": "yes",
+    "quantization": "yes",
+    "derivative_redistribution": "yes",
+    "account_gate_required": true,
+    "clickthrough_gate_required": true,
+    "end_user_separate_license_required": true,
+    "field_or_scale_restrictions": [
+      "Gemma use restrictions and downstream terms apply."
+    ],
+    "rationale": "The public CodeGemma repository is manually gated and requires a logged-in user to review and agree to the Gemma usage license before weight access. MSTR requires accountless, non-clickthrough primary distribution rights, so the candidate fails closed without accepting any terms."
+  },
+  "architecture": {
+    "family": "gemma",
+    "parameter_count_total": 2506172416,
+    "parameter_count_active": 2506172416,
+    "tokenizer_id": "google/codegemma-2b tokenizer",
+    "tokenizer_revision": "e7583edabd3dd48a9c705974a9456852f1205ab1",
+    "vision_components": [],
+    "fim_capability": "yes"
+  },
+  "runtime_support_notes": [
+    "Code-specialized pretrained model with 8192-token context; no gated content was accessed.",
+    "Runtime support is not established by B006."
+  ],
+  "quantization_support_notes": [
+    "No quantized artifact was downloaded or produced."
+  ],
+  "source_urls": [
+    "https://huggingface.co/google/codegemma-2b/tree/e7583edabd3dd48a9c705974a9456852f1205ab1",
+    "https://huggingface.co/google/codegemma-2b",
+    "https://ai.google.dev/gemma/terms"
+  ]
+}

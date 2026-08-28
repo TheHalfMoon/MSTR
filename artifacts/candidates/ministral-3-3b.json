@@ -23,7 +23,7 @@
     "clickthrough_gate_required": false,
     "end_user_separate_license_required": false,
     "field_or_scale_restrictions": [],
-    "rationale": "Upstream repository publishes the model under Apache-2.0 (machine-readable `license: apache-2.0` metadata in README/model card and HF model tags). Apache-2.0 grants personal/commercial use, modification, fine-tuning, quantization/conversion, and derivative redistribution with notice preservation. CAVEAT: no standalone LICENSE text file exists in the pinned repository tree; the declaration is carried by README front matter and HF license tags at the pinned revision. Exact pinned-revision URLs are cited as terms evidence. Any weight-access task MUST re-verify current terms immediately before acquisition (FR-018/T021 landscape rescan also re-checks this). Component rights (FR-016): tokenizer files and any vision-encoder weights ship inside the same pinned repository tree and are covered by the identical declared license verified at the pinned revision; no third-party component with independent terms is used. Any weight-access task must re-verify all components at acquisition time."
+    "rationale": "Pinned public repository metadata declares Apache-2.0 with no observed account or clickthrough gate. The same repository carries the tokenizer and integrated vision component under the declared repository license. B006 revalidated the exact pinned revision through metadata only; any later weight-access task must re-verify all required components immediately before acquisition."
   },
   "architecture": {
     "family": "mistral3",
@@ -37,17 +37,15 @@
     "fim_capability": "no"
   },
   "runtime_support_notes": [
-    "GGUF conversion expected viable via llama.cpp-class runtimes (to be proven by later artifact tasks).",
-    "CPU-only basic operation targeted per universal-laptop invariant.",
-    "Multimodal architecture: serving may require text-only pathway validation during runtime qualification."
+    "Pinned Hugging Face safetensors metadata reports exactly 4,251,743,232 serialized parameters. The current model-card family description separately reports approximately 3.4B language-model parameters plus 0.4B vision-encoder parameters; B006 treats these as different accounting surfaces rather than contradictory revision identities.",
+    "GGUF/runtime viability remains unproved until the later runtime/artifact tasks; multimodal serving cost must remain separate from text-only universal-laptop comparisons."
   ],
   "quantization_support_notes": [
-    "Q4-class quantization targeted <=3GB primary artifact budget (FR-003); actual viability deferred to measured artifact tasks."
+    "No quantized artifact was downloaded or produced. Q4-class fit inside the primary artifact budget remains a later measured-artifact question."
   ],
   "source_urls": [
     "https://huggingface.co/mistralai/Ministral-3-3B-Base-2512/tree/6f9c4b12a95b139af68670a6713616b757923735",
     "https://huggingface.co/mistralai/Ministral-3-3B-Base-2512/blob/6f9c4b12a95b139af68670a6713616b757923735/config.json",
-    "https://huggingface.co/mistralai/Ministral-3-3B-Base-2512/raw/6f9c4b12a95b139af68670a6713616b757923735/README.md",
     "https://huggingface.co/api/models/mistralai/Ministral-3-3B-Base-2512/revision/6f9c4b12a95b139af68670a6713616b757923735"
   ]
 }

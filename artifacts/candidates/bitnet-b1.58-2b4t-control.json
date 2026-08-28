@@ -1,0 +1,50 @@
+{
+  "schema_version": "mstr.candidate.v1",
+  "candidate_id": "bitnet-b1.58-2b4t-control",
+  "upstream_id": "microsoft/bitnet-b1.58-2B-4T-bf16",
+  "upstream_revision": "276681394656abdadb8e80e5b2c3db5e5d7fcaff",
+  "candidate_role": "control",
+  "status": "reference_only",
+  "rights": {
+    "decision": "fail",
+    "license_name": "MIT for model weights/code; tokenizer component rights unresolved",
+    "terms_urls": [
+      "https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-bf16/tree/276681394656abdadb8e80e5b2c3db5e5d7fcaff",
+      "https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-bf16/blob/276681394656abdadb8e80e5b2c3db5e5d7fcaff/LICENSE"
+    ],
+    "personal_use": "yes",
+    "commercial_use": "yes",
+    "modification": "yes",
+    "fine_tuning": "yes",
+    "quantization": "yes",
+    "derivative_redistribution": "unknown",
+    "account_gate_required": false,
+    "clickthrough_gate_required": false,
+    "end_user_separate_license_required": false,
+    "field_or_scale_restrictions": [
+      "The model card identifies the tokenizer as the LLaMA 3 tokenizer; independent derivative-redistribution rights for that third-party-origin tokenizer component were not established from the public metadata reviewed by B006."
+    ],
+    "rationale": "Microsoft declares MIT for the model weights and code, but MSTR FR-016 requires every required tokenizer/component to satisfy the same rights gate. The card explicitly identifies a LLaMA 3 tokenizer while the reviewed metadata does not establish its independent redistribution provenance. BitNet therefore remains a technical control but is not primary-rights eligible. No terms were accepted and no tokenizer artifact was downloaded."
+  },
+  "architecture": {
+    "family": "bitnet",
+    "parameter_count_total": 2412820480,
+    "parameter_count_active": 2412820480,
+    "tokenizer_id": "LLaMA 3 tokenizer as identified by Microsoft BitNet model card",
+    "tokenizer_revision": "276681394656abdadb8e80e5b2c3db5e5d7fcaff",
+    "vision_components": [],
+    "fim_capability": "unknown"
+  },
+  "runtime_support_notes": [
+    "Native 1.58-bit architecture is a useful efficiency control, but the BF16 repository card documents SFT and DPO after pretraining and a native context length of 4096, below the MSTR 8K reference.",
+    "Standard Transformers does not provide the optimized execution path; B009 owns custom-runtime compatibility."
+  ],
+  "quantization_support_notes": [
+    "Native 1.58-bit packed sibling and bitnet.cpp are public references; B006 downloaded neither model nor tokenizer artifacts."
+  ],
+  "source_urls": [
+    "https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-bf16/tree/276681394656abdadb8e80e5b2c3db5e5d7fcaff",
+    "https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-bf16",
+    "https://github.com/microsoft/BitNet"
+  ]
+}
