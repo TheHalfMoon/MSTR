@@ -62,6 +62,19 @@ jobs:
           cp /tmp/build_b020.py tools/evidence/build_b020.py
           python tools/evidence/build_b020.py
           rm tools/evidence/build_b020.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/mstr_qualify/schemas.py')
+          text = path.read_text(encoding='utf-8')
+          old = '                        f"$.failure_distribution[{index}]: duplicate failure_class {failure_class!r}"\n'
+          new = (
+              '                        "$.failure_distribution["\n'
+              '                        f"{index}]: duplicate failure_class {failure_class!r}"\n'
+          )
+          if text.count(old) != 1:
+              raise SystemExit('generated B020 duplicate-failure diagnostic anchor is not unique')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
           ruff format src/mstr_qualify/schemas.py tests/contract/test_difficulty_calibration_contract.py
           ruff check --fix src/mstr_qualify/schemas.py tests/contract/test_difficulty_calibration_contract.py
           git diff --check
