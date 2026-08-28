@@ -1,0 +1,181 @@
+name: Mandatory pre-merge verification for B018 closeout
+
+on:
+  push:
+    branches:
+      - evidence/b018-closeout-premerge-7481a10
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: 7e4996e92128e4e02ec6dbcf6ed29eed2b753838
+  EXPECTED_HEAD: 7481a10a2394a7f7d81db453327f318615bb1ac6
+  TARGET_BRANCH: docs/000b-b018-canonicalize
+  PR_NUMBER: "77"
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  pr_identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 7481a10a2394a7f7d81db453327f318615bb1ac6
+          fetch-depth: 0
+      - name: Bind PR identity, canonical main, exact candidate, and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git merge-base "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "$EXPECTED_MAIN"
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")
+          test "$(jq -r .state <<<"$pr")" = "open"
+          test "$(jq -r .draft <<<"$pr")" = "false"
+          test "$(jq -r .base.ref <<<"$pr")" = "main"
+          test "$(jq -r .base.sha <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r .head.ref <<<"$pr")" = "$TARGET_BRANCH"
+          test "$(jq -r .head.sha <<<"$pr")" = "$EXPECTED_HEAD"
+          test "$(jq -r .changed_files <<<"$pr")" = "6"
+          expected=$(printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B018-self-alignment-contract.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_self_alignment_contract.py \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+
+  task_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e '.[dev]'
+      - name: Re-prove exact-main B018 closeout gate and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B018 > /tmp/b018.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+
+          b18 = json.load(open('/tmp/b018.json'))
+          b11 = json.load(open('/tmp/b011.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          assert b18['eligible'] is True
+          assert b18['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b18['authority_result']['required'] is False
+          assert b18['authority_result']['satisfied'] is True
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          PY
+
+  closeout_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 7481a10a2394a7f7d81db453327f318615bb1ac6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e '.[dev]'
+      - name: Verify closeout semantics and authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          from mstr_qualify.task_gate import evaluate_task_snapshot
+
+          base_sha = '7e4996e92128e4e02ec6dbcf6ed29eed2b753838'
+          base_cfg = json.loads(
+              subprocess.check_output(
+                  ['git', 'show', f'{base_sha}:configs/task-gate/mstr-000b.json'], text=True
+              )
+          )
+          head_cfg = json.loads(Path('configs/task-gate/mstr-000b.json').read_text())
+          changed = [
+              task_id
+              for task_id in base_cfg['tasks']
+              if base_cfg['tasks'][task_id] != head_cfg['tasks'][task_id]
+          ]
+          assert changed == ['B018'], changed
+          assert head_cfg['tasks']['B018']['canonical_state'] == 'COMPLETE_CANONICAL'
+          for unchanged in ['B011', 'B019', 'B020', 'B022', 'B025']:
+              assert head_cfg['tasks'][unchanged] == base_cfg['tasks'][unchanged]
+
+          b18 = evaluate_task_snapshot(
+              'B018', canonical_main='7481a10a2394a7f7d81db453327f318615bb1ac6'
+          )
+          b19 = evaluate_task_snapshot(
+              'B019', canonical_main='7481a10a2394a7f7d81db453327f318615bb1ac6'
+          )
+          assert b18['eligible'] is False
+          assert b18['state_consistency_result']['observed_state'] == 'COMPLETE_CANONICAL'
+          assert 'task.already_terminal' in b18['reasons']
+          assert b19['eligible'] is True
+          assert b19['state_consistency_result']['observed_state'] == 'PENDING'
+
+          evidence = Path('evidence/mstr-000b/B018-self-alignment-contract.md').read_text()
+          assert 'B020_DIFFICULTY_CALIBRATION_AUTHORITY = NONE' in evidence
+          assert 'B022_VERIFIER_HEALTH_AUTHORITY = NONE' in evidence
+          assert 'MODEL_WEIGHT_ACCESS = NONE' in evidence
+          assert 'MODEL_EXECUTION = NONE' in evidence
+          assert 'WEIGHT_CHANGING_TRAINING = NONE' in evidence
+          PY
+          pytest -q tests/contract/test_self_alignment_contract.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 7481a10a2394a7f7d81db453327f318615bb1ac6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m mstr_qualify validate
+      - run: pytest -q
+      - run: ruff check src tests
+      - run: mypy
+
+  complete:
+    needs: [pr_identity, task_gate, closeout_semantics, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Final PR and remote immutability recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")
+          test "$(jq -r .state <<<"$pr")" = "open"
+          test "$(jq -r .draft <<<"$pr")" = "false"
+          test "$(jq -r .base.sha <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r .head.sha <<<"$pr")" = "$EXPECTED_HEAD"
+          echo 'B018_CLOSEOUT_MANDATORY_PREMERGE=PASS'
+          echo 'B019_ENTRY_AFTER_CLOSEOUT=ELIGIBLE'
+          echo 'B011_REMAINS_BLOCKED=PASS'
