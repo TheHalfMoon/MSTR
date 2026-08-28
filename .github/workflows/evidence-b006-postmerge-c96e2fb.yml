@@ -1,0 +1,97 @@
+name: Verify B006 implementation merge c96e2fb
+
+on:
+  push:
+    branches: [evidence/b006-postmerge-c96e2fb]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: c96e2fb228a7f3fb0399484a9e6bb1e1d1eb086c
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Guard exact canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python -m pip install -e '.[dev]'
+      - name: Observe post-implementation task reality
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          python -m mstr_qualify task eligible B006 > /tmp/b006.json
+          rc6=$?
+          python -m mstr_qualify task eligible B007 > /tmp/b007.json
+          rc7=$?
+          python -m mstr_qualify task drift > /tmp/drift.json
+          rcd=$?
+          set -e
+          echo "B006_RC=$rc6"
+          cat /tmp/b006.json
+          echo "B007_RC=$rc7"
+          cat /tmp/b007.json
+          echo "DRIFT_RC=$rcd"
+          cat /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          b6=json.load(open('/tmp/b006.json'))
+          b7=json.load(open('/tmp/b007.json'))
+          d=json.load(open('/tmp/drift.json'))
+          assert b6['canonical_main']==os.environ['EXPECTED_MAIN'],b6
+          assert b7['canonical_main']==os.environ['EXPECTED_MAIN'],b7
+          assert d['canonical_main']==os.environ['EXPECTED_MAIN'],d
+          required=[
+            'artifacts/candidates/mellum-4b.json',
+            'artifacts/candidates/starcoder2-3b-reference.json',
+            'artifacts/candidates/stable-code-3b-reference.json',
+            'artifacts/candidates/codegemma-2b-reference.json',
+            'artifacts/candidates/falcon-h1-3b-legal-review.json',
+            'artifacts/candidates/bitnet-b1.58-2b4t-control.json',
+            'artifacts/candidates/lfm2.5-2.6b-reference.json',
+            'artifacts/candidates/lfm2.5-1.2b-reference.json',
+            'artifacts/candidates/qwen3.5-0.8b.json',
+            'artifacts/candidates/qwen3.5-2b.json',
+            'artifacts/candidates/qwen3.5-4b.json',
+            'artifacts/candidates/yi-coder-1.5b.json',
+            'artifacts/candidates/ministral-3-3b.json',
+            'evidence/mstr-000b/candidates/B006-candidate-reconciliation.md']
+          missing=[p for p in required if not Path(p).is_file()]
+          assert not missing,missing
+          print('B006_POSTMERGE_OUTPUTS=PASS')
+          PY
+      - name: Frozen repository gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/unit/test_rights.py tests/contract/test_schemas.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+      - name: Final canonical immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo B006_IMPLEMENTATION_POSTMERGE_VERIFY=PASS
