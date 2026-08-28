@@ -1,0 +1,786 @@
+name: Build B018 self-alignment contract
+
+on:
+  push:
+    branches:
+      - evidence/b018-build-73b60aa
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 73b60aa9421f51be52560bbbca6e8dd46b77b6c9
+      TARGET_BRANCH: feat/000b-b018-self-alignment-contract
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/000b-b018-self-alignment-contract
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Bind untouched target and canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain)"
+      - name: Materialize B018 contract, fixtures, tests, and evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+          import json
+          from pathlib import Path
+
+          root = Path('.')
+          ident = {"type": "string", "minLength": 1, "maxLength": 512}
+          provenance = {
+              "type": "object",
+              "additionalProperties": False,
+              "required": ["source_identity", "source_revision", "lineage_status"],
+              "properties": {
+                  "source_identity": ident,
+                  "source_revision": ident,
+                  "lineage_status": {"enum": ["COMPLETE", "INCOMPLETE", "UNRESOLVED"]},
+              },
+          }
+          rights = {
+              "type": "object",
+              "additionalProperties": False,
+              "required": ["license_or_terms_identity", "decision"],
+              "properties": {
+                  "license_or_terms_identity": ident,
+                  "decision": {"enum": ["COMPATIBLE", "INCOMPATIBLE", "UNRESOLVED"]},
+              },
+          }
+          execution = {
+              "type": "object",
+              "additionalProperties": False,
+              "required": ["sandboxed", "result", "evidence_identity"],
+              "properties": {
+                  "sandboxed": {"type": "boolean"},
+                  "result": {"enum": ["PASS", "FAIL", "ERROR"]},
+                  "evidence_identity": ident,
+              },
+          }
+          artifact = {
+              "type": "object",
+              "additionalProperties": False,
+              "required": [
+                  "artifact_id", "artifact_kind", "content_identity", "provenance",
+                  "rights_decision", "contamination_status",
+              ],
+              "properties": {
+                  "artifact_id": ident,
+                  "artifact_kind": {"enum": ["TASK", "SOLUTION", "TEST"]},
+                  "content_identity": ident,
+                  "provenance": {"$ref": "#/$defs/provenance"},
+                  "rights_decision": {"$ref": "#/$defs/rights"},
+                  "contamination_status": {"enum": ["CLEAR", "DETECTED", "UNRESOLVED"]},
+                  "execution_result": {"$ref": "#/$defs/execution_result"},
+              },
+              "allOf": [
+                  {
+                      "if": {
+                          "properties": {"artifact_kind": {"enum": ["SOLUTION", "TEST"]}},
+                          "required": ["artifact_kind"],
+                      },
+                      "then": {"required": ["execution_result"]},
+                  },
+                  {
+                      "if": {
+                          "properties": {"artifact_kind": {"const": "TASK"}},
+                          "required": ["artifact_kind"],
+                      },
+                      "then": {"not": {"required": ["execution_result"]}},
+                  },
+              ],
+          }
+          schema = {
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "$id": "https://mstr.local/schemas/mstr-self-alignment-generation-v0.json",
+              "title": "MSTR Self Alignment Generation v0",
+              "type": "object",
+              "additionalProperties": False,
+              "required": [
+                  "schema_version", "generation_id", "student_model_identity", "seed_identity",
+                  "seed_provenance", "seed_rights_decision", "seed_contamination_status",
+                  "generated_task", "generated_solutions", "generated_tests",
+                  "environment_identity", "verifier_health", "contamination_status",
+                  "difficulty_record", "admission_decision", "admission_reasons",
+              ],
+              "properties": {
+                  "schema_version": {"const": "mstr.self-alignment-generation.v0"},
+                  "generation_id": ident,
+                  "student_model_identity": {
+                      "type": "object",
+                      "additionalProperties": False,
+                      "required": ["model_id", "checkpoint_id", "harness_profile_id", "sampling_identity"],
+                      "properties": {
+                          "model_id": ident,
+                          "checkpoint_id": ident,
+                          "harness_profile_id": ident,
+                          "sampling_identity": ident,
+                      },
+                  },
+                  "seed_identity": ident,
+                  "seed_provenance": {"$ref": "#/$defs/provenance"},
+                  "seed_rights_decision": {"$ref": "#/$defs/rights"},
+                  "seed_contamination_status": {"enum": ["CLEAR", "DETECTED", "UNRESOLVED"]},
+                  "generated_task": {
+                      "allOf": [
+                          {"$ref": "#/$defs/generated_artifact"},
+                          {"properties": {"artifact_kind": {"const": "TASK"}}},
+                      ]
+                  },
+                  "generated_solutions": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                          "allOf": [
+                              {"$ref": "#/$defs/generated_artifact"},
+                              {"properties": {"artifact_kind": {"const": "SOLUTION"}}},
+                          ]
+                      },
+                  },
+                  "generated_tests": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                          "allOf": [
+                              {"$ref": "#/$defs/generated_artifact"},
+                              {"properties": {"artifact_kind": {"const": "TEST"}}},
+                          ]
+                      },
+                  },
+                  "environment_identity": ident,
+                  "verifier_health": {
+                      "type": "object",
+                      "additionalProperties": False,
+                      "required": [
+                          "verifier_health_record_identity", "verifier_identity", "health_class",
+                          "independence", "generated_tests_sole_authority",
+                      ],
+                      "properties": {
+                          "verifier_health_record_identity": ident,
+                          "verifier_identity": ident,
+                          "health_class": {
+                              "enum": ["HEALTHY", "PARTIAL", "DISAGREEMENT", "BROKEN", "LEAKED", "TAMPERED"]
+                          },
+                          "independence": {"enum": ["INDEPENDENT", "NOT_INDEPENDENT", "UNRESOLVED"]},
+                          "generated_tests_sole_authority": {"type": "boolean"},
+                      },
+                  },
+                  "contamination_status": {"enum": ["CLEAR", "DETECTED", "UNRESOLVED"]},
+                  "difficulty_record": {
+                      "type": "object",
+                      "additionalProperties": False,
+                      "required": ["difficulty_record_identity", "difficulty_class"],
+                      "properties": {
+                          "difficulty_record_identity": ident,
+                          "difficulty_class": {
+                              "enum": [
+                                  "TOO_EASY", "LEARNABLE_FRONTIER", "HARD_FRONTIER",
+                                  "CURRENTLY_UNPRODUCTIVE", "INVALID",
+                              ]
+                          },
+                      },
+                  },
+                  "admission_decision": {"enum": ["ADMIT", "REJECT"]},
+                  "admission_reasons": {
+                      "type": "array",
+                      "uniqueItems": True,
+                      "items": {"type": "string", "minLength": 1, "maxLength": 1024},
+                  },
+              },
+              "$defs": {
+                  "provenance": provenance,
+                  "rights": rights,
+                  "execution_result": execution,
+                  "generated_artifact": artifact,
+              },
+              "allOf": [
+                  {
+                      "if": {
+                          "properties": {"admission_decision": {"const": "ADMIT"}},
+                          "required": ["admission_decision"],
+                      },
+                      "then": {
+                          "properties": {
+                              "seed_provenance": {"properties": {"lineage_status": {"const": "COMPLETE"}}},
+                              "seed_rights_decision": {"properties": {"decision": {"const": "COMPATIBLE"}}},
+                              "seed_contamination_status": {"const": "CLEAR"},
+                              "generated_task": {
+                                  "properties": {
+                                      "provenance": {"properties": {"lineage_status": {"const": "COMPLETE"}}},
+                                      "rights_decision": {"properties": {"decision": {"const": "COMPATIBLE"}}},
+                                      "contamination_status": {"const": "CLEAR"},
+                                  }
+                              },
+                              "generated_solutions": {
+                                  "items": {
+                                      "properties": {
+                                          "provenance": {"properties": {"lineage_status": {"const": "COMPLETE"}}},
+                                          "rights_decision": {"properties": {"decision": {"const": "COMPATIBLE"}}},
+                                          "contamination_status": {"const": "CLEAR"},
+                                          "execution_result": {
+                                              "properties": {
+                                                  "sandboxed": {"const": True},
+                                                  "result": {"const": "PASS"},
+                                              }
+                                          },
+                                      }
+                                  }
+                              },
+                              "generated_tests": {
+                                  "items": {
+                                      "properties": {
+                                          "provenance": {"properties": {"lineage_status": {"const": "COMPLETE"}}},
+                                          "rights_decision": {"properties": {"decision": {"const": "COMPATIBLE"}}},
+                                          "contamination_status": {"const": "CLEAR"},
+                                          "execution_result": {
+                                              "properties": {
+                                                  "sandboxed": {"const": True},
+                                                  "result": {"const": "PASS"},
+                                              }
+                                          },
+                                      }
+                                  }
+                              },
+                              "verifier_health": {
+                                  "properties": {
+                                      "health_class": {"const": "HEALTHY"},
+                                      "independence": {"const": "INDEPENDENT"},
+                                      "generated_tests_sole_authority": {"const": False},
+                                  }
+                              },
+                              "contamination_status": {"const": "CLEAR"},
+                              "difficulty_record": {
+                                  "properties": {
+                                      "difficulty_class": {
+                                          "enum": [
+                                              "TOO_EASY", "LEARNABLE_FRONTIER", "HARD_FRONTIER",
+                                              "CURRENTLY_UNPRODUCTIVE",
+                                          ]
+                                      }
+                                  }
+                              },
+                              "admission_reasons": {"maxItems": 0},
+                          }
+                      },
+                  },
+                  {
+                      "if": {
+                          "properties": {"admission_decision": {"const": "REJECT"}},
+                          "required": ["admission_decision"],
+                      },
+                      "then": {"properties": {"admission_reasons": {"minItems": 1}}},
+                  },
+              ],
+          }
+          schema_text = json.dumps(schema, indent=2, sort_keys=True) + "\n"
+          runtime = root / "schemas" / "mstr-self-alignment-generation-v0.schema.json"
+          design = root / "specs" / "002-code-model-supremacy-foundation" / "contracts" / "mstr-self-alignment-generation-v0.schema.json"
+          runtime.write_text(schema_text, encoding="utf-8")
+          design.write_text(schema_text, encoding="utf-8")
+
+          valid = {
+              "schema_version": "mstr.self-alignment-generation.v0",
+              "generation_id": "b018-fixture-generation",
+              "student_model_identity": {
+                  "model_id": "fixture-student",
+                  "checkpoint_id": "fixture-checkpoint-sha256",
+                  "harness_profile_id": "fixture-harness",
+                  "sampling_identity": "fixture-sampling",
+              },
+              "seed_identity": "fixture-seed",
+              "seed_provenance": {
+                  "source_identity": "repository-owned-fixture",
+                  "source_revision": "73b60aa",
+                  "lineage_status": "COMPLETE",
+              },
+              "seed_rights_decision": {
+                  "license_or_terms_identity": "repository-owned-fixture-rights",
+                  "decision": "COMPATIBLE",
+              },
+              "seed_contamination_status": "CLEAR",
+              "generated_task": {
+                  "artifact_id": "task-1",
+                  "artifact_kind": "TASK",
+                  "content_identity": "sha256:fixture-task",
+                  "provenance": {
+                      "source_identity": "student:fixture-student",
+                      "source_revision": "fixture-checkpoint-sha256",
+                      "lineage_status": "COMPLETE",
+                  },
+                  "rights_decision": {
+                      "license_or_terms_identity": "self-generated-fixture-rights",
+                      "decision": "COMPATIBLE",
+                  },
+                  "contamination_status": "CLEAR",
+              },
+              "generated_solutions": [{
+                  "artifact_id": "solution-1",
+                  "artifact_kind": "SOLUTION",
+                  "content_identity": "sha256:fixture-solution",
+                  "provenance": {
+                      "source_identity": "student:fixture-student",
+                      "source_revision": "fixture-checkpoint-sha256",
+                      "lineage_status": "COMPLETE",
+                  },
+                  "rights_decision": {
+                      "license_or_terms_identity": "self-generated-fixture-rights",
+                      "decision": "COMPATIBLE",
+                  },
+                  "contamination_status": "CLEAR",
+                  "execution_result": {
+                      "sandboxed": True,
+                      "result": "PASS",
+                      "evidence_identity": "fixture-exec-solution",
+                  },
+              }],
+              "generated_tests": [{
+                  "artifact_id": "test-1",
+                  "artifact_kind": "TEST",
+                  "content_identity": "sha256:fixture-test",
+                  "provenance": {
+                      "source_identity": "student:fixture-student",
+                      "source_revision": "fixture-checkpoint-sha256",
+                      "lineage_status": "COMPLETE",
+                  },
+                  "rights_decision": {
+                      "license_or_terms_identity": "self-generated-fixture-rights",
+                      "decision": "COMPATIBLE",
+                  },
+                  "contamination_status": "CLEAR",
+                  "execution_result": {
+                      "sandboxed": True,
+                      "result": "PASS",
+                      "evidence_identity": "fixture-exec-test",
+                  },
+              }],
+              "environment_identity": "fixture-sandbox-v1",
+              "verifier_health": {
+                  "verifier_health_record_identity": "fixture-health-record",
+                  "verifier_identity": "independent-fixture-verifier",
+                  "health_class": "HEALTHY",
+                  "independence": "INDEPENDENT",
+                  "generated_tests_sole_authority": False,
+              },
+              "contamination_status": "CLEAR",
+              "difficulty_record": {
+                  "difficulty_record_identity": "fixture-difficulty",
+                  "difficulty_class": "LEARNABLE_FRONTIER",
+              },
+              "admission_decision": "ADMIT",
+              "admission_reasons": [],
+          }
+          invalid = json.loads(json.dumps(valid))
+          invalid["generated_tests"][0]["rights_decision"]["decision"] = "UNRESOLVED"
+          valid_path = root / "tests" / "fixtures" / "schemas" / "valid" / "mstr-self-alignment-generation-v0.json"
+          invalid_path = root / "tests" / "fixtures" / "schemas" / "invalid" / "mstr-self-alignment-generation-v0.json"
+          valid_path.write_text(json.dumps(valid, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          invalid_path.write_text(json.dumps(invalid, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+          schemas_py = root / "src" / "mstr_qualify" / "schemas.py"
+          text = schemas_py.read_text(encoding="utf-8")
+          anchor = '    "mstr-software-evolution-record-v0": "mstr-software-evolution-record-v0.schema.json",\n'
+          replacement = anchor + '    # MSTR-000B B018: execution-filtered student self-alignment contract.\n    "mstr-self-alignment-generation-v0": "mstr-self-alignment-generation-v0.schema.json",\n'
+          if text.count(anchor) != 1:
+              raise SystemExit("schemas.py registration anchor mismatch")
+          schemas_py.write_text(text.replace(anchor, replacement), encoding="utf-8")
+
+          cli_py = root / "src" / "mstr_qualify" / "cli.py"
+          text = cli_py.read_text(encoding="utf-8")
+          anchor = '    "mstr.software-evolution-record.v0": "mstr-software-evolution-record-v0",\n'
+          replacement = anchor + '    # MSTR-000B B018 execution-filtered student self-alignment contract.\n    "mstr.self-alignment-generation.v0": "mstr-self-alignment-generation-v0",\n'
+          if text.count(anchor) != 1:
+              raise SystemExit("cli.py schema-version anchor mismatch")
+          cli_py.write_text(text.replace(anchor, replacement), encoding="utf-8")
+
+          test = r'''from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from mstr_qualify.cli import _SCHEMA_VERSION_TO_SCHEMA_NAME
+from mstr_qualify.schemas import SCHEMA_FILES, validate_instance, validation_errors
+
+ROOT = Path(__file__).resolve().parents[2]
+SCHEMA_NAME = "mstr-self-alignment-generation-v0"
+VERSION = "mstr.self-alignment-generation.v0"
+VALID_FIXTURE = ROOT / "tests" / "fixtures" / "schemas" / "valid" / "mstr-self-alignment-generation-v0.json"
+INVALID_FIXTURE = ROOT / "tests" / "fixtures" / "schemas" / "invalid" / "mstr-self-alignment-generation-v0.json"
+
+
+def _valid_record() -> dict[str, object]:
+    decoded = json.loads(VALID_FIXTURE.read_text(encoding="utf-8"))
+    assert isinstance(decoded, dict)
+    return decoded
+
+
+def _artifact(record: dict[str, object], collection: str) -> dict[str, object]:
+    if collection == "generated_task":
+        value = record[collection]
+    else:
+        values = record[collection]
+        assert isinstance(values, list)
+        value = values[0]
+    assert isinstance(value, dict)
+    return value
+
+
+def test_schema_registration_and_byte_identity() -> None:
+    assert SCHEMA_FILES[SCHEMA_NAME] == "mstr-self-alignment-generation-v0.schema.json"
+    assert _SCHEMA_VERSION_TO_SCHEMA_NAME[VERSION] == SCHEMA_NAME
+    runtime = ROOT / "schemas" / "mstr-self-alignment-generation-v0.schema.json"
+    design = ROOT / "specs" / "002-code-model-supremacy-foundation" / "contracts" / "mstr-self-alignment-generation-v0.schema.json"
+    assert runtime.read_bytes() == design.read_bytes()
+
+
+def test_valid_admit_fixture_passes() -> None:
+    validate_instance(SCHEMA_NAME, _valid_record())
+
+
+def test_canonical_unresolved_test_rights_fixture_fails_closed() -> None:
+    decoded = json.loads(INVALID_FIXTURE.read_text(encoding="utf-8"))
+    assert validation_errors(SCHEMA_NAME, decoded)
+
+
+@pytest.mark.parametrize("value", ["INCOMPLETE", "UNRESOLVED"])
+def test_admit_requires_complete_seed_provenance(value: str) -> None:
+    record = _valid_record()
+    provenance = record["seed_provenance"]
+    assert isinstance(provenance, dict)
+    provenance["lineage_status"] = value
+    assert validation_errors(SCHEMA_NAME, record)
+
+
+@pytest.mark.parametrize("decision", ["INCOMPATIBLE", "UNRESOLVED"])
+def test_admit_requires_compatible_seed_rights(decision: str) -> None:
+    record = _valid_record()
+    rights = record["seed_rights_decision"]
+    assert isinstance(rights, dict)
+    rights["decision"] = decision
+    assert validation_errors(SCHEMA_NAME, record)
+
+
+@pytest.mark.parametrize("collection", ["generated_task", "generated_solutions", "generated_tests"])
+def test_every_generated_artifact_requires_complete_provenance(collection: str) -> None:
+    record = _valid_record()
+    provenance = _artifact(record, collection)["provenance"]
+    assert isinstance(provenance, dict)
+    provenance["lineage_status"] = "UNRESOLVED"
+    assert validation_errors(SCHEMA_NAME, record)
+
+
+@pytest.mark.parametrize("collection", ["generated_task", "generated_solutions", "generated_tests"])
+@pytest.mark.parametrize("decision", ["INCOMPATIBLE", "UNRESOLVED"])
+def test_every_generated_artifact_requires_compatible_rights(collection: str, decision: str) -> None:
+    record = _valid_record()
+    rights = _artifact(record, collection)["rights_decision"]
+    assert isinstance(rights, dict)
+    rights["decision"] = decision
+    assert validation_errors(SCHEMA_NAME, record)
+
+
+@pytest.mark.parametrize("collection", ["generated_task", "generated_solutions", "generated_tests"])
+def test_every_generated_artifact_requires_clear_contamination(collection: str) -> None:
+    record = _valid_record()
+    _artifact(record, collection)["contamination_status"] = "UNRESOLVED"
+    assert validation_errors(SCHEMA_NAME, record)
+
+
+@pytest.mark.parametrize("collection", ["generated_solutions", "generated_tests"])
+def test_executable_artifacts_require_sandboxed_passing_evidence(collection: str) -> None:
+    record = _valid_record()
+    artifact = _artifact(record, collection)
+    del artifact["execution_result"]
+    assert validation_errors(SCHEMA_NAME, record)
+
+    record = _valid_record()
+    execution = _artifact(record, collection)["execution_result"]
+    assert isinstance(execution, dict)
+    execution["sandboxed"] = False
+    assert validation_errors(SCHEMA_NAME, record)
+
+    record = _valid_record()
+    execution = _artifact(record, collection)["execution_result"]
+    assert isinstance(execution, dict)
+    execution["result"] = "FAIL"
+    assert validation_errors(SCHEMA_NAME, record)
+
+
+def test_task_rejects_execution_result() -> None:
+    record = _valid_record()
+    _artifact(record, "generated_task")["execution_result"] = {
+        "sandboxed": True,
+        "result": "PASS",
+        "evidence_identity": "invalid-task-execution",
+    }
+    assert validation_errors(SCHEMA_NAME, record)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("health_class", "PARTIAL"),
+        ("health_class", "BROKEN"),
+        ("independence", "NOT_INDEPENDENT"),
+        ("independence", "UNRESOLVED"),
+        ("generated_tests_sole_authority", True),
+    ],
+)
+def test_admit_requires_healthy_independent_verifier(field: str, value: object) -> None:
+    record = _valid_record()
+    health = record["verifier_health"]
+    assert isinstance(health, dict)
+    health[field] = value
+    assert validation_errors(SCHEMA_NAME, record)
+
+
+@pytest.mark.parametrize("field", ["model_id", "checkpoint_id", "harness_profile_id", "sampling_identity"])
+def test_exact_student_harness_sampling_identity_is_mandatory(field: str) -> None:
+    record = _valid_record()
+    identity = record["student_model_identity"]
+    assert isinstance(identity, dict)
+    del identity[field]
+    assert validation_errors(SCHEMA_NAME, record)
+
+
+def test_admit_rejects_unclear_contamination_and_invalid_difficulty() -> None:
+    record = _valid_record()
+    record["contamination_status"] = "UNRESOLVED"
+    assert validation_errors(SCHEMA_NAME, record)
+
+    record = _valid_record()
+    difficulty = record["difficulty_record"]
+    assert isinstance(difficulty, dict)
+    difficulty["difficulty_class"] = "INVALID"
+    assert validation_errors(SCHEMA_NAME, record)
+
+
+def test_reject_record_preserves_negative_evidence_and_requires_reason() -> None:
+    record = _valid_record()
+    record["admission_decision"] = "REJECT"
+    record["admission_reasons"] = ["generated_test_rights_unresolved"]
+    rights = _artifact(record, "generated_tests")["rights_decision"]
+    assert isinstance(rights, dict)
+    rights["decision"] = "UNRESOLVED"
+    health = record["verifier_health"]
+    assert isinstance(health, dict)
+    health["health_class"] = "BROKEN"
+    difficulty = record["difficulty_record"]
+    assert isinstance(difficulty, dict)
+    difficulty["difficulty_class"] = "INVALID"
+    validate_instance(SCHEMA_NAME, record)
+
+    record["admission_reasons"] = []
+    assert validation_errors(SCHEMA_NAME, record)
+
+
+def test_admit_rejects_reasons_and_unknown_authority_fields() -> None:
+    record = _valid_record()
+    record["admission_reasons"] = ["not-valid-on-admit"]
+    assert validation_errors(SCHEMA_NAME, record)
+
+    record = _valid_record()
+    record["training_authorized"] = True
+    assert validation_errors(SCHEMA_NAME, record)
+
+
+def test_b018_entry_provenance_and_authority_boundary() -> None:
+    evidence = (ROOT / "evidence" / "mstr-000b" / "B018-self-alignment-contract.md").read_text(encoding="utf-8")
+    assert "ENTRY_GATE_TASK = B018" in evidence
+    assert "ENTRY_GATE_CANONICAL_MAIN = 73b60aa9421f51be52560bbbca6e8dd46b77b6c9" in evidence
+    assert "ENTRY_GATE_RUN = 33185451160" in evidence
+    assert "ENTRY_GATE_JOB = 98897160421" in evidence
+    assert "ENTRY_GATE_ELIGIBLE = true" in evidence
+    assert "ENTRY_GATE_DRIFT = clean" in evidence
+    assert "MODEL_WEIGHT_ACCESS = NONE" in evidence
+    assert "MODEL_EXECUTION = NONE" in evidence
+    assert "LARGE_DATASET_INGESTION = NONE" in evidence
+    assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
+'''
+          test_path = root / "tests" / "contract" / "test_self_alignment_contract.py"
+          test_path.write_text(test, encoding="utf-8")
+
+          evidence = '''# B018 — Execution-Filtered Student Self-Alignment Contract
+
+**Task:** `B018`
+**State:** IMPLEMENTATION_CANDIDATE
+**Contract:** `mstr.self-alignment-generation.v0`
+**Canonical main at execution:** `73b60aa9421f51be52560bbbca6e8dd46b77b6c9`
+**Exact entry evidence:** run `33185451160` / job `98897160421` — SUCCESS
+
+## Decision
+
+B018 freezes the structural contract for execution-filtered student self-alignment without generating training data, executing a model, ingesting a corpus, or authorizing training.
+
+The contract binds exact student model/checkpoint/harness/sampling identity; seed identity/provenance/rights/contamination; a generated task plus one-or-more generated solutions and tests; per-artifact provenance/rights/contamination; sandbox execution evidence for solutions/tests; independent verifier health; checkpoint-relative difficulty identity/class; and a fail-closed admission decision.
+
+## Fail-Closed Admission
+
+`admission_decision=ADMIT` is structurally valid only when:
+
+```text
+SEED_PROVENANCE = COMPLETE
+SEED_RIGHTS = COMPATIBLE
+SEED_CONTAMINATION = CLEAR
+EVERY_GENERATED_ARTIFACT_PROVENANCE = COMPLETE
+EVERY_GENERATED_ARTIFACT_RIGHTS = COMPATIBLE
+EVERY_GENERATED_ARTIFACT_CONTAMINATION = CLEAR
+EVERY_SOLUTION_AND_TEST_EXECUTION = SANDBOXED_PASS
+VERIFIER_HEALTH = HEALTHY
+VERIFIER_INDEPENDENCE = INDEPENDENT
+GENERATED_TESTS_SOLE_AUTHORITY = FALSE
+OVERALL_CONTAMINATION = CLEAR
+DIFFICULTY_CLASS != INVALID
+ADMISSION_REASONS = []
+```
+
+`REJECT` requires at least one reason and preserves negative evidence such as unresolved rights, broken verifier health, failed execution, or `INVALID` difficulty.
+
+## Per-Artifact Evidence Binding
+
+The planning data model describes generated-artifact provenance and rights as parallel conceptual collections. The runtime schema co-locates required provenance and rights directly on every generated task, solution, and test. This avoids cross-array referential gaps that JSON Schema cannot prove and makes missing per-artifact evidence structurally invalid.
+
+Generated tasks are non-executable descriptions and reject `execution_result`. Generated solutions and tests require execution evidence; `ADMIT` further requires sandboxed passing execution.
+
+## Difficulty Boundary
+
+B018 does not implement B020 or its calibration algorithm. The enclosing `student_model_identity` carries the exact `model_id`, `checkpoint_id`, `harness_profile_id`, and `sampling_identity` once, while `difficulty_record` binds its record identity and one B014-frozen class. This avoids duplicate identity values that JSON Schema could not prove equal. B020 remains responsible for detailed calibration/refresh/frontier semantics. `INVALID` may be preserved on rejected evidence but cannot be admitted.
+
+## Verifier-Health Boundary
+
+B018 does not implement B022/B023. It binds verifier-health record identity, verifier identity, health class, independence, and whether generated tests are the sole authority. Only `HEALTHY + INDEPENDENT + generated_tests_sole_authority=false` can satisfy `ADMIT`. Detailed evaluator hashes, protected paths, mutation/shortcut/leakage/disagreement analysis and stage eligibility remain owned by B022/B023.
+
+## Runtime Registration
+
+The design and runtime schemas are byte-identical:
+
+```text
+specs/002-code-model-supremacy-foundation/contracts/mstr-self-alignment-generation-v0.schema.json
+schemas/mstr-self-alignment-generation-v0.schema.json
+```
+
+The contract is registered in both the offline schema registry and CLI schema-version auto-detection. Dedicated valid/invalid fixtures participate in `python -m mstr_qualify validate`.
+
+## Canonical Entry Provenance
+
+```text
+ENTRY_GATE_TASK = B018
+ENTRY_GATE_CANONICAL_MAIN = 73b60aa9421f51be52560bbbca6e8dd46b77b6c9
+ENTRY_GATE_RUN = 33185451160
+ENTRY_GATE_JOB = 98897160421
+ENTRY_GATE_ELIGIBLE = true
+ENTRY_GATE_DRIFT = clean
+```
+
+The successful entry gate also proved B014 `COMPLETE_CANONICAL`, B018 `PENDING`, no external authority requirement for B018, and B011 still `BLOCKED` with its required founder authority unsatisfied.
+
+## Scope and Non-Authorities
+
+B018 is contract/fixture work only. The valid fixture is synthetic repository-owned test data and does not represent an executed model generation.
+
+```text
+MODEL_WEIGHT_ACCESS = NONE
+MODEL_EXECUTION = NONE
+LARGE_DATASET_INGESTION = NONE
+PRIVATE_USER_DATA_INGESTION = NONE
+PRODUCTION_TRACE_INGESTION = NONE
+PAID_MODEL_API = NONE
+PAID_COMPUTE = NONE
+WEIGHT_CHANGING_TRAINING = NONE
+LARGE_SCALE_RL = NONE
+PRODUCTION_RELEASE = NONE
+FOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO
+```
+
+B011 remains separately blocked by its exact repository-required founder authority envelope.
+'''
+          evidence_path = root / "evidence" / "mstr-000b" / "B018-self-alignment-contract.md"
+          evidence_path.write_text(evidence, encoding="utf-8")
+          PY
+      - name: Verify exact scope and whitespace
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(printf '%s\n' \
+            schemas/mstr-self-alignment-generation-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-self-alignment-generation-v0.schema.json \
+            tests/fixtures/schemas/valid/mstr-self-alignment-generation-v0.json \
+            tests/fixtures/schemas/invalid/mstr-self-alignment-generation-v0.json \
+            src/mstr_qualify/schemas.py \
+            src/mstr_qualify/cli.py \
+            tests/contract/test_self_alignment_contract.py \
+            evidence/mstr-000b/B018-self-alignment-contract.md | sort)
+          actual=$(git status --porcelain=v1 | sed 's/^...//' | sort)
+          test "$actual" = "$expected"
+          git diff --check
+      - run: python -m pip install -e '.[dev]'
+      - name: Focused contract and frozen repository gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_self_alignment_contract.py
+          python -m mstr_qualify validate
+          python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-self-alignment-generation-v0.json
+          if python -m mstr_qualify validate tests/fixtures/schemas/invalid/mstr-self-alignment-generation-v0.json; then exit 1; fi
+          pytest -q
+          ruff check src tests
+          mypy
+      - name: Commit locally and prove prospective canonical state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add \
+            schemas/mstr-self-alignment-generation-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-self-alignment-generation-v0.schema.json \
+            tests/fixtures/schemas/valid/mstr-self-alignment-generation-v0.json \
+            tests/fixtures/schemas/invalid/mstr-self-alignment-generation-v0.json \
+            src/mstr_qualify/schemas.py src/mstr_qualify/cli.py \
+            tests/contract/test_self_alignment_contract.py \
+            evidence/mstr-000b/B018-self-alignment-contract.md
+          git commit -m 'feat(mstr-000b): freeze B018 self-alignment contract'
+          candidate=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          git branch -f main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          git checkout main
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python -m mstr_qualify task eligible B018 > /tmp/b018.json
+          set +e
+          python -m mstr_qualify task eligible B011 > /tmp/b011.json
+          b011_rc=$?
+          set -e
+          test "$b011_rc" -ne 0
+          python - <<'PY'
+          import json
+          drift=json.load(open('/tmp/drift.json'))
+          b18=json.load(open('/tmp/b018.json'))
+          b11=json.load(open('/tmp/b011.json'))
+          assert drift['status']=='clean' and drift['findings']==[]
+          assert b18['eligible'] is True
+          assert b18['state_consistency_result']['observed_state']=='PENDING'
+          assert b18['authority_result']['required'] is False
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state']=='BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          PY
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin HEAD:refs/heads/$TARGET_BRANCH
+          echo "B018_CANDIDATE=$candidate"
