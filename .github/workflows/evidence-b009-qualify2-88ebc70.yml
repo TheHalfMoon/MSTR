@@ -1,0 +1,111 @@
+name: Qualify repaired B009 exact head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: dd6c7a9b163f1f34e6cc3570da234078d39f4fce
+      PREVIOUS_HEAD: e9dfac6cd30e451bd2380d4dbc1a455c154f5b05
+      EXPECTED_HEAD: 88ebc70e12dcc117ba99bb10bb687eed1a220a7b
+      TARGET_BRANCH: feat/000b-b009-training-runtime-compatibility-v2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 88ebc70e12dcc117ba99bb10bb687eed1a220a7b
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify exact identity scope and repair containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$PREVIOUS_HEAD"
+          test "$(git merge-base HEAD refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          expected=$(printf '%s\n' artifacts/decisions/B009-training-runtime-compatibility.json evidence/mstr-000b/B009-compatibility.md tests/contract/test_b009_training_runtime_compatibility.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN".."$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only "$PREVIOUS_HEAD".."$EXPECTED_HEAD")" = "tests/contract/test_b009_training_runtime_compatibility.py"
+          test "$(git rev-parse "$PREVIOUS_HEAD":artifacts/decisions/B009-training-runtime-compatibility.json)" = "$(git rev-parse "$EXPECTED_HEAD":artifacts/decisions/B009-training-runtime-compatibility.json)"
+          test "$(git rev-parse "$PREVIOUS_HEAD":evidence/mstr-000b/B009-compatibility.md)" = "$(git rev-parse "$EXPECTED_HEAD":evidence/mstr-000b/B009-compatibility.md)"
+          git diff "$EXPECTED_MAIN".."$EXPECTED_HEAD" --check
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B009_REPAIRED_IDENTITY_SCOPE=PASS'
+      - name: Verify repaired pin contract and semantic bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('artifacts/decisions/B009-training-runtime-compatibility.json').read_text())
+          assert d['framework_source_snapshot'] == {
+            'transformers': {'branch':'main','repository':'huggingface/transformers','revision':'a8e8d144f6b8e71b93678a274b65d3a319f71921'},
+            'unsloth': {'branch':'main','repository':'unslothai/unsloth','revision':'411b40615ac88ac657497e5ca9e9da9b334d841e'},
+            'peft': {'branch':'main','repository':'huggingface/peft','revision':'13414e66235139fad4102dfd3c9502958dbdc92b'},
+            'trl': {'branch':'main','repository':'huggingface/trl','revision':'89bfc6a54a263bee77fee55aba177a75c8aecf55'},
+            'llama_cpp': {'branch':'master','repository':'ggml-org/llama.cpp','revision':'d077b4c21466cfad678b07b05b557599f4db3974'},
+          }
+          current={}
+          for p in sorted(Path('artifacts/candidates').glob('*.json')):
+            x=json.loads(p.read_text()); current[x['candidate_id']]=x
+          serious=d['serious_candidates']; refs=d['reference_candidates']
+          assert len(current)==19 and len(serious)==10 and len(refs)==9
+          assert set(current)=={x['candidate_id'] for x in serious+refs}
+          for x in serious:
+            src=current[x['candidate_id']]
+            assert src['status']=='static_qualified' and src['rights']['decision']=='pass_permissive'
+            assert x['upstream_id']==src['upstream_id'] and x['upstream_revision']==src['upstream_revision']
+            assert x['promotion_from_b009_allowed'] is False
+            assert x['transformers']['exact_candidate_load_status']=='UNEXECUTED'
+            assert x['unsloth']['exact_train_save_export_status']=='UNEXECUTED'
+            assert x['peft']['exact_target_module_coverage_status']=='UNEXECUTED'
+            assert x['trl']['exact_candidate_training_status']=='UNEXECUTED'
+            assert x['llama_cpp']['conversion_status']=='UNEXECUTED'
+            assert x['llama_cpp']['quantization_status']=='UNEXECUTED'
+            assert x['llama_cpp']['runtime_status']=='UNVERIFIED'
+          for x in refs:
+            assert x['compatibility_scope']=='INFORMATIONAL_REFERENCE_ONLY' and x['promotion_from_b009_allowed'] is False
+          assert d['b010_handoff']['qualification_candidates']=='NOT_DECIDED_BY_B009'
+          assert d['b010_handoff']['new_weight_access_required_candidates']=='NOT_DECIDED_BY_B009'
+          a=d['authority_boundary']; assert a['founder_machine_large_artifacts']==0
+          assert all(v is False for k,v in a.items() if k!='founder_machine_large_artifacts')
+          print('B009_REPAIRED_SEMANTICS=PASS')
+          PY
+      - name: Run repaired exact-head gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_b009_training_runtime_compatibility.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff "$EXPECTED_MAIN".."$EXPECTED_HEAD" --check
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B009_REPAIRED_GATES=PASS'
+      - name: Final immutable remote ref recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B009_REPAIRED_EXACT_HEAD_QUALIFICATION=PASS'
