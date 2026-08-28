@@ -84,9 +84,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: `artifacts/results/tokenizer/B008/*.json`, `evidence/mstr-000b/B008-tokenizer-economics.md`.
   Canonical implementation: PR #61 / final head `895983470f72128ad698023b3578553ed1cfe7c4` / merge `07762204ab126c0fccf9ca55a8b572bd6368d8bc`.
 
-- [ ] **B009 Freeze candidate trainability / conversion / runtime compatibility matrix.**  
+- [x] **B009 Freeze candidate trainability / conversion / runtime compatibility matrix.**
   Revalidate current Transformers/Unsloth/PEFT/TRL compatibility, llama.cpp/GGUF conversion/quantization support, tokenizer/export hazards, and architecture-specific restrictions. Metadata/code/docs validation only unless already-authorized artifacts are sufficient.  
   Outputs: `artifacts/decisions/B009-training-runtime-compatibility.json`, `evidence/mstr-000b/B009-compatibility.md`.
+  Canonical implementation: PR #63 / final head `88ebc70e12dcc117ba99bb10bb687eed1a220a7b` / merge `4fdb6966c085819e69823136fb5e2cd8c56ba58f`.
 
 - [ ] **B010 Freeze exact new-candidate qualification/access envelope.**  
   Distinguish `qualification_candidates[]` from `new_weight_access_required_candidates[]`. For every newly relevant candidate, state whether equivalent qualification is required and whether that qualification can use already-authorized/already-available artifacts. For candidates requiring new access, pin exact revisions/files/hashes where available, network hosts, expected bytes, rights, executor, retention, cleanup and USD ceiling. If no newly relevant candidate survives far enough to require qualification, record `NO_NEW_CANDIDATES_REQUIRING_QUALIFICATION`.  

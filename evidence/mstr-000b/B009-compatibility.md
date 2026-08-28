@@ -2,7 +2,10 @@
 
 **Workstream:** MSTR-000B
 **Task:** B009
-**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT
+**State:** COMPLETE_CANONICAL
+**Implementation PR:** `#63`
+**Final implementation head:** `88ebc70e12dcc117ba99bb10bb687eed1a220a7b`
+**Canonical implementation merge:** `4fdb6966c085819e69823136fb5e2cd8c56ba58f`
 **Canonical main at execution:** `dd6c7a9b163f1f34e6cc3570da234078d39f4fce`
 **Decision artifact:** `artifacts/decisions/B009-training-runtime-compatibility.json`
 
@@ -101,4 +104,4 @@ LARGE_DATASET_INGESTION = NONE
 FOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO
 ```
 
-B009 remains unchecked / not complete canonical until exact-head qualification, independent review, implementation merge, separate canonical closeout, and post-closeout exact-main verification.
+The `COMPLETE_CANONICAL` record is valid only when this closeout is present on canonical `main` and the required post-closeout exact-main verification has passed. B010 eligibility is scheduling eligibility only and creates no external-effect authority.

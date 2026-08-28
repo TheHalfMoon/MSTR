@@ -168,15 +168,24 @@ def test_b008_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b009_is_eligible_after_b008_closeout() -> None:
+def test_b009_is_terminal_after_canonical_closeout() -> None:
     result = evaluate_task_snapshot("B009", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert "task.already_terminal" in result["reasons"]
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b010_is_eligible_after_b009_closeout() -> None:
+    result = evaluate_task_snapshot("B010", canonical_main=_CANONICAL_MAIN)
 
     assert result["eligible"] is True
     assert result["reasons"] == []
-    assert result["prerequisite_results"][0]["task_id"] == "B008"
+    assert result["prerequisite_results"][0]["task_id"] == "B009"
     assert result["prerequisite_results"][0]["satisfied"] is True
     validate_instance("mstr-task-eligibility-v0", result)
-
 
 def test_b006_fails_closed_when_b005_discovery_manifest_is_missing(
     tmp_path: Path,
@@ -380,6 +389,65 @@ def test_b009_fails_closed_when_one_b008_result_is_missing(tmp_path: Path) -> No
     assert f"missing:{result_paths[1]}" in predecessor["reasons"]
     validate_instance("mstr-task-eligibility-v0", result)
 
+
+def test_b010_fails_closed_when_b009_decision_artifact_is_missing(tmp_path: Path) -> None:
+    tasks_dir = tmp_path / "specs" / "002-code-model-supremacy-foundation"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / "tasks.md").write_text(
+        "- [x] **B009 Root task.**\n- [ ] **B010 Successor task.**\n",
+        encoding="utf-8",
+    )
+    evidence = tmp_path / "evidence" / "mstr-000b" / "B009-compatibility.md"
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text("canonical evidence\n", encoding="utf-8")
+    decision_path = "artifacts/decisions/B009-training-runtime-compatibility.json"
+    payload = {
+        "catalog_version": "mstr.task-catalog.v0",
+        "workstream_id": "MSTR-000B",
+        "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",
+        "defaults": {
+  "outputs": [],
+  "candidate_dependent": False,
+  "external_effect_class": "NO_EXTERNAL_EFFECT",
+  "parallel_safe": False,
+  "supersedes": [],
+  "superseded_by": [],
+  "closeout_rule": {
+      "terminal_states": ["COMPLETE_CANONICAL"],
+      "require_all_outputs": False,
+      "require_all_evidence_outputs": True,
+      "completion_requires_merge": True,
+  },
+        },
+        "tasks": {
+  "B009": {
+      "canonical_state": "COMPLETE_CANONICAL",
+      "closeout_rule": {"require_all_outputs": True},
+      "prerequisites": [],
+      "outputs": [decision_path],
+      "evidence_outputs": ["evidence/mstr-000b/B009-compatibility.md"],
+  },
+  "B010": {
+      "canonical_state": "PENDING",
+      "prerequisites": ["B009"],
+      "evidence_outputs": [],
+  },
+        },
+    }
+    catalog_path = tmp_path / "configs" / "task-gate" / "mstr-000b.json"
+    catalog_path.parent.mkdir(parents=True)
+    catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+    result = evaluate_task_snapshot(
+        "B010", repository_root=tmp_path, catalog_path=catalog_path, canonical_main=_CANONICAL_MAIN
+    )
+    assert result["eligible"] is False
+    assert "prerequisite.unsatisfied:B009" in result["reasons"]
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["task_id"] == "B009"
+    assert predecessor["satisfied"] is False
+    assert "prerequisite.required_artifact_missing" in predecessor["reasons"]
+    assert f"missing:{decision_path}" in predecessor["reasons"]
+    validate_instance("mstr-task-eligibility-v0", result)
 
 def test_explicitly_blocked_task_never_becomes_eligible() -> None:
     result = evaluate_task_snapshot("B011", canonical_main=_CANONICAL_MAIN)
