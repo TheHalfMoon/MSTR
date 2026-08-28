@@ -81,6 +81,17 @@ The focused tests reject:
 - projection-kind/target-kind mismatch;
 - review-repair with a hidden trigger.
 
+## Canonical Entry Provenance
+
+```text
+ENTRY_GATE_TASK = B017
+ENTRY_GATE_CANONICAL_MAIN = f7a386214a1346b75dd3311390aa1e19bf354bb1
+ENTRY_GATE_RUN = 33174634290
+ENTRY_GATE_JOB = 98859944051
+ENTRY_GATE_ELIGIBLE = true
+ENTRY_GATE_DRIFT = clean
+```
+
 ## Execution Evidence
 
 Entry gate:
