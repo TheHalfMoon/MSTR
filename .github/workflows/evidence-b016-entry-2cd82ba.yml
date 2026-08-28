@@ -1,0 +1,84 @@
+name: Verify B016 exact-main entry
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: 2cd82ba78bcb886962a163013fa2861d5dd2b013
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2cd82ba78bcb886962a163013fa2861d5dd2b013
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Bind exact canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          git branch -f main "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+      - name: Evaluate B016 eligibility and drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B016 > /tmp/b016.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
+          if python -m mstr_qualify task eligible B015 > /tmp/b015.json; then exit 1; fi
+          python - <<'PY'
+          import json
+          import os
+
+          expected = os.environ['EXPECTED_MAIN']
+          b16 = json.load(open('/tmp/b016.json'))
+          b15 = json.load(open('/tmp/b015.json'))
+          b11 = json.load(open('/tmp/b011.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          assert b16['task_id'] == 'B016'
+          assert b16['canonical_main'] == expected
+          assert b16['eligible'] is True and b16['reasons'] == []
+          assert b16['authority_result']['required'] is False
+          assert b16['authority_result']['satisfied'] is True
+          assert b16['state_consistency_result']['observed_state'] == 'PENDING'
+          pred = next(x for x in b16['prerequisite_results'] if x['task_id'] == 'B014')
+          assert pred['observed_state'] == 'COMPLETE_CANONICAL'
+          assert pred['evidence_present'] is True and pred['satisfied'] is True
+          assert b15['eligible'] is False
+          assert b15['state_consistency_result']['observed_state'] == 'COMPLETE_CANONICAL'
+          assert 'task.already_terminal' in b15['reasons']
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          assert drift['canonical_main'] == expected
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B016_ENTRY_ELIGIBLE=true')
+          print('B016_EXTERNAL_EFFECT=NONE')
+          print('B016_DRIFT=clean')
+          print('B015_TERMINAL=true')
+          print('B011_REMAINS_BLOCKED=true')
+          PY
+      - name: Final immutable main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo 'B016_ENTRY_GATE=PASS'
