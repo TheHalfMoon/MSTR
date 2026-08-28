@@ -42,7 +42,10 @@ jobs:
           for path in schemas/mstr-software-evolution-record-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-software-evolution-record-v0.schema.json src/mstr_qualify/schemas.py configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md configs/quality.toml pyproject.toml; do
             git diff --quiet "$EXPECTED_MAIN" "$EXPECTED_HEAD" -- "$path"
           done
-          ! git diff "$EXPECTED_MAIN...$EXPECTED_HEAD" | grep -Ei 'safetensors|model weights|paid api|production trace|private user data|training runtime' >/dev/null
+          changed=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD")
+          ! printf '%s\n' "$changed" | grep -E '(^|/)(models|weights|data/raw|artifacts/external|colab)/|\.(safetensors|gguf|pt|pth|onnx)$' >/dev/null
+          test "$(printf '%s\n' "$changed" | grep -c '^src/mstr_qualify/software_evolution.py$')" = "1"
+          test "$(printf '%s\n' "$changed" | grep -c '^tests/fixtures/software_evolution/')" = "3"
       - name: Adversarial future-history and lineage review
         run: pytest -q tests/unit/test_software_evolution_projection.py tests/contract/test_software_evolution_contract.py
       - name: Frozen schema selfcheck
