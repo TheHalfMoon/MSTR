@@ -74,6 +74,8 @@ _SCHEMA_VERSION_TO_SCHEMA_NAME = {
     "mstr.task-eligibility.v0": "mstr-task-eligibility-v0",
     # MSTR-000B B014 Data Constitution contract.
     "mstr.data-constitution.v0": "mstr-data-constitution-v0",
+    # MSTR-000B B016 Software Evolution Record contract.
+    "mstr.software-evolution-record.v0": "mstr-software-evolution-record-v0",
 }
 
 _REPOSITORY_ROOT = DEFAULT_SCHEMA_DIR.parent
