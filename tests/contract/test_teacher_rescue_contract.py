@@ -184,3 +184,18 @@ def test_b019_canonical_closeout_provenance_and_authority_boundary() -> None:
     assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
     assert "B020_DIFFICULTY_CALIBRATION_AUTHORITY = NONE" in evidence
     assert "B022_VERIFIER_HEALTH_AUTHORITY = NONE" in evidence
+
+
+def test_b019_machine_readable_entry_gate_provenance() -> None:
+    evidence = (
+        ROOT / "evidence" / "mstr-000b" / "B019-teacher-policy.md"
+    ).read_text(encoding="utf-8")
+    assert "ENTRY_GATE_TASK = B019" in evidence
+    assert (
+        "ENTRY_GATE_CANONICAL_MAIN = "
+        "2605846607fc98291ded4e53e9bb6bb6c3cf52a0" in evidence
+    )
+    assert "ENTRY_GATE_RUN = 33190906137" in evidence
+    assert "ENTRY_GATE_JOB = 98915802159" in evidence
+    assert "ENTRY_GATE_ELIGIBLE = true" in evidence
+    assert "ENTRY_GATE_DRIFT = clean" in evidence
