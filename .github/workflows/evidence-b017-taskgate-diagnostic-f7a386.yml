@@ -1,0 +1,42 @@
+name: Diagnose exact-main B017 task gate
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f7a386214a1346b75dd3311390aa1e19bf354bb1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e '.[dev]'
+      - name: Capture task gate outputs and exit codes
+        shell: bash
+        run: |
+          set +e
+          {
+            echo '=== HEAD ==='
+            git rev-parse HEAD
+            echo '=== B017 ==='
+            python -m mstr_qualify task eligible B017
+            echo "B017_RC=$?"
+            echo '=== B011 ==='
+            python -m mstr_qualify task eligible B011
+            echo "B011_RC=$?"
+            echo '=== DRIFT ==='
+            python -m mstr_qualify task drift
+            echo "DRIFT_RC=$?"
+          } > taskgate-diagnostic.txt 2>&1
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: taskgate-diagnostic
+          path: taskgate-diagnostic.txt
+          if-no-files-found: error
