@@ -1,0 +1,66 @@
+name: Prove exact-main B009 entry eligibility
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  entry:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: dd6c7a9b163f1f34e6cc3570da234078d39f4fce
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dd6c7a9b163f1f34e6cc3570da234078d39f4fce
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bind exact canonical main and prove B009 entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B009 > /tmp/b009.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          import os
+
+          expected = os.environ['EXPECTED_MAIN']
+          b009 = json.load(open('/tmp/b009.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          assert b009['canonical_main'] == expected
+          assert b009['eligible'] is True and b009['reasons'] == []
+          assert b009['state_consistency_result']['observed_state'] == 'PENDING'
+          assert len(b009['prerequisite_results']) == 1
+          predecessor = b009['prerequisite_results'][0]
+          assert predecessor['task_id'] == 'B008'
+          assert predecessor['observed_state'] == 'COMPLETE_CANONICAL'
+          assert predecessor['evidence_present'] is True
+          assert predecessor['satisfied'] is True
+          assert drift['canonical_main'] == expected
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B009_ENTRY_ELIGIBLE=true')
+          print(f'B009_ENTRY_CANONICAL_MAIN={expected}')
+          print('B009_ENTRY_DRIFT=clean')
+          PY
+          git fetch origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'MODEL_INFERENCE=NONE'
+          echo 'PAID_COMPUTE=NONE'
+          echo 'TRAINING=NONE'
