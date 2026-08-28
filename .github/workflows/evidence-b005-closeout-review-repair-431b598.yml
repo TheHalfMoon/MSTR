@@ -1,0 +1,185 @@
+name: Repair B005 closeout output gate
+
+on:
+  push:
+    branches: [evidence/b005-closeout-review-repair-431b598]
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: 1e096f4d1f270b2803da6a6306e9e7f0cf8fb81b
+  EXPECTED_TARGET: 431b598708425865d4174c00d4df56611acc397a
+  TARGET_BRANCH: docs/000b-b005-canonicalize
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          path: canonical
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/000b-b005-canonicalize
+          fetch-depth: 0
+          path: target
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install canonical tooling
+        run: python -m pip install -e './canonical[dev]'
+      - name: Re-prove exact canonical entry gate
+        working-directory: canonical
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_TARGET"
+          test -z "$(git status --short)"
+          python -m mstr_qualify task eligible B005 > /tmp/b005-entry.json
+          python -m mstr_qualify task drift > /tmp/b005-entry-drift.json
+          python - <<'PY'
+          import json, os
+          task=json.load(open('/tmp/b005-entry.json',encoding='utf-8'))
+          drift=json.load(open('/tmp/b005-entry-drift.json',encoding='utf-8'))
+          assert task['task_id']=='B005'
+          assert task['eligible'] is True
+          assert task['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert task['state_consistency_result']['observed_state']=='PENDING'
+          assert drift['status']=='clean' and drift['findings']==[]
+          print('B005_REVIEW_REPAIR_ENTRY_GATE=PASS')
+          PY
+      - name: Verify exact target head
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_TARGET"
+          test -z "$(git status --short)"
+      - name: Apply fail-closed manifest repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          config=Path('target/configs/task-gate/mstr-000b.json')
+          s=config.read_text(encoding='utf-8')
+          old='''    "B005": {\n      "canonical_state": "COMPLETE_CANONICAL",\n      "evidence_outputs": [\n        "evidence/mstr-000b/B005-code-backbone-rescan.md"\n      ],\n      "prerequisites": []\n    },\n'''
+          new='''    "B005": {\n      "canonical_state": "COMPLETE_CANONICAL",\n      "closeout_rule": {\n        "require_all_outputs": true\n      },\n      "evidence_outputs": [\n        "evidence/mstr-000b/B005-code-backbone-rescan.md"\n      ],\n      "outputs": [\n        "artifacts/manifests/B005-code-backbone-discovery.json"\n      ],\n      "prerequisites": []\n    },\n'''
+          assert s.count(old)==1
+          config.write_text(s.replace(old,new,1),encoding='utf-8')
+
+          contract=Path('target/tests/contract/test_task_gate.py')
+          s=contract.read_text(encoding='utf-8')
+          anchor='''def test_explicitly_blocked_task_never_becomes_eligible() -> None:\n'''
+          test='''def test_b006_fails_closed_when_b005_discovery_manifest_is_missing(\n    tmp_path: Path,\n) -> None:\n    tasks_dir = tmp_path / "specs" / "002-code-model-supremacy-foundation"\n    tasks_dir.mkdir(parents=True)\n    (tasks_dir / "tasks.md").write_text(\n        "- [x] **B005 Root task.**\\n- [ ] **B006 Successor task.**\\n",\n        encoding="utf-8",\n    )\n    evidence = tmp_path / "evidence" / "mstr-000b" / "B005-code-backbone-rescan.md"\n    evidence.parent.mkdir(parents=True)\n    evidence.write_text("canonical evidence\\n", encoding="utf-8")\n    payload = {\n        "catalog_version": "mstr.task-catalog.v0",\n        "workstream_id": "MSTR-000B",\n        "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",\n        "defaults": {\n            "outputs": [],\n            "candidate_dependent": False,\n            "external_effect_class": "NO_EXTERNAL_EFFECT",\n            "parallel_safe": False,\n            "supersedes": [],\n            "superseded_by": [],\n            "closeout_rule": {\n                "terminal_states": ["COMPLETE_CANONICAL"],\n                "require_all_outputs": False,\n                "require_all_evidence_outputs": True,\n                "completion_requires_merge": True,\n            },\n        },\n        "tasks": {\n            "B005": {\n                "canonical_state": "COMPLETE_CANONICAL",\n                "closeout_rule": {"require_all_outputs": True},\n                "prerequisites": [],\n                "outputs": ["artifacts/manifests/B005-code-backbone-discovery.json"],\n                "evidence_outputs": [\n                    "evidence/mstr-000b/B005-code-backbone-rescan.md"\n                ],\n            },\n            "B006": {\n                "canonical_state": "PENDING",\n                "prerequisites": ["B005"],\n                "evidence_outputs": [],\n            },\n        },\n    }\n    catalog_path = tmp_path / "configs" / "task-gate" / "mstr-000b.json"\n    catalog_path.parent.mkdir(parents=True)\n    catalog_path.write_text(json.dumps(payload), encoding="utf-8")\n\n    result = evaluate_task_snapshot(\n        "B006",\n        repository_root=tmp_path,\n        catalog_path=catalog_path,\n        canonical_main=_CANONICAL_MAIN,\n    )\n\n    assert result["eligible"] is False\n    assert "prerequisite.unsatisfied:B005" in result["reasons"]\n    predecessor = result["prerequisite_results"][0]\n    assert predecessor["evidence_present"] is False\n    assert predecessor["satisfied"] is False\n    assert "prerequisite.required_artifact_missing" in predecessor["reasons"]\n    assert (\n        "missing:artifacts/manifests/B005-code-backbone-discovery.json"\n        in predecessor["reasons"]\n    )\n    validate_instance("mstr-task-eligibility-v0", result)\n\n\n'''
+          assert s.count(anchor)==1
+          contract.write_text(s.replace(anchor,test+anchor,1),encoding='utf-8')
+          print('B005_REQUIRED_DISCOVERY_MANIFEST_GATE=ADDED')
+          print('B006_MISSING_MANIFEST_REGRESSION=ADDED')
+          PY
+      - name: Verify bounded repaired closeout
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check "$EXPECTED_MAIN"
+          python - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          expected={
+              'configs/task-gate/mstr-000b.json',
+              'specs/002-code-model-supremacy-foundation/tasks.md',
+              'evidence/mstr-000b/B005-code-backbone-rescan.md',
+              'tests/contract/test_task_gate.py',
+              'tests/integration/test_task_gate_cli.py',
+          }
+          changed=set(subprocess.run(
+              ['git','diff','--name-only',os.environ['EXPECTED_MAIN']],
+              check=True,capture_output=True,text=True,
+          ).stdout.splitlines())
+          assert changed==expected,(changed,expected)
+          c=json.loads(Path('configs/task-gate/mstr-000b.json').read_text(encoding='utf-8'))
+          b005=c['tasks']['B005']
+          b006=c['tasks']['B006']
+          assert b005['canonical_state']=='COMPLETE_CANONICAL'
+          assert b005['closeout_rule']['require_all_outputs'] is True
+          assert b005['outputs']==['artifacts/manifests/B005-code-backbone-discovery.json']
+          assert b006['canonical_state']=='PENDING'
+          assert b006['prerequisites']==['B005']
+          assert Path('artifacts/manifests/B005-code-backbone-discovery.json').is_file()
+          print('B005_REPAIRED_CLOSEOUT_SCOPE=PASS_5_FILES')
+          PY
+      - name: Install repaired target tooling
+        run: python -m pip install -e './target[dev]'
+      - name: Targeted fail-closed regression
+        working-directory: target
+        run: pytest -q tests/contract/test_task_gate.py -k 'b005 or b006'
+      - name: Pytest
+        working-directory: target
+        run: pytest -q
+      - name: Ruff
+        working-directory: target
+        run: ruff check src tests
+      - name: Mypy
+        working-directory: target
+        run: mypy
+      - name: Validate
+        working-directory: target
+        run: python -m mstr_qualify validate
+      - name: Commit repaired exact head
+        id: commit
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add configs/task-gate/mstr-000b.json tests/contract/test_task_gate.py
+          git commit -m "fix(mstr-000b): require B005 discovery manifest"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_TARGET"
+          git diff --check "$EXPECTED_MAIN" HEAD
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Verify exact repaired head scope
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="${{ steps.commit.outputs.sha }}"
+          test "$(git rev-parse HEAD)" = "$candidate"
+          changed="$(git diff --name-only "$EXPECTED_MAIN" HEAD | sort)"
+          expected="$(printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B005-code-backbone-rescan.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort)"
+          test "$changed" = "$expected"
+          test -z "$(git status --short)"
+          echo "B005_REPAIRED_HEAD=$candidate"
+      - name: Guarded fast-forward push
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="${{ steps.commit.outputs.sha }}"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_TARGET"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_TARGET"
+          test "$(git rev-parse HEAD)" = "$candidate"
+          git push origin HEAD:"$TARGET_BRANCH"
+          echo "B005_CLOSEOUT_REVIEW_REPAIR=$candidate"
