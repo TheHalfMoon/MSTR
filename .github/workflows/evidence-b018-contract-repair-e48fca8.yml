@@ -59,8 +59,36 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/mstr_qualify/schemas.py')
+          text = path.read_text(encoding='utf-8')
+          replacements = {
+              'errors.append(f"$.{field}[{index}].artifact_id: duplicate binding for {artifact_id!r}")':
+                  'errors.append(f"$.{field}[{index}]: duplicate artifact binding {artifact_id!r}")',
+              'f"$.execution_results[{index}].artifact_id: duplicate binding for {artifact_id!r}"':
+                  'f"$.execution_results[{index}]: duplicate binding {artifact_id!r}"',
+              '"$.execution_results: bindings must exactly cover executable artifact ids"':
+                  '"$.execution_results: must exactly cover executable artifact ids"',
+              'f"$.execution_results: binding for {artifact_id!r} does not match artifact execution_result"':
+                  'f"$.execution_results: {artifact_id!r} does not match artifact execution_result"',
+              'f"$.execution_results: binding for {artifact_id!r} does not match environment_identity"':
+                  'f"$.execution_results: {artifact_id!r} does not match environment_identity"',
+              '"$.difficulty_record.student_model_identity: must exactly match student_model_identity"':
+                  '"$.difficulty_record.student_model_identity: must match student_model_identity"',
+              '"$.difficulty_record.harness_profile_id: must match exact student harness_profile_id"':
+                  '"$.difficulty_record.harness_profile_id: must match student harness_profile_id"',
+          }
+          for old, new in replacements.items():
+              if text.count(old) != 1:
+                  raise SystemExit(f'normalization anchor mismatch: {old}')
+              text = text.replace(old, new)
+          path.write_text(text, encoding='utf-8')
+          PY
           ruff check --fix src/mstr_qualify/schemas.py tests/contract/test_self_alignment_contract.py
           ruff format src/mstr_qualify/schemas.py tests/contract/test_self_alignment_contract.py
+          ruff check src/mstr_qualify/schemas.py tests/contract/test_self_alignment_contract.py
           git diff --check
       - name: Focused B018 adversarial gates
         shell: bash
