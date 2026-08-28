@@ -1,0 +1,476 @@
+name: Build B006 candidate reconciliation ebd31e7
+
+on:
+  push:
+    branches:
+      - evidence/b006-build-ebd31e7
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: ebd31e7657cb42479b28a4cb1cc8a5ce2ae56b6a
+      TARGET_BRANCH: research/000b-b006-candidate-reconciliation
+      ENTRY_RUN: '33145225542'
+      ENTRY_JOB: '98764633198'
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - name: Checkout canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          path: canonical
+          persist-credentials: false
+
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: research/000b-b006-candidate-reconciliation
+          fetch-depth: 0
+          path: work
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Guard exact live state and B006 entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C canonical fetch origin main "$TARGET_BRANCH"
+          git -C work fetch origin main "$TARGET_BRANCH"
+          test "$(git -C canonical rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git -C canonical rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git -C canonical rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git -C work rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git -C work rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git -C work rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test -z "$(git -C canonical status --porcelain=v1 --untracked-files=all)"
+          test -z "$(git -C work status --porcelain=v1 --untracked-files=all)"
+          python -m pip install -e './canonical[dev]'
+          python -m mstr_qualify task eligible B006 > /tmp/b006-entry.json
+          python -m mstr_qualify task drift > /tmp/b006-drift.json
+          python - <<'PY'
+          import json, os
+          e=json.load(open('/tmp/b006-entry.json', encoding='utf-8'))
+          d=json.load(open('/tmp/b006-drift.json', encoding='utf-8'))
+          assert e['task_id']=='B006' and e['eligible'] is True and e['reasons']==[], e
+          assert e['canonical_main']==os.environ['EXPECTED_MAIN'], e
+          assert d['canonical_main']==os.environ['EXPECTED_MAIN'] and d['status']=='clean' and d['findings']==[], d
+          print('B006_BUILD_ENTRY_GUARD=PASS')
+          PY
+
+      - name: Create and reconcile B006 candidate records
+        working-directory: work
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+          import json
+          from pathlib import Path
+
+          ROOT=Path('.')
+          CAND=ROOT/'artifacts/candidates'
+          EVID=ROOT/'evidence/mstr-000b/candidates'
+          EVID.mkdir(parents=True, exist_ok=True)
+
+          def write_record(name: str, data: dict) -> None:
+              (CAND/name).write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+
+          def rights(*, decision: str, license_name: str, terms_urls: list[str], personal='yes', commercial='yes', modification='yes', fine_tuning='yes', quantization='yes', redistribution='yes', account=False, click=False, end_user=False, restrictions=None, rationale: str) -> dict:
+              return {
+                  'decision': decision,
+                  'license_name': license_name,
+                  'terms_urls': terms_urls,
+                  'personal_use': personal,
+                  'commercial_use': commercial,
+                  'modification': modification,
+                  'fine_tuning': fine_tuning,
+                  'quantization': quantization,
+                  'derivative_redistribution': redistribution,
+                  'account_gate_required': account,
+                  'clickthrough_gate_required': click,
+                  'end_user_separate_license_required': end_user,
+                  'field_or_scale_restrictions': restrictions or [],
+                  'rationale': rationale,
+              }
+
+          def arch(family: str, total: int, tokenizer_id: str, revision: str, *, active=None, vision=None, fim='unknown') -> dict:
+              return {
+                  'family': family,
+                  'parameter_count_total': total,
+                  'parameter_count_active': total if active is None else active,
+                  'tokenizer_id': tokenizer_id,
+                  'tokenizer_revision': revision,
+                  'vision_components': vision or [],
+                  'fim_capability': fim,
+              }
+
+          def rec(candidate_id: str, upstream_id: str, revision: str, role: str, status: str, r: dict, a: dict, runtime: list[str], quant: list[str], sources: list[str]) -> dict:
+              return {
+                  'schema_version':'mstr.candidate.v1',
+                  'candidate_id':candidate_id,
+                  'upstream_id':upstream_id,
+                  'upstream_revision':revision,
+                  'candidate_role':role,
+                  'status':status,
+                  'rights':r,
+                  'architecture':a,
+                  'runtime_support_notes':runtime,
+                  'quantization_support_notes':quant,
+                  'source_urls':sources,
+              }
+
+          apache='https://www.apache.org/licenses/LICENSE-2.0.txt'
+          mellum_rev='83cce2605fbdf6a3868627e9b0a5924e0072b94d'
+          write_record('mellum-4b.json', rec(
+              'mellum-4b','JetBrains/Mellum-4b-base',mellum_rev,'foundation','static_qualified',
+              rights(decision='pass_permissive', license_name='Apache-2.0', terms_urls=[
+                  f'https://huggingface.co/JetBrains/Mellum-4b-base/tree/{mellum_rev}',
+                  f'https://huggingface.co/api/models/JetBrains/Mellum-4b-base/revision/{mellum_rev}', apache],
+                  rationale='Pinned public metadata identifies Mellum-4b-base as an Apache-2.0 code-specialized base repository with no public account/clickthrough gate. Apache-2.0 supplies the required use, modification, fine-tuning, quantization and derivative-redistribution rights. Any later weight-access task must reverify the repository and tokenizer component at acquisition time.'),
+              arch('llama',4019248128,'JetBrains/Mellum-4b-base tokenizer',mellum_rev,fim='yes'),
+              ['Code-specialized base model; B006 records metadata only and does not prove runtime support.','8192-token context and IDE/code-completion orientation are public-card observations; B009 owns executable runtime compatibility.'],
+              ['No quantized artifact was downloaded or produced; Q4 feasibility remains a later measured-artifact question.'],
+              [f'https://huggingface.co/JetBrains/Mellum-4b-base/tree/{mellum_rev}',f'https://huggingface.co/api/models/JetBrains/Mellum-4b-base/revision/{mellum_rev}','https://huggingface.co/JetBrains/Mellum-4b-base']
+          ))
+
+          sc_rev='733247c55e3f73af49ce8e9c7949bf14af205928'
+          write_record('starcoder2-3b-reference.json', rec(
+              'starcoder2-3b-reference','bigcode/starcoder2-3b',sc_rev,'reference_only','reference_only',
+              rights(decision='fail', license_name='BigCode OpenRAIL-M v1', terms_urls=[
+                  f'https://huggingface.co/bigcode/starcoder2-3b/tree/{sc_rev}',
+                  'https://huggingface.co/spaces/bigcode/license/raw/main/CodeML_OpenRAIL-M_v0.1.docx.pdf'],
+                  end_user=True,
+                  restrictions=['Use-based restrictions in the BigCode OpenRAIL-M license apply and must be flowed down as enforceable provisions to downstream users.'],
+                  rationale='The license permits broad model use and derivatives, but section III requires use-based restrictions to be included as enforceable downstream provisions. MSTR primary admission requires no field/use restriction and no separate downstream-license burden, so this fails closed despite strong technical relevance.'),
+              arch('starcoder2',3030371328,'bigcode/starcoder2-3b tokenizer',sc_rev,fim='yes'),
+              ['Technically relevant code-pretrained reference with 16384-token context.','No runtime execution was performed; later runtime tasks must not treat this reference-only record as admission authority.'],
+              ['No quantized artifact was downloaded or produced.'],
+              [f'https://huggingface.co/bigcode/starcoder2-3b/tree/{sc_rev}','https://huggingface.co/bigcode/starcoder2-3b','https://huggingface.co/spaces/bigcode/license/raw/main/CodeML_OpenRAIL-M_v0.1.docx.pdf']
+          ))
+
+          stable_rev='5cee3fa2905e7a03c4a1b0bc02f39da7ceaa6cb5'
+          write_record('stable-code-3b-reference.json', rec(
+              'stable-code-3b-reference','stabilityai/stable-code-3b',stable_rev,'reference_only','reference_only',
+              rights(decision='fail', license_name='Stability AI Community License Agreement (2024-07-05)', terms_urls=[
+                  f'https://huggingface.co/stabilityai/stable-code-3b/blob/{stable_rev}/LICENSE.md','https://stability.ai/license'],
+                  end_user=True,
+                  restrictions=['Free commercial license terminates above USD 1,000,000 annual revenue and requires enterprise licensing for continued commercial use.','Use restrictions prohibit using Stability AI Materials or derivatives/outputs to create or improve another foundational generative AI model, excluding the licensed Models or their Derivative Works.'],
+                  rationale='The exact pinned repository carries the Stability AI Community License. It grants research/non-commercial and limited commercial rights but imposes a USD 1M annual-revenue threshold, downstream license obligations, and a foundational-model improvement restriction. Those restrictions mechanically fail MSTR primary rights admission.'),
+              arch('stablelm',2795443200,'stabilityai/stable-code-3b tokenizer',stable_rev,fim='yes'),
+              ['Foundational code base with FIM and 16384-token context; current card reports 2,796,431,360 architectural parameters while the pinned HF safetensors metadata snapshot counts 2,795,443,200 serialized parameters.','No runtime execution was performed.'],
+              ['Public repository exposes GGUF variants, but B006 did not download or verify any quantized artifact.'],
+              [f'https://huggingface.co/stabilityai/stable-code-3b/tree/{stable_rev}',f'https://huggingface.co/stabilityai/stable-code-3b/blob/{stable_rev}/LICENSE.md','https://stability.ai/license']
+          ))
+
+          cg_rev='e7583edabd3dd48a9c705974a9456852f1205ab1'
+          write_record('codegemma-2b-reference.json', rec(
+              'codegemma-2b-reference','google/codegemma-2b',cg_rev,'reference_only','reference_only',
+              rights(decision='fail', license_name='Gemma Terms of Use', terms_urls=[
+                  f'https://huggingface.co/google/codegemma-2b/tree/{cg_rev}','https://ai.google.dev/gemma/terms'],
+                  account=True, click=True, end_user=True,
+                  restrictions=['Gemma use restrictions and downstream terms apply.'],
+                  rationale='The public CodeGemma repository is manually gated and requires a logged-in user to review/agree to the Gemma usage license before weight access. MSTR requires accountless, non-clickthrough primary distribution rights, so the candidate fails closed without accepting any terms.'),
+              arch('gemma',2506172416,'google/codegemma-2b tokenizer',cg_rev,fim='yes'),
+              ['Code-specialized pretrained model with 8192-token context; no gated content was accessed.','Runtime support is not established by B006.'],
+              ['No quantized artifact was downloaded or produced.'],
+              [f'https://huggingface.co/google/codegemma-2b/tree/{cg_rev}','https://huggingface.co/google/codegemma-2b','https://ai.google.dev/gemma/terms']
+          ))
+
+          falcon_rev='c096902c69be0eed2e5369d3420a8bb960d293e1'
+          write_record('falcon-h1-3b-legal-review.json', rec(
+              'falcon-h1-3b-legal-review','tiiuae/Falcon-H1-3B-Base',falcon_rev,'reference_only','discovered',
+              rights(decision='fail', license_name='Falcon license applicability unresolved for Falcon-H1-3B-Base', terms_urls=[
+                  f'https://huggingface.co/tiiuae/Falcon-H1-3B-Base/tree/{falcon_rev}','https://falconllm.tii.ae/falcon-terms-and-conditions.html'],
+                  personal='unknown', commercial='unknown', modification='unknown', fine_tuning='unknown', quantization='unknown', redistribution='unknown', end_user=True,
+                  restrictions=['The license URL currently linked from Falcon-H1 metadata opens terms whose first license defines the Work as Falcon 2 11B, so exact applicability to Falcon-H1-3B-Base is not established.','The linked Falcon terms contain acceptable-use/downstream compliance obligations if applicable.'],
+                  rationale='B006 cannot infer that Falcon 2 11B terms govern Falcon-H1-3B-Base. Because exact rights applicability is ambiguous, all substantive rights fail closed to unknown. Founder/legal clarification is required before any admission or access.'),
+              arch('falcon_h1',3149387264,'tiiuae/Falcon-H1-3B-Base tokenizer',falcon_rev,fim='unknown'),
+              ['Hybrid Transformer/SSM runtime compatibility is deferred to B009 and was not executed here.','131072-token context is a public metadata observation only.'],
+              ['No quantized artifact was downloaded or produced.'],
+              [f'https://huggingface.co/tiiuae/Falcon-H1-3B-Base/tree/{falcon_rev}','https://huggingface.co/tiiuae/Falcon-H1-3B-Base','https://falconllm.tii.ae/falcon-terms-and-conditions.html']
+          ))
+
+          bit_rev='276681394656abdadb8e80e5b2c3db5e5d7fcaff'
+          write_record('bitnet-b1.58-2b4t-control.json', rec(
+              'bitnet-b1.58-2b4t-control','microsoft/bitnet-b1.58-2B-4T-bf16',bit_rev,'control','reference_only',
+              rights(decision='fail', license_name='MIT for model weights/code; tokenizer component rights unresolved', terms_urls=[
+                  f'https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-bf16/tree/{bit_rev}',
+                  'https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-bf16/blob/main/LICENSE'],
+                  redistribution='unknown',
+                  restrictions=['The model card identifies the tokenizer as the LLaMA 3 tokenizer; independent derivative-redistribution rights for that third-party-origin tokenizer component were not established from the public metadata reviewed by B006.'],
+                  rationale='Microsoft declares MIT for the model weights and code, but MSTR FR-016 requires every required tokenizer/component to satisfy the same rights gate. The card explicitly identifies a LLaMA 3 tokenizer while the reviewed metadata does not establish its independent redistribution provenance. BitNet therefore remains a technical control but is not primary-rights eligible. No terms were accepted and no tokenizer artifact was downloaded.'),
+              arch('bitnet',2412820480,'LLaMA 3 tokenizer as identified by Microsoft BitNet model card',bit_rev,fim='unknown'),
+              ['Native 1.58-bit architecture is a useful efficiency control, but the BF16 repository card documents SFT and DPO after pretraining and a native context length of 4096, below the MSTR 8K reference.','Standard Transformers does not provide the optimized execution path; B009 owns custom-runtime compatibility.'],
+              ['Native 1.58-bit packed sibling and bitnet.cpp are public references; B006 downloaded neither model nor tokenizer artifacts.'],
+              [f'https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-bf16/tree/{bit_rev}','https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-bf16','https://github.com/microsoft/BitNet']
+          ))
+
+          l26_rev='c57bdaed1ef166fe3095dda07f4a5e789ad5321e'
+          write_record('lfm2.5-2.6b-reference.json', rec(
+              'lfm2.5-2.6b-reference','LiquidAI/LFM2.5-2.6B-Base',l26_rev,'reference_only','reference_only',
+              rights(decision='fail', license_name='LFM Open License v1.0', terms_urls=[
+                  f'https://huggingface.co/LiquidAI/LFM2.5-2.6B-Base/tree/{l26_rev}','https://www.liquid.ai/lfm-license'],
+                  restrictions=['Free commercial rights end when company annual revenue reaches/exceeds USD 10,000,000; continued commercial use then requires a separate commercial license.'],
+                  rationale='LFM Open License v1.0 otherwise grants broad use, modification, fine-tuning and redistribution rights, but its USD 10M annual-revenue threshold is a scale restriction. MSTR primary rights admission requires no field/scale restriction, so the record is reference-only.'),
+              arch('lfm2',2697198592,'LiquidAI/LFM2.5-2.6B-Base tokenizer',l26_rev,fim='unknown'),
+              ['Pre-trained text-only on-device-oriented base with 131072-token context; runtime compatibility remains B009 work.'],
+              ['No quantized artifact was downloaded or produced.'],
+              [f'https://huggingface.co/LiquidAI/LFM2.5-2.6B-Base/tree/{l26_rev}','https://www.liquid.ai/lfm-license','https://www.liquid.ai/pricing']
+          ))
+
+          l12_rev='7453bca97ca1e67754c4035a4b4c584e1c9dd725'
+          write_record('lfm2.5-1.2b-reference.json', rec(
+              'lfm2.5-1.2b-reference','LiquidAI/LFM2.5-1.2B-Base',l12_rev,'reference_only','reference_only',
+              rights(decision='fail', license_name='LFM Open License v1.0', terms_urls=[
+                  f'https://huggingface.co/LiquidAI/LFM2.5-1.2B-Base/tree/{l12_rev}','https://www.liquid.ai/lfm-license'],
+                  restrictions=['Free commercial rights end when company annual revenue reaches/exceeds USD 10,000,000; continued commercial use then requires a separate commercial license.'],
+                  rationale='The exact revision metadata labels the license generically as other, while Liquid publishes the LFM Open License v1.0 for its open models. That license grants broad derivative rights but includes a USD 10M annual-revenue threshold, which fails the MSTR no-scale-restriction primary gate.'),
+              arch('lfm2',1170340608,'LiquidAI/LFM2.5-1.2B-Base tokenizer',l12_rev,fim='unknown'),
+              ['Pre-trained text-only compact/on-device reference with 32768-token context; no runtime execution occurred.'],
+              ['No GGUF/ONNX/model artifact was downloaded or verified by B006.'],
+              [f'https://huggingface.co/LiquidAI/LFM2.5-1.2B-Base/tree/{l12_rev}','https://www.liquid.ai/lfm-license','https://www.liquid.ai/pricing']
+          ))
+
+          q08_rev='dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68'
+          write_record('qwen3.5-0.8b-control.json', rec(
+              'qwen3.5-0.8b-control','Qwen/Qwen3.5-0.8B-Base',q08_rev,'control','static_qualified',
+              rights(decision='pass_permissive', license_name='Apache-2.0', terms_urls=[
+                  f'https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/tree/{q08_rev}',apache],
+                  rationale='Pinned public metadata declares Apache-2.0 with no public access gate. The repository-specific model card statement says this repository contains the pre-trained-only model; the family-level Training Stage wording is not treated as evidence that this exact Base checkpoint is post-trained.'),
+              arch('qwen3_5',873438784,'Qwen/Qwen3.5-0.8B-Base tokenizer',q08_rev,vision=['integrated qwen3_5 vision encoder in the same pinned repository'],fim='yes'),
+              ['Lower-bound multimodal control; 0.8B language-family label but 873,438,784 serialized parameters in the pinned HF metadata snapshot.','Vision-component cost must remain separate from universal-laptop language-model comparison and is not measured by B006.'],
+              ['No quantized artifact was downloaded or produced.'],
+              [f'https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/tree/{q08_rev}',f'https://huggingface.co/api/models/Qwen/Qwen3.5-0.8B-Base/revision/{q08_rev}',apache]
+          ))
+
+          # Required material revalidations from the B005 manifest.
+          for filename, note in [
+              ('qwen3.5-2b.json','B006 revalidation: repository-specific current model-card text states that this repository contains the pre-trained-only model. The broader family-level “Training Stage: Pre-training & Post-training” wording is recorded as family/model-overview language and does not override the exact Base repository statement.'),
+              ('qwen3.5-4b.json','B006 revalidation: repository-specific current model-card text states that this repository contains the pre-trained-only model. The broader family-level “Training Stage: Pre-training & Post-training” wording is recorded as family/model-overview language and does not override the exact Base repository statement.'),
+              ('ministral-3-3b.json','B006 revalidation: current model card describes a 3.4B language model plus 0.4B vision encoder, while pinned HF safetensors metadata counts 4,251,743,232 serialized parameters. The candidate retains the exact serialized total and records the 3.4B+0.4B values as nominal component accounting rather than replacing the exact total.'),
+          ]:
+              path=CAND/filename
+              data=json.loads(path.read_text(encoding='utf-8'))
+              if note not in data['runtime_support_notes']:
+                  data['runtime_support_notes'].append(note)
+              path.write_text(json.dumps(data, indent=2, ensure_ascii=False)+'\n',encoding='utf-8')
+
+          yi=CAND/'yi-coder-1.5b.json'
+          yi_data=json.loads(yi.read_text(encoding='utf-8'))
+          yi_data['architecture']['parameter_count_total']=1476495360
+          yi_note='B006 revalidation: pinned HF safetensors metadata reports exactly 1,476,495,360 serialized parameters. The “1B class” UI label is rounded class metadata, while the distinct Yi-Coder-1.5B-Chat repository supports retaining this plain Yi-Coder-1.5B checkpoint as the non-chat code control.'
+          if yi_note not in yi_data['runtime_support_notes']:
+              yi_data['runtime_support_notes'].append(yi_note)
+          yi.write_text(json.dumps(yi_data, indent=2, ensure_ascii=False)+'\n',encoding='utf-8')
+
+          report='''# MSTR-000B B006 Candidate Reconciliation Evidence
+
+**Task:** B006
+**State:** PENDING
+**Entry gate canonical main:** `ebd31e7657cb42479b28a4cb1cc8a5ce2ae56b6a`
+**Entry gate run:** `33145225542`
+**Entry gate job:** `98764633198`
+**Evidence mode:** public metadata and public license text only
+
+## Scope and authority
+
+B006 converts the nine `newly_relevant_for_b006` rows and four mandatory revalidation rows from the canonical B005 discovery manifest into candidate-record classifications. It does not acquire, resolve, download, execute, fine-tune, quantize, or admit model/tokenizer weights. GLM-5.3-Flash and Kimi-K2-Base remain outside B006 qualification because B005 screened them out on universal-laptop product scale.
+
+## Canonical classifications
+
+| Candidate | B006 classification | Primary-rights result | Basis |
+| --- | --- | --- | --- |
+| JetBrains/Mellum-4b-base | primary-eligible candidate | PASS | Apache-2.0; no public access gate; clean code-base provenance |
+| bigcode/starcoder2-3b | reference-only | FAIL | OpenRAIL use restrictions must be enforceable downstream |
+| stabilityai/stable-code-3b | reference-only | FAIL | Stability Community License revenue threshold, downstream terms, and foundation-model improvement restriction |
+| google/codegemma-2b | reference-only | FAIL | logged-in/manual clickthrough gate and Gemma downstream terms |
+| tiiuae/Falcon-H1-3B-Base | needs-founder/legal clarification | FAIL CLOSED | linked Falcon terms currently define Falcon 2 11B; H1 applicability is not established |
+| microsoft/bitnet-b1.58-2B-4T-bf16 | control; access blocked pending component-rights clarification | FAIL CLOSED | model/code MIT, but card identifies LLaMA 3 tokenizer and independent tokenizer redistribution provenance is not established; checkpoint also includes SFT+DPO and 4096 native context |
+| LiquidAI/LFM2.5-2.6B-Base | reference-only | FAIL | LFM Open License commercial rights end at the USD 10M annual-revenue threshold |
+| LiquidAI/LFM2.5-1.2B-Base | reference-only | FAIL | same LFM Open License scale restriction |
+| Qwen/Qwen3.5-0.8B-Base | control | PASS | Apache-2.0; repository-specific text identifies pre-trained-only Base checkpoint; lower-bound multimodal cost remains separate |
+| Qwen/Qwen3.5-2B-Base | retain primary-eligible candidate | PASS | exact repository states pre-trained-only; exact serialized count 2,274,069,824 retained |
+| Qwen/Qwen3.5-4B-Base | retain primary-eligible candidate | PASS | exact repository states pre-trained-only; exact serialized count 4,659,865,088 retained |
+| 01-ai/Yi-Coder-1.5B | retain control | PASS | Apache-2.0; exact serialized count corrected to 1,476,495,360; plain repo remains distinct from Chat repo |
+| mistralai/Ministral-3-3B-Base-2512 | retain primary-eligible candidate | PASS | Apache-2.0; exact serialized 4,251,743,232 retained while 3.4B language + 0.4B vision remains nominal component accounting |
+
+## Rights-gate interpretation
+
+The production rights evaluator does not treat `pass_conditional` as primary admission. Any unknown required right, account/clickthrough gate, downstream separate-license burden, or nonempty field/scale restriction produces `eligible_for_primary=false`. B006 follows that evaluator mechanically; technical attractiveness never overrides rights evidence.
+
+## Public metadata snapshots
+
+New-candidate HF metadata snapshot:
+- Actions run `33145341065`
+- job `98764988282`
+- result `SUCCESS`
+
+Required-revalidation HF metadata snapshot:
+- Actions run `33145441559`
+- job `98765300807`
+- result `SUCCESS`
+
+Both snapshots used public Hugging Face JSON metadata only and explicitly performed no model-weight access, tokenizer download, gated-term acceptance, or model execution.
+
+## External legal/source observations
+
+- BigCode CodeML OpenRAIL-M: distribution requires use-based restrictions to be carried as enforceable downstream provisions.
+- Stability AI Community License in the exact Stable Code revision is dated 2024-07-05 and conditions free commercial use on under USD 1M annual revenue; it also imposes downstream/AUP restrictions.
+- Google CodeGemma public metadata is manually gated and points to Gemma Terms.
+- Falcon-H1 metadata points to Falcon terms whose currently linked first license defines the Work as Falcon 2 11B; B006 therefore does not infer H1 rights.
+- Liquid LFM Open License v1.0 grants broad derivative rights but ends free commercial rights at the USD 10M annual-revenue threshold.
+- Microsoft BitNet declares MIT for model weights/code, but the model card separately identifies the tokenizer as the LLaMA 3 tokenizer; FR-016 requires separate component confidence, so B006 blocks primary rights without downloading or accepting anything.
+
+## Reconciliation decisions
+
+### Qwen3.5 Base provenance
+The exact 2B/4B/0.8B Base repositories contain repository-specific language saying they are the pre-trained-only models. B006 treats the broad “Training Stage: Pre-training & Post-training” text as family/model-overview wording rather than contradictory checkpoint provenance. This preserves the exact Base checkpoint classification while recording the ambiguity.
+
+### Yi-Coder parameter identity
+The pinned HF metadata API reports `1,476,495,360` serialized parameters. The earlier `1,480,000,000` record was a rounded estimate and is corrected. The public `Yi-Coder-1.5B-Chat` sibling remains distinct from `Yi-Coder-1.5B`, supporting the existing control role for the plain checkpoint.
+
+### Ministral parameter accounting
+The pinned revision reports `4,251,743,232` serialized parameters. Current model-card component labels describe approximately 3.4B language + 0.4B vision. B006 keeps the exact serialized total and records the component labels as nominal accounting; neither surface is silently substituted for the other.
+
+## Sources
+
+- `artifacts/manifests/B005-code-backbone-discovery.json`
+- `schemas/candidate-record.schema.json`
+- `src/mstr_qualify/rights.py`
+- pinned Hugging Face repository/API URLs embedded in each candidate record
+- https://huggingface.co/spaces/bigcode/license/raw/main/CodeML_OpenRAIL-M_v0.1.docx.pdf
+- https://stability.ai/license
+- https://ai.google.dev/gemma/terms
+- https://falconllm.tii.ae/falcon-terms-and-conditions.html
+- https://www.liquid.ai/lfm-license
+- https://github.com/microsoft/BitNet
+
+## Authority boundary
+
+```text
+MODEL_WEIGHT_ACCESS = NONE
+MODEL_FILE_RESOLVE_OR_DOWNLOAD = NONE
+TOKENIZER_ARTIFACT_DOWNLOAD = NONE
+MODEL_EXECUTION = NONE
+GATED_TERMS_ACCEPTANCE = NONE
+PAID_MODEL_API_EXECUTION = NONE
+PAID_COMPUTE = NONE
+RENTED_COMPUTE = NONE
+LARGE_DATASET_INGESTION = NONE
+WEIGHT_CHANGING_TRAINING = NONE
+LONG_TRAINING = NONE
+LARGE_SCALE_RL = NONE
+PRODUCTION_RELEASE = NONE
+NEW_AUTHORITY_CREATED = NO
+FOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO
+```
+'''
+          (EVID/'B006-candidate-reconciliation.md').write_text(report,encoding='utf-8')
+          print('B006_RECORD_BUILD=PASS')
+          PY
+
+      - name: Install candidate tooling and validate schema/rights
+        working-directory: work
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from jsonschema import Draft202012Validator
+          from mstr_qualify.rights import evaluate_component_rights
+
+          schema=json.loads(Path('schemas/candidate-record.schema.json').read_text(encoding='utf-8'))
+          validator=Draft202012Validator(schema)
+          new_files=[
+              'mellum-4b.json','starcoder2-3b-reference.json','stable-code-3b-reference.json','codegemma-2b-reference.json',
+              'falcon-h1-3b-legal-review.json','bitnet-b1.58-2b4t-control.json','lfm2.5-2.6b-reference.json','lfm2.5-1.2b-reference.json','qwen3.5-0.8b-control.json',
+              'qwen3.5-2b.json','qwen3.5-4b.json','yi-coder-1.5b.json','ministral-3-3b.json',
+          ]
+          expected_pass={'mellum-4b','qwen3.5-0.8b-control','qwen3.5-2b','qwen3.5-4b','yi-coder-1.5b','ministral-3-3b'}
+          expected_fail={'starcoder2-3b-reference','stable-code-3b-reference','codegemma-2b-reference','falcon-h1-3b-legal-review','bitnet-b1.58-2b4t-control','lfm2.5-2.6b-reference','lfm2.5-1.2b-reference'}
+          seen=set()
+          for name in new_files:
+              data=json.loads((Path('artifacts/candidates')/name).read_text(encoding='utf-8'))
+              validator.validate(data)
+              result=evaluate_component_rights(data['candidate_id'],data['rights'])
+              seen.add(data['candidate_id'])
+              if data['candidate_id'] in expected_pass:
+                  assert result.eligible_for_primary and result.computed_decision=='pass_permissive', (name,result)
+              elif data['candidate_id'] in expected_fail:
+                  assert not result.eligible_for_primary and result.computed_decision=='fail' and result.reason_codes, (name,result)
+              else:
+                  raise AssertionError(('unexpected candidate',data['candidate_id']))
+          assert seen == expected_pass | expected_fail, (seen, expected_pass | expected_fail)
+          assert json.loads(Path('artifacts/candidates/yi-coder-1.5b.json').read_text())['architecture']['parameter_count_total']==1476495360
+          print('B006_SCHEMA_AND_RIGHTS=PASS')
+          PY
+          python -m mstr_qualify validate
+
+      - name: Verify exact B006 changed-file scope
+        working-directory: work
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git diff --name-only | sort > /tmp/actual.txt
+          cat > /tmp/expected.txt <<'EOF'
+          artifacts/candidates/bitnet-b1.58-2b4t-control.json
+          artifacts/candidates/codegemma-2b-reference.json
+          artifacts/candidates/falcon-h1-3b-legal-review.json
+          artifacts/candidates/lfm2.5-1.2b-reference.json
+          artifacts/candidates/lfm2.5-2.6b-reference.json
+          artifacts/candidates/mellum-4b.json
+          artifacts/candidates/ministral-3-3b.json
+          artifacts/candidates/qwen3.5-0.8b-control.json
+          artifacts/candidates/qwen3.5-2b.json
+          artifacts/candidates/qwen3.5-4b.json
+          artifacts/candidates/stable-code-3b-reference.json
+          artifacts/candidates/starcoder2-3b-reference.json
+          artifacts/candidates/yi-coder-1.5b.json
+          evidence/mstr-000b/candidates/B006-candidate-reconciliation.md
+          EOF
+          sort -o /tmp/expected.txt /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+          echo 'B006_SCOPE=PASS'
+
+      - name: Full test suite
+        working-directory: work
+        run: pytest -q
+
+      - name: Ruff
+        working-directory: work
+        run: ruff check src tests
+
+      - name: Mypy
+        working-directory: work
+        run: mypy
+
+      - name: Re-guard main and push exact target fast-forward
+        working-directory: work
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add artifacts/candidates evidence/mstr-000b/candidates/B006-candidate-reconciliation.md
+          git commit -m 'feat(mstr-000b): reconcile B006 candidate records'
+          NEW_HEAD="$(git rev-parse HEAD)"
+          git push origin "HEAD:$TARGET_BRANCH"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$NEW_HEAD"
+          echo "B006_HEAD=$NEW_HEAD"
+          echo 'B006_FAST_FORWARD_PUSH=PASS'
