@@ -62,8 +62,8 @@ jobs:
           cp /tmp/build_b020.py tools/evidence/build_b020.py
           python tools/evidence/build_b020.py
           rm tools/evidence/build_b020.py
-          ruff format tests/contract/test_difficulty_calibration_contract.py
-          ruff check --fix tests/contract/test_difficulty_calibration_contract.py
+          ruff format src/mstr_qualify/schemas.py tests/contract/test_difficulty_calibration_contract.py
+          ruff check --fix src/mstr_qualify/schemas.py tests/contract/test_difficulty_calibration_contract.py
           git diff --check
           mapfile -t changed < <(git status --short | sed -E 's/^.. //' | sort)
           expected=(
