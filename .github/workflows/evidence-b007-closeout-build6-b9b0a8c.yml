@@ -1,0 +1,194 @@
+name: Format and validate B007 canonical closeout
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: b9b0a8ca7b9b7528f5da518baa83b23e2348c6f6
+  ENTRY_MAIN: 9b4e885f215fd922ecf79ff9e15bdb1479396668
+  TARGET_BRANCH: docs/000b-b007-canonicalize
+  SOURCE_BUILDER_BRANCH: evidence/b007-closeout-build3-b9b0a8c
+  SOURCE_BUILDER_HEAD: c400c20b28235e3d28be4bc2176c9be6082a1328
+  PIP_DISABLE_PIP_VERSION_CHECK: '1'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Guard exact live pre-closeout truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH" "$SOURCE_BUILDER_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$SOURCE_BUILDER_BRANCH)" = "$SOURCE_BUILDER_HEAD"
+          git branch -f main "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B007 > /tmp/b007-before.json
+          set +e
+          python -m mstr_qualify task eligible B008 > /tmp/b008-before.json
+          b8=$?
+          set -e
+          test "$b8" -eq 1
+          python -m mstr_qualify task drift > /tmp/drift-before.json
+          python - <<'PY'
+          import json, os
+          m=os.environ['EXPECTED_MAIN']
+          b7=json.load(open('/tmp/b007-before.json')); b8=json.load(open('/tmp/b008-before.json')); d=json.load(open('/tmp/drift-before.json'))
+          assert b7['canonical_main']==m and b7['eligible'] is True and b7['state_consistency_result']['observed_state']=='PENDING', b7
+          assert b8['canonical_main']==m and b8['eligible'] is False and b8['reasons']==['prerequisite.unsatisfied:B007'], b8
+          assert d['canonical_main']==m and d['status']=='clean' and d['findings']==[], d
+          print('B007_CLOSEOUT_ENTRY_TRUTH=PASS')
+          PY
+      - name: Materialize five files format new tests and bind entry gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$SOURCE_BUILDER_HEAD:.github/workflows/evidence-b007-closeout-build3-b9b0a8c.yml" > /tmp/source.yml
+          python - <<'PY'
+          from pathlib import Path
+          lines=Path('/tmp/source.yml').read_text().splitlines()
+          target='      - name: Materialize five-file closeout and create clean local candidate commit'
+          start=lines.index(target)
+          run_idx=next(i for i in range(start+1,len(lines)) if lines[i]=='        run: |')
+          body=[]
+          for line in lines[run_idx+1:]:
+              if line.startswith('      - name: '): break
+              if line.startswith('          '): body.append(line[10:])
+              elif line == '': body.append('')
+              else: raise AssertionError(line)
+          Path('/tmp/materialize.sh').write_text('\n'.join(body)+'\n')
+          PY
+          bash /tmp/materialize.sh
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          ruff format tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          p=Path('evidence/mstr-000b/B007-tokenizer-protocol.md'); s=p.read_text()
+          assert 'ENTRY_GATE_TASK =' not in s
+          anchor='POST_IMPLEMENTATION_DRIFT = clean\n'
+          assert s.count(anchor)==1
+          s=s.replace(anchor,anchor+'ENTRY_GATE_TASK = B007\n'+f'ENTRY_GATE_CANONICAL_MAIN = {os.environ["ENTRY_MAIN"]}\n'+'ENTRY_GATE_ELIGIBLE = true\n',1)
+          p.write_text(s)
+          PY
+          expected=$(printf '%s\n' configs/task-gate/mstr-000b.json evidence/mstr-000b/B007-tokenizer-protocol.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py | sort)
+          test "$(git diff --name-only "$EXPECTED_MAIN"...HEAD; git diff --name-only | sort -u)" >/dev/null
+          actual=$( { git diff --name-only "$EXPECTED_MAIN"...HEAD; git diff --name-only; } | sort -u )
+          test "$actual" = "$expected"
+          git diff --check
+          git add -A
+          git diff --cached --check
+          git commit -m 'docs(mstr-000b): format and bind B007 closeout'
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo "B007_FORMATTED_BOUND_CANDIDATE=$(git rev-parse HEAD)"
+      - name: Prove prospective semantics and drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate=$(git rev-parse HEAD)
+          git branch -f main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          set +e
+          python -m mstr_qualify task eligible B007 > /tmp/b007-candidate.json
+          b7=$?
+          set -e
+          test "$b7" -eq 1
+          python -m mstr_qualify task eligible B008 > /tmp/b008-candidate.json
+          python -m mstr_qualify task drift > /tmp/drift-candidate.json
+          python - <<'PY'
+          import json, subprocess
+          h=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          b7=json.load(open('/tmp/b007-candidate.json')); b8=json.load(open('/tmp/b008-candidate.json')); d=json.load(open('/tmp/drift-candidate.json'))
+          assert b7['canonical_main']==h and b7['eligible'] is False and b7['reasons']==['task.already_terminal'], b7
+          assert b7['state_consistency_result']['observed_state']=='COMPLETE_CANONICAL', b7
+          assert b8['canonical_main']==h and b8['eligible'] is True and b8['reasons']==[], b8
+          assert b8['prerequisite_results'][0]['task_id']=='B007' and b8['prerequisite_results'][0]['satisfied'] is True, b8
+          assert d['canonical_main']==h and d['status']=='clean' and d['findings']==[], d
+          print('B007_PROSPECTIVE_TERMINAL=PASS'); print('B008_PROSPECTIVE_ELIGIBLE=PASS'); print('B007_PROSPECTIVE_DRIFT=clean')
+          PY
+      - name: Frozen closeout gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py | tee /tmp/targeted.txt
+          pytest -q | tee /tmp/full.txt
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+      - name: Record validation and re-prove final prospective truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          targeted=Path('/tmp/targeted.txt').read_text().strip().splitlines()[-1]
+          full=Path('/tmp/full.txt').read_text().strip().splitlines()[-1]
+          p=Path('evidence/mstr-000b/B007-tokenizer-protocol.md'); s=p.read_text()
+          assert s.count('CLOSEOUT_TARGETED_GOVERNANCE = TBD')==1 and s.count('CLOSEOUT_FULL_PYTEST = TBD')==1
+          s=s.replace('CLOSEOUT_TARGETED_GOVERNANCE = TBD',f'CLOSEOUT_TARGETED_GOVERNANCE = {targeted}',1)
+          s=s.replace('CLOSEOUT_FULL_PYTEST = TBD',f'CLOSEOUT_FULL_PYTEST = {full}',1)
+          p.write_text(s)
+          PY
+          git diff --check
+          test "$(git diff --name-only)" = 'evidence/mstr-000b/B007-tokenizer-protocol.md'
+          git add evidence/mstr-000b/B007-tokenizer-protocol.md
+          git diff --cached --check
+          git commit -m 'docs(mstr-000b): record B007 closeout validation'
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          final=$(git rev-parse HEAD)
+          git branch -f main "$final"
+          git update-ref refs/remotes/origin/main "$final"
+          set +e
+          python -m mstr_qualify task eligible B007 > /tmp/b007-final.json
+          b7=$?
+          set -e
+          test "$b7" -eq 1
+          python -m mstr_qualify task eligible B008 > /tmp/b008-final.json
+          python -m mstr_qualify task drift > /tmp/drift-final.json
+          python - <<'PY'
+          import json, subprocess
+          h=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          b7=json.load(open('/tmp/b007-final.json')); b8=json.load(open('/tmp/b008-final.json')); d=json.load(open('/tmp/drift-final.json'))
+          assert b7['canonical_main']==h and b7['eligible'] is False and b7['reasons']==['task.already_terminal'], b7
+          assert b8['canonical_main']==h and b8['eligible'] is True and b8['reasons']==[], b8
+          assert d['canonical_main']==h and d['status']=='clean' and d['findings']==[], d
+          print('B007_FINAL_PROSPECTIVE_TERMINAL=PASS'); print('B008_FINAL_PROSPECTIVE_ELIGIBLE=PASS'); print('B007_FINAL_PROSPECTIVE_DRIFT=clean')
+          PY
+      - name: Restore live refs guard exact scope and fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          final=$(git rev-parse HEAD)
+          git fetch origin main "$TARGET_BRANCH" "$SOURCE_BUILDER_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$SOURCE_BUILDER_BRANCH)" = "$SOURCE_BUILDER_HEAD"
+          git branch -f main "$EXPECTED_MAIN"
+          expected=$(printf '%s\n' configs/task-gate/mstr-000b.json evidence/mstr-000b/B007-tokenizer-protocol.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py | sort)
+          test "$(git diff --name-only "$EXPECTED_MAIN"...HEAD | sort)" = "$expected"
+          git diff --check "$EXPECTED_MAIN"...HEAD
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          git push origin "HEAD:$TARGET_BRANCH"
+          echo "B007_CLOSEOUT_HEAD=$final"
+          echo "B007_CLOSEOUT_BUILDER_RUN=$GITHUB_RUN_ID"
+          echo 'TOKENIZER_ARTIFACT_DOWNLOAD=NONE'
+          echo 'TOKENIZER_MEASUREMENT=NONE'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'PAID_COMPUTE=NONE'
+          echo 'B008_MATERIAL_EXECUTION=NOT_STARTED'
