@@ -1,0 +1,81 @@
+name: Qualify B017 drift repair exact head
+
+on:
+  push:
+    branches:
+      - evidence/b017-drift-repair-qualify-05b0263
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 4919891be2e10c84a4c57a420ee2884d72da4e93
+      EXPECTED_HEAD: 05b0263c65fa99abc6268e56166d90bc8686ad24
+      PR_BRANCH: docs/000b-b017-entry-gate-drift-repair
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/000b-b017-entry-gate-drift-repair
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Bind exact candidate and immutable remote state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$PR_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          expected=$(printf '%s\n' evidence/mstr-000b/B017-evolution-fixture-pilot.md tests/unit/test_software_evolution_projection.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN"..."$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          git diff --check "$EXPECTED_MAIN"..."$EXPECTED_HEAD"
+      - run: python -m pip install -e '.[dev]'
+      - name: Frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/unit/test_software_evolution_projection.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy
+      - name: Prove prospective canonical drift clean and frontier unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          git branch -f main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          git checkout main
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python -m mstr_qualify task eligible B018 > /tmp/b018.json
+          set +e
+          python -m mstr_qualify task eligible B011 > /tmp/b011.json
+          b011_rc=$?
+          set -e
+          test "$b011_rc" -ne 0
+          python - <<'PY'
+          import json
+          drift=json.load(open('/tmp/drift.json'))
+          b18=json.load(open('/tmp/b018.json'))
+          b11=json.load(open('/tmp/b011.json'))
+          assert drift['status']=='clean' and drift['findings']==[]
+          assert b18['eligible'] is True
+          assert b18['state_consistency_result']['observed_state']=='PENDING'
+          assert b18['authority_result']['required'] is False
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state']=='BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          PY
+      - name: Final remote immutability recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$PR_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
