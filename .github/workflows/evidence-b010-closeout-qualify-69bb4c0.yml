@@ -1,0 +1,152 @@
+name: Qualify exact B010 canonical closeout head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 215d52f4de772639c5e64193ff48deaafb6eb2d7
+      CLOSEOUT_HEAD: 69bb4c0adfc30807ab562d05100d4d18f3f434f0
+      TARGET_BRANCH: docs/000b-b010-canonicalize
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 69bb4c0adfc30807ab562d05100d4d18f3f434f0
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Bind exact base head parent and five-file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$CLOSEOUT_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$CLOSEOUT_HEAD"
+          expected=$(printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B010-weight-access-preflight.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$CLOSEOUT_HEAD" | sort)
+          test "$actual" = "$expected"
+          git diff --check "$EXPECTED_MAIN...$CLOSEOUT_HEAD"
+          git diff --quiet "$EXPECTED_MAIN...$CLOSEOUT_HEAD" -- artifacts/manifests/B010-new-candidate-weight-access.json
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B010_CLOSEOUT_IDENTITY_SCOPE=PASS'
+
+      - name: Prove exact closeout semantics parser identity and authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$CLOSEOUT_HEAD"
+          git update-ref refs/remotes/origin/main "$CLOSEOUT_HEAD"
+          if python -m mstr_qualify task eligible B010 > /tmp/b010.json; then
+            echo 'B010 unexpectedly execution-eligible after closeout' >&2
+            exit 1
+          fi
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then
+            echo 'B011 unexpectedly eligible after B010 closeout' >&2
+            exit 1
+          fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import os
+
+          head = os.environ['CLOSEOUT_HEAD']
+          b010 = json.load(open('/tmp/b010.json'))
+          b011 = json.load(open('/tmp/b011.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          assert b010['canonical_main'] == head
+          assert b010['eligible'] is False
+          assert b010['state_consistency_result']['observed_state'] == 'COMPLETE_CANONICAL'
+          assert b010['state_consistency_result']['satisfied'] is True
+          assert 'task.already_terminal' in b010['reasons']
+          assert b011['canonical_main'] == head
+          assert b011['eligible'] is False
+          assert b011['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert 'task.blocked' in b011['reasons']
+          assert 'task.unresolved_binding' in b011['reasons']
+          predecessor = next(row for row in b011['prerequisite_results'] if row['task_id'] == 'B010')
+          assert predecessor['observed_state'] == 'COMPLETE_CANONICAL'
+          assert predecessor['satisfied'] is True
+          assert b011['authority_result']['required'] is True
+          assert b011['authority_result']['satisfied'] is False
+          assert drift['canonical_main'] == head
+          assert drift['status'] == 'clean' and drift['findings'] == []
+
+          catalog = json.loads(Path('configs/task-gate/mstr-000b.json').read_text())
+          b010_node = catalog['tasks']['B010']
+          b011_node = catalog['tasks']['B011']
+          assert b010_node['canonical_state'] == 'COMPLETE_CANONICAL'
+          assert b010_node['outputs'] == ['artifacts/manifests/B010-new-candidate-weight-access.json']
+          assert b010_node['closeout_rule']['require_all_outputs'] is True
+          assert b011_node['canonical_state'] == 'BLOCKED'
+          assert b011_node['external_effect_class'] == 'MODEL_WEIGHT_ACCESS'
+          assert b011_node['required_authority_id'] == 'B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED'
+
+          tasks = Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text()
+          assert '- [x] **B010 Freeze exact new-candidate qualification/access envelope.**' in tasks
+          assert 'Canonical implementation: PR #65 / final head `2047a3aa8b7063736a490d00d1fe10709aba23e2` / merge `215d52f4de772639c5e64193ff48deaafb6eb2d7`.' in tasks
+
+          evidence = Path('evidence/mstr-000b/B010-weight-access-preflight.md').read_text()
+          required = [
+              '**Task:** `B010`',
+              '**State:** COMPLETE_CANONICAL',
+              '**Implementation PR:** `#65`',
+              '**Final implementation head:** `2047a3aa8b7063736a490d00d1fe10709aba23e2`',
+              '**Canonical implementation merge:** `215d52f4de772639c5e64193ff48deaafb6eb2d7`',
+              'ENTRY_GATE_TASK = B010',
+              'ENTRY_GATE_CANONICAL_MAIN = e3ee155a7e0ed491984908998546900e594bda9a',
+              'ENTRY_GATE_RUN = 33161954193',
+              'ENTRY_GATE_JOB = 98818272943',
+              'ENTRY_GATE_ELIGIBLE = true',
+              'ENTRY_GATE_DRIFT = clean',
+              'MODEL_WEIGHT_ACCESS = NONE',
+              'MODEL_EXECUTION = NONE',
+              'TRAINING_EXECUTION = NONE',
+          ]
+          assert all(item in evidence for item in required)
+          print('B010_CLOSEOUT_SEMANTICS_AUTHORITY=PASS')
+          PY
+
+      - name: Run exact-head frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/contract/test_b010_new_candidate_weight_access.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check "$EXPECTED_MAIN...$CLOSEOUT_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B010_CLOSEOUT_EXACT_HEAD_GATES=PASS'
+
+      - name: Restore live truth and final ref recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$CLOSEOUT_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$CLOSEOUT_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B010_CLOSEOUT_EXACT_HEAD_QUALIFICATION=PASS'
