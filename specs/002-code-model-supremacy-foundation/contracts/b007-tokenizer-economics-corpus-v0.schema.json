@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mstr.local/specs/002-code-model-supremacy-foundation/contracts/b007-tokenizer-economics-corpus-v0.schema.json",
+  "title": "B007 Tokenizer Economics Corpus v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format_version", "corpus_id", "encoding", "newline", "source_class", "external_source_content", "claim_scope", "entries"],
+  "properties": {
+    "format_version": {"const": "mstr.tokenizer-economics-corpus.v0"},
+    "corpus_id": {"const": "B007-tokenizer-economics-v0"},
+    "encoding": {"const": "UTF-8"},
+    "newline": {"const": "LF"},
+    "source_class": {"const": "REPOSITORY_AUTHORED_SYNTHETIC_FIXTURE"},
+    "external_source_content": {"const": false},
+    "claim_scope": {"const": "DETERMINISTIC_STRATIFIED_V0_FIXTURE_NOT_A_POPULATION_REPRESENTATIVE_SAMPLE"},
+    "entries": {
+      "type": "array",
+      "minItems": 34,
+      "maxItems": 34,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fixture_id", "category", "profile", "filename", "byte_count", "sha256", "content_utf8"],
+        "properties": {
+          "fixture_id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+          "category": {"enum": ["python", "typescript", "javascript", "rust", "go", "java", "c", "cpp", "sql", "shell", "json", "yaml", "toml", "diff", "stack_trace", "file_paths", "tool_json"]},
+          "profile": {"enum": ["baseline", "adversarial"]},
+          "filename": {"type": "string", "minLength": 1},
+          "byte_count": {"type": "integer", "minimum": 1},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "content_utf8": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}
