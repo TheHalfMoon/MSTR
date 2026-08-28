@@ -1,0 +1,41 @@
+name: Capture B017 lint diagnostic artifact
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e0d4a64929376f91a7aef502abedc2bc4645afbc
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e '.[dev]'
+      - name: Capture tool and lint output
+        shell: bash
+        run: |
+          set +e
+          {
+            echo '=== python ==='
+            python --version
+            echo '=== ruff ==='
+            ruff --version
+            echo '=== pip freeze ==='
+            python -m pip freeze
+            echo '=== ruff check src tests ==='
+            ruff check src tests --output-format=concise
+            rc=$?
+            echo "RUFF_EXIT_CODE=$rc"
+          } > b017-lint-diagnostic.txt 2>&1
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: b017-lint-diagnostic
+          path: b017-lint-diagnostic.txt
+          if-no-files-found: error
