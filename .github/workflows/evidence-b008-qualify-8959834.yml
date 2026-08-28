@@ -1,0 +1,219 @@
+name: Qualify exact B008 implementation head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 7f2fe43797db4b94103ca07c172de5672806f624
+      EXPECTED_HEAD: 895983470f72128ad698023b3578553ed1cfe7c4
+      TARGET_BRANCH: feat/000b-b008-tokenizer-economics
+      CORPUS_SHA256: 425456fa39ae5dc67214b4871b1ac948c63bf9f0ae72a1407a5908d4a5c9e1d6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 895983470f72128ad698023b3578553ed1cfe7c4
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Guard exact identities and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          git branch -f main "$EXPECTED_MAIN"
+          expected=$(printf '%s\n' \
+            benchmarks/tokenizer_economics/b008_measure.py \
+            evidence/mstr-000b/B008-tokenizer-economics.md \
+            tests/contract/test_b008_tokenizer_economics_results.py \
+            artifacts/results/tokenizer/B008/granite-4.1-3b.json \
+            artifacts/results/tokenizer/B008/mellum-4b.json \
+            artifacts/results/tokenizer/B008/ministral-3-3b.json \
+            artifacts/results/tokenizer/B008/qwen2.5-coder-1.5b.json \
+            artifacts/results/tokenizer/B008/qwen3-4b.json \
+            artifacts/results/tokenizer/B008/qwen3.5-0.8b-control.json \
+            artifacts/results/tokenizer/B008/qwen3.5-2b.json \
+            artifacts/results/tokenizer/B008/qwen3.5-4b.json \
+            artifacts/results/tokenizer/B008/smollm3-3b.json \
+            artifacts/results/tokenizer/B008/yi-coder-1.5b.json | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | wc -l)" -eq 13
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          if git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | grep -Ei '\.(safetensors|bin|pt|pth|gguf|ckpt|onnx)$|(^|/)tokenizer\.json$'; then
+            echo 'Forbidden model/tokenizer artifact committed' >&2
+            exit 1
+          fi
+          echo 'B008_EXACT_SCOPE=PASS'
+
+      - name: Verify evidence, candidate derivation, results, and source boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import ast
+          import hashlib
+          import json
+          import re
+          from pathlib import Path
+
+          expected_head = "895983470f72128ad698023b3578553ed1cfe7c4"
+          expected_main = "7f2fe43797db4b94103ca07c172de5672806f624"
+          corpus_sha = "425456fa39ae5dc67214b4871b1ac948c63bf9f0ae72a1407a5908d4a5c9e1d6"
+          result_dir = Path("artifacts/results/tokenizer/B008")
+          evidence_path = Path("evidence/mstr-000b/B008-tokenizer-economics.md")
+          source_path = Path("benchmarks/tokenizer_economics/b008_measure.py")
+          manifest_path = Path("benchmarks/manifests/B007-tokenizer-economics.json")
+          corpus_path = Path("benchmarks/fixtures/tokenizer-economics/B007-corpus.json")
+
+          evidence = evidence_path.read_text(encoding="utf-8")
+          assert not any(line != line.rstrip() for line in evidence.splitlines())
+          required_evidence = [
+              "**Task:** `B008`",
+              "**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT",
+              f"**Canonical entry main:** `{expected_main}`",
+              "ENTRY_GATE_RUN = 33151438249",
+              "ENTRY_GATE_JOB = 98784106816",
+              "TOKENIZER_JSON_LOADABILITY_RUN = 33151738043",
+              "TOKENIZER_JSON_LOADABILITY_JOB = 98785061204",
+              "MEASUREMENT_RUN = 33153206993",
+              "REMOTE_FILE_PER_CANDIDATE = tokenizer.json only",
+              "MODEL_INFERENCE = NONE",
+              "GATED_TERMS_ACCEPTANCE = NONE",
+              "PAID_COMPUTE = NONE",
+              "FOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO",
+          ]
+          for marker in required_evidence:
+              assert marker in evidence, marker
+
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          corpus_raw = corpus_path.read_bytes()
+          corpus = json.loads(corpus_raw)
+          assert hashlib.sha256(corpus_raw).hexdigest() == corpus_sha
+          assert manifest["corpus"]["fixture_sha256"] == corpus_sha
+          assert manifest["corpus"]["decoded_content_bytes"] == 3605
+          assert manifest["corpus"]["entry_count"] == 34
+          required_categories = manifest["corpus"]["required_categories"]
+          assert len(required_categories) == 17
+
+          candidates = {}
+          for path in sorted(Path("artifacts/candidates").glob("*.json")):
+              candidate = json.loads(path.read_text(encoding="utf-8"))
+              rights = candidate.get("rights", {})
+              if candidate.get("status") != "static_qualified":
+                  continue
+              if rights.get("decision") != "pass_permissive":
+                  continue
+              if rights.get("account_gate_required") is not False:
+                  continue
+              if rights.get("clickthrough_gate_required") is not False:
+                  continue
+              candidates[candidate["candidate_id"]] = candidate
+          assert len(candidates) == 10, sorted(candidates)
+
+          results = sorted(result_dir.glob("*.json"))
+          assert len(results) == 10
+          assert {path.stem for path in results} == set(candidates)
+          artifact_hashes = set()
+          for path in results:
+              result = json.loads(path.read_text(encoding="utf-8"))
+              cid = path.stem
+              candidate = candidates[cid]
+              assert result["candidate_id"] == cid
+              assert result["tokenizer_id"] == candidate["upstream_id"]
+              assert result["tokenizer_revision"] == candidate["upstream_revision"]
+              assert result["protocol_id"] == "MSTR-TOKENIZER-ECONOMICS-v0"
+              assert result["corpus_fixture_sha256"] == corpus_sha
+              inventory = result["loaded_tokenizer_artifact_sha256_inventory"]
+              assert len(inventory) == 1
+              artifact = inventory[0]
+              assert artifact["path"] == "tokenizer.json"
+              assert isinstance(artifact["bytes"], int) and artifact["bytes"] > 0
+              assert re.fullmatch(r"[0-9a-f]{64}", artifact["sha256"])
+              artifact_hashes.add((cid, artifact["sha256"]))
+              acquisition = result["acquisition_source_and_provenance"]
+              assert acquisition["repository"] == candidate["upstream_id"]
+              assert acquisition["revision"] == candidate["upstream_revision"]
+              assert acquisition["filename"] == "tokenizer.json"
+              assert acquisition["authenticated"] is False
+              assert acquisition["requested_remote_files"] == ["tokenizer.json"]
+              assert result["measurement_failures"] == []
+              assert len(result["per_entry_metrics"]) == 34
+              assert len(result["per_category_metrics"]) == 17
+              assert {row["category"] for row in result["per_category_metrics"]} == set(required_categories)
+              agg = result["aggregate_metrics"]
+              assert agg["total_bytes"] == 3605
+              assert agg["total_characters"] > 0
+              assert agg["total_tokens"] > 0
+              assert agg["weighted_bytes_per_token"] > 0
+              assert agg["weighted_characters_per_token"] > 0
+              assert agg["estimated_effective_payload_bytes_at_8192_tokens"] > 0
+              totals = agg["numerator_denominator_totals"]
+              assert totals["bytes"] == agg["total_bytes"]
+              assert totals["characters"] == agg["total_characters"]
+              assert totals["tokens"] == agg["total_tokens"]
+              settings = result["effective_runtime_settings"]
+              assert settings["add_special_tokens"] is False
+              assert settings["bos_injection"] is False
+              assert settings["eos_injection"] is False
+              assert settings["chat_template"] == "PROHIBITED_AND_ASSERTED_UNUSED"
+              assert settings["padding"] == "NONE"
+              assert settings["truncation"] == "NONE"
+          assert len(artifact_hashes) == 10
+
+          source = source_path.read_text(encoding="utf-8")
+          ast.parse(source)
+          assert 'filename="tokenizer.json"' in source
+          assert "Tokenizer.from_file" in source
+          assert "AutoTokenizer" not in source
+          assert "snapshot_download" not in source
+          assert "AutoModel" not in source
+          assert "trust_remote_code=True" not in source
+          assert "safetensors" not in source.lower()
+          assert re.search(r"hf_hub_download\(.*?filename=\"tokenizer\.json\"", source, re.S)
+          assert "shutil.rmtree(work, ignore_errors=True)" in source
+
+          forbidden = list(Path(".").rglob("tokenizer.json"))
+          assert not forbidden, forbidden
+          print("B008_EVIDENCE_AND_RESULTS=PASS")
+          print(f"B008_CANDIDATES={len(candidates)}")
+          print(f"B008_RESULTS={len(results)}")
+          print(f"B008_EXPECTED_HEAD={expected_head}")
+          PY
+
+      - name: Run frozen qualification gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_b008_tokenizer_economics_results.py
+          pytest -q
+          ruff check src tests benchmarks/tokenizer_economics/b008_measure.py
+          mypy src
+          python -m mstr_qualify validate
+          echo 'B008_QUALIFICATION_GATES=PASS'
+
+      - name: Recheck live refs after qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo "B008_EXACT_HEAD_QUALIFIED=$EXPECTED_HEAD"
+          echo 'B008_EXACT_HEAD_QUALIFICATION=PASS'
