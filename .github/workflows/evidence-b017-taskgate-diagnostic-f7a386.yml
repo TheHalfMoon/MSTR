@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: f7a386214a1346b75dd3311390aa1e19bf354bb1
+          ref: main
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -24,6 +24,9 @@ jobs:
           {
             echo '=== HEAD ==='
             git rev-parse HEAD
+            echo '=== LOCAL MAIN REF ==='
+            git show-ref refs/heads/main
+            echo "MAIN_REF_RC=$?"
             echo '=== B017 ==='
             python -m mstr_qualify task eligible B017
             echo "B017_RC=$?"
