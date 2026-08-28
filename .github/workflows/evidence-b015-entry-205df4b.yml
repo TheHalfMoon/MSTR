@@ -1,0 +1,74 @@
+name: Verify B015 exact-main entry
+
+on:
+  push:
+    branches:
+      - evidence/b015-entry-205df4b
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 205df4be5f2e25bd28b697816eac3ea6ce361aed
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Bind exact canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "205df4be5f2e25bd28b697816eac3ea6ce361aed"
+          test "$(git rev-parse refs/remotes/origin/main)" = "205df4be5f2e25bd28b697816eac3ea6ce361aed"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "205df4be5f2e25bd28b697816eac3ea6ce361aed"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+      - name: Evaluate B015 eligibility and drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B015 > /tmp/b015.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then
+            echo 'B011 unexpectedly eligible' >&2
+            exit 1
+          fi
+          python - <<'PY'
+          import json
+          b15 = json.load(open('/tmp/b015.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          b11 = json.load(open('/tmp/b011.json'))
+          assert b15['task_id'] == 'B015'
+          assert b15['canonical_main'] == '205df4be5f2e25bd28b697816eac3ea6ce361aed'
+          assert b15['eligible'] is True
+          assert b15['reasons'] == []
+          assert b15['authority_result']['required'] is False
+          assert b15['authority_result']['satisfied'] is True
+          assert b15['state_consistency_result']['observed_state'] == 'PENDING'
+          pred = next(x for x in b15['prerequisite_results'] if x['task_id'] == 'B014')
+          assert pred['observed_state'] == 'COMPLETE_CANONICAL'
+          assert pred['evidence_present'] is True
+          assert pred['satisfied'] is True
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          print('B015_ENTRY_ELIGIBLE=true')
+          print('B015_EXTERNAL_EFFECT=NONE')
+          print('B015_DRIFT=clean')
+          print('B011_REMAINS_BLOCKED=true')
+          PY
+      - name: Final immutable main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "205df4be5f2e25bd28b697816eac3ea6ce361aed"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "205df4be5f2e25bd28b697816eac3ea6ce361aed"
