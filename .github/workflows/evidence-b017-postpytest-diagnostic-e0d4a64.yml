@@ -1,0 +1,60 @@
+name: Diagnose B017 post-pytest mutation
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e0d4a64929376f91a7aef502abedc2bc4645afbc
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e '.[dev]'
+      - name: Baseline Ruff
+        run: ruff check src tests
+      - name: Full pytest
+        run: pytest -q
+      - name: Tracked src mutation after pytest
+        continue-on-error: true
+        shell: bash
+        run: test -z "$(git diff --name-only -- src)"
+      - name: Tracked tests mutation after pytest
+        continue-on-error: true
+        shell: bash
+        run: test -z "$(git diff --name-only -- tests)"
+      - name: Untracked src files after pytest
+        continue-on-error: true
+        shell: bash
+        run: test -z "$(git ls-files --others --exclude-standard -- src)"
+      - name: Untracked tests files after pytest
+        continue-on-error: true
+        shell: bash
+        run: test -z "$(git ls-files --others --exclude-standard -- tests)"
+      - name: Ruff src after pytest
+        continue-on-error: true
+        run: ruff check src
+      - name: Ruff tests after pytest
+        continue-on-error: true
+        run: ruff check tests
+      - name: Ruff E after pytest
+        continue-on-error: true
+        run: ruff check src tests --select E
+      - name: Ruff F after pytest
+        continue-on-error: true
+        run: ruff check src tests --select F
+      - name: Ruff I after pytest
+        continue-on-error: true
+        run: ruff check src tests --select I
+      - name: Ruff UP after pytest
+        continue-on-error: true
+        run: ruff check src tests --select UP
+      - name: Ruff B after pytest
+        continue-on-error: true
+        run: ruff check src tests --select B
