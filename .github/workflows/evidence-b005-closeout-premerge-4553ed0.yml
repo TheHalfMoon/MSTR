@@ -1,0 +1,132 @@
+name: Premerge qualify B005 closeout 4553ed0
+
+on:
+  push:
+    branches: [evidence/b005-closeout-premerge-4553ed0]
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: 1e096f4d1f270b2803da6a6306e9e7f0cf8fb81b
+  EXPECTED_HEAD: 4553ed0a142ce2634bc42182b5380b9ac96b2ba5
+  TARGET_BRANCH: docs/000b-b005-canonicalize
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  premerge:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          path: canonical
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/000b-b005-canonicalize
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify exact immutable entry identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C canonical fetch origin main "$TARGET_BRANCH"
+          git -C candidate fetch origin main "$TARGET_BRANCH"
+          test "$(git -C canonical rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git -C canonical rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git -C canonical rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git -C canonical rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git -C candidate rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test -z "$(git -C canonical status --short)"
+          test -z "$(git -C candidate status --short)"
+          echo "PREMERGE_IDENTITIES=PASS"
+      - name: Install canonical tooling
+        run: python -m pip install -e './canonical[dev]'
+      - name: Re-prove production B005 entry eligibility
+        working-directory: canonical
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify task eligible B005 > /tmp/b005.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          task=json.load(open('/tmp/b005.json',encoding='utf-8'))
+          drift=json.load(open('/tmp/drift.json',encoding='utf-8'))
+          assert task['task_id']=='B005'
+          assert task['eligible'] is True
+          assert task['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert task['state_consistency_result']['observed_state']=='PENDING'
+          assert drift['status']=='clean' and drift['findings']==[]
+          print('B005_PREMERGE_PRODUCTION_GATE=PASS')
+          PY
+      - name: Verify exact five-file closeout diff and manifest gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C candidate diff --check "$EXPECTED_MAIN" "$EXPECTED_HEAD"
+          python - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          expected={
+              'configs/task-gate/mstr-000b.json',
+              'evidence/mstr-000b/B005-code-backbone-rescan.md',
+              'specs/002-code-model-supremacy-foundation/tasks.md',
+              'tests/contract/test_task_gate.py',
+              'tests/integration/test_task_gate_cli.py',
+          }
+          changed=set(subprocess.run(
+              ['git','-C','candidate','diff','--name-only',os.environ['EXPECTED_MAIN'],os.environ['EXPECTED_HEAD']],
+              check=True,capture_output=True,text=True,
+          ).stdout.splitlines())
+          assert changed==expected,(changed,expected)
+          c=json.loads(Path('candidate/configs/task-gate/mstr-000b.json').read_text(encoding='utf-8'))
+          b005=c['tasks']['B005']; b006=c['tasks']['B006']
+          assert b005['canonical_state']=='COMPLETE_CANONICAL'
+          assert b005['closeout_rule']['require_all_outputs'] is True
+          assert b005['outputs']==['artifacts/manifests/B005-code-backbone-discovery.json']
+          assert Path('candidate/artifacts/manifests/B005-code-backbone-discovery.json').is_file()
+          assert b006['canonical_state']=='PENDING'
+          assert b006['prerequisites']==['B005']
+          tasks=Path('candidate/specs/002-code-model-supremacy-foundation/tasks.md').read_text(encoding='utf-8')
+          assert '- [x] **B005 Run mission-aligned compact backbone metadata rescan.**' in tasks
+          assert '- [ ] **B006 Create/reconcile candidate records for newly relevant code-specialized models.**' in tasks
+          print('B005_PREMERGE_SCOPE_AND_GATE=PASS')
+          PY
+      - name: Install exact candidate tooling
+        run: python -m pip install -e './candidate[dev]'
+      - name: Pytest exact candidate
+        working-directory: candidate
+        run: pytest -q
+      - name: Ruff exact candidate
+        working-directory: candidate
+        run: ruff check src tests
+      - name: Mypy exact candidate
+        working-directory: candidate
+        run: mypy
+      - name: Validate exact candidate
+        working-directory: candidate
+        run: python -m mstr_qualify validate
+      - name: Re-verify immutable identities after qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C canonical fetch origin main "$TARGET_BRANCH"
+          git -C candidate fetch origin main "$TARGET_BRANCH"
+          test "$(git -C canonical rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git -C canonical rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git -C canonical rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git -C candidate rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test -z "$(git -C canonical status --short)"
+          test -z "$(git -C candidate status --short)"
+          echo "B005_PREMERGE_IMMUTABLE_FINAL=PASS"
