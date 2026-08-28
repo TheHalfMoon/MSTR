@@ -1,0 +1,87 @@
+name: Diagnose B010 closeout simulation
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 215d52f4de772639c5e64193ff48deaafb6eb2d7
+      SOURCE_HEAD: b0e4571056cffd34cd34fb4db4e7f16c7b7f7d8c
+      SOURCE_WORKFLOW: .github/workflows/evidence-b010-closeout-build-215d52f.yml
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 215d52f4de772639c5e64193ff48deaafb6eb2d7
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact live main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main evidence/b010-closeout-build-215d52f
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/evidence/b010-closeout-build-215d52f)" = "$SOURCE_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+      - name: Recreate exact local closeout candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$SOURCE_HEAD:$SOURCE_WORKFLOW" > /tmp/source.yml
+          python - <<'PY'
+          from pathlib import Path
+          source = Path('/tmp/source.yml').read_text(encoding='utf-8')
+          marker = '      - name: Materialize exact five-file closeout\n'
+          start = source.index(marker)
+          run_marker = '        run: |\n'
+          body_start = source.index(run_marker, start) + len(run_marker)
+          next_step = source.index('\n      - name: Simulate closeout candidate as canonical main and run frozen gates', body_start)
+          raw = source[body_start:next_step]
+          lines = raw.splitlines()
+          body = [line[10:] if line.startswith('          ') else line for line in lines]
+          Path('/tmp/materialize.sh').write_text('\n'.join(body) + '\n', encoding='utf-8')
+          PY
+          bash -n /tmp/materialize.sh
+          export TARGET_BRANCH=docs/000b-b010-canonicalize
+          export IMPLEMENTATION_HEAD=2047a3aa8b7063736a490d00d1fe10709aba23e2
+          export IMPLEMENTATION_MERGE=215d52f4de772639c5e64193ff48deaafb6eb2d7
+          bash /tmp/materialize.sh
+          candidate=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          echo "DIAGNOSTIC_CANDIDATE=$candidate"
+      - name: Print exact B010 B011 and drift diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate=$(git rev-parse HEAD)
+          git branch -f main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          python -m mstr_qualify task eligible B010 > /tmp/b010.json || true
+          python -m mstr_qualify task eligible B011 > /tmp/b011.json || true
+          python -m mstr_qualify task drift > /tmp/drift.json
+          echo '--- B010 ---'
+          cat /tmp/b010.json
+          echo '--- B011 ---'
+          cat /tmp/b011.json
+          echo '--- DRIFT ---'
+          cat /tmp/drift.json
+          python - <<'PY'
+          import json
+          b10 = json.load(open('/tmp/b010.json'))
+          b11 = json.load(open('/tmp/b011.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          assert b10['eligible'] is False
+          assert b10['state_consistency_result']['observed_state'] == 'COMPLETE_CANONICAL'
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B010_CLOSEOUT_DIAGNOSTIC_BASELINE=PASS')
+          PY
