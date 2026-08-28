@@ -1,10 +1,10 @@
 # B015 — Programming Language and Tooling Target Policy
 
-**Task:** `B015`  
-**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT  
-**Policy:** `MSTR-LANGUAGE-TARGET-POLICY-v0`  
-**Canonical main at entry:** `205df4be5f2e25bd28b697816eac3ea6ce361aed`  
-**Entry gate:** run `33166914253` / job `98834411321` / `eligible=true` / drift clean  
+**Task:** `B015`
+**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT
+**Policy:** `MSTR-LANGUAGE-TARGET-POLICY-v0`
+**Canonical main at entry:** `205df4be5f2e25bd28b697816eac3ea6ce361aed`
+**Entry gate:** run `33166914253` / job `98834411321` / `eligible=true` / drift clean
 **External effect:** `NO_EXTERNAL_EFFECT`
 
 ## Decision
