@@ -1,0 +1,94 @@
+name: Verify B008 implementation merge on canonical main
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 07762204ab126c0fccf9ca55a8b572bd6368d8bc
+      IMPLEMENTATION_HEAD: 895983470f72128ad698023b3578553ed1cfe7c4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 07762204ab126c0fccf9ca55a8b572bd6368d8bc
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify exact implementation merge identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          parents=$(git show -s --format='%P' "$EXPECTED_MAIN")
+          test "$parents" = "7f2fe43797db4b94103ca07c172de5672806f624 $IMPLEMENTATION_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B008_IMPLEMENTATION_MERGE_IDENTITY=PASS'
+
+      - name: Prove pre-closeout production truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B008 > /tmp/b008.json
+          if python -m mstr_qualify task eligible B009 > /tmp/b009.json; then
+            echo 'B009 unexpectedly eligible before B008 closeout' >&2
+            exit 1
+          fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          import os
+
+          main = os.environ['EXPECTED_MAIN']
+          b008 = json.load(open('/tmp/b008.json'))
+          b009 = json.load(open('/tmp/b009.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          assert b008['canonical_main'] == main
+          assert b008['eligible'] is True and b008['reasons'] == []
+          assert b008['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b009['canonical_main'] == main
+          assert b009['eligible'] is False
+          assert b009['state_consistency_result']['observed_state'] == 'PENDING'
+          assert 'prerequisite.unsatisfied:B008' in b009['reasons']
+          assert drift['canonical_main'] == main
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B008_PRE_CLOSEOUT_ELIGIBLE=true')
+          print('B009_PRE_CLOSEOUT_ELIGIBLE=false')
+          print('B008_PRE_CLOSEOUT_DRIFT=clean')
+          PY
+
+      - name: Re-verify merged B008 artifacts and frozen gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find artifacts/results/tokenizer/B008 -maxdepth 1 -name '*.json' | wc -l)" -eq 10
+          test ! -e tokenizer.json
+          pytest -q tests/contract/test_b008_tokenizer_economics_results.py
+          pytest -q
+          ruff check src tests benchmarks/tokenizer_economics/b008_measure.py
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check
+          echo 'B008_POST_IMPLEMENTATION_GATES=PASS'
+
+      - name: Recheck canonical main after verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo "B008_POST_IMPLEMENTATION_MAIN=$EXPECTED_MAIN"
+          echo 'B008_POST_IMPLEMENTATION_VERIFY=PASS'
