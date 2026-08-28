@@ -1,0 +1,190 @@
+name: Build B008 tokenizer economics results v6
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 7f2fe43797db4b94103ca07c172de5672806f624
+      TARGET_BRANCH: feat/000b-b008-tokenizer-economics
+      SOURCE_BRANCH: evidence/b008-measure-build5-7f2fe43
+      SOURCE_HEAD: d63954c1e092724c77dece89507e58c4859b1aee
+      ENTRY_RUN: "33151438249"
+      ENTRY_JOB: "98784106816"
+      LOADABILITY_RUN: "33151738043"
+      LOADABILITY_JOB: "98785061204"
+      HF_HUB_DISABLE_IMPLICIT_TOKEN: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/000b-b008-tokenizer-economics
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Guard exact B008 material entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH" "$SOURCE_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$SOURCE_BRANCH)" = "$SOURCE_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          git branch -f main "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]' 'huggingface_hub==0.34.4' 'tokenizers==0.22.0'
+          python -m mstr_qualify task eligible B008 > /tmp/b008.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          import os
+
+          entry = json.load(open('/tmp/b008.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          expected = os.environ['EXPECTED_MAIN']
+          assert entry['canonical_main'] == expected
+          assert entry['eligible'] is True and entry['reasons'] == []
+          assert entry['state_consistency_result']['observed_state'] == 'PENDING'
+          assert drift['canonical_main'] == expected
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B008_MEASUREMENT_ENTRY=PASS')
+          PY
+
+      - name: Reuse validated v5 materialization and remove evidence trailing whitespace
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$SOURCE_HEAD:.github/workflows/evidence-b008-measure-build5-7f2fe43.yml" > /tmp/v5.yml
+          python - <<'PY'
+          from pathlib import Path
+
+          lines = Path('/tmp/v5.yml').read_text().splitlines()
+          target = '      - name: Materialize and repair Python source before acquisition'
+          start = lines.index(target)
+          run_idx = next(i for i in range(start + 1, len(lines)) if lines[i] == '        run: |')
+          body = []
+          for line in lines[run_idx + 1:]:
+              if line.startswith('      - name: '):
+                  break
+              if line.startswith('          '):
+                  body.append(line[10:])
+              elif line == '':
+                  body.append('')
+              else:
+                  raise AssertionError(line)
+          Path('/tmp/v5-materialize.sh').write_text('\n'.join(body) + '\n')
+          PY
+          bash /tmp/v5-materialize.sh
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('benchmarks/tokenizer_economics/b008_measure.py')
+          text = path.read_text()
+          old_task = '"**Task:** `B008`  ",'
+          old_state = '"**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT  ",'
+          assert text.count(old_task) == 1
+          assert text.count(old_state) == 1
+          text = text.replace(old_task, '"**Task:** `B008`",', 1)
+          text = text.replace(
+              old_state,
+              '"**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT",',
+              1,
+          )
+          path.write_text(text)
+          PY
+          ruff format benchmarks/tokenizer_economics/b008_measure.py tests/contract/test_b008_tokenizer_economics_results.py
+          python -m py_compile benchmarks/tokenizer_economics/b008_measure.py tests/contract/test_b008_tokenizer_economics_results.py
+          ruff check benchmarks/tokenizer_economics/b008_measure.py tests/contract/test_b008_tokenizer_economics_results.py
+          git add -N benchmarks/tokenizer_economics/b008_measure.py tests/contract/test_b008_tokenizer_economics_results.py
+          git diff --check
+          git reset -- benchmarks/tokenizer_economics/b008_measure.py tests/contract/test_b008_tokenizer_economics_results.py
+          echo 'B008_SOURCE_AND_WHITESPACE_PREFLIGHT=PASS'
+
+      - name: Execute pinned tokenizer-only B008 measurement
+        shell: bash
+        run: |
+          set -euo pipefail
+          python benchmarks/tokenizer_economics/b008_measure.py \
+            --output-dir artifacts/results/tokenizer/B008 \
+            --evidence evidence/mstr-000b/B008-tokenizer-economics.md
+          test "$(find artifacts/results/tokenizer/B008 -maxdepth 1 -name '*.json' | wc -l)" -eq 10
+          test ! -e /tmp/b008-tokenizer-measurement
+          ! grep -nE '[[:blank:]]+$' evidence/mstr-000b/B008-tokenizer-economics.md
+          echo 'B008_MEASUREMENT=PASS'
+
+      - name: Validate exact implementation scope and frozen gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(printf '%s\n' \
+            benchmarks/tokenizer_economics/b008_measure.py \
+            evidence/mstr-000b/B008-tokenizer-economics.md \
+            tests/contract/test_b008_tokenizer_economics_results.py \
+            artifacts/results/tokenizer/B008/granite-4.1-3b.json \
+            artifacts/results/tokenizer/B008/mellum-4b.json \
+            artifacts/results/tokenizer/B008/ministral-3-3b.json \
+            artifacts/results/tokenizer/B008/qwen2.5-coder-1.5b.json \
+            artifacts/results/tokenizer/B008/qwen3-4b.json \
+            artifacts/results/tokenizer/B008/qwen3.5-0.8b-control.json \
+            artifacts/results/tokenizer/B008/qwen3.5-2b.json \
+            artifacts/results/tokenizer/B008/qwen3.5-4b.json \
+            artifacts/results/tokenizer/B008/smollm3-3b.json \
+            artifacts/results/tokenizer/B008/yi-coder-1.5b.json | sort)
+          actual=$(git status --porcelain=v1 --untracked-files=all | sed 's/^...//' | sort)
+          test "$actual" = "$expected"
+          test "$(find . -name 'tokenizer.json' -not -path './.git/*' | wc -l)" -eq 0
+          git add -N benchmarks/tokenizer_economics/b008_measure.py \
+            evidence/mstr-000b/B008-tokenizer-economics.md \
+            tests/contract/test_b008_tokenizer_economics_results.py \
+            artifacts/results/tokenizer/B008/*.json
+          git diff --check
+          git reset -- benchmarks/tokenizer_economics/b008_measure.py \
+            evidence/mstr-000b/B008-tokenizer-economics.md \
+            tests/contract/test_b008_tokenizer_economics_results.py \
+            artifacts/results/tokenizer/B008/*.json
+          pytest -q tests/contract/test_b008_tokenizer_economics_results.py | tee /tmp/b008-targeted.txt
+          pytest -q | tee /tmp/full.txt
+          ruff check src tests benchmarks/tokenizer_economics/b008_measure.py
+          mypy src
+          python -m mstr_qualify validate
+          echo 'B008_FROZEN_GATES=PASS'
+
+      - name: Commit and guarded fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add benchmarks/tokenizer_economics/b008_measure.py \
+            evidence/mstr-000b/B008-tokenizer-economics.md \
+            tests/contract/test_b008_tokenizer_economics_results.py \
+            artifacts/results/tokenizer/B008
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat(mstr-000b): measure B008 tokenizer economics'
+          final=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH" "$SOURCE_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$SOURCE_BRANCH)" = "$SOURCE_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          git push origin "HEAD:$TARGET_BRANCH"
+          echo "B008_IMPLEMENTATION_HEAD=$final"
+          echo "B008_MEASUREMENT_RUN=$GITHUB_RUN_ID"
+          echo 'REMOTE_FILE_PER_CANDIDATE=tokenizer.json-only'
+          echo 'MODEL_INFERENCE=NONE'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'GATED_TERMS_ACCEPTANCE=NONE'
+          echo 'PAID_COMPUTE=NONE'
+          echo 'FOUNDER_MACHINE_LARGE_ARTIFACTS=ZERO'
