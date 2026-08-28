@@ -178,13 +178,27 @@ def test_b009_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b010_is_eligible_after_b009_closeout() -> None:
+def test_b010_is_terminal_after_canonical_closeout() -> None:
     result = evaluate_task_snapshot("B010", canonical_main=_CANONICAL_MAIN)
 
-    assert result["eligible"] is True
-    assert result["reasons"] == []
-    assert result["prerequisite_results"][0]["task_id"] == "B009"
-    assert result["prerequisite_results"][0]["satisfied"] is True
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert "task.already_terminal" in result["reasons"]
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b011_remains_blocked_after_b010_closeout() -> None:
+    result = evaluate_task_snapshot("B011", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "BLOCKED"
+    assert "task.blocked" in result["reasons"]
+    assert "task.unresolved_binding" in result["reasons"]
+    predecessor = next(row for row in result["prerequisite_results"] if row["task_id"] == "B010")
+    assert predecessor["satisfied"] is True
+    assert result["authority_result"]["required"] is True
+    assert result["authority_result"]["satisfied"] is False
     validate_instance("mstr-task-eligibility-v0", result)
 
 def test_b006_fails_closed_when_b005_discovery_manifest_is_missing(

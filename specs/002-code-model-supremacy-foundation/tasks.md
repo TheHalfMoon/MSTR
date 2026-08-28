@@ -89,9 +89,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: `artifacts/decisions/B009-training-runtime-compatibility.json`, `evidence/mstr-000b/B009-compatibility.md`.
   Canonical implementation: PR #63 / final head `88ebc70e12dcc117ba99bb10bb687eed1a220a7b` / merge `4fdb6966c085819e69823136fb5e2cd8c56ba58f`.
 
-- [ ] **B010 Freeze exact new-candidate qualification/access envelope.**  
+- [x] **B010 Freeze exact new-candidate qualification/access envelope.**
   Distinguish `qualification_candidates[]` from `new_weight_access_required_candidates[]`. For every newly relevant candidate, state whether equivalent qualification is required and whether that qualification can use already-authorized/already-available artifacts. For candidates requiring new access, pin exact revisions/files/hashes where available, network hosts, expected bytes, rights, executor, retention, cleanup and USD ceiling. If no newly relevant candidate survives far enough to require qualification, record `NO_NEW_CANDIDATES_REQUIRING_QUALIFICATION`.  
   Outputs: `artifacts/manifests/B010-new-candidate-weight-access.json`, `evidence/mstr-000b/B010-weight-access-preflight.md`.
+  Canonical implementation: PR #65 / final head `2047a3aa8b7063736a490d00d1fe10709aba23e2` / merge `215d52f4de772639c5e64193ff48deaafb6eb2d7`.
 
 - [ ] **B011 EXPLICIT NEW WEIGHT ACCESS GATE — acquire/verify only founder-authorized B010 access-required candidates.**  
   Prerequisites: B002 `COMPLETE_CANONICAL`, exact-main `eligible=true`, B010 canonical, and separate exact founder authorization when `new_weight_access_required_candidates[]` is non-empty. Use approved ephemeral runners; founder Mac and Git receive no binaries. Verify exact integrity and emit T024-compatible manifests. If the access-required list is empty, close B011 as `NOT_REQUIRED_NO_NEW_ACCESS` with evidence and perform no model-weight access. This status says nothing about whether B012 qualification is still required.  

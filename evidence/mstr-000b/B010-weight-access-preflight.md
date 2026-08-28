@@ -1,10 +1,27 @@
 # B010 — New-candidate qualification / weight-access preflight
 
 **Task:** `B010`
-**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT
+**State:** COMPLETE_CANONICAL
 **Canonical main at execution:** `e3ee155a7e0ed491984908998546900e594bda9a`
 **Manifest:** `artifacts/manifests/B010-new-candidate-weight-access.json`
 **Public metadata evidence:** run `33161954193` / job `98818272943`
+**Implementation PR:** `#65`
+**Final implementation head:** `2047a3aa8b7063736a490d00d1fe10709aba23e2`
+**Canonical implementation merge:** `215d52f4de772639c5e64193ff48deaafb6eb2d7`
+**Exact-head qualification:** run `33163285099` / job `98822614111`
+**Independent adversarial review:** run `33163317056` / job `98822713286`
+**Post-implementation verification:** run `33163418160` / job `98823047750`
+
+## Exact entry evidence
+
+```text
+ENTRY_GATE_TASK = B010
+ENTRY_GATE_CANONICAL_MAIN = e3ee155a7e0ed491984908998546900e594bda9a
+ENTRY_GATE_RUN = 33161954193
+ENTRY_GATE_JOB = 98818272943
+ENTRY_GATE_ELIGIBLE = true
+ENTRY_GATE_DRIFT = clean
+```
 
 ## Decision
 
@@ -71,4 +88,4 @@ PRODUCTION_RELEASE = NONE
 FOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO
 ```
 
-B010 freezes an access plan only. Because `new_weight_access_required_candidates[]` is non-empty, B011 requires separate exact founder authorization before any model-weight access. Continuation authority or completion of B010 is not that authorization.
+B010 freezes an access plan only. The `COMPLETE_CANONICAL` record is valid only when this closeout is present on canonical `main` and the required post-closeout exact-main verification has passed. Because `new_weight_access_required_candidates[]` is non-empty, B011 remains explicitly blocked and still requires separate exact founder authorization before any model-weight access. Continuation authority or completion of B010 is not that authorization.
