@@ -1,0 +1,155 @@
+name: Independent review B016 closeout head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 5ed34690dbc71db2359c927e96b511c32dffb2c4
+      EXPECTED_HEAD: 6fa15157f8e02ed71be3744b8c276cdc410765bd
+      TARGET_BRANCH: docs/000b-b016-canonicalize
+      IMPLEMENTATION_HEAD: 33eb53b7ae4c2fd43d639af9c6e67512fb883423
+      IMPLEMENTATION_MERGE: 5ed34690dbc71db2359c927e96b511c32dffb2c4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6fa15157f8e02ed71be3744b8c276cdc410765bd
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Independently bind immutable identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$IMPLEMENTATION_MERGE" = "$EXPECTED_MAIN"
+          parents=$(git show -s --format='%P' "$IMPLEMENTATION_MERGE")
+          test "$parents" = "2cd82ba78bcb886962a163013fa2861d5dd2b013 $IMPLEMENTATION_HEAD"
+          echo 'B016_CLOSEOUT_REVIEW_IDENTITIES=PASS'
+      - name: Review scope for semantic mutation or authority escalation
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B016-software-evolution.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_software_evolution_contract.py \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | wc -l)" -eq 6
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          for path in \
+            schemas/mstr-software-evolution-record-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-software-evolution-record-v0.schema.json \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/fixtures/schemas/valid/mstr-software-evolution-record-v0.json \
+            tests/fixtures/schemas/invalid/mstr-software-evolution-record-v0.json; do
+            git diff --quiet "$EXPECTED_MAIN" "$EXPECTED_HEAD" -- "$path"
+          done
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          base_catalog = json.loads(__import__('subprocess').check_output(
+              ['git','show','5ed34690dbc71db2359c927e96b511c32dffb2c4:configs/task-gate/mstr-000b.json'], text=True
+          ))
+          head_catalog = json.loads(Path('configs/task-gate/mstr-000b.json').read_text())
+          changed = []
+          for task_id in sorted(head_catalog['tasks']):
+              if head_catalog['tasks'][task_id] != base_catalog['tasks'][task_id]:
+                  changed.append(task_id)
+          assert changed == ['B016']
+          assert base_catalog['tasks']['B016']['canonical_state'] == 'PENDING'
+          assert head_catalog['tasks']['B016']['canonical_state'] == 'COMPLETE_CANONICAL'
+          b16 = dict(head_catalog['tasks']['B016'])
+          b16.pop('canonical_state')
+          old_b16 = dict(base_catalog['tasks']['B016'])
+          old_b16.pop('canonical_state')
+          assert b16 == old_b16
+          assert head_catalog['tasks']['B011'] == base_catalog['tasks']['B011']
+          assert head_catalog['tasks']['B017'] == base_catalog['tasks']['B017']
+
+          evidence = Path('evidence/mstr-000b/B016-software-evolution.md').read_text(encoding='utf-8')
+          assert '**State:** COMPLETE_CANONICAL' in evidence
+          assert '**Implementation PR:** #71' in evidence
+          assert '**Final implementation head:** `33eb53b7ae4c2fd43d639af9c6e67512fb883423`' in evidence
+          assert '**Canonical implementation merge:** `5ed34690dbc71db2359c927e96b511c32dffb2c4`' in evidence
+          assert 'ENTRY_GATE_CANONICAL_MAIN = 2cd82ba78bcb886962a163013fa2861d5dd2b013' in evidence
+          assert 'ENTRY_GATE_RUN = 33171129526' in evidence
+          assert 'ENTRY_GATE_JOB = 98848292231' in evidence
+          assert 'ENTRY_GATE_ELIGIBLE = true' in evidence
+          assert 'ENTRY_GATE_DRIFT = clean' in evidence
+          for marker in [
+              'MODEL_WEIGHT_ACCESS = NONE',
+              'MODEL_EXECUTION = NONE',
+              'LARGE_DATASET_INGESTION = NONE',
+              'PRIVATE_USER_DATA_INGESTION = NONE',
+              'PRODUCTION_TRACE_INGESTION = NONE',
+              'PAID_MODEL_API = NONE',
+              'PAID_COMPUTE = NONE',
+              'WEIGHT_CHANGING_TRAINING = NONE',
+              'LARGE_SCALE_RL = NONE',
+              'PRODUCTION_RELEASE = NONE',
+          ]:
+              assert marker in evidence
+          print('B016_CLOSEOUT_REVIEW_SCOPE=PASS')
+          PY
+      - name: Independently prove machine frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          if python -m mstr_qualify task eligible B016 > /tmp/b016.json; then exit 1; fi
+          python -m mstr_qualify task eligible B017 > /tmp/b017.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          b16=json.load(open('/tmp/b016.json')); b17=json.load(open('/tmp/b017.json')); b11=json.load(open('/tmp/b011.json')); drift=json.load(open('/tmp/drift.json'))
+          assert b16['eligible'] is False and 'task.already_terminal' in b16['reasons']
+          assert b16['state_consistency_result']['observed_state']=='COMPLETE_CANONICAL'
+          assert b17['eligible'] is True and b17['reasons']==[]
+          assert b17['state_consistency_result']['observed_state']=='PENDING'
+          assert b17['authority_result']['required'] is False
+          assert b11['eligible'] is False and b11['state_consistency_result']['observed_state']=='BLOCKED'
+          assert b11['authority_result']['required'] is True and b11['authority_result']['satisfied'] is False
+          assert drift['status']=='clean' and drift['findings']==[]
+          print('B016_CLOSEOUT_REVIEW_FRONTIER=PASS')
+          PY
+      - name: Independent regression review
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_software_evolution_contract.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          echo 'B016_CLOSEOUT_REVIEW_REGRESSION=PASS'
+      - name: Final immutable remote recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B016_CLOSEOUT_INDEPENDENT_REVIEW=PASS'
+          echo 'B017_NEXT_ELIGIBLE=PASS'
+          echo 'B011_REMAINS_BLOCKED=PASS'
