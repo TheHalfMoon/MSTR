@@ -1,0 +1,50 @@
+{
+  "schema_version": "mstr.candidate.v1",
+  "candidate_id": "starcoder2-3b-reference",
+  "upstream_id": "bigcode/starcoder2-3b",
+  "upstream_revision": "733247c55e3f73af49ce8e9c7949bf14af205928",
+  "candidate_role": "reference_only",
+  "status": "reference_only",
+  "rights": {
+    "decision": "fail",
+    "license_name": "BigCode OpenRAIL-M v1",
+    "terms_urls": [
+      "https://huggingface.co/bigcode/starcoder2-3b/tree/733247c55e3f73af49ce8e9c7949bf14af205928",
+      "https://huggingface.co/spaces/bigcode/license/raw/main/CodeML_OpenRAIL-M_v0.1.docx.pdf"
+    ],
+    "personal_use": "yes",
+    "commercial_use": "yes",
+    "modification": "yes",
+    "fine_tuning": "yes",
+    "quantization": "yes",
+    "derivative_redistribution": "yes",
+    "account_gate_required": false,
+    "clickthrough_gate_required": false,
+    "end_user_separate_license_required": true,
+    "field_or_scale_restrictions": [
+      "Use-based restrictions in the BigCode OpenRAIL-M license apply and must be flowed down as enforceable provisions to downstream users."
+    ],
+    "rationale": "The license permits broad model use and derivatives, but its distribution conditions require use-based restrictions to be included as enforceable downstream provisions. MSTR primary admission requires no field/use restriction and no separate downstream-license burden, so this fails closed despite strong technical relevance."
+  },
+  "architecture": {
+    "family": "starcoder2",
+    "parameter_count_total": 3030371328,
+    "parameter_count_active": 3030371328,
+    "tokenizer_id": "bigcode/starcoder2-3b tokenizer",
+    "tokenizer_revision": "733247c55e3f73af49ce8e9c7949bf14af205928",
+    "vision_components": [],
+    "fim_capability": "yes"
+  },
+  "runtime_support_notes": [
+    "Technically relevant code-pretrained reference with 16384-token context.",
+    "No runtime execution was performed; later runtime tasks must not treat this reference-only record as admission authority."
+  ],
+  "quantization_support_notes": [
+    "No quantized artifact was downloaded or produced."
+  ],
+  "source_urls": [
+    "https://huggingface.co/bigcode/starcoder2-3b/tree/733247c55e3f73af49ce8e9c7949bf14af205928",
+    "https://huggingface.co/bigcode/starcoder2-3b",
+    "https://huggingface.co/spaces/bigcode/license/raw/main/CodeML_OpenRAIL-M_v0.1.docx.pdf"
+  ]
+}

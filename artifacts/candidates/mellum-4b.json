@@ -1,0 +1,49 @@
+{
+  "schema_version": "mstr.candidate.v1",
+  "candidate_id": "mellum-4b",
+  "upstream_id": "JetBrains/Mellum-4b-base",
+  "upstream_revision": "83cce2605fbdf6a3868627e9b0a5924e0072b94d",
+  "candidate_role": "foundation",
+  "status": "static_qualified",
+  "rights": {
+    "decision": "pass_permissive",
+    "license_name": "Apache-2.0",
+    "terms_urls": [
+      "https://huggingface.co/JetBrains/Mellum-4b-base/tree/83cce2605fbdf6a3868627e9b0a5924e0072b94d",
+      "https://huggingface.co/api/models/JetBrains/Mellum-4b-base/revision/83cce2605fbdf6a3868627e9b0a5924e0072b94d",
+      "https://www.apache.org/licenses/LICENSE-2.0.txt"
+    ],
+    "personal_use": "yes",
+    "commercial_use": "yes",
+    "modification": "yes",
+    "fine_tuning": "yes",
+    "quantization": "yes",
+    "derivative_redistribution": "yes",
+    "account_gate_required": false,
+    "clickthrough_gate_required": false,
+    "end_user_separate_license_required": false,
+    "field_or_scale_restrictions": [],
+    "rationale": "Pinned public metadata identifies Mellum-4b-base as an Apache-2.0 code-specialized base repository with no public account or clickthrough gate. Apache-2.0 supplies the required use, modification, fine-tuning, quantization, and derivative-redistribution rights. Any later weight-access task must re-verify the repository and tokenizer component at acquisition time."
+  },
+  "architecture": {
+    "family": "llama",
+    "parameter_count_total": 4019248128,
+    "parameter_count_active": 4019248128,
+    "tokenizer_id": "JetBrains/Mellum-4b-base tokenizer",
+    "tokenizer_revision": "83cce2605fbdf6a3868627e9b0a5924e0072b94d",
+    "vision_components": [],
+    "fim_capability": "yes"
+  },
+  "runtime_support_notes": [
+    "Code-specialized base model; B006 records metadata only and does not prove runtime support.",
+    "8192-token context and IDE/code-completion orientation are public-card observations; B009 owns executable runtime compatibility."
+  ],
+  "quantization_support_notes": [
+    "No quantized artifact was downloaded or produced; Q4 feasibility remains a later measured-artifact question."
+  ],
+  "source_urls": [
+    "https://huggingface.co/JetBrains/Mellum-4b-base/tree/83cce2605fbdf6a3868627e9b0a5924e0072b94d",
+    "https://huggingface.co/api/models/JetBrains/Mellum-4b-base/revision/83cce2605fbdf6a3868627e9b0a5924e0072b94d",
+    "https://huggingface.co/JetBrains/Mellum-4b-base"
+  ]
+}

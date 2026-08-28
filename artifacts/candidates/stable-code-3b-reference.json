@@ -1,0 +1,51 @@
+{
+  "schema_version": "mstr.candidate.v1",
+  "candidate_id": "stable-code-3b-reference",
+  "upstream_id": "stabilityai/stable-code-3b",
+  "upstream_revision": "5cee3fa2905e7a03c4a1b0bc02f39da7ceaa6cb5",
+  "candidate_role": "reference_only",
+  "status": "reference_only",
+  "rights": {
+    "decision": "fail",
+    "license_name": "Stability AI Community License Agreement (2024-07-05)",
+    "terms_urls": [
+      "https://huggingface.co/stabilityai/stable-code-3b/blob/5cee3fa2905e7a03c4a1b0bc02f39da7ceaa6cb5/LICENSE.md",
+      "https://stability.ai/license"
+    ],
+    "personal_use": "yes",
+    "commercial_use": "yes",
+    "modification": "yes",
+    "fine_tuning": "yes",
+    "quantization": "yes",
+    "derivative_redistribution": "yes",
+    "account_gate_required": false,
+    "clickthrough_gate_required": false,
+    "end_user_separate_license_required": true,
+    "field_or_scale_restrictions": [
+      "Free commercial license terminates above USD 1,000,000 annual revenue and requires enterprise licensing for continued commercial use.",
+      "Use restrictions prohibit using Stability AI Materials or derivatives/outputs to create or improve another foundational generative AI model, excluding the licensed Models or their Derivative Works."
+    ],
+    "rationale": "The exact pinned repository carries the Stability AI Community License. It grants research/non-commercial and limited commercial rights but imposes a USD 1M annual-revenue threshold, downstream license obligations, and a foundational-model improvement restriction. Those restrictions mechanically fail MSTR primary rights admission."
+  },
+  "architecture": {
+    "family": "stablelm",
+    "parameter_count_total": 2795443200,
+    "parameter_count_active": 2795443200,
+    "tokenizer_id": "stabilityai/stable-code-3b tokenizer",
+    "tokenizer_revision": "5cee3fa2905e7a03c4a1b0bc02f39da7ceaa6cb5",
+    "vision_components": [],
+    "fim_capability": "yes"
+  },
+  "runtime_support_notes": [
+    "Foundational code base with FIM and 16384-token context; current card reports 2,796,431,360 architectural parameters while the pinned HF safetensors metadata snapshot counts 2,795,443,200 serialized parameters.",
+    "No runtime execution was performed."
+  ],
+  "quantization_support_notes": [
+    "Public repository exposes GGUF variants, but B006 did not download or verify any quantized artifact."
+  ],
+  "source_urls": [
+    "https://huggingface.co/stabilityai/stable-code-3b/tree/5cee3fa2905e7a03c4a1b0bc02f39da7ceaa6cb5",
+    "https://huggingface.co/stabilityai/stable-code-3b/blob/5cee3fa2905e7a03c4a1b0bc02f39da7ceaa6cb5/LICENSE.md",
+    "https://stability.ai/license"
+  ]
+}

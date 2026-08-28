@@ -1,0 +1,49 @@
+{
+  "schema_version": "mstr.candidate.v1",
+  "candidate_id": "lfm2.5-1.2b-reference",
+  "upstream_id": "LiquidAI/LFM2.5-1.2B-Base",
+  "upstream_revision": "7453bca97ca1e67754c4035a4b4c584e1c9dd725",
+  "candidate_role": "reference_only",
+  "status": "reference_only",
+  "rights": {
+    "decision": "fail",
+    "license_name": "LFM Open License v1.0",
+    "terms_urls": [
+      "https://huggingface.co/LiquidAI/LFM2.5-1.2B-Base/tree/7453bca97ca1e67754c4035a4b4c584e1c9dd725",
+      "https://www.liquid.ai/lfm-license"
+    ],
+    "personal_use": "yes",
+    "commercial_use": "yes",
+    "modification": "yes",
+    "fine_tuning": "yes",
+    "quantization": "yes",
+    "derivative_redistribution": "yes",
+    "account_gate_required": false,
+    "clickthrough_gate_required": false,
+    "end_user_separate_license_required": false,
+    "field_or_scale_restrictions": [
+      "Free commercial rights end when company annual revenue reaches or exceeds USD 10,000,000; continued commercial use then requires a separate commercial license."
+    ],
+    "rationale": "The exact revision metadata labels the license generically as other, while Liquid publishes the LFM Open License v1.0 for its open models. That license grants broad derivative rights but includes a USD 10M annual-revenue threshold, which fails the MSTR no-scale-restriction primary gate."
+  },
+  "architecture": {
+    "family": "lfm2",
+    "parameter_count_total": 1170340608,
+    "parameter_count_active": 1170340608,
+    "tokenizer_id": "LiquidAI/LFM2.5-1.2B-Base tokenizer",
+    "tokenizer_revision": "7453bca97ca1e67754c4035a4b4c584e1c9dd725",
+    "vision_components": [],
+    "fim_capability": "unknown"
+  },
+  "runtime_support_notes": [
+    "Pre-trained text-only compact/on-device reference with 32768-token context; no runtime execution occurred."
+  ],
+  "quantization_support_notes": [
+    "No GGUF, ONNX, model, or tokenizer artifact was downloaded or verified by B006."
+  ],
+  "source_urls": [
+    "https://huggingface.co/LiquidAI/LFM2.5-1.2B-Base/tree/7453bca97ca1e67754c4035a4b4c584e1c9dd725",
+    "https://www.liquid.ai/lfm-license",
+    "https://www.liquid.ai/pricing"
+  ]
+}

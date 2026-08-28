@@ -40,7 +40,8 @@
   "runtime_support_notes": [
     "GGUF conversion expected viable via llama.cpp-class runtimes (to be proven by later artifact tasks).",
     "CPU-only basic operation targeted per universal-laptop invariant.",
-    "Multimodal architecture: serving may require text-only pathway validation during runtime qualification."
+    "Multimodal architecture: serving may require text-only pathway validation during runtime qualification.",
+    "B006 revalidation: repository-specific current model-card text states that this repository contains the pre-trained-only model. The broader family-level Training Stage: Pre-training & Post-training wording is recorded as family/model-overview language and does not override the exact Base repository statement."
   ],
   "quantization_support_notes": [
     "Q4-class quantization targeted <=3GB primary artifact budget (FR-003); actual viability deferred to measured artifact tasks."

@@ -1,0 +1,51 @@
+{
+  "schema_version": "mstr.candidate.v1",
+  "candidate_id": "qwen3.5-0.8b-control",
+  "upstream_id": "Qwen/Qwen3.5-0.8B-Base",
+  "upstream_revision": "dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68",
+  "candidate_role": "control",
+  "status": "static_qualified",
+  "rights": {
+    "decision": "pass_permissive",
+    "license_name": "Apache-2.0",
+    "terms_urls": [
+      "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/tree/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68",
+      "https://huggingface.co/api/models/Qwen/Qwen3.5-0.8B-Base/revision/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68",
+      "https://www.apache.org/licenses/LICENSE-2.0.txt"
+    ],
+    "personal_use": "yes",
+    "commercial_use": "yes",
+    "modification": "yes",
+    "fine_tuning": "yes",
+    "quantization": "yes",
+    "derivative_redistribution": "yes",
+    "account_gate_required": false,
+    "clickthrough_gate_required": false,
+    "end_user_separate_license_required": false,
+    "field_or_scale_restrictions": [],
+    "rationale": "Pinned public metadata declares Apache-2.0 with no public access gate. The repository-specific model card states that this repository contains the pre-trained-only model; the broader family-level Training Stage wording is not treated as evidence that this exact Base checkpoint is post-trained."
+  },
+  "architecture": {
+    "family": "qwen3_5",
+    "parameter_count_total": 873438784,
+    "parameter_count_active": 873438784,
+    "tokenizer_id": "Qwen/Qwen3.5-0.8B-Base tokenizer",
+    "tokenizer_revision": "dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68",
+    "vision_components": [
+      "integrated qwen3_5 vision encoder in the same pinned repository"
+    ],
+    "fim_capability": "yes"
+  },
+  "runtime_support_notes": [
+    "Lower-bound multimodal control; the 0.8B family label and pinned HF metadata count of 873,438,784 serialized parameters are kept distinct.",
+    "Vision-component cost must remain separate from universal-laptop language-model comparison and is not measured by B006."
+  ],
+  "quantization_support_notes": [
+    "No quantized artifact was downloaded or produced."
+  ],
+  "source_urls": [
+    "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/tree/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68",
+    "https://huggingface.co/api/models/Qwen/Qwen3.5-0.8B-Base/revision/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68",
+    "https://www.apache.org/licenses/LICENSE-2.0.txt"
+  ]
+}

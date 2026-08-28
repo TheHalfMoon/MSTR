@@ -24,11 +24,11 @@
     "clickthrough_gate_required": false,
     "end_user_separate_license_required": false,
     "field_or_scale_restrictions": [],
-    "rationale": "Apache-2.0 declared via README front matter and HF license tags at pinned revision (no standalone LICENSE file in tree; same caveat policy as T014/T016/T017 \u2014 mandatory re-verification before weight access). Discovered by T021 landscape rescan: compact code-specialized control candidate alongside Qwen2.5-Coder-1.5B lower bound. Component rights (FR-016): tokenizer ships in-repo under identical declared license; no third-party component with independent terms."
+    "rationale": "Apache-2.0 declared via README front matter and HF license tags at pinned revision (no standalone LICENSE file in tree; same caveat policy as T014/T016/T017 — mandatory re-verification before weight access). Discovered by T021 landscape rescan: compact code-specialized control candidate alongside Qwen2.5-Coder-1.5B lower bound. Component rights (FR-016): tokenizer ships in-repo under identical declared license; no third-party component with independent terms."
   },
   "architecture": {
     "family": "llama (LlamaForCausalLM, text-only)",
-    "parameter_count_total": 1480000000,
+    "parameter_count_total": 1476495360,
     "parameter_count_active": null,
     "tokenizer_id": "01-ai/Yi-Coder-1.5B tokenizer (SentencePiece via tokenizer.model)",
     "tokenizer_revision": "00e59e64f47d3c78e4cfbdd345888479797e8109",
@@ -36,7 +36,8 @@
     "fim_capability": "no"
   },
   "runtime_support_notes": [
-    "GGUF conversion expected viable via llama.cpp-class runtimes; CPU-only basic operation targeted."
+    "GGUF conversion expected viable via llama.cpp-class runtimes; CPU-only basic operation targeted.",
+    "B006 revalidation: pinned HF safetensors metadata reports exactly 1,476,495,360 serialized parameters. The 1B-class UI label is rounded class metadata, while the distinct Yi-Coder-1.5B-Chat repository supports retaining this plain Yi-Coder-1.5B checkpoint as the non-chat code control."
   ],
   "quantization_support_notes": [
     "Q4-class target <=3GB primary artifact budget (FR-003)."

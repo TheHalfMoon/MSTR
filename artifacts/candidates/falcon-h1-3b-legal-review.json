@@ -1,0 +1,51 @@
+{
+  "schema_version": "mstr.candidate.v1",
+  "candidate_id": "falcon-h1-3b-legal-review",
+  "upstream_id": "tiiuae/Falcon-H1-3B-Base",
+  "upstream_revision": "c096902c69be0eed2e5369d3420a8bb960d293e1",
+  "candidate_role": "reference_only",
+  "status": "discovered",
+  "rights": {
+    "decision": "fail",
+    "license_name": "Falcon license applicability unresolved for Falcon-H1-3B-Base",
+    "terms_urls": [
+      "https://huggingface.co/tiiuae/Falcon-H1-3B-Base/tree/c096902c69be0eed2e5369d3420a8bb960d293e1",
+      "https://falconllm.tii.ae/falcon-terms-and-conditions.html"
+    ],
+    "personal_use": "unknown",
+    "commercial_use": "unknown",
+    "modification": "unknown",
+    "fine_tuning": "unknown",
+    "quantization": "unknown",
+    "derivative_redistribution": "unknown",
+    "account_gate_required": false,
+    "clickthrough_gate_required": false,
+    "end_user_separate_license_required": true,
+    "field_or_scale_restrictions": [
+      "The license URL currently linked from Falcon-H1 metadata opens terms whose first license defines the Work as Falcon 2 11B, so exact applicability to Falcon-H1-3B-Base is not established.",
+      "The linked Falcon terms contain acceptable-use and downstream compliance obligations if applicable."
+    ],
+    "rationale": "B006 cannot infer that Falcon 2 11B terms govern Falcon-H1-3B-Base. Because exact rights applicability is ambiguous, all substantive rights fail closed to unknown. Founder/legal clarification is required before any admission or access."
+  },
+  "architecture": {
+    "family": "falcon_h1",
+    "parameter_count_total": 3149387264,
+    "parameter_count_active": 3149387264,
+    "tokenizer_id": "tiiuae/Falcon-H1-3B-Base tokenizer",
+    "tokenizer_revision": "c096902c69be0eed2e5369d3420a8bb960d293e1",
+    "vision_components": [],
+    "fim_capability": "unknown"
+  },
+  "runtime_support_notes": [
+    "Hybrid Transformer/SSM runtime compatibility is deferred to B009 and was not executed here.",
+    "131072-token context is a public metadata observation only."
+  ],
+  "quantization_support_notes": [
+    "No quantized artifact was downloaded or produced."
+  ],
+  "source_urls": [
+    "https://huggingface.co/tiiuae/Falcon-H1-3B-Base/tree/c096902c69be0eed2e5369d3420a8bb960d293e1",
+    "https://huggingface.co/tiiuae/Falcon-H1-3B-Base",
+    "https://falconllm.tii.ae/falcon-terms-and-conditions.html"
+  ]
+}
