@@ -1,0 +1,88 @@
+name: Diagnose B008 closeout prospective state
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_REMOTE_MAIN: 07762204ab126c0fccf9ca55a8b572bd6368d8bc
+      SOURCE_HEAD: 171ad5890e80fae0ba55ebb6bedb594565728bd9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 07762204ab126c0fccf9ca55a8b572bd6368d8bc
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Materialize clean closeout candidate locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_REMOTE_MAIN"
+          python -m pip install -e '.[dev]'
+          git show "$SOURCE_HEAD:.github/workflows/evidence-b008-closeout-build-0776220.yml" > /tmp/source.yml
+          python - <<'PY'
+          from pathlib import Path
+          lines = Path('/tmp/source.yml').read_text().splitlines()
+          target = '      - name: Materialize five-file canonical closeout'
+          start = lines.index(target)
+          run_idx = next(i for i in range(start + 1, len(lines)) if lines[i] == '        run: |')
+          body = []
+          for line in lines[run_idx + 1:]:
+              if line.startswith('      - name: '):
+                  break
+              if line.startswith('          '):
+                  body.append(line[10:])
+              elif line == '':
+                  body.append('')
+              else:
+                  raise AssertionError(line)
+          Path('/tmp/materialize.sh').write_text('\n'.join(body) + '\n')
+          PY
+          export EXPECTED_MAIN="$EXPECTED_REMOTE_MAIN"
+          export IMPLEMENTATION_HEAD=895983470f72128ad698023b3578553ed1cfe7c4
+          export IMPLEMENTATION_MERGE=07762204ab126c0fccf9ca55a8b572bd6368d8bc
+          export IMPLEMENTATION_PR='#61'
+          export QUALIFY_RUN=33153394825
+          export QUALIFY_JOB=98790425624
+          export REVIEW_RUN=33153850333
+          export REVIEW_JOB=98791884940
+          export POSTMERGE_RUN=33154074016
+          export POSTMERGE_JOB=98792580522
+          bash /tmp/materialize.sh
+          git add configs/task-gate/mstr-000b.json evidence/mstr-000b/B008-tokenizer-economics.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs(mstr-000b): canonicalize B008 closeout diagnostic'
+          candidate=$(git rev-parse HEAD)
+          git branch -f main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          echo "DIAGNOSTIC_CANDIDATE=$candidate"
+      - name: Capture production CLI outputs and statuses
+        shell: bash
+        run: |
+          set +e
+          python -m mstr_qualify task eligible B008 > /tmp/b008.json 2>/tmp/b008.err
+          b008_rc=$?
+          python -m mstr_qualify task eligible B009 > /tmp/b009.json 2>/tmp/b009.err
+          b009_rc=$?
+          python -m mstr_qualify task drift > /tmp/drift.json 2>/tmp/drift.err
+          drift_rc=$?
+          set -e
+          echo "B008_RC=$b008_rc"
+          cat /tmp/b008.json || true
+          cat /tmp/b008.err || true
+          echo "B009_RC=$b009_rc"
+          cat /tmp/b009.json || true
+          cat /tmp/b009.err || true
+          echo "DRIFT_RC=$drift_rc"
+          cat /tmp/drift.json || true
+          cat /tmp/drift.err || true
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_REMOTE_MAIN"
+          echo 'REMOTE_MAIN_UNCHANGED=PASS'
