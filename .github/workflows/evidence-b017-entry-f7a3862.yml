@@ -1,0 +1,93 @@
+name: Verify B017 exact-main entry gate
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  entry:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: f7a386214a1346b75dd3311390aa1e19bf354bb1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f7a386214a1346b75dd3311390aa1e19bf354bb1
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B017_ENTRY_IDENTITY=PASS'
+      - name: Prove B017 machine eligibility and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B017 > /tmp/b017.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          b17=json.load(open('/tmp/b017.json'))
+          b11=json.load(open('/tmp/b011.json'))
+          drift=json.load(open('/tmp/drift.json'))
+          assert b17['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert b17['eligible'] is True and b17['reasons']==[]
+          assert b17['state_consistency_result']['observed_state']=='PENDING'
+          assert b17['authority_result']['required'] is False
+          assert b17['authority_result']['satisfied'] is True
+          pred=next(x for x in b17['prerequisite_results'] if x['task_id']=='B016')
+          assert pred['observed_state']=='COMPLETE_CANONICAL'
+          assert pred['evidence_present'] is True and pred['satisfied'] is True
+          assert pred['reasons']==[]
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state']=='BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          assert drift['status']=='clean' and drift['findings']==[]
+          print('B017_ENTRY_ELIGIBLE=PASS')
+          print('B017_EXTERNAL_EFFECT_AUTHORITY=NOT_REQUIRED')
+          print('B011_REMAINS_BLOCKED=PASS')
+          PY
+      - name: Verify B017 exact task boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          tasks=Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text(encoding='utf-8')
+          assert '- [ ] **B017 Build a tiny fixture-only software-evolution extractor/projection proof.**' in tasks
+          assert 'No large corpus ingestion.' in tasks
+          assert 'Demonstrate deterministic projection of localization/edit/review-repair examples from synthetic or already-repository-owned fixtures.' in tasks
+          assert 'evidence/mstr-000b/B017-evolution-fixture-pilot.md' in tasks
+          print('B017_ENTRY_SCOPE=PASS')
+          PY
+      - name: Final canonical-main immutability recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo 'B017_ENTRY_GATE=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'PRIVATE_USER_DATA_INGESTION=NONE'
+          echo 'PRODUCTION_TRACE_INGESTION=NONE'
+          echo 'PAID_MODEL_API=NONE'
+          echo 'PAID_COMPUTE=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
+          echo 'LARGE_SCALE_RL=NONE'
+          echo 'PRODUCTION_RELEASE=NONE'
