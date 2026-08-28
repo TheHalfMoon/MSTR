@@ -1,0 +1,120 @@
+name: Repair and qualify B009 canonical closeout
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_REMOTE_MAIN: 4fdb6966c085819e69823136fb5e2cd8c56ba58f
+      TARGET_BRANCH: docs/000b-b009-canonicalize
+      SOURCE_HEAD: b76af771066778d04ba4e3281befe1674d97c79e
+      SOURCE_WORKFLOW: .github/workflows/evidence-b009-closeout-build-4fdb696.yml
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/000b-b009-canonicalize
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Guard exact unchanged target and main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH" evidence/b009-closeout-build-4fdb696
+          test "$(git rev-parse HEAD)" = "$EXPECTED_REMOTE_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_REMOTE_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_REMOTE_MAIN"
+          test "$(git rev-parse refs/remotes/origin/evidence/b009-closeout-build-4fdb696)" = "$SOURCE_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_REMOTE_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_REMOTE_MAIN"
+          python -m mstr_qualify task eligible B009 > /tmp/b009-entry.json
+          if python -m mstr_qualify task eligible B010 > /tmp/b010-entry.json; then
+            echo 'B010 unexpectedly eligible before B009 closeout' >&2
+            exit 1
+          fi
+          python -m mstr_qualify task drift > /tmp/drift-entry.json
+          python - <<'PY'
+          import json, os
+          expected = os.environ['EXPECTED_REMOTE_MAIN']
+          b009 = json.load(open('/tmp/b009-entry.json'))
+          b010 = json.load(open('/tmp/b010-entry.json'))
+          drift = json.load(open('/tmp/drift-entry.json'))
+          assert b009['canonical_main'] == expected
+          assert b009['eligible'] is True and b009['reasons'] == []
+          assert b009['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b010['eligible'] is False
+          assert 'prerequisite.unsatisfied:B009' in b010['reasons']
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B009_CLOSEOUT_REPAIR_ENTRY=PASS')
+          PY
+
+      - name: Reuse exact materializer with trailing-whitespace repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$SOURCE_HEAD:$SOURCE_WORKFLOW" > /tmp/source.yml
+          python - <<'PY'
+          from pathlib import Path
+
+          lines = Path('/tmp/source.yml').read_text().splitlines()
+
+          def extract(name: str, destination: str) -> None:
+              target = f'      - name: {name}'
+              start = lines.index(target)
+              run_idx = next(i for i in range(start + 1, len(lines)) if lines[i] == '        run: |')
+              body = []
+              for line in lines[run_idx + 1:]:
+                  if line.startswith('      - name: '):
+                      break
+                  if line.startswith('          '):
+                      body.append(line[10:])
+                  elif line == '':
+                      body.append('')
+                  else:
+                      raise AssertionError(line)
+              Path(destination).write_text('\n'.join(body) + '\n')
+
+          extract('Materialize five-file canonical closeout', '/tmp/materialize.sh')
+          extract('Simulate candidate as canonical main and run frozen gates', '/tmp/simulate.sh')
+          extract('Restore remote truth and push target only', '/tmp/push.sh')
+
+          path = Path('/tmp/materialize.sh')
+          text = path.read_text()
+          needle = 'git diff --check\n'
+          repair = '''python - <<'PY2'
+          from pathlib import Path
+          p = Path('specs/002-code-model-supremacy-foundation/tasks.md')
+          text = p.read_text()
+          old = '- [x] **B009 Freeze candidate trainability / conversion / runtime compatibility matrix.**  \\n'
+          new = '- [x] **B009 Freeze candidate trainability / conversion / runtime compatibility matrix.**\\n'
+          assert text.count(old) == 1
+          p.write_text(text.replace(old, new, 1))
+          PY2
+          git diff --check
+          '''
+          repair = '\n'.join(line[10:] if line.startswith('          ') else line for line in repair.splitlines()) + '\n'
+          assert text.count(needle) == 1
+          path.write_text(text.replace(needle, repair, 1))
+          PY
+          bash /tmp/materialize.sh
+
+      - name: Simulate repaired candidate and run frozen gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash /tmp/simulate.sh
+
+      - name: Push only after all gates pass
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash /tmp/push.sh
