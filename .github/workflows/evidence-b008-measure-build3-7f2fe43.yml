@@ -1,0 +1,325 @@
+name: Build B008 tokenizer economics results v3
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 7f2fe43797db4b94103ca07c172de5672806f624
+      TARGET_BRANCH: feat/000b-b008-tokenizer-economics
+      SOURCE_BRANCH: evidence/b008-measure-build-7f2fe43
+      SOURCE_HEAD: 1b446bb6552bac1d046101641dadf42825020492
+      ENTRY_RUN: "33151438249"
+      ENTRY_JOB: "98784106816"
+      LOADABILITY_RUN: "33151738043"
+      LOADABILITY_JOB: "98785061204"
+      HF_HUB_DISABLE_IMPLICIT_TOKEN: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/000b-b008-tokenizer-economics
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Guard exact B008 material entry with local canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH" "$SOURCE_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$SOURCE_BRANCH)" = "$SOURCE_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          git branch -f main "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]' 'huggingface_hub==0.34.4' 'tokenizers==0.22.0'
+          python -m mstr_qualify task eligible B008 > /tmp/b008.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          e=json.load(open('/tmp/b008.json')); d=json.load(open('/tmp/drift.json')); m=os.environ['EXPECTED_MAIN']
+          assert e['canonical_main']==m and e['eligible'] is True and e['reasons']==[], e
+          assert e['state_consistency_result']['observed_state']=='PENDING', e
+          assert d['canonical_main']==m and d['status']=='clean' and d['findings']==[], d
+          print('B008_MEASUREMENT_ENTRY=PASS')
+          PY
+
+      - name: Reuse frozen materialization and repair source style before measurement
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$SOURCE_HEAD:.github/workflows/evidence-b008-measure-build-7f2fe43.yml" > /tmp/source.yml
+          python - <<'PY'
+          from pathlib import Path
+          lines=Path('/tmp/source.yml').read_text().splitlines()
+          target='      - name: Materialize reproducible measurement implementation and contract test'
+          start=lines.index(target)
+          run_idx=next(i for i in range(start+1,len(lines)) if lines[i]=='        run: |')
+          body=[]
+          for line in lines[run_idx+1:]:
+              if line.startswith('      - name: '):
+                  break
+              if line.startswith('          '):
+                  body.append(line[10:])
+              elif line == '':
+                  body.append('')
+              else:
+                  raise AssertionError(line)
+          Path('/tmp/materialize.sh').write_text('\n'.join(body)+'\n')
+          PY
+          bash /tmp/materialize.sh
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('benchmarks/tokenizer_economics/b008_measure.py')
+          s=p.read_text()
+          s=s.replace('import sys\n','')
+          old='''            "overflow_or_truncation_observation": "encoding.overflowing recorded; no truncation requested",
+          },
+          "token_count_api_identity": "tokenizers.Tokenizer.encode(text, add_special_tokens=False).ids length",'''
+          new='''            "overflow_or_truncation_observation": (
+                "encoding.overflowing recorded; "
+                "no truncation requested"
+            ),
+          },
+          "token_count_api_identity": (
+              "tokenizers.Tokenizer.encode(text, "
+              "add_special_tokens=False).ids length"
+          ),'''
+          assert old in s
+          s=s.replace(old,new,1)
+          old='''              "estimated_effective_payload_bytes_at_8192_tokens": math.floor((total_bytes / total_tokens) * 8192),
+              "numerator_denominator_totals": {"bytes": total_bytes, "characters": total_chars, "tokens": total_tokens},'''
+          new='''              "estimated_effective_payload_bytes_at_8192_tokens": math.floor(
+                  (total_bytes / total_tokens) * 8192
+              ),
+              "numerator_denominator_totals": {
+                  "bytes": total_bytes,
+                  "characters": total_chars,
+                  "tokens": total_tokens,
+              },'''
+          assert old in s
+          s=s.replace(old,new,1)
+          start=s.index('    ranked = sorted(results,')
+          end=s.index('    args.evidence.parent.mkdir', start)
+          replacement='''    ranked = sorted(
+        results,
+        key=lambda row: row["aggregate_metrics"]["weighted_bytes_per_token"],
+        reverse=True,
+    )
+    lines = [
+        "# B008 Tokenizer Economics Measurement",
+        "",
+        "**Task:** `B008`  ",
+        "**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT  ",
+        f"**Canonical entry main:** `{os.environ.get('EXPECTED_MAIN','unknown')}`",
+        "",
+        "## Entry and execution evidence",
+        "",
+        "```text",
+        f"ENTRY_GATE_RUN = {os.environ.get('ENTRY_RUN','unknown')}",
+        f"ENTRY_GATE_JOB = {os.environ.get('ENTRY_JOB','unknown')}",
+        f"ENTRY_GATE_CANONICAL_MAIN = {os.environ.get('EXPECTED_MAIN','unknown')}",
+        "ENTRY_GATE_ELIGIBLE = true",
+        (
+            "TOKENIZER_JSON_LOADABILITY_RUN = "
+            f"{os.environ.get('LOADABILITY_RUN','unknown')}"
+        ),
+        (
+            "TOKENIZER_JSON_LOADABILITY_JOB = "
+            f"{os.environ.get('LOADABILITY_JOB','unknown')}"
+        ),
+        f"MEASUREMENT_RUN = {os.environ.get('GITHUB_RUN_ID','unknown')}",
+        (
+            "MEASUREMENT_EXECUTOR = GitHub-hosted ubuntu-24.04 / "
+            "Python 3.11 / tokenizers 0.22.0"
+        ),
+        "REMOTE_FILE_PER_CANDIDATE = tokenizer.json only",
+        "MODEL_INFERENCE = NONE",
+        "GATED_TERMS_ACCEPTANCE = NONE",
+        "PAID_COMPUTE = NONE",
+        "FOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO",
+        "```",
+        "",
+        "## Candidate set",
+        "",
+        (
+            "The measured set is derived from canonical candidate records with "
+            "`status=static_qualified`, `rights.decision=pass_permissive`, and no "
+            "account/clickthrough gate. Exactly 10 candidates satisfy that rule "
+            "on the entry main."
+        ),
+        "",
+        "## Results",
+        "",
+        (
+            "Higher weighted bytes/token means denser payload under this fixed "
+            "synthetic corpus. The 8192-token payload is a corpus-ratio estimate, "
+            "not a context-window claim."
+        ),
+        "",
+        (
+            "| Candidate | Bytes/token | Total tokens | 8K payload bytes | "
+            "Diff tokens | Stacktrace tokens | Tool JSON tokens | Path tokens |"
+        ),
+        "|---|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for result in ranked:
+        cats = {row["category"]: row for row in result["per_category_metrics"]}
+        agg = result["aggregate_metrics"]
+        lines.append(
+            "".join(
+                [
+                    f"| `{result['candidate_id']}` | ",
+                    f"{agg['weighted_bytes_per_token']:.6f} | ",
+                    f"{agg['total_tokens']} | ",
+                    f"{agg['estimated_effective_payload_bytes_at_8192_tokens']} | ",
+                    f"{cats['diff']['total_tokens']} | ",
+                    f"{cats['stack_trace']['total_tokens']} | ",
+                    f"{cats['tool_json']['total_tokens']} | ",
+                    f"{cats['file_paths']['total_tokens']} |",
+                ]
+            )
+        )
+    lines += [
+        "",
+        "## Measurement contract",
+        "",
+        (
+            "- Corpus integrity is checked against the frozen B007 manifest "
+            "before any tokenizer is used."
+        ),
+        (
+            "- Only pinned `tokenizer.json` is acquired for each candidate; that "
+            "exact file is SHA-256 inventoried and is the only tokenizer artifact "
+            "loaded."
+        ),
+        (
+            "- `tokenizers.Tokenizer.from_file` is used with "
+            "`add_special_tokens=false`; chat templates, padding, truncation, "
+            "pre-normalization, BOS and EOS injection are not used."
+        ),
+        (
+            "- Identifier-like spans use the frozen ASCII regex and are encoded "
+            "in isolation. p50/p95 use deterministic nearest-rank percentiles."
+        ),
+        (
+            "- Structural observations are recorded for diff, file paths, stack "
+            "traces and tool JSON fixtures."
+        ),
+        (
+            "- All temporary tokenizer files are deleted in the ephemeral runner "
+            "before completion."
+        ),
+        "",
+        "## Claim boundary",
+        "",
+        (
+            "These results compare tokenizer economics on the deterministic B007 "
+            "synthetic fixture only. They do not establish population-level code "
+            "efficiency, model quality, inference quality, trainability, or "
+            "production fitness."
+        ),
+        "",
+        (
+            "This task does not perform model inference, accept gated terms, use "
+            "paid compute, or place tokenizer artifacts on the founder machine."
+        ),
+        "",
+    ]
+'''
+          s=s[:start]+replacement+s[end:]
+          p.write_text(s)
+          PY
+          ruff format benchmarks/tokenizer_economics/b008_measure.py tests/contract/test_b008_tokenizer_economics_results.py
+          python - <<'PY'
+          from pathlib import Path
+          for path in [
+              Path('benchmarks/tokenizer_economics/b008_measure.py'),
+              Path('tests/contract/test_b008_tokenizer_economics_results.py'),
+          ]:
+              too_long=[(i,len(line),line) for i,line in enumerate(path.read_text().splitlines(),1) if len(line)>100]
+              assert not too_long, (path, too_long)
+          print('B008_SOURCE_STYLE_PREFLIGHT=PASS')
+          PY
+          python -m py_compile benchmarks/tokenizer_economics/b008_measure.py tests/contract/test_b008_tokenizer_economics_results.py
+          ruff check benchmarks/tokenizer_economics/b008_measure.py tests/contract/test_b008_tokenizer_economics_results.py
+          git diff --check
+          echo 'B008_MATERIALIZATION=PASS'
+
+      - name: Execute pinned tokenizer-only B008 measurement
+        shell: bash
+        run: |
+          set -euo pipefail
+          python benchmarks/tokenizer_economics/b008_measure.py \
+            --output-dir artifacts/results/tokenizer/B008 \
+            --evidence evidence/mstr-000b/B008-tokenizer-economics.md
+          test "$(find artifacts/results/tokenizer/B008 -maxdepth 1 -name '*.json' | wc -l)" -eq 10
+          test ! -e /tmp/b008-tokenizer-measurement
+          echo 'B008_MEASUREMENT=PASS'
+
+      - name: Validate exact implementation scope and frozen gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(printf '%s\n' \
+            benchmarks/tokenizer_economics/b008_measure.py \
+            evidence/mstr-000b/B008-tokenizer-economics.md \
+            tests/contract/test_b008_tokenizer_economics_results.py \
+            artifacts/results/tokenizer/B008/granite-4.1-3b.json \
+            artifacts/results/tokenizer/B008/mellum-4b.json \
+            artifacts/results/tokenizer/B008/ministral-3-3b.json \
+            artifacts/results/tokenizer/B008/qwen2.5-coder-1.5b.json \
+            artifacts/results/tokenizer/B008/qwen3-4b.json \
+            artifacts/results/tokenizer/B008/qwen3.5-0.8b-control.json \
+            artifacts/results/tokenizer/B008/qwen3.5-2b.json \
+            artifacts/results/tokenizer/B008/qwen3.5-4b.json \
+            artifacts/results/tokenizer/B008/smollm3-3b.json \
+            artifacts/results/tokenizer/B008/yi-coder-1.5b.json | sort)
+          actual=$(git status --porcelain=v1 --untracked-files=all | sed 's/^...//' | sort)
+          test "$actual" = "$expected"
+          test "$(find . -name 'tokenizer.json' -not -path './.git/*' | wc -l)" -eq 0
+          git diff --check
+          pytest -q tests/contract/test_b008_tokenizer_economics_results.py | tee /tmp/b008-targeted.txt
+          pytest -q | tee /tmp/full.txt
+          ruff check src tests benchmarks/tokenizer_economics/b008_measure.py
+          mypy src
+          python -m mstr_qualify validate
+          echo 'B008_FROZEN_GATES=PASS'
+
+      - name: Commit and guarded fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add benchmarks/tokenizer_economics/b008_measure.py \
+            evidence/mstr-000b/B008-tokenizer-economics.md \
+            tests/contract/test_b008_tokenizer_economics_results.py \
+            artifacts/results/tokenizer/B008
+          git diff --cached --check
+          git commit -m 'feat(mstr-000b): measure B008 tokenizer economics'
+          final=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH" "$SOURCE_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$SOURCE_BRANCH)" = "$SOURCE_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          git push origin "HEAD:$TARGET_BRANCH"
+          echo "B008_IMPLEMENTATION_HEAD=$final"
+          echo "B008_MEASUREMENT_RUN=$GITHUB_RUN_ID"
+          echo 'REMOTE_FILE_PER_CANDIDATE=tokenizer.json-only'
+          echo 'MODEL_INFERENCE=NONE'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'GATED_TERMS_ACCEPTANCE=NONE'
+          echo 'PAID_COMPUTE=NONE'
+          echo 'FOUNDER_MACHINE_LARGE_ARTIFACTS=ZERO'
