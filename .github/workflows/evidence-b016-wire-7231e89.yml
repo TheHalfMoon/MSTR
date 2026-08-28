@@ -1,0 +1,139 @@
+name: Wire B016 schema into offline validation
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 2cd82ba78bcb886962a163013fa2861d5dd2b013
+      EXPECTED_TARGET: 7231e890ca47bb51ed45099e46708f03149df16d
+      TARGET_BRANCH: feat/000b-b016-software-evolution-contract
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 7231e890ca47bb51ed45099e46708f03149df16d
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Bind immutable main and target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_TARGET"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_TARGET"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+      - name: Wire schema registry CLI and design source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/mstr_qualify/schemas.py')
+          text = path.read_text(encoding='utf-8')
+          anchor = (
+              '    # MSTR-000B B014: fail-closed Data Constitution contract.\n'
+              '    "mstr-data-constitution-v0": "mstr-data-constitution-v0.schema.json",\n'
+              '}\n'
+          )
+          replacement = (
+              '    # MSTR-000B B014: fail-closed Data Constitution contract.\n'
+              '    "mstr-data-constitution-v0": "mstr-data-constitution-v0.schema.json",\n'
+              '    # MSTR-000B B016: software-evolution lineage and future-history boundary.\n'
+              '    "mstr-software-evolution-record-v0": "mstr-software-evolution-record-v0.schema.json",\n'
+              '}\n'
+          )
+          assert anchor in text
+          path.write_text(text.replace(anchor, replacement, 1), encoding='utf-8')
+
+          path = Path('src/mstr_qualify/cli.py')
+          text = path.read_text(encoding='utf-8')
+          anchor = (
+              '    # MSTR-000B B014 Data Constitution contract.\n'
+              '    "mstr.data-constitution.v0": "mstr-data-constitution-v0",\n'
+              '}\n'
+          )
+          replacement = (
+              '    # MSTR-000B B014 Data Constitution contract.\n'
+              '    "mstr.data-constitution.v0": "mstr-data-constitution-v0",\n'
+              '    # MSTR-000B B016 Software Evolution Record contract.\n'
+              '    "mstr.software-evolution-record.v0": "mstr-software-evolution-record-v0",\n'
+              '}\n'
+          )
+          assert anchor in text
+          path.write_text(text.replace(anchor, replacement, 1), encoding='utf-8')
+
+          path = Path('tests/contract/test_schemas.py')
+          text = path.read_text(encoding='utf-8')
+          anchor = (
+              '        / "mstr-data-constitution-v0.schema.json"\n'
+              '    ),\n'
+              '}\n'
+          )
+          replacement = (
+              '        / "mstr-data-constitution-v0.schema.json"\n'
+              '    ),\n'
+              '    "mstr-software-evolution-record-v0": (\n'
+              '        ROOT\n'
+              '        / "specs"\n'
+              '        / "002-code-model-supremacy-foundation"\n'
+              '        / "contracts"\n'
+              '        / "mstr-software-evolution-record-v0.schema.json"\n'
+              '    ),\n'
+              '}\n'
+          )
+          assert anchor in text
+          path.write_text(text.replace(anchor, replacement, 1), encoding='utf-8')
+          PY
+          expected=$(printf '%s\n' \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_schemas.py | sort)
+          actual=$(git diff --name-only | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only | wc -l)" -eq 3
+          git diff --check
+          echo 'B016_WIRING_SCOPE=PASS'
+      - name: Run frozen implementation gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_schemas.py tests/contract/test_software_evolution_contract.py
+          python -m mstr_qualify validate
+          python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-software-evolution-record-v0.json
+          if python -m mstr_qualify validate tests/fixtures/schemas/invalid/mstr-software-evolution-record-v0.json; then exit 1; fi
+          pytest -q
+          ruff check src tests
+          mypy src
+          git diff --check "$EXPECTED_MAIN...HEAD"
+          echo 'B016_WIRING_GATES=PASS'
+      - name: Commit and push only while remote identities remain frozen
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_TARGET"
+          git config user.name 'MSTR Evidence Builder'
+          git config user.email 'mstr-evidence-builder@users.noreply.github.com'
+          git add src/mstr_qualify/schemas.py src/mstr_qualify/cli.py tests/contract/test_schemas.py
+          test "$(git diff --cached --name-only | wc -l)" -eq 3
+          git commit -m 'feat(mstr-000b): register software evolution contract'
+          candidate=$(git rev-parse HEAD)
+          git push origin "$candidate:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$candidate"
+          echo "B016_IMPLEMENTATION_HEAD=$candidate"
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
