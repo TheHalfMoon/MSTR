@@ -1,0 +1,87 @@
+name: Adversarial review B015 implementation e6191fe
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 205df4be5f2e25bd28b697816eac3ea6ce361aed
+      EXPECTED_HEAD: e6191fefc9b870f3376f6faead6149841fe7dd31
+      TARGET_BRANCH: feat/000b-b015-language-target-policy
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e6191fefc9b870f3376f6faead6149841fe7dd31
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact review target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | wc -l)" -eq 3
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+      - name: Attack policy invariants
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('artifacts/decisions/B015-language-target-policy.json').read_text())
+          core=[x['id'] for x in p['tiers']['core']]; secondary=[x['id'] for x in p['tiers']['secondary']]; tail=p['tiers']['long_tail']['initial_targets']
+          assert len(core)==len(set(core)) and len(secondary)==len(set(secondary)) and len(tail)==len(set(tail))
+          assert not(set(core)&set(secondary)) and not(set(core)&set(tail)) and not(set(secondary)&set(tail))
+          r=p['replay_policy']
+          assert sum(r['aggregate_minimum_percent'].values())==85 and r['long_tail_maximum_percent']==15
+          assert sum(r['core_language_minimum_percent'].values())==41
+          assert sum(r['secondary_language_minimum_percent'].values())==12
+          assert sum(r['tooling_group_minimum_percent'].values())==15
+          channels={x['id']:x for x in p['tooling_channels']}
+          assert {'shell_posix','powershell','sql','structured_config','package_build_manifests','build_systems','ci_workflows','infra_config'}<=set(channels)
+          assert {'shell','sql','structured_config','build_ci','infra_config'}<={x['group'] for x in channels.values()}
+          assert 'PowerShell' in channels['powershell']['examples']
+          assert p['authority_boundary'] and all(v is False for v in p['authority_boundary'].values())
+          assert p['scope']['stage_specific_manifest_required'] is True
+          assert p['scope']['fixed_final_percentages'] is False
+          assert p['scope']['measurement_denominator']=='LANGUAGE_TOOLING_SLICE'
+          ext=p['decision_basis']['external_evidence']
+          assert {x['source_id'] for x in ext}=={'github_octoverse_2025','stackoverflow_2025_technology','jetbrains_developer_ecosystem_2025'}
+          assert all(x['observed_at']=='2026-08-28' and x['url'].startswith('https://') and x['observations'] for x in ext)
+          assert p['tiers']['long_tail']['per_language_minimum_percent']==0
+          assert 'Marketing completeness is not evidence.' in p['tiers']['long_tail']['admission_rule']
+          assert p['refresh_policy']['before_each_material_training_stage'] is True
+          assert p['refresh_policy']['tier_change_requires_canonical_amendment'] is True
+          text=Path('evidence/mstr-000b/B015-language-mix.md').read_text()
+          for marker in ['MODEL_WEIGHT_ACCESS = NONE','MODEL_EXECUTION = NONE','LARGE_DATASET_INGESTION = NONE','PAID_COMPUTE = NONE','PAID_MODEL_API = NONE','WEIGHT_CHANGING_TRAINING = NONE','PRODUCTION_RELEASE = NONE']:
+              assert marker in text
+          print('B015_ADVERSARIAL_POLICY_INVARIANTS=PASS')
+          PY
+      - name: Run focused contract and lint tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_b015_language_target_policy.py
+          ruff check tests/contract/test_b015_language_target_policy.py
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B015_ADVERSARIAL_REVIEW=PASS'
+      - name: Final remote identity recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B015_REVIEW_REMOTE_RECHECK=PASS'
