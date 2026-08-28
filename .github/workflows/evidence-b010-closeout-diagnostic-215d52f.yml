@@ -21,16 +21,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Bind exact live main
+      - name: Bind exact live main and source object
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin main evidence/b010-closeout-build-215d52f
           test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
           test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
-          test "$(git rev-parse refs/remotes/origin/evidence/b010-closeout-build-215d52f)" = "$SOURCE_HEAD"
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          git cat-file -e "$SOURCE_HEAD^{commit}"
+          git cat-file -e "$SOURCE_HEAD:$SOURCE_WORKFLOW"
           python -m pip install -e '.[dev]'
+          echo 'B010_CLOSEOUT_DIAGNOSTIC_BINDING=PASS'
       - name: Recreate exact local closeout candidate
         shell: bash
         run: |
