@@ -1,0 +1,175 @@
+name: Adversarially review exact B008 closeout
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 07762204ab126c0fccf9ca55a8b572bd6368d8bc
+      EXPECTED_HEAD: 3e59f721b472a13c220554e5fcba1f7056f4cb51
+      TARGET_BRANCH: docs/000b-b008-canonicalize
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3e59f721b472a13c220554e5fcba1f7056f4cb51
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bind exact head and prove closeout-only scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | wc -l)" -eq 5
+          git diff --exit-code "$EXPECTED_MAIN...$EXPECTED_HEAD" -- \
+            artifacts/results/tokenizer/B008 \
+            benchmarks/tokenizer_economics/b008_measure.py \
+            tests/contract/test_b008_tokenizer_economics_results.py
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B008_CLOSEOUT_REVIEW_SCOPE=PASS'
+
+      - name: Independently audit output set, evidence identity, and task state
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          result_dir = Path('artifacts/results/tokenizer/B008')
+          actual_paths = sorted(path.as_posix() for path in result_dir.glob('*.json'))
+          assert len(actual_paths) == 10
+          actual_ids = []
+          for path in sorted(result_dir.glob('*.json')):
+              payload = json.loads(path.read_text())
+              actual_ids.append(payload['candidate_id'])
+              assert path.stem == payload['candidate_id']
+              assert payload['measurement_failures'] == []
+          assert len(set(actual_ids)) == 10
+
+          catalog = json.loads(Path('configs/task-gate/mstr-000b.json').read_text())
+          b008 = catalog['tasks']['B008']
+          assert b008['canonical_state'] == 'COMPLETE_CANONICAL'
+          assert b008['closeout_rule']['require_all_outputs'] is True
+          assert sorted(b008['outputs']) == actual_paths
+          assert len(b008['outputs']) == len(set(b008['outputs'])) == 10
+
+          evidence = Path('evidence/mstr-000b/B008-tokenizer-economics.md').read_text()
+          expected_lines = {
+              '**State:** COMPLETE_CANONICAL',
+              '**Implementation PR:** `#61`',
+              '**Final implementation head:** `895983470f72128ad698023b3578553ed1cfe7c4`',
+              '**Canonical implementation merge:** `07762204ab126c0fccf9ca55a8b572bd6368d8bc`',
+              'ENTRY_GATE_TASK = B008',
+              'ENTRY_GATE_CANONICAL_MAIN = 7f2fe43797db4b94103ca07c172de5672806f624',
+              'ENTRY_GATE_ELIGIBLE = true',
+          }
+          for line in expected_lines:
+              assert line in evidence
+          assert len(re.findall(r'^ENTRY_GATE_TASK = B008$', evidence, flags=re.M)) == 1
+          assert len(re.findall(r'^\*\*Implementation PR:\*\* `#61`$', evidence, flags=re.M)) == 1
+
+          tasks = Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text()
+          assert tasks.count('- [x] **B008 Measure tokenizer code density for all serious candidates.**') == 1
+          assert tasks.count('- [ ] **B009 Freeze candidate trainability / conversion / runtime compatibility matrix.**') == 1
+          print('B008_CLOSEOUT_REVIEW_STATIC_AUDIT=PASS')
+          PY
+
+      - name: Prove clean successor semantics on exact closeout candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          if python -m mstr_qualify task eligible B008 > /tmp/b008.json; then
+            echo 'B008 unexpectedly execution-eligible' >&2
+            exit 1
+          fi
+          python -m mstr_qualify task eligible B009 > /tmp/b009.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          import os
+          head = os.environ['EXPECTED_HEAD']
+          b008 = json.load(open('/tmp/b008.json'))
+          b009 = json.load(open('/tmp/b009.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          assert b008['canonical_main'] == head
+          assert b008['state_consistency_result']['observed_state'] == 'COMPLETE_CANONICAL'
+          assert 'task.already_terminal' in b008['reasons']
+          assert b009['canonical_main'] == head
+          assert b009['eligible'] is True and b009['reasons'] == []
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B008_CLOSEOUT_REVIEW_BASELINE_GATE=PASS')
+          PY
+
+      - name: Adversarially delete one required B008 result and prove B009 fails closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing='artifacts/results/tokenizer/B008/yi-coder-1.5b.json'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm "$missing"
+          git commit -m 'test(evidence): simulate missing B008 result'
+          missing_head=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_HEAD"
+          git branch -f main "$missing_head"
+          git update-ref refs/remotes/origin/main "$missing_head"
+          if python -m mstr_qualify task eligible B009 > /tmp/b009-missing.json; then
+            echo 'B009 bypassed a missing required B008 result' >&2
+            exit 1
+          fi
+          python - <<'PY'
+          import json
+          result = json.load(open('/tmp/b009-missing.json'))
+          assert result['eligible'] is False
+          assert 'prerequisite.unsatisfied:B008' in result['reasons']
+          predecessor = result['prerequisite_results'][0]
+          assert predecessor['task_id'] == 'B008'
+          assert predecessor['satisfied'] is False
+          assert predecessor['evidence_present'] is False
+          assert 'prerequisite.required_artifact_missing' in predecessor['reasons']
+          assert 'missing:artifacts/results/tokenizer/B008/yi-coder-1.5b.json' in predecessor['reasons']
+          print('B008_CLOSEOUT_REVIEW_MISSING_RESULT_FAIL_CLOSED=PASS')
+          PY
+
+      - name: Restore exact reviewed head and run focused regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach "$EXPECTED_HEAD"
+          git branch -f main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          echo 'B008_CLOSEOUT_REVIEW_FOCUSED_REGRESSION=PASS'
+
+      - name: Restore real remote truth and finish immutable review
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo "B008_INDEPENDENT_REVIEWED_CLOSEOUT_HEAD=$EXPECTED_HEAD"
+          echo 'B008_CLOSEOUT_INDEPENDENT_ADVERSARIAL_REVIEW=PASS'
