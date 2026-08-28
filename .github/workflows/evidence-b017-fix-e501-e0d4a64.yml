@@ -1,17 +1,17 @@
-name: Repair B017 E501-only lint defects
+name: Diagnose B017 E501 repair remainder
 
 on:
   push:
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   EXPECTED_HEAD: e0d4a64929376f91a7aef502abedc2bc4645afbc
   TARGET_BRANCH: feat/mstr-000b-b017-evolution-fixture-pilot
 
 jobs:
-  repair:
+  diagnose:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -21,13 +21,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Bind exact candidate before repair
+      - name: Bind exact candidate
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
           test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
-      - name: Apply formatting-only repair
+      - name: Apply first formatting repair in working tree
         shell: bash
         run: |
           set -euo pipefail
@@ -72,25 +72,25 @@ jobs:
           for path, items in repairs.items():
               text = path.read_text(encoding="utf-8")
               for old, new in items:
-                  count = text.count(old)
-                  if count != 1:
-                      raise SystemExit(f"expected exactly one repair target in {path}: {old!r}; found {count}")
+                  if text.count(old) != 1:
+                      raise SystemExit(f"repair target mismatch: {path}: {old!r}")
                   text = text.replace(old, new)
               path.write_text(text, encoding="utf-8")
           PY
           git diff --check
       - run: python -m pip install -e '.[dev]'
-      - name: Frozen lint gate after repair
-        run: ruff check src tests
-      - name: Focused B017 regression after repair
-        run: pytest -q tests/unit/test_software_evolution_projection.py tests/contract/test_software_evolution_contract.py
-      - name: Commit and fast-forward candidate branch
+      - name: Capture remaining Ruff diagnostics
         shell: bash
         run: |
-          set -euo pipefail
-          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
-          git config user.name "TheHalfMoon"
-          git config user.email "alshehriofficial@gmail.com"
-          git add src/mstr_qualify/software_evolution.py tests/unit/test_software_evolution_projection.py
-          git commit -m "fix(mstr-000b): satisfy B017 frozen lint gate"
-          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          set +e
+          {
+            ruff --version
+            ruff check src tests --output-format=concise
+            echo "RUFF_EXIT_CODE=$?"
+          } > b017-ruff-after-first-repair.txt 2>&1
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: b017-ruff-after-first-repair
+          path: b017-ruff-after-first-repair.txt
+          if-no-files-found: error
