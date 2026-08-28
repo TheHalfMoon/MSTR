@@ -138,6 +138,7 @@ def test_validate_self_checks_schemas_and_fixtures(capsys: pytest.CaptureFixture
         "mstr-data-constitution-v0",
         "mstr-loop-contract-v0",
         "mstr-run-event-v0",
+        "mstr-self-alignment-generation-v0",
         "mstr-software-evolution-record-v0",
         "mstr-task-eligibility-v0",
         "mstr-task-node-v0",

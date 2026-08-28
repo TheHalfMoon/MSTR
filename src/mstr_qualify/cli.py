@@ -76,6 +76,8 @@ _SCHEMA_VERSION_TO_SCHEMA_NAME = {
     "mstr.data-constitution.v0": "mstr-data-constitution-v0",
     # MSTR-000B B016 Software Evolution Record contract.
     "mstr.software-evolution-record.v0": "mstr-software-evolution-record-v0",
+    # MSTR-000B B018 execution-filtered student self-alignment contract.
+    "mstr.self-alignment-generation.v0": "mstr-self-alignment-generation-v0",
 }
 
 _REPOSITORY_ROOT = DEFAULT_SCHEMA_DIR.parent

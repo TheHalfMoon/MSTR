@@ -37,6 +37,8 @@ SCHEMA_FILES: Mapping[str, str] = {
     "mstr-data-constitution-v0": "mstr-data-constitution-v0.schema.json",
     # MSTR-000B B016: software-evolution lineage and future-history boundary.
     "mstr-software-evolution-record-v0": "mstr-software-evolution-record-v0.schema.json",
+    # MSTR-000B B018: execution-filtered student self-alignment contract.
+    "mstr-self-alignment-generation-v0": "mstr-self-alignment-generation-v0.schema.json",
 }
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]

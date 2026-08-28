@@ -1,0 +1,567 @@
+{
+  "$defs": {
+    "execution_result": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_identity": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "result": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "ERROR"
+          ]
+        },
+        "sandboxed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "sandboxed",
+        "result",
+        "evidence_identity"
+      ],
+      "type": "object"
+    },
+    "generated_artifact": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "artifact_kind": {
+                "enum": [
+                  "SOLUTION",
+                  "TEST"
+                ]
+              }
+            },
+            "required": [
+              "artifact_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "execution_result"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "artifact_kind": {
+                "const": "TASK"
+              }
+            },
+            "required": [
+              "artifact_kind"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "execution_result"
+              ]
+            }
+          }
+        }
+      ],
+      "properties": {
+        "artifact_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "artifact_kind": {
+          "enum": [
+            "TASK",
+            "SOLUTION",
+            "TEST"
+          ]
+        },
+        "contamination_status": {
+          "enum": [
+            "CLEAR",
+            "DETECTED",
+            "UNRESOLVED"
+          ]
+        },
+        "content_identity": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "execution_result": {
+          "$ref": "#/$defs/execution_result"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "rights_decision": {
+          "$ref": "#/$defs/rights"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "artifact_kind",
+        "content_identity",
+        "provenance",
+        "rights_decision",
+        "contamination_status"
+      ],
+      "type": "object"
+    },
+    "provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "lineage_status": {
+          "enum": [
+            "COMPLETE",
+            "INCOMPLETE",
+            "UNRESOLVED"
+          ]
+        },
+        "source_identity": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source_revision": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_identity",
+        "source_revision",
+        "lineage_status"
+      ],
+      "type": "object"
+    },
+    "rights": {
+      "additionalProperties": false,
+      "properties": {
+        "decision": {
+          "enum": [
+            "COMPATIBLE",
+            "INCOMPATIBLE",
+            "UNRESOLVED"
+          ]
+        },
+        "license_or_terms_identity": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "license_or_terms_identity",
+        "decision"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://mstr.local/schemas/mstr-self-alignment-generation-v0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "admission_decision": {
+            "const": "ADMIT"
+          }
+        },
+        "required": [
+          "admission_decision"
+        ]
+      },
+      "then": {
+        "properties": {
+          "admission_reasons": {
+            "maxItems": 0
+          },
+          "contamination_status": {
+            "const": "CLEAR"
+          },
+          "difficulty_record": {
+            "properties": {
+              "difficulty_class": {
+                "enum": [
+                  "TOO_EASY",
+                  "LEARNABLE_FRONTIER",
+                  "HARD_FRONTIER",
+                  "CURRENTLY_UNPRODUCTIVE"
+                ]
+              }
+            }
+          },
+          "generated_solutions": {
+            "items": {
+              "properties": {
+                "contamination_status": {
+                  "const": "CLEAR"
+                },
+                "execution_result": {
+                  "properties": {
+                    "result": {
+                      "const": "PASS"
+                    },
+                    "sandboxed": {
+                      "const": true
+                    }
+                  }
+                },
+                "provenance": {
+                  "properties": {
+                    "lineage_status": {
+                      "const": "COMPLETE"
+                    }
+                  }
+                },
+                "rights_decision": {
+                  "properties": {
+                    "decision": {
+                      "const": "COMPATIBLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "generated_task": {
+            "properties": {
+              "contamination_status": {
+                "const": "CLEAR"
+              },
+              "provenance": {
+                "properties": {
+                  "lineage_status": {
+                    "const": "COMPLETE"
+                  }
+                }
+              },
+              "rights_decision": {
+                "properties": {
+                  "decision": {
+                    "const": "COMPATIBLE"
+                  }
+                }
+              }
+            }
+          },
+          "generated_tests": {
+            "items": {
+              "properties": {
+                "contamination_status": {
+                  "const": "CLEAR"
+                },
+                "execution_result": {
+                  "properties": {
+                    "result": {
+                      "const": "PASS"
+                    },
+                    "sandboxed": {
+                      "const": true
+                    }
+                  }
+                },
+                "provenance": {
+                  "properties": {
+                    "lineage_status": {
+                      "const": "COMPLETE"
+                    }
+                  }
+                },
+                "rights_decision": {
+                  "properties": {
+                    "decision": {
+                      "const": "COMPATIBLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "seed_contamination_status": {
+            "const": "CLEAR"
+          },
+          "seed_provenance": {
+            "properties": {
+              "lineage_status": {
+                "const": "COMPLETE"
+              }
+            }
+          },
+          "seed_rights_decision": {
+            "properties": {
+              "decision": {
+                "const": "COMPATIBLE"
+              }
+            }
+          },
+          "verifier_health": {
+            "properties": {
+              "generated_tests_sole_authority": {
+                "const": false
+              },
+              "health_class": {
+                "const": "HEALTHY"
+              },
+              "independence": {
+                "const": "INDEPENDENT"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "admission_decision": {
+            "const": "REJECT"
+          }
+        },
+        "required": [
+          "admission_decision"
+        ]
+      },
+      "then": {
+        "properties": {
+          "admission_reasons": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "admission_decision": {
+      "enum": [
+        "ADMIT",
+        "REJECT"
+      ]
+    },
+    "admission_reasons": {
+      "items": {
+        "maxLength": 1024,
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "contamination_status": {
+      "enum": [
+        "CLEAR",
+        "DETECTED",
+        "UNRESOLVED"
+      ]
+    },
+    "difficulty_record": {
+      "additionalProperties": false,
+      "properties": {
+        "difficulty_class": {
+          "enum": [
+            "TOO_EASY",
+            "LEARNABLE_FRONTIER",
+            "HARD_FRONTIER",
+            "CURRENTLY_UNPRODUCTIVE",
+            "INVALID"
+          ]
+        },
+        "difficulty_record_identity": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "difficulty_record_identity",
+        "difficulty_class"
+      ],
+      "type": "object"
+    },
+    "environment_identity": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
+    "generated_solutions": {
+      "items": {
+        "allOf": [
+          {
+            "$ref": "#/$defs/generated_artifact"
+          },
+          {
+            "properties": {
+              "artifact_kind": {
+                "const": "SOLUTION"
+              }
+            }
+          }
+        ]
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "generated_task": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/generated_artifact"
+        },
+        {
+          "properties": {
+            "artifact_kind": {
+              "const": "TASK"
+            }
+          }
+        }
+      ]
+    },
+    "generated_tests": {
+      "items": {
+        "allOf": [
+          {
+            "$ref": "#/$defs/generated_artifact"
+          },
+          {
+            "properties": {
+              "artifact_kind": {
+                "const": "TEST"
+              }
+            }
+          }
+        ]
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "generation_id": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "mstr.self-alignment-generation.v0"
+    },
+    "seed_contamination_status": {
+      "enum": [
+        "CLEAR",
+        "DETECTED",
+        "UNRESOLVED"
+      ]
+    },
+    "seed_identity": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
+    "seed_provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "seed_rights_decision": {
+      "$ref": "#/$defs/rights"
+    },
+    "student_model_identity": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "harness_profile_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "model_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sampling_identity": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "model_id",
+        "checkpoint_id",
+        "harness_profile_id",
+        "sampling_identity"
+      ],
+      "type": "object"
+    },
+    "verifier_health": {
+      "additionalProperties": false,
+      "properties": {
+        "generated_tests_sole_authority": {
+          "type": "boolean"
+        },
+        "health_class": {
+          "enum": [
+            "HEALTHY",
+            "PARTIAL",
+            "DISAGREEMENT",
+            "BROKEN",
+            "LEAKED",
+            "TAMPERED"
+          ]
+        },
+        "independence": {
+          "enum": [
+            "INDEPENDENT",
+            "NOT_INDEPENDENT",
+            "UNRESOLVED"
+          ]
+        },
+        "verifier_health_record_identity": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "verifier_identity": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "verifier_health_record_identity",
+        "verifier_identity",
+        "health_class",
+        "independence",
+        "generated_tests_sole_authority"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "generation_id",
+    "student_model_identity",
+    "seed_identity",
+    "seed_provenance",
+    "seed_rights_decision",
+    "seed_contamination_status",
+    "generated_task",
+    "generated_solutions",
+    "generated_tests",
+    "environment_identity",
+    "verifier_health",
+    "contamination_status",
+    "difficulty_record",
+    "admission_decision",
+    "admission_reasons"
+  ],
+  "title": "MSTR Self Alignment Generation v0",
+  "type": "object"
+}
