@@ -1,0 +1,53 @@
+name: Prove B020 entry gate on canonical main
+
+on:
+  push:
+    branches:
+      - evidence/b020-entry-ef90e96
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: ef90e96ba3d4e2c253987d1d104e0de26ce93529
+
+jobs:
+  entry:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ef90e96ba3d4e2c253987d1d104e0de26ce93529
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove exact B020 entry authority and drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          mstr-qualify task eligible B020 > /tmp/b020.json
+          jq -e '.eligible == true and .task_id == "B020" and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true' /tmp/b020.json
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and .canonical_main == env.EXPECTED_MAIN and (.findings | length) == 0' /tmp/drift.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+          if mstr-qualify task eligible B021 > /tmp/b021.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "PENDING"' /tmp/b021.json
+      - name: Baseline frozen quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+      - name: Final immutable canonical-main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
