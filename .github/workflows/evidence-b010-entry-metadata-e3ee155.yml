@@ -1,0 +1,106 @@
+name: Bind B010 entry and public metadata
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  research:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: e3ee155a7e0ed491984908998546900e594bda9a
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e3ee155a7e0ed491984908998546900e594bda9a
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bind exact B010 entry and clean drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B010 > /tmp/b010-entry.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          expected = os.environ['EXPECTED_MAIN']
+          entry = json.load(open('/tmp/b010-entry.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          assert entry['canonical_main'] == expected
+          assert entry['eligible'] is True and entry['reasons'] == []
+          assert entry['state_consistency_result']['observed_state'] == 'PENDING'
+          assert entry['prerequisite_results'][0]['task_id'] == 'B009'
+          assert entry['prerequisite_results'][0]['satisfied'] is True
+          assert drift['canonical_main'] == expected
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B010_EXACT_MAIN_ENTRY=PASS')
+          PY
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Query pinned public model metadata only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import urllib.request
+
+          models = [
+              ('mellum-4b', 'JetBrains/Mellum-4b-base', '83cce2605fbdf6a3868627e9b0a5924e0072b94d'),
+              ('qwen3.5-0.8b-control', 'Qwen/Qwen3.5-0.8B-Base', 'dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68'),
+          ]
+          for candidate_id, model_id, revision in models:
+              url = f'https://huggingface.co/api/models/{model_id}/revision/{revision}?blobs=true'
+              req = urllib.request.Request(url, headers={'User-Agent': 'MSTR-B010-public-metadata/1.0'})
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  payload = json.load(response)
+              assert payload['sha'] == revision, (candidate_id, payload.get('sha'))
+              siblings = payload['siblings']
+              records = []
+              for item in siblings:
+                  record = {'rfilename': item['rfilename']}
+                  if 'size' in item:
+                      record['size'] = item['size']
+                  if isinstance(item.get('lfs'), dict):
+                      record['lfs'] = {
+                          key: item['lfs'][key]
+                          for key in ('sha256', 'size')
+                          if key in item['lfs']
+                      }
+                  records.append(record)
+              print('B010_PUBLIC_METADATA=' + json.dumps({
+                  'candidate_id': candidate_id,
+                  'model_id': model_id,
+                  'revision': revision,
+                  'private': payload.get('private'),
+                  'gated': payload.get('gated'),
+                  'disabled': payload.get('disabled'),
+                  'siblings': records,
+              }, sort_keys=True))
+          print('MODEL_WEIGHT_ACCESS=NONE')
+          print('TOKENIZER_ARTIFACT_DOWNLOAD=NONE')
+          print('MODEL_EXECUTION=NONE')
+          print('GATED_TERMS_ACCEPTANCE=NONE')
+          print('PAID_COMPUTE=NONE')
+          PY
+
+      - name: Final exact-main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B010_ENTRY_METADATA_RESEARCH=PASS'
