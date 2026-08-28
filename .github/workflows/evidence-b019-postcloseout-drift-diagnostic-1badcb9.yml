@@ -1,0 +1,38 @@
+name: Diagnose B019 post-closeout drift
+
+on:
+  push:
+    branches:
+      - evidence/b019-postcloseout-drift-diagnostic-1badcb9
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: 1badcb9b159f99ed8f752a7412dfb5f52b995c01
+
+jobs:
+  drift:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1badcb9b159f99ed8f752a7412dfb5f52b995c01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Emit exact canonical drift report
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          set +e
+          mstr-qualify task drift > /tmp/drift.json
+          code=$?
+          set -e
+          cat /tmp/drift.json
+          test "$code" -eq 1
+          jq -e '.status == "drift" and (.findings | length) > 0' /tmp/drift.json
