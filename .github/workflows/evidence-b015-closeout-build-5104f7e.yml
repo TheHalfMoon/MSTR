@@ -1,0 +1,236 @@
+name: Build B015 canonical closeout from 5104f7e
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 5104f7ef63ba37caa518868ad89d0f78fe70641f
+      TARGET_BRANCH: docs/000b-b015-canonicalize
+      IMPLEMENTATION_HEAD: e6191fefc9b870f3376f6faead6149841fe7dd31
+      IMPLEMENTATION_MERGE: 5104f7ef63ba37caa518868ad89d0f78fe70641f
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5104f7ef63ba37caa518868ad89d0f78fe70641f
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact closeout entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+      - name: Mandatory exact-main B015 closeout entry gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B015 > /tmp/b015-entry.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011-entry.json; then exit 1; fi
+          python -m mstr_qualify task drift > /tmp/drift-entry.json
+          python - <<'PY'
+          import json, os
+          b15=json.load(open('/tmp/b015-entry.json')); b11=json.load(open('/tmp/b011-entry.json')); drift=json.load(open('/tmp/drift-entry.json'))
+          assert b15['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert b15['eligible'] is True and b15['reasons']==[]
+          assert b15['state_consistency_result']['observed_state']=='PENDING'
+          assert b15['authority_result']['required'] is False
+          assert b11['eligible'] is False and b11['state_consistency_result']['observed_state']=='BLOCKED'
+          assert b11['authority_result']['required'] is True and b11['authority_result']['satisfied'] is False
+          assert drift['status']=='clean' and drift['findings']==[]
+          print('B015_CLOSEOUT_ENTRY=PASS')
+          PY
+      - name: Materialize seven-file canonical closeout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          head='e6191fefc9b870f3376f6faead6149841fe7dd31'
+          merge='5104f7ef63ba37caa518868ad89d0f78fe70641f'
+
+          policy_path=Path('artifacts/decisions/B015-language-target-policy.json')
+          policy=json.loads(policy_path.read_text(encoding='utf-8'))
+          assert policy['state']=='IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT'
+          policy['state']='COMPLETE_CANONICAL'
+          policy['canonical_implementation']={
+              'pr_number':69,
+              'final_head':head,
+              'merge_commit':merge,
+          }
+          policy_path.write_text(json.dumps(policy, indent=2, sort_keys=True)+'\n', encoding='utf-8')
+
+          evidence_path=Path('evidence/mstr-000b/B015-language-mix.md')
+          evidence=evidence_path.read_text(encoding='utf-8')
+          assert '**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT' in evidence
+          evidence=evidence.replace('**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT','**State:** COMPLETE_CANONICAL',1)
+          task_line='**Task:** `B015`\n'
+          assert task_line in evidence
+          provenance=(
+              '**Task:** `B015`\n'
+              '**Implementation PR:** #69\n'
+              f'**Final implementation head:** `{head}`\n'
+              f'**Canonical implementation merge:** `{merge}`\n'
+          )
+          evidence=evidence.replace(task_line, provenance, 1)
+          evidence_path.write_text(evidence, encoding='utf-8')
+
+          catalog_path=Path('configs/task-gate/mstr-000b.json')
+          catalog=catalog_path.read_text(encoding='utf-8')
+          old='"B015": {\n      "canonical_state": "PENDING",'
+          new='"B015": {\n      "canonical_state": "COMPLETE_CANONICAL",'
+          assert old in catalog
+          catalog_path.write_text(catalog.replace(old,new,1), encoding='utf-8')
+
+          tasks_path=Path('specs/002-code-model-supremacy-foundation/tasks.md')
+          tasks=tasks_path.read_text(encoding='utf-8')
+          old_title='- [ ] **B015 Freeze programming-language/tooling target policy.**'
+          new_title='- [x] **B015 Freeze programming-language/tooling target policy.**'
+          assert old_title in tasks
+          tasks=tasks.replace(old_title,new_title,1)
+          output='  Outputs: `artifacts/decisions/B015-language-target-policy.json`, `evidence/mstr-000b/B015-language-mix.md`.\n'
+          assert output in tasks
+          canonical=(
+              output
+              + f'  Canonical implementation: PR #69 / final head `{head}` / merge `{merge}`.\n'
+          )
+          tasks=tasks.replace(output,canonical,1)
+          tasks_path.write_text(tasks, encoding='utf-8')
+
+          b015_test=Path('tests/contract/test_b015_language_target_policy.py')
+          text=b015_test.read_text(encoding='utf-8')
+          assert 'assert policy["state"] == "IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT"' in text
+          text=text.replace(
+              'assert policy["state"] == "IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT"',
+              'assert policy["state"] == "COMPLETE_CANONICAL"\n'
+              '    assert policy["canonical_implementation"] == {\n'
+              '        "final_head": "e6191fefc9b870f3376f6faead6149841fe7dd31",\n'
+              '        "merge_commit": "5104f7ef63ba37caa518868ad89d0f78fe70641f",\n'
+              '        "pr_number": 69,\n'
+              '    }',
+              1,
+          )
+          assert 'assert "IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT" in evidence' in text
+          text=text.replace(
+              'assert "IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT" in evidence',
+              'assert "**State:** COMPLETE_CANONICAL" in evidence\n'
+              '    assert "**Implementation PR:** #69" in evidence\n'
+              '    assert "**Canonical implementation merge:** `5104f7ef63ba37caa518868ad89d0f78fe70641f`" in evidence',
+              1,
+          )
+          b015_test.write_text(text, encoding='utf-8')
+
+          gate_test=Path('tests/contract/test_task_gate.py')
+          text=gate_test.read_text(encoding='utf-8')
+          old='@pytest.mark.parametrize("task_id", ["B015", "B016", "B018", "B020", "B022", "B025"])'
+          new='@pytest.mark.parametrize("task_id", ["B016", "B018", "B020", "B022", "B025"])'
+          assert old in text
+          text=text.replace(old,new,1)
+          anchor='\n\n@pytest.mark.parametrize("task_id", ["B016", "B018", "B020", "B022", "B025"])'
+          terminal='''\n\ndef test_b015_is_terminal_after_canonical_closeout() -> None:\n    result = evaluate_task_snapshot("B015", canonical_main=_CANONICAL_MAIN)\n\n    assert result["eligible"] is False\n    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"\n    assert result["state_consistency_result"]["satisfied"] is True\n    assert "task.already_terminal" in result["reasons"]\n    validate_instance("mstr-task-eligibility-v0", result)\n'''
+          assert anchor in text
+          text=text.replace(anchor,terminal+anchor,1)
+          gate_test.write_text(text, encoding='utf-8')
+
+          cli_test=Path('tests/integration/test_task_gate_cli.py')
+          text=cli_test.read_text(encoding='utf-8')
+          assert 'def test_task_eligible_b014_terminal_returns_one(' in text
+          addition='''\n\n\ndef test_task_eligible_b015_terminal_returns_one(\n    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]\n) -> None:\n    expected = evaluate_task_snapshot("B015", canonical_main=_CANONICAL_MAIN)\n\n    def fake_evaluate_task_eligibility(task_id: str) -> dict[str, object]:\n        assert task_id == "B015"\n        return expected\n\n    monkeypatch.setattr(\n        "mstr_qualify.cli.evaluate_task_eligibility", fake_evaluate_task_eligibility\n    )\n    exit_code = main(["task", "eligible", "B015"])\n    payload = _stdout_json(capsys)\n    assert exit_code == 1\n    assert payload == expected\n    assert payload["eligible"] is False\n    assert "task.already_terminal" in payload["reasons"]\n    validate_instance("mstr-task-eligibility-v0", payload)\n'''
+          text=text.rstrip()+addition+'\n'
+          cli_test.write_text(text, encoding='utf-8')
+          PY
+          expected=$(printf '%s\n' \
+            artifacts/decisions/B015-language-target-policy.json \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B015-language-mix.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_b015_language_target_policy.py \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort)
+          actual=$(git diff --name-only | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only | wc -l)" -eq 7
+          git diff --check
+      - name: Commit candidate and prove terminal frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'MSTR Evidence Builder'
+          git config user.email 'mstr-evidence-builder@users.noreply.github.com'
+          git add \
+            artifacts/decisions/B015-language-target-policy.json \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B015-language-mix.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_b015_language-target-policy.py 2>/dev/null || true
+          git add tests/contract/test_b015_language_target_policy.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          git commit -m 'docs(mstr-000b): canonicalize B015 closeout'
+          candidate=$(git rev-parse HEAD)
+          git branch -f main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          if python -m mstr_qualify task eligible B015 > /tmp/b015-terminal.json; then exit 1; fi
+          python -m mstr_qualify task eligible B016 > /tmp/b016.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          b15=json.load(open('/tmp/b015-terminal.json')); b16=json.load(open('/tmp/b016.json')); b11=json.load(open('/tmp/b011.json')); drift=json.load(open('/tmp/drift.json'))
+          assert b15['eligible'] is False
+          assert b15['state_consistency_result']['observed_state']=='COMPLETE_CANONICAL'
+          assert 'task.already_terminal' in b15['reasons']
+          assert b16['eligible'] is True and b16['state_consistency_result']['observed_state']=='PENDING'
+          assert b11['eligible'] is False and b11['state_consistency_result']['observed_state']=='BLOCKED'
+          assert b11['authority_result']['required'] is True and b11['authority_result']['satisfied'] is False
+          assert drift['status']=='clean' and drift['findings']==[]
+          policy=json.loads(Path('artifacts/decisions/B015-language-target-policy.json').read_text())
+          assert policy['state']=='COMPLETE_CANONICAL'
+          assert policy['canonical_implementation']['pr_number']==69
+          assert policy['canonical_implementation']['final_head']=='e6191fefc9b870f3376f6faead6149841fe7dd31'
+          assert policy['canonical_implementation']['merge_commit']=='5104f7ef63ba37caa518868ad89d0f78fe70641f'
+          assert all(v is False for v in policy['authority_boundary'].values())
+          print('B015_CLOSEOUT_TERMINAL_FRONTIER=PASS')
+          PY
+      - name: Run frozen closeout gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_b015_language_target_policy.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          git diff --check "$EXPECTED_MAIN...HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B015_CLOSEOUT_GATES=PASS'
+      - name: Push exact candidate only if remote identities remain frozen
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate=$(git rev-parse HEAD)
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin "$candidate:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$candidate"
+          echo "B015_CLOSEOUT_HEAD=$candidate"
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
