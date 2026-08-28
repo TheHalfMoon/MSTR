@@ -1,0 +1,140 @@
+name: Verify B014 implementation on canonical main
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: f6925f3e0d8378fedd6ec1d3aed30b725115e07e
+      PREVIOUS_MAIN: 90cf98f5f87b64f8e6da50a8444b1b598148f945
+      IMPLEMENTATION_HEAD: 70d601c4fb1c0603b6e757969a3a97b8c77744d8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f6925f3e0d8378fedd6ec1d3aed30b725115e07e
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact signed canonical implementation merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git show -s --format='%P' HEAD)" = "$PREVIOUS_MAIN $IMPLEMENTATION_HEAD"
+          for p in \
+            docs/data/MSTR_DATA_CONSTITUTION.md \
+            evidence/mstr-000b/B014-data-constitution.md \
+            schemas/mstr-data-constitution-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_data_constitution_contract.py \
+            tests/contract/test_schemas.py \
+            tests/fixtures/schemas/invalid/mstr-data-constitution-v0.json \
+            tests/fixtures/schemas/valid/mstr-data-constitution-v0.json \
+            tests/integration/test_cli_offline.py; do
+            test "$(git rev-parse "$EXPECTED_MAIN:$p")" = "$(git rev-parse "$IMPLEMENTATION_HEAD:$p")"
+          done
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B014_POSTMERGE_IDENTITY=PASS'
+      - name: Prove canonical pre-closeout task truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B014 > /tmp/b014.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then
+            echo 'B011 unexpectedly eligible after B014 implementation merge' >&2
+            exit 1
+          fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          b14 = json.load(open('/tmp/b014.json'))
+          b11 = json.load(open('/tmp/b011.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          expected = os.environ['EXPECTED_MAIN']
+          assert b14['canonical_main'] == expected
+          assert b14['eligible'] is True and b14['reasons'] == []
+          assert b14['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b14['authority_result']['required'] is False
+          assert b11['canonical_main'] == expected
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          assert drift['canonical_main'] == expected
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B014_POSTMERGE_PRECLOSEOUT_TRUTH=PASS')
+          PY
+      - name: Re-prove B014 fail-closed and zero-authority semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp schemas/mstr-data-constitution-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          schema = json.loads(Path('schemas/mstr-data-constitution-v0.schema.json').read_text())
+          props = schema['properties']
+          assert props['rights_policy']['properties']['unresolved_rights_admission']['const'] == 'REJECT'
+          assert props['rights_policy']['properties']['incompatible_rights_admission']['const'] == 'REJECT'
+          assert props['contamination_policy']['properties']['unresolved_contamination_admission']['const'] == 'REJECT'
+          assert props['benchmark_exclusion_policy']['properties']['hidden_tests_in_training']['const'] == 'PROHIBITED'
+          assert props['teacher_policy']['properties']['paid_or_api_teacher_authorized_by_constitution']['const'] is False
+          private = props['private_user_data_policy']['properties']
+          assert private['default_admission']['const'] == 'REJECT'
+          assert private['private_user_repositories_default_ingest']['const'] is False
+          assert private['production_traces_default_ingest']['const'] is False
+          assert private['hidden_telemetry_allowed']['const'] is False
+          evidence = Path('evidence/mstr-000b/B014-data-constitution.md').read_text()
+          assert '**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT' in evidence
+          for marker in [
+              'PRIVATE_USER_DATA_INGESTION = NONE',
+              'PRODUCTION_TRACE_INGESTION = NONE',
+              'LARGE_DATASET_INGESTION = NONE',
+              'MODEL_WEIGHT_ACCESS = NONE',
+              'MODEL_EXECUTION = NONE',
+              'WEIGHT_CHANGING_TRAINING = NONE',
+              'LARGE_SCALE_RL = NONE',
+              'PRODUCTION_RELEASE = NONE',
+          ]:
+              assert marker in evidence
+          print('B014_POSTMERGE_ZERO_AUTHORITY=PASS')
+          PY
+      - name: Run frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_data_constitution_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check "$PREVIOUS_MAIN...$EXPECTED_MAIN"
+          cmp schemas/mstr-data-constitution-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B014_POSTMERGE_GATES=PASS'
+      - name: Final canonical main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo 'B014_POST_IMPLEMENTATION_VERIFICATION=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
