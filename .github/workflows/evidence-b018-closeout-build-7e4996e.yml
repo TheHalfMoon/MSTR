@@ -1,0 +1,150 @@
+name: Build B018 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/b018-closeout-build-7e4996e
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: 7e4996e92128e4e02ec6dbcf6ed29eed2b753838
+  TARGET_BRANCH: docs/000b-b018-canonicalize
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/000b-b018-canonicalize
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind canonical baseline and unmodified closeout branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain)"
+      - name: Apply B018 canonical closeout record
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(
+                      f"expected exactly one replacement in {path}; found {count}: {old!r}"
+                  )
+              p.write_text(text.replace(old, new), encoding="utf-8")
+
+          replace_once(
+              "configs/task-gate/mstr-000b.json",
+              '    "B018": {\n      "canonical_state": "PENDING",',
+              '    "B018": {\n      "canonical_state": "COMPLETE_CANONICAL",',
+          )
+
+          replace_once(
+              "specs/002-code-model-supremacy-foundation/tasks.md",
+              '- [ ] **B018 Freeze execution-filtered student self-alignment contract.**  ',
+              '- [x] **B018 Freeze execution-filtered student self-alignment contract.**',
+          )
+          replace_once(
+              "specs/002-code-model-supremacy-foundation/tasks.md",
+              '  Outputs: schema/fixtures, `evidence/mstr-000b/B018-self-alignment-contract.md`.\n',
+              '  Outputs: schema/fixtures, `evidence/mstr-000b/B018-self-alignment-contract.md`.\n'
+              '  Canonical implementation: PR #76 / final head '
+              '`23c83ebae95ca3f0d893840e9d994b33712f124f` / merge '
+              '`7e4996e92128e4e02ec6dbcf6ed29eed2b753838`.\n',
+          )
+
+          replace_once(
+              "evidence/mstr-000b/B018-self-alignment-contract.md",
+              '**Task:** `B018`\n**State:** IMPLEMENTATION_CANDIDATE\n**Contract:** `mstr.self-alignment-generation.v0`\n',
+              '**Task:** `B018`\n'
+              '**Implementation PR:** #76\n'
+              '**Final implementation head:** '
+              '`23c83ebae95ca3f0d893840e9d994b33712f124f`\n'
+              '**Canonical implementation merge:** '
+              '`7e4996e92128e4e02ec6dbcf6ed29eed2b753838`\n'
+              '**State:** COMPLETE_CANONICAL\n'
+              '**Contract:** `mstr.self-alignment-generation.v0`\n',
+          )
+
+          evidence = Path("evidence/mstr-000b/B018-self-alignment-contract.md")
+          evidence_text = evidence.read_text(encoding="utf-8")
+          marker = "## Canonical Implementation Closeout\n"
+          if marker in evidence_text:
+              raise SystemExit("B018 closeout section already exists")
+          evidence_text += '''\n## Canonical Implementation Closeout\n\nThe contract implementation was merged without widening authority, data scope, or external effects.\n\n- implementation PR: `#76`\n- final implementation head: `23c83ebae95ca3f0d893840e9d994b33712f124f`\n- canonical implementation merge: `7e4996e92128e4e02ec6dbcf6ed29eed2b753838`\n- exact-final-head qualification: run `33188891501` — SUCCESS\n- independent adversarial review: run `33189093479` / job `98909650689` — SUCCESS\n- mandatory pre-merge verification: run `33189307397` — SUCCESS\n- post-merge implementation verification: run `33189815147` — SUCCESS\n\nThis closeout changes only canonical task/provenance state and regression assertions. It grants no model-weight access, model execution, paid compute, large-data ingestion, training, B020 difficulty-calibration authority, B022 verifier-health authority, or production release authority. B011 remains blocked.\n'''
+          evidence.write_text(evidence_text, encoding="utf-8")
+
+          replace_once(
+              "tests/contract/test_task_gate.py",
+              '@pytest.mark.parametrize("task_id", ["B018", "B020", "B022", "B025"])\n'
+              'def test_b014_closeout_opens_direct_nongated_successors(task_id: str) -> None:\n',
+              '''def test_b018_is_terminal_after_canonical_closeout() -> None:\n    result = evaluate_task_snapshot("B018", canonical_main=_CANONICAL_MAIN)\n\n    assert result["eligible"] is False\n    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"\n    assert result["state_consistency_result"]["satisfied"] is True\n    assert result["authority_result"]["required"] is False\n    assert "task.already_terminal" in result["reasons"]\n    validate_instance("mstr-task-eligibility-v0", result)\n\n\ndef test_b018_closeout_opens_b019_teacher_policy() -> None:\n    result = evaluate_task_snapshot("B019", canonical_main=_CANONICAL_MAIN)\n\n    assert result["eligible"] is True\n    assert result["reasons"] == []\n    assert result["state_consistency_result"]["observed_state"] == "PENDING"\n    assert result["authority_result"]["required"] is False\n    predecessor = next(\n        item for item in result["prerequisite_results"] if item["task_id"] == "B018"\n    )\n    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"\n    assert predecessor["evidence_present"] is True\n    assert predecessor["satisfied"] is True\n    assert predecessor["reasons"] == []\n    validate_instance("mstr-task-eligibility-v0", result)\n\n\n@pytest.mark.parametrize("task_id", ["B020", "B022", "B025"])\ndef test_b014_closeout_opens_direct_nongated_successors(task_id: str) -> None:\n''',
+          )
+
+          contract = Path("tests/contract/test_self_alignment_contract.py")
+          contract_text = contract.read_text(encoding="utf-8")
+          if "def test_b018_canonical_closeout_provenance_and_authority_boundary" in contract_text:
+              raise SystemExit("B018 provenance closeout test already exists")
+          contract_text += '''\n\ndef test_b018_canonical_closeout_provenance_and_authority_boundary() -> None:\n    evidence = (\n        ROOT / "evidence" / "mstr-000b" / "B018-self-alignment-contract.md"\n    ).read_text(encoding="utf-8")\n    assert "**State:** COMPLETE_CANONICAL" in evidence\n    assert "**Implementation PR:** #76" in evidence\n    assert (\n        "**Final implementation head:** "\n        "`23c83ebae95ca3f0d893840e9d994b33712f124f`" in evidence\n    )\n    assert (\n        "**Canonical implementation merge:** "\n        "`7e4996e92128e4e02ec6dbcf6ed29eed2b753838`" in evidence\n    )\n    assert "run `33188891501` — SUCCESS" in evidence\n    assert "run `33189093479` / job `98909650689` — SUCCESS" in evidence\n    assert "run `33189307397` — SUCCESS" in evidence\n    assert "run `33189815147` — SUCCESS" in evidence\n    assert "MODEL_WEIGHT_ACCESS = NONE" in evidence\n    assert "MODEL_EXECUTION = NONE" in evidence\n    assert "LARGE_DATASET_INGESTION = NONE" in evidence\n    assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence\n    assert "B020_DIFFICULTY_CALIBRATION_AUTHORITY = NONE" in evidence\n    assert "B022_VERIFIER_HEALTH_AUTHORITY = NONE" in evidence\n'''
+          contract.write_text(contract_text, encoding="utf-8")
+
+          cli = Path("tests/integration/test_task_gate_cli.py")
+          cli_text = cli.read_text(encoding="utf-8")
+          if "def test_task_eligible_b018_terminal_returns_one" in cli_text:
+              raise SystemExit("B018 CLI closeout test already exists")
+          cli_text += '''\n\ndef test_task_eligible_b018_terminal_returns_one(\n    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]\n) -> None:\n    expected = evaluate_task_snapshot("B018", canonical_main=_CANONICAL_MAIN)\n\n    def fake_evaluate_task_eligibility(task_id: str) -> dict[str, object]:\n        assert task_id == "B018"\n        return expected\n\n    monkeypatch.setattr(\n        "mstr_qualify.cli.evaluate_task_eligibility", fake_evaluate_task_eligibility\n    )\n    exit_code = main(["task", "eligible", "B018"])\n    payload = _stdout_json(capsys)\n    assert exit_code == 1\n    assert payload == expected\n    assert payload["eligible"] is False\n    assert "task.already_terminal" in payload["reasons"]\n    validate_instance("mstr-task-eligibility-v0", payload)\n'''
+          cli.write_text(cli_text, encoding="utf-8")
+          PY
+          git diff --check
+          expected=$(printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B018-self-alignment-contract.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_self_alignment_contract.py \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort)
+          actual=$(git diff --name-only | sort)
+          test "$actual" = "$expected"
+      - run: python -m pip install -e '.[dev]'
+      - name: Focused closeout regressions
+        run: pytest -q tests/contract/test_self_alignment_contract.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+      - name: Frozen repository gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy
+      - name: Commit and fast-forward closeout branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git config user.name "TheHalfMoon"
+          git config user.email "alshehriofficial@gmail.com"
+          git add \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B018-self-alignment-contract.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_self_alignment_contract.py \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py
+          git commit -m "docs(mstr-000b): canonicalize B018 closeout"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
