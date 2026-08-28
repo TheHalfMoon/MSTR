@@ -297,3 +297,18 @@ def test_b017_canonical_closeout_provenance_and_authority_boundary() -> None:
     assert "MODEL_WEIGHT_ACCESS = NONE" in evidence
     assert "LARGE_DATASET_INGESTION = NONE" in evidence
     assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
+
+
+def test_b017_machine_readable_entry_gate_provenance() -> None:
+    evidence = (ROOT / "evidence" / "mstr-000b" / "B017-evolution-fixture-pilot.md").read_text(
+        encoding="utf-8"
+    )
+    assert "ENTRY_GATE_TASK = B017" in evidence
+    assert (
+        "ENTRY_GATE_CANONICAL_MAIN = "
+        "f7a386214a1346b75dd3311390aa1e19bf354bb1" in evidence
+    )
+    assert "ENTRY_GATE_RUN = 33174634290" in evidence
+    assert "ENTRY_GATE_JOB = 98859944051" in evidence
+    assert "ENTRY_GATE_ELIGIBLE = true" in evidence
+    assert "ENTRY_GATE_DRIFT = clean" in evidence
