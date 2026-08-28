@@ -1,0 +1,150 @@
+name: Verify B010 canonical closeout on exact main
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 90cf98f5f87b64f8e6da50a8444b1b598148f945
+      EXPECTED_PREVIOUS_MAIN: 215d52f4de772639c5e64193ff48deaafb6eb2d7
+      EXPECTED_CLOSEOUT_HEAD: 69bb4c0adfc30807ab562d05100d4d18f3f434f0
+      IMPLEMENTATION_HEAD: 2047a3aa8b7063736a490d00d1fe10709aba23e2
+      IMPLEMENTATION_MERGE: 215d52f4de772639c5e64193ff48deaafb6eb2d7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 90cf98f5f87b64f8e6da50a8444b1b598148f945
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Bind exact canonical closeout merge identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_PREVIOUS_MAIN"
+          test "$(git rev-parse HEAD^2)" = "$EXPECTED_CLOSEOUT_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$(git rev-parse "$EXPECTED_CLOSEOUT_HEAD^{tree}")"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B010_POSTCLOSEOUT_MERGE_IDENTITY=PASS'
+
+      - name: Prove production B010 terminal state and B011 blocked authority gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          set +e
+          python -m mstr_qualify task eligible B010 > /tmp/b010.json
+          b010_rc=$?
+          python -m mstr_qualify task eligible B011 > /tmp/b011.json
+          b011_rc=$?
+          set -e
+          test "$b010_rc" -eq 1
+          test "$b011_rc" -eq 1
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          main = os.environ['EXPECTED_MAIN']
+          b010 = json.load(open('/tmp/b010.json'))
+          b011 = json.load(open('/tmp/b011.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          assert b010['canonical_main'] == main
+          assert b010['eligible'] is False
+          assert b010['state_consistency_result']['observed_state'] == 'COMPLETE_CANONICAL'
+          assert b010['state_consistency_result']['satisfied'] is True
+          assert 'task.already_terminal' in b010['reasons']
+          assert b011['canonical_main'] == main
+          assert b011['eligible'] is False
+          assert b011['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert 'task.blocked' in b011['reasons']
+          assert 'task.unresolved_binding' in b011['reasons']
+          predecessor = next(row for row in b011['prerequisite_results'] if row['task_id'] == 'B010')
+          assert predecessor['observed_state'] == 'COMPLETE_CANONICAL'
+          assert predecessor['evidence_present'] is True
+          assert predecessor['satisfied'] is True
+          assert predecessor['reasons'] == []
+          assert b011['authority_result']['required'] is True
+          assert b011['authority_result']['satisfied'] is False
+          assert drift['canonical_main'] == main
+          assert drift['status'] == 'clean' and drift['findings'] == []
+
+          catalog = json.loads(Path('configs/task-gate/mstr-000b.json').read_text())
+          assert catalog['tasks']['B010']['canonical_state'] == 'COMPLETE_CANONICAL'
+          assert catalog['tasks']['B011']['canonical_state'] == 'BLOCKED'
+          assert catalog['tasks']['B011']['external_effect_class'] == 'MODEL_WEIGHT_ACCESS'
+          assert catalog['tasks']['B011']['required_authority_id'] == 'B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED'
+
+          tasks = Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text()
+          assert '- [x] **B010 Freeze exact new-candidate qualification/access envelope.**' in tasks
+          assert '- [ ] **B011 EXPLICIT NEW WEIGHT ACCESS GATE' in tasks
+          evidence = Path('evidence/mstr-000b/B010-weight-access-preflight.md').read_text()
+          required = [
+              '**State:** COMPLETE_CANONICAL',
+              '**Implementation PR:** `#65`',
+              '**Final implementation head:** `2047a3aa8b7063736a490d00d1fe10709aba23e2`',
+              '**Canonical implementation merge:** `215d52f4de772639c5e64193ff48deaafb6eb2d7`',
+              'ENTRY_GATE_TASK = B010',
+              'ENTRY_GATE_ELIGIBLE = true',
+              'ENTRY_GATE_DRIFT = clean',
+              'MODEL_WEIGHT_ACCESS = NONE',
+              'MODEL_EXECUTION = NONE',
+              'TRAINING_EXECUTION = NONE',
+          ]
+          assert all(item in evidence for item in required)
+          print('B010_POSTCLOSEOUT_PRODUCTION_TRUTH=PASS')
+          print('B011_PRODUCTION_GATE=BLOCKED_EXACT_FOUNDER_AUTHORITY_REQUIRED')
+          PY
+
+      - name: Run frozen production quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/contract/test_b010_new_candidate_weight_access.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check HEAD^
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B010_POSTCLOSEOUT_FROZEN_GATES=PASS'
+
+      - name: Final immutable canonical-main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B010_POSTCLOSEOUT_EXACT_MAIN_VERIFICATION=PASS'
+          echo 'B010=COMPLETE_CANONICAL'
+          echo 'B011=BLOCKED'
+          echo 'B011_EXACT_FOUNDER_AUTHORITY_REQUIRED=true'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'TOKENIZER_ARTIFACT_DOWNLOAD=NONE'
+          echo 'CONVERSION_EXECUTION=NONE'
+          echo 'QUANTIZATION_EXECUTION=NONE'
+          echo 'TRAINING_EXECUTION=NONE'
+          echo 'GATED_TERMS_ACCEPTANCE=NONE'
+          echo 'PAID_MODEL_API=NONE'
+          echo 'PAID_COMPUTE=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'PRODUCTION_RELEASE=NONE'
+          echo 'FOUNDER_MACHINE_LARGE_ARTIFACTS=ZERO'
