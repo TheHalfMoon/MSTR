@@ -1,0 +1,90 @@
+name: Qualify exact B014 closeout head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: f6925f3e0d8378fedd6ec1d3aed30b725115e07e
+      EXPECTED_HEAD: 376c540d46ea76b7bacd906152afda1260bca17f
+      TARGET_BRANCH: docs/000b-b014-canonicalize
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 376c540d46ea76b7bacd906152afda1260bca17f
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact closeout identity and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          expected=$(printf '%s\n' configs/task-gate/mstr-000b.json evidence/mstr-000b/B014-data-constitution.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | wc -l)" -eq 5
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          echo 'B014_CLOSEOUT_EXACT_IDENTITY=PASS'
+      - name: Re-prove terminal and successor machine truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          if python -m mstr_qualify task eligible B014 > /tmp/b014.json; then exit 1; fi
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
+          for task in B015 B016 B018 B020 B022 B025; do python -m mstr_qualify task eligible "$task" > "/tmp/$task.json"; done
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          b14=json.load(open('/tmp/b014.json'))
+          assert not b14['eligible'] and b14['state_consistency_result']['observed_state']=='COMPLETE_CANONICAL'
+          assert 'task.already_terminal' in b14['reasons']
+          for task in ['B015','B016','B018','B020','B022','B025']:
+              p=json.load(open(f'/tmp/{task}.json'))
+              assert p['eligible'] is True and p['reasons']==[]
+              assert p['authority_result']['required'] is False
+              pred=next(x for x in p['prerequisite_results'] if x['task_id']=='B014')
+              assert pred['observed_state']=='COMPLETE_CANONICAL' and pred['satisfied'] is True and pred['evidence_present'] is True
+          b11=json.load(open('/tmp/b011.json'))
+          assert not b11['eligible'] and b11['state_consistency_result']['observed_state']=='BLOCKED'
+          assert b11['authority_result']['required'] is True and b11['authority_result']['satisfied'] is False
+          drift=json.load(open('/tmp/drift.json'))
+          assert drift['status']=='clean' and drift['findings']==[]
+          print('B014_CLOSEOUT_MACHINE_REQUALIFICATION=PASS')
+          PY
+      - name: Run frozen exact-head gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/contract/test_data_constitution_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          for p in docs/data/MSTR_DATA_CONSTITUTION.md schemas/mstr-data-constitution-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json src/mstr_qualify/cli.py src/mstr_qualify/schemas.py tests/contract/test_data_constitution_contract.py tests/contract/test_schemas.py tests/fixtures/schemas/invalid/mstr-data-constitution-v0.json tests/fixtures/schemas/valid/mstr-data-constitution-v0.json tests/integration/test_cli_offline.py; do
+            test "$(git rev-parse "$EXPECTED_HEAD:$p")" = "$(git rev-parse "$EXPECTED_MAIN:$p")"
+          done
+          echo 'B014_CLOSEOUT_EXACT_HEAD_GATES=PASS'
+      - name: Final immutable remote recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B014_CLOSEOUT_QUALIFICATION=PASS'
+          echo 'B011_REMAINS_BLOCKED=PASS'
