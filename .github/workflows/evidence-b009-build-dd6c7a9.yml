@@ -1,0 +1,494 @@
+name: Build current B009 compatibility matrix
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: dd6c7a9b163f1f34e6cc3570da234078d39f4fce
+      TARGET_BRANCH: feat/000b-b009-training-runtime-compatibility-v2
+      TRANSFORMERS_SHA: a8e8d144f6b8e71b93678a274b65d3a319f71921
+      UNSLOTH_SHA: 411b40615ac88ac657497e5ca9e9da9b334d841e
+      PEFT_SHA: 13414e66235139fad4102dfd3c9502958dbdc92b
+      TRL_SHA: 89bfc6a54a263bee77fee55aba177a75c8aecf55
+      LLAMA_CPP_SHA: 6d6b697cd53885de8f6f4e1b80902e3559817d7b
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/000b-b009-training-runtime-compatibility-v2
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Guard exact canonical entry and B009 eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B009 > /tmp/b009-entry.json
+          python -m mstr_qualify task drift > /tmp/b009-drift.json
+          python - <<'PY'
+          import json, os
+          expected = os.environ['EXPECTED_MAIN']
+          entry = json.load(open('/tmp/b009-entry.json'))
+          drift = json.load(open('/tmp/b009-drift.json'))
+          assert entry['canonical_main'] == expected
+          assert entry['eligible'] is True and entry['reasons'] == []
+          assert entry['state_consistency_result']['observed_state'] == 'PENDING'
+          assert entry['prerequisite_results'][0]['task_id'] == 'B008'
+          assert entry['prerequisite_results'][0]['satisfied'] is True
+          assert drift['canonical_main'] == expected
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B009_BUILDER_ENTRY=PASS')
+          PY
+
+      - name: Freeze current framework heads and verify cited source paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/huggingface/transformers/branches/main --jq .commit.sha)" = "$TRANSFORMERS_SHA"
+          test "$(gh api repos/unslothai/unsloth/branches/main --jq .commit.sha)" = "$UNSLOTH_SHA"
+          test "$(gh api repos/huggingface/peft/branches/main --jq .commit.sha)" = "$PEFT_SHA"
+          test "$(gh api repos/huggingface/trl/branches/main --jq .commit.sha)" = "$TRL_SHA"
+          test "$(gh api repos/ggml-org/llama.cpp/branches/master --jq .commit.sha)" = "$LLAMA_CPP_SHA"
+
+          for path in \
+            src/transformers/models/granite/modeling_granite.py \
+            src/transformers/models/mellum/modeling_mellum.py \
+            src/transformers/models/ministral3/modeling_ministral3.py \
+            src/transformers/models/qwen2/modeling_qwen2.py \
+            src/transformers/models/qwen3/modeling_qwen3.py \
+            src/transformers/models/qwen3_5/modeling_qwen3_5.py \
+            src/transformers/models/smollm3/modeling_smollm3.py \
+            src/transformers/models/llama/modeling_llama.py; do
+            gh api --method GET "repos/huggingface/transformers/contents/$path?ref=$TRANSFORMERS_SHA" >/dev/null
+          done
+          for path in \
+            unsloth/models/granite.py \
+            unsloth/models/qwen2.py \
+            unsloth/models/qwen3.py \
+            unsloth/models/loader.py \
+            unsloth/models/llama.py \
+            unsloth/import_fixes.py; do
+            gh api --method GET "repos/unslothai/unsloth/contents/$path?ref=$UNSLOTH_SHA" >/dev/null
+          done
+          gh api --method GET "repos/huggingface/peft/contents/src/peft/utils/constants.py?ref=$PEFT_SHA" >/dev/null
+          gh api --method GET "repos/huggingface/trl/contents/trl/trainer/sft_trainer.py?ref=$TRL_SHA" >/dev/null
+          gh api --method GET "repos/ggml-org/llama.cpp/contents/conversion/__init__.py?ref=$LLAMA_CPP_SHA" >/dev/null
+          echo 'B009_FRAMEWORK_SOURCE_SNAPSHOT=PASS'
+
+      - name: Materialize B009 decision, evidence, and contract test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          main = os.environ['EXPECTED_MAIN']
+          pins = {
+              'transformers': {
+                  'repository': 'huggingface/transformers',
+                  'revision': os.environ['TRANSFORMERS_SHA'],
+                  'branch': 'main',
+              },
+              'unsloth': {
+                  'repository': 'unslothai/unsloth',
+                  'revision': os.environ['UNSLOTH_SHA'],
+                  'branch': 'main',
+              },
+              'peft': {
+                  'repository': 'huggingface/peft',
+                  'revision': os.environ['PEFT_SHA'],
+                  'branch': 'main',
+              },
+              'trl': {
+                  'repository': 'huggingface/trl',
+                  'revision': os.environ['TRL_SHA'],
+                  'branch': 'main',
+              },
+              'llama_cpp': {
+                  'repository': 'ggml-org/llama.cpp',
+                  'revision': os.environ['LLAMA_CPP_SHA'],
+                  'branch': 'master',
+              },
+          }
+
+          candidate_records = []
+          by_id = {}
+          for path in sorted(Path('artifacts/candidates').glob('*.json')):
+              record = json.loads(path.read_text())
+              candidate_records.append(record)
+              by_id[record['candidate_id']] = record
+          assert len(candidate_records) == 19
+
+          serious_ids = [
+              record['candidate_id']
+              for record in candidate_records
+              if record['status'] == 'static_qualified'
+              and record['rights']['decision'] == 'pass_permissive'
+              and record['rights']['account_gate_required'] is False
+              and record['rights']['clickthrough_gate_required'] is False
+          ]
+          expected_serious = [
+              'granite-4.1-3b',
+              'mellum-4b',
+              'ministral-3-3b',
+              'qwen2.5-coder-1.5b',
+              'qwen3-4b',
+              'qwen3.5-0.8b-control',
+              'qwen3.5-2b',
+              'qwen3.5-4b',
+              'smollm3-3b',
+              'yi-coder-1.5b',
+          ]
+          assert serious_ids == expected_serious
+
+          tf_paths = {
+              'granite-4.1-3b': 'src/transformers/models/granite/modeling_granite.py',
+              'mellum-4b': 'src/transformers/models/mellum/modeling_mellum.py',
+              'ministral-3-3b': 'src/transformers/models/ministral3/modeling_ministral3.py',
+              'qwen2.5-coder-1.5b': 'src/transformers/models/qwen2/modeling_qwen2.py',
+              'qwen3-4b': 'src/transformers/models/qwen3/modeling_qwen3.py',
+              'qwen3.5-0.8b-control': 'src/transformers/models/qwen3_5/modeling_qwen3_5.py',
+              'qwen3.5-2b': 'src/transformers/models/qwen3_5/modeling_qwen3_5.py',
+              'qwen3.5-4b': 'src/transformers/models/qwen3_5/modeling_qwen3_5.py',
+              'smollm3-3b': 'src/transformers/models/smollm3/modeling_smollm3.py',
+              'yi-coder-1.5b': 'src/transformers/models/llama/modeling_llama.py',
+          }
+          unsloth = {
+              'granite-4.1-3b': ('DIRECT_FAMILY_SOURCE', ['unsloth/models/granite.py']),
+              'mellum-4b': ('SOURCE_AWARE_GENERIC_PATH', ['unsloth/import_fixes.py']),
+              'ministral-3-3b': ('NO_DIRECT_SOURCE_HIT_IN_PINNED_REVIEW', []),
+              'qwen2.5-coder-1.5b': ('DIRECT_FAMILY_SOURCE', ['unsloth/models/qwen2.py']),
+              'qwen3-4b': ('DIRECT_FAMILY_SOURCE', ['unsloth/models/qwen3.py']),
+              'qwen3.5-0.8b-control': ('SOURCE_AWARE_GENERIC_PATH', ['unsloth/models/loader.py']),
+              'qwen3.5-2b': ('SOURCE_AWARE_GENERIC_PATH', ['unsloth/models/loader.py']),
+              'qwen3.5-4b': ('SOURCE_AWARE_GENERIC_PATH', ['unsloth/models/loader.py']),
+              'smollm3-3b': ('NO_DIRECT_SOURCE_HIT_IN_PINNED_REVIEW', []),
+              'yi-coder-1.5b': ('GENERIC_LLAMA_PATH', ['unsloth/models/llama.py']),
+          }
+          peft_defaults = {
+              'granite-4.1-3b': None,
+              'mellum-4b': None,
+              'ministral-3-3b': None,
+              'qwen2.5-coder-1.5b': ['q_proj', 'v_proj'],
+              'qwen3-4b': ['q_proj', 'v_proj'],
+              'qwen3.5-0.8b-control': None,
+              'qwen3.5-2b': None,
+              'qwen3.5-4b': None,
+              'smollm3-3b': None,
+              'yi-coder-1.5b': ['q_proj', 'v_proj'],
+          }
+          hazards = {
+              'granite-4.1-3b': ['PEFT_DEFAULT_TARGET_MAPPING_NOT_OBSERVED_FOR_GRANITE'],
+              'mellum-4b': ['FIM_SPECIAL_TOKEN_EXPORT_PRESERVATION_REQUIRED', 'PEFT_DEFAULT_TARGET_MAPPING_NOT_OBSERVED_FOR_MELLUM'],
+              'ministral-3-3b': ['TEXT_VS_VISION_COMPONENT_SCOPE_REQUIRED', 'PEFT_DEFAULT_TARGET_MAPPING_NOT_OBSERVED_FOR_MINISTRAL3'],
+              'qwen2.5-coder-1.5b': ['FIM_SPECIAL_TOKEN_EXPORT_PRESERVATION_REQUIRED'],
+              'qwen3-4b': ['FIM_SPECIAL_TOKEN_EXPORT_PRESERVATION_REQUIRED'],
+              'qwen3.5-0.8b-control': ['HYBRID_ATTENTION_TARGET_MODULE_COVERAGE_REQUIRED', 'MULTIMODAL_COMPONENT_SCOPE_REQUIRED', 'FIM_SPECIAL_TOKEN_EXPORT_PRESERVATION_REQUIRED', 'PEFT_DEFAULT_TARGET_MAPPING_NOT_OBSERVED_FOR_QWEN3_5'],
+              'qwen3.5-2b': ['HYBRID_ATTENTION_TARGET_MODULE_COVERAGE_REQUIRED', 'MULTIMODAL_COMPONENT_SCOPE_REQUIRED', 'FIM_SPECIAL_TOKEN_EXPORT_PRESERVATION_REQUIRED', 'PEFT_DEFAULT_TARGET_MAPPING_NOT_OBSERVED_FOR_QWEN3_5'],
+              'qwen3.5-4b': ['HYBRID_ATTENTION_TARGET_MODULE_COVERAGE_REQUIRED', 'MULTIMODAL_COMPONENT_SCOPE_REQUIRED', 'FIM_SPECIAL_TOKEN_EXPORT_PRESERVATION_REQUIRED', 'PEFT_DEFAULT_TARGET_MAPPING_NOT_OBSERVED_FOR_QWEN3_5'],
+              'smollm3-3b': ['UNSLOTH_DIRECT_FAMILY_SUPPORT_UNPROVEN'],
+              'yi-coder-1.5b': ['GENERIC_LLAMA_PATH_REQUIRES_EXACT_MODEL_QUALIFICATION'],
+          }
+
+          serious_rows = []
+          for candidate_id in serious_ids:
+              record = by_id[candidate_id]
+              u_status, u_paths = unsloth[candidate_id]
+              defaults = peft_defaults[candidate_id]
+              serious_rows.append({
+                  'candidate_id': candidate_id,
+                  'candidate_role': record['candidate_role'],
+                  'upstream_id': record['upstream_id'],
+                  'upstream_revision': record['upstream_revision'],
+                  'architecture_family': record['architecture']['family'],
+                  'rights_decision': record['rights']['decision'],
+                  'transformers': {
+                      'evidence_class': 'SOURCE_REGISTERED',
+                      'source_paths': [tf_paths[candidate_id]],
+                      'exact_candidate_load_status': 'UNEXECUTED',
+                  },
+                  'unsloth': {
+                      'evidence_class': u_status,
+                      'source_paths': u_paths,
+                      'exact_train_save_export_status': 'UNEXECUTED',
+                  },
+                  'peft': {
+                      'evidence_class': 'GENERIC_ADAPTER_LAYER',
+                      'source_paths': ['src/peft/utils/constants.py'],
+                      'default_lora_target_modules_observed': defaults,
+                      'exact_target_module_coverage_status': 'UNEXECUTED',
+                  },
+                  'trl': {
+                      'evidence_class': 'GENERIC_TRAINER_PATH',
+                      'source_paths': ['trl/trainer/sft_trainer.py'],
+                      'exact_candidate_training_status': 'UNEXECUTED',
+                  },
+                  'llama_cpp': {
+                      'evidence_class': 'CONVERTER_CLASS_REGISTERED',
+                      'source_paths': ['conversion/__init__.py'],
+                      'conversion_status': 'UNEXECUTED',
+                      'quantization_status': 'UNEXECUTED',
+                      'runtime_status': 'UNVERIFIED',
+                  },
+                  'qualification_hazards': hazards[candidate_id],
+                  'promotion_from_b009_allowed': False,
+                  'b009_interpretation': 'SOURCE_EVIDENCE_REQUIRES_ARTIFACT_BACKED_QUALIFICATION',
+              })
+
+          reference_rows = []
+          for record in candidate_records:
+              if record['candidate_id'] in serious_ids:
+                  continue
+              reference_rows.append({
+                  'candidate_id': record['candidate_id'],
+                  'candidate_role': record['candidate_role'],
+                  'status': record['status'],
+                  'upstream_id': record['upstream_id'],
+                  'upstream_revision': record['upstream_revision'],
+                  'architecture_family': record['architecture']['family'],
+                  'rights_decision': record['rights']['decision'],
+                  'account_gate_required': record['rights']['account_gate_required'],
+                  'clickthrough_gate_required': record['rights']['clickthrough_gate_required'],
+                  'compatibility_scope': 'INFORMATIONAL_REFERENCE_ONLY',
+                  'promotion_from_b009_allowed': False,
+              })
+
+          decision = {
+              'artifact_version': 'mstr.b009.training-runtime-compatibility.v1',
+              'task_id': 'B009',
+              'state': 'IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT',
+              'canonical_main_at_execution': main,
+              'entry_gate': {
+                  'task_id': 'B009',
+                  'run_id': 33156075625,
+                  'job_id': 98799035575,
+                  'canonical_main': main,
+                  'eligible': True,
+              },
+              'candidate_inventory': {
+                  'record_count': 19,
+                  'serious_static_qualified_count': 10,
+                  'serious_candidate_ids': serious_ids,
+                  'reference_or_non_serious_count': 9,
+              },
+              'framework_source_snapshot': pins,
+              'interpretation_policy': {
+                  'source_registered_is_runtime_pass': False,
+                  'generic_path_is_exact_model_pass': False,
+                  'converter_source_is_conversion_pass': False,
+                  'converter_source_is_quantization_pass': False,
+                  'trainer_source_is_trainability_pass': False,
+                  'b009_can_promote_candidate': False,
+                  'b010_owns_qualification_and_new_access_lists': True,
+              },
+              'serious_candidates': serious_rows,
+              'reference_candidates': reference_rows,
+              'cross_cutting_findings': [
+                  'Qwen3.5 is a hybrid multimodal architecture; exact adapter coverage and text/vision scope require later artifact-backed qualification.',
+                  'PEFT default LoRA target-module mappings are observed for llama, qwen2, and qwen3, but not for granite, mellum, ministral3, qwen3_5, or smollm3 in the pinned constants source.',
+                  'TRL SFTTrainer is a generic orchestration layer over Transformers/PEFT model objects; its source presence is not candidate-specific trainability evidence.',
+                  'llama.cpp converter class registration is source-level conversion evidence only and does not prove conversion success, quantization fidelity, or runtime correctness.',
+                  'FIM/code-special-token candidates require tokenizer/export preservation checks during later artifact-backed qualification.',
+              ],
+              'b010_handoff': {
+                  'qualification_candidates': 'NOT_DECIDED_BY_B009',
+                  'new_weight_access_required_candidates': 'NOT_DECIDED_BY_B009',
+                  'rule': 'B010 must combine this source-level matrix with canonical B006 rights/provenance and B007/B008 evidence before deciding qualification/access envelopes.',
+              },
+              'authority_boundary': {
+                  'model_weight_access': False,
+                  'model_execution': False,
+                  'tokenizer_artifact_download': False,
+                  'conversion_execution': False,
+                  'quantization_execution': False,
+                  'training_execution': False,
+                  'gated_terms_acceptance': False,
+                  'paid_compute': False,
+                  'large_dataset_ingestion': False,
+                  'founder_machine_large_artifacts': 0,
+              },
+          }
+
+          out = Path('artifacts/decisions/B009-training-runtime-compatibility.json')
+          out.parent.mkdir(parents=True, exist_ok=True)
+          out.write_text(json.dumps(decision, indent=2, sort_keys=True) + '\n')
+
+          lines = [
+              '# B009 — Candidate Trainability / Conversion / Runtime Compatibility',
+              '',
+              '**Workstream:** MSTR-000B  ',
+              '**Task:** B009  ',
+              '**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT  ',
+              f'**Canonical main at execution:** `{main}`  ',
+              '**Decision artifact:** `artifacts/decisions/B009-training-runtime-compatibility.json`',
+              '',
+              'B009 is a metadata/code/docs compatibility freeze only. It does not access model weights, download tokenizer artifacts, execute models, run conversion or quantization, perform training, accept gated terms, use paid compute, or ingest a large dataset.',
+              '',
+              '## Exact entry evidence',
+              '',
+              '```text',
+              'ENTRY_GATE_TASK = B009',
+              f'ENTRY_GATE_CANONICAL_MAIN = {main}',
+              'ENTRY_GATE_RUN = 33156075625',
+              'ENTRY_GATE_JOB = 98799035575',
+              'ENTRY_GATE_ELIGIBLE = true',
+              'ENTRY_GATE_DRIFT = clean',
+              '```',
+              '',
+              '## Exact framework source pins',
+              '',
+              '```text',
+              f"TRANSFORMERS = huggingface/transformers@{pins['transformers']['revision']}",
+              f"UNSLOTH      = unslothai/unsloth@{pins['unsloth']['revision']}",
+              f"PEFT         = huggingface/peft@{pins['peft']['revision']}",
+              f"TRL          = huggingface/trl@{pins['trl']['revision']}",
+              f"LLAMA_CPP    = ggml-org/llama.cpp@{pins['llama_cpp']['revision']}",
+              '```',
+              '',
+              'Every cited source path was re-fetched at the pinned SHA by the B009 builder before materialization.',
+              '',
+              '## Interpretation policy',
+              '',
+              '```text',
+              'SOURCE_REGISTERED != RUNTIME_PASS',
+              'GENERIC_PATH != EXACT_MODEL_PASS',
+              'CONVERTER_SOURCE != CONVERSION_PASS',
+              'CONVERTER_SOURCE != QUANTIZATION_PASS',
+              'TRAINER_SOURCE != TRAINABILITY_PASS',
+              'B009_SOURCE_EVIDENCE != CANDIDATE_PROMOTION_AUTHORITY',
+              '```',
+              '',
+              '## Serious candidate matrix',
+              '',
+              '| Candidate | Role | Transformers | Unsloth | PEFT default target | llama.cpp | Main qualification hazards |',
+              '|---|---|---|---|---|---|---|',
+          ]
+          for row in serious_rows:
+              defaults = row['peft']['default_lora_target_modules_observed']
+              default_text = ','.join(defaults) if defaults else 'none observed'
+              lines.append(
+                  f"| `{row['candidate_id']}` | {row['candidate_role']} | SOURCE_REGISTERED | {row['unsloth']['evidence_class']} | {default_text} | CONVERTER_CLASS_REGISTERED | {'; '.join(row['qualification_hazards'])} |"
+              )
+          lines += [
+              '',
+              'All ten rows remain execution-unqualified in B009. Source presence can schedule later qualification; it cannot replace it.',
+              '',
+              '## Current source findings',
+              '',
+              '- Transformers has pinned native source paths for all ten serious architecture families used here, including Mellum, Ministral3, Qwen3.5 and SmolLM3.',
+              '- Unsloth has direct family modules for Granite, Qwen2 and Qwen3; Qwen3.5-aware loader logic is present, while no direct dedicated module was established by this pinned review for Ministral3 or SmolLM3. No-source-hit is not treated as incompatibility.',
+              '- PEFT pinned defaults include `llama`, `qwen2`, and `qwen3` LoRA targets (`q_proj`, `v_proj`). No default mapping is promoted for Granite, Mellum, Ministral3, Qwen3.5 or SmolLM3; exact module coverage must be inspected later.',
+              '- TRL SFTTrainer accepts generic Transformers/PEFT model objects. That is orchestration capability, not candidate-specific trainability proof.',
+              '- llama.cpp pinned converter registry contains the model classes needed by the serious set. This is converter-source evidence only; conversion, quantization and runtime execution remain unexecuted.',
+              '',
+              '## Architecture and export restrictions',
+              '',
+              '- Qwen3.5: hybrid attention plus integrated multimodal components require explicit adapter-target coverage and text/vision training/export scope. Partial PEFT target matches cannot be interpreted as sufficient coverage.',
+              '- Ministral3: text-only versus integrated vision-component scope must be explicit before training/export claims.',
+              '- Mellum, Qwen2.5-Coder, Qwen3 and Qwen3.5: FIM/code-special-token preservation must be verified through save/export/conversion paths.',
+              '- Granite: source support exists, but the pinned PEFT default mapping does not establish exact Granite 4.1 target-module coverage.',
+              '- SmolLM3: Transformers and llama.cpp converter source are present; direct Unsloth family support was not established in this review and remains an execution-qualification question.',
+              '- Yi-Coder: current canonical record identifies a Llama-compatible text architecture; generic Llama paths remain generic and require exact-model qualification.',
+              '',
+              '## Reference / non-serious records',
+              '',
+              f"The canonical inventory contains {len(reference_rows)} additional records. They are retained in the decision artifact as `INFORMATIONAL_REFERENCE_ONLY`. B009 cannot promote them regardless of technical source evidence; canonical role/rights decisions remain authoritative.",
+              '',
+              'The prior LFM2.5 identity blocker is obsolete: canonical B006 records now contain full immutable upstream revisions. Both LFM2.5 records remain reference-only because of their current rights decisions, not because identity is unresolved.',
+              '',
+              '## B010 handoff',
+              '',
+              'B009 does not create `qualification_candidates[]` or `new_weight_access_required_candidates[]`. B010 owns those lists after reconciling this source-level matrix with canonical B006 rights/provenance and B007/B008 evidence.',
+              '',
+              '## Authority boundary',
+              '',
+              '```text',
+              'MODEL_WEIGHT_ACCESS = NONE',
+              'MODEL_EXECUTION = NONE',
+              'TOKENIZER_ARTIFACT_DOWNLOAD = NONE',
+              'CONVERSION_EXECUTION = NONE',
+              'QUANTIZATION_EXECUTION = NONE',
+              'TRAINING_EXECUTION = NONE',
+              'GATED_TERMS_ACCEPTANCE = NONE',
+              'PAID_COMPUTE = NONE',
+              'LARGE_DATASET_INGESTION = NONE',
+              'FOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO',
+              '```',
+              '',
+              'B009 remains unchecked / not complete canonical until exact-head qualification, independent review, implementation merge, separate canonical closeout, and post-closeout exact-main verification.',
+          ]
+          evidence = Path('evidence/mstr-000b/B009-compatibility.md')
+          evidence.parent.mkdir(parents=True, exist_ok=True)
+          evidence.write_text('\n'.join(lines) + '\n')
+
+          test = Path('tests/contract/test_b009_training_runtime_compatibility.py')
+          test.write_text('''from __future__ import annotations\n\nimport json\nfrom pathlib import Path\n\n_ROOT = Path(__file__).resolve().parents[2]\n_DECISION = _ROOT / "artifacts" / "decisions" / "B009-training-runtime-compatibility.json"\n\n\ndef _load() -> dict[str, object]:\n    value = json.loads(_DECISION.read_text(encoding="utf-8"))\n    assert isinstance(value, dict)\n    return value\n\n\ndef test_b009_decision_is_bound_to_canonical_candidates_and_framework_pins() -> None:\n    decision = _load()\n    assert decision["task_id"] == "B009"\n    assert decision["state"] == "IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT"\n    assert decision["canonical_main_at_execution"] == "dd6c7a9b163f1f34e6cc3570da234078d39f4fce"\n    pins = decision["framework_source_snapshot"]\n    assert isinstance(pins, dict)\n    assert set(pins) == {"transformers", "unsloth", "peft", "trl", "llama_cpp"}\n    for record in pins.values():\n        assert isinstance(record, dict)\n        revision = record["revision"]\n        assert isinstance(revision, str) and len(revision) == 40\n        assert all(char in "0123456789abcdef" for char in revision)\n\n    current = {}\n    for path in sorted((_ROOT / "artifacts" / "candidates").glob("*.json")):\n        row = json.loads(path.read_text(encoding="utf-8"))\n        current[row["candidate_id"]] = row\n    serious = decision["serious_candidates"]\n    references = decision["reference_candidates"]\n    assert isinstance(serious, list) and len(serious) == 10\n    assert isinstance(references, list) and len(references) == 9\n    assert set(current) == {row["candidate_id"] for row in serious + references}\n    for row in serious:\n        source = current[row["candidate_id"]]\n        assert row["upstream_id"] == source["upstream_id"]\n        assert row["upstream_revision"] == source["upstream_revision"]\n        assert source["status"] == "static_qualified"\n        assert source["rights"]["decision"] == "pass_permissive"\n        assert row["promotion_from_b009_allowed"] is False\n    for row in references:\n        source = current[row["candidate_id"]]\n        assert row["upstream_id"] == source["upstream_id"]\n        assert row["upstream_revision"] == source["upstream_revision"]\n        assert row["compatibility_scope"] == "INFORMATIONAL_REFERENCE_ONLY"\n        assert row["promotion_from_b009_allowed"] is False\n\n\ndef test_b009_source_evidence_never_claims_execution_pass() -> None:\n    decision = _load()\n    policy = decision["interpretation_policy"]\n    assert isinstance(policy, dict)\n    assert policy == {\n        "b009_can_promote_candidate": False,\n        "b010_owns_qualification_and_new_access_lists": True,\n        "converter_source_is_conversion_pass": False,\n        "converter_source_is_quantization_pass": False,\n        "generic_path_is_exact_model_pass": False,\n        "source_registered_is_runtime_pass": False,\n        "trainer_source_is_trainability_pass": False,\n    }\n    for row in decision["serious_candidates"]:\n        assert row["transformers"]["exact_candidate_load_status"] == "UNEXECUTED"\n        assert row["unsloth"]["exact_train_save_export_status"] == "UNEXECUTED"\n        assert row["peft"]["exact_target_module_coverage_status"] == "UNEXECUTED"\n        assert row["trl"]["exact_candidate_training_status"] == "UNEXECUTED"\n        assert row["llama_cpp"]["conversion_status"] == "UNEXECUTED"\n        assert row["llama_cpp"]["quantization_status"] == "UNEXECUTED"\n        assert row["llama_cpp"]["runtime_status"] == "UNVERIFIED"\n\n\ndef test_b009_authority_boundary_is_zero_effect() -> None:\n    decision = _load()\n    authority = decision["authority_boundary"]\n    assert isinstance(authority, dict)\n    assert authority["founder_machine_large_artifacts"] == 0\n    for key, value in authority.items():\n        if key != "founder_machine_large_artifacts":\n            assert value is False, key\n    handoff = decision["b010_handoff"]\n    assert handoff["qualification_candidates"] == "NOT_DECIDED_BY_B009"\n    assert handoff["new_weight_access_required_candidates"] == "NOT_DECIDED_BY_B009"\n''', encoding='utf-8')
+          PY
+          git add artifacts/decisions/B009-training-runtime-compatibility.json \
+            evidence/mstr-000b/B009-compatibility.md \
+            tests/contract/test_b009_training_runtime_compatibility.py
+          git diff --cached --check
+          expected=$(printf '%s\n' \
+            artifacts/decisions/B009-training-runtime-compatibility.json \
+            evidence/mstr-000b/B009-compatibility.md \
+            tests/contract/test_b009_training_runtime_compatibility.py | sort)
+          actual=$(git diff --cached --name-only | sort)
+          test "$actual" = "$expected"
+          echo 'B009_MATERIALIZATION=PASS'
+
+      - name: Qualify implementation candidate and push guarded fast-forward
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_b009_training_runtime_compatibility.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --cached --check
+          test -z "$(git status --porcelain=v1 --untracked-files=all | grep '^??' || true)"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs(mstr-000b): freeze B009 compatibility matrix'
+          final=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$final" | wc -l)" -eq 3
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin "HEAD:$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$final"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo "B009_IMPLEMENTATION_HEAD=$final"
+          echo "B009_BUILDER_RUN=$GITHUB_RUN_ID"
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'TOKENIZER_ARTIFACT_DOWNLOAD=NONE'
+          echo 'CONVERSION_EXECUTION=NONE'
+          echo 'QUANTIZATION_EXECUTION=NONE'
+          echo 'TRAINING_EXECUTION=NONE'
+          echo 'GATED_TERMS_ACCEPTANCE=NONE'
+          echo 'PAID_COMPUTE=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'FOUNDER_MACHINE_LARGE_ARTIFACTS=ZERO'
