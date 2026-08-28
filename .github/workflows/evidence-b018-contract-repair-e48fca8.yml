@@ -1,0 +1,145 @@
+name: Repair B018 canonical evidence bindings
+
+on:
+  push:
+    branches:
+      - evidence/b018-contract-repair-e48fca8
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 73b60aa9421f51be52560bbbca6e8dd46b77b6c9
+      EXPECTED_HEAD: e48fca8922a6ed6e9f6dfba7d49f3bbfef334c5a
+      TARGET_BRANCH: feat/000b-b018-self-alignment-contract
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b018-contract-repair-e48fca8
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind immutable canonical and candidate heads
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          cp .github/evidence/repair_b018_canonical_bindings.py /tmp/repair_b018.py
+          git fetch origin main "$TARGET_BRANCH"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git merge-base "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1)"
+      - name: Materialize canonical-binding repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/repair_b018.py
+          expected=$(printf '%s\n' \
+            evidence/mstr-000b/B018-self-alignment-contract.md \
+            schemas/mstr-self-alignment-generation-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-self-alignment-generation-v0.schema.json \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_self_alignment_contract.py \
+            tests/fixtures/schemas/valid/mstr-self-alignment-generation-v0.json \
+            tests/fixtures/schemas/invalid/mstr-self-alignment-generation-v0.json | sort)
+          actual=$(git status --porcelain=v1 | sed 's/^...//' | sort)
+          test "$actual" = "$expected"
+          cmp \
+            schemas/mstr-self-alignment-generation-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-self-alignment-generation-v0.schema.json
+          git diff --check
+      - run: python -m pip install -e '.[dev]'
+      - name: Normalize repaired Python surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruff check --fix src/mstr_qualify/schemas.py tests/contract/test_self_alignment_contract.py
+          ruff format src/mstr_qualify/schemas.py tests/contract/test_self_alignment_contract.py
+          git diff --check
+      - name: Focused B018 adversarial gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q \
+            tests/contract/test_self_alignment_contract.py \
+            tests/contract/test_schemas.py \
+            tests/integration/test_cli_offline.py::test_validate_self_checks_schemas_and_fixtures
+          python -m mstr_qualify validate
+          python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-self-alignment-generation-v0.json
+          if python -m mstr_qualify validate tests/fixtures/schemas/invalid/mstr-self-alignment-generation-v0.json; then
+            echo 'invalid B018 fixture unexpectedly validated' >&2
+            exit 1
+          fi
+      - name: Frozen repository quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q
+          ruff check src tests
+          mypy
+      - name: Commit locally and prove prospective canonical state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add \
+            evidence/mstr-000b/B018-self-alignment-contract.md \
+            schemas/mstr-self-alignment-generation-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-self-alignment-generation-v0.schema.json \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_self_alignment_contract.py \
+            tests/fixtures/schemas/valid/mstr-self-alignment-generation-v0.json \
+            tests/fixtures/schemas/invalid/mstr-self-alignment-generation-v0.json
+          git commit -m 'fix(mstr-000b): bind B018 canonical evidence identities'
+          candidate=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_HEAD"
+          expected_scope=$(printf '%s\n' \
+            evidence/mstr-000b/B018-self-alignment-contract.md \
+            schemas/mstr-self-alignment-generation-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-self-alignment-generation-v0.schema.json \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_schemas.py \
+            tests/contract/test_self_alignment_contract.py \
+            tests/fixtures/schemas/valid/mstr-self-alignment-generation-v0.json \
+            tests/fixtures/schemas/invalid/mstr-self-alignment-generation-v0.json \
+            tests/integration/test_cli_offline.py | sort)
+          actual_scope=$(git diff --name-only "$EXPECTED_MAIN...$candidate" | sort)
+          test "$actual_scope" = "$expected_scope"
+          git diff --check "$EXPECTED_MAIN...$candidate"
+          git branch -f main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          git checkout main
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python -m mstr_qualify task eligible B018 > /tmp/b018.json
+          set +e
+          python -m mstr_qualify task eligible B011 > /tmp/b011.json
+          b011_rc=$?
+          set -e
+          test "$b011_rc" -ne 0
+          python - <<'PY'
+          import json
+          drift = json.load(open('/tmp/drift.json'))
+          b018 = json.load(open('/tmp/b018.json'))
+          b011 = json.load(open('/tmp/b011.json'))
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          assert b018['eligible'] is True
+          assert b018['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b018['authority_result']['required'] is False
+          assert b018['authority_result']['satisfied'] is True
+          assert b011['eligible'] is False
+          assert b011['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert b011['authority_result']['required'] is True
+          assert b011['authority_result']['satisfied'] is False
+          PY
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          git push origin HEAD:refs/heads/$TARGET_BRANCH
+          echo "B018_REPAIRED_CANDIDATE=$candidate"
