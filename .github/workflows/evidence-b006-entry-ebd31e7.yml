@@ -1,0 +1,74 @@
+name: Verify B006 entry ebd31e7
+
+on:
+  push:
+    branches:
+      - evidence/b006-entry-ebd31e7
+
+permissions:
+  contents: read
+
+jobs:
+  entry:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: ebd31e7657cb42479b28a4cb1cc8a5ce2ae56b6a
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify exact main before gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+      - name: Install tooling
+        run: python -m pip install -e '.[dev]'
+      - name: Production B006 eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify task eligible B006 > /tmp/b006.json
+          cat /tmp/b006.json
+          python - <<'PY'
+          import json, os
+          data=json.load(open('/tmp/b006.json', encoding='utf-8'))
+          assert data['task_id']=='B006', data
+          assert data['canonical_main']==os.environ['EXPECTED_MAIN'], data
+          assert data['eligible'] is True, data
+          assert data['reasons']==[], data
+          assert data['state_consistency_result']['observed_state']=='PENDING', data
+          print('B006_ENTRY_ELIGIBLE=PASS')
+          PY
+      - name: Production canonical drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify task drift > /tmp/drift.json
+          cat /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          data=json.load(open('/tmp/drift.json', encoding='utf-8'))
+          assert data['canonical_main']==os.environ['EXPECTED_MAIN'], data
+          assert data['status']=='clean', data
+          assert data['findings']==[], data
+          print('B006_ENTRY_DRIFT=PASS')
+          PY
+      - name: Re-verify exact main after gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B006_ENTRY_EXACT_MAIN_IMMUTABLE=PASS'
