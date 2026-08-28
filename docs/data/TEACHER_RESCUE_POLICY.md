@@ -40,7 +40,7 @@ Every record binds:
 - verifier-health identity and independence state;
 - deterministic admission decision and reasons.
 
-Teacher identity or provider terms do not substitute for concrete-output rights. Output provenance/rights arrays must exactly cover all teacher outputs. Independent execution evidence must exactly cover outputs marked `execution_required=true`.
+Teacher identity or provider terms do not substitute for concrete-output rights. Output provenance/rights arrays must exactly cover all teacher outputs. Independent execution evidence must exactly cover outputs marked `execution_required=true`. `SOLUTION` and `TEST` outputs are execution-required by contract and cannot opt out of independent execution.
 
 ## Fail-Closed Admission
 

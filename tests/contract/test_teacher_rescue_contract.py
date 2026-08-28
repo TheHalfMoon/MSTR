@@ -65,6 +65,15 @@ def test_b019_required_execution_must_be_independently_bound() -> None:
     assert any("execution-required teacher output ids" in item for item in errors(value))
 
 
+def test_b019_solution_and_test_outputs_cannot_opt_out_of_execution() -> None:
+    for output_kind in ("SOLUTION", "TEST"):
+        value = fixture()
+        value["teacher_outputs"][0]["output_kind"] = output_kind
+        value["teacher_outputs"][0]["execution_required"] = False
+        value["independent_execution_results"] = []
+        assert errors(value)
+
+
 def test_b019_admit_rejects_failed_execution() -> None:
     value = fixture()
     value["independent_execution_results"][0]["result"] = "FAIL"

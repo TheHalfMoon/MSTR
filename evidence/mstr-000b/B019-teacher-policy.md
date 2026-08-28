@@ -13,7 +13,7 @@ B018 is `COMPLETE_CANONICAL`. Exact-main post-closeout run `33190906137` proved 
 
 The B019 candidate freezes a bounded teacher-rescue record that binds student failure, teacher/terms identity, concrete-output provenance and rights, contamination, execution-required output evidence, verifier-health identity, cost/network/model-execution facts, and admission.
 
-Teacher identity is not truth. Teacher terms are not concrete-output rights. Missing/unresolved provenance, rights, contamination, required execution, or verifier independence fails closed.
+Teacher identity is not truth. Teacher terms are not concrete-output rights. Missing/unresolved provenance, rights, contamination, required execution, or verifier independence fails closed. `SOLUTION` and `TEST` outputs cannot declare execution optional.
 
 B019 binds an external `difficulty_record_identity` only; it does not calibrate difficulty. It consumes verifier-health identity only; it does not certify verifier health.
 
