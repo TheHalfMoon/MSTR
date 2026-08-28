@@ -19,13 +19,33 @@ def test_b009_decision_is_bound_to_canonical_candidates_and_framework_pins() -> 
     assert decision["state"] == "IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT"
     assert decision["canonical_main_at_execution"] == "dd6c7a9b163f1f34e6cc3570da234078d39f4fce"
     pins = decision["framework_source_snapshot"]
-    assert isinstance(pins, dict)
-    assert set(pins) == {"transformers", "unsloth", "peft", "trl", "llama_cpp"}
-    for record in pins.values():
-        assert isinstance(record, dict)
-        revision = record["revision"]
-        assert isinstance(revision, str) and len(revision) == 40
-        assert all(char in "0123456789abcdef" for char in revision)
+    assert pins == {
+        "transformers": {
+            "branch": "main",
+            "repository": "huggingface/transformers",
+            "revision": "a8e8d144f6b8e71b93678a274b65d3a319f71921",
+        },
+        "unsloth": {
+            "branch": "main",
+            "repository": "unslothai/unsloth",
+            "revision": "411b40615ac88ac657497e5ca9e9da9b334d841e",
+        },
+        "peft": {
+            "branch": "main",
+            "repository": "huggingface/peft",
+            "revision": "13414e66235139fad4102dfd3c9502958dbdc92b",
+        },
+        "trl": {
+            "branch": "main",
+            "repository": "huggingface/trl",
+            "revision": "89bfc6a54a263bee77fee55aba177a75c8aecf55",
+        },
+        "llama_cpp": {
+            "branch": "master",
+            "repository": "ggml-org/llama.cpp",
+            "revision": "d077b4c21466cfad678b07b05b557599f4db3974",
+        },
+    }
 
     current = {}
     for path in sorted((_ROOT / "artifacts" / "candidates").glob("*.json")):
