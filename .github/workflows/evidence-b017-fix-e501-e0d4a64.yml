@@ -1,0 +1,96 @@
+name: Repair B017 E501-only lint defects
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_HEAD: e0d4a64929376f91a7aef502abedc2bc4645afbc
+  TARGET_BRANCH: feat/mstr-000b-b017-evolution-fixture-pilot
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/mstr-000b-b017-evolution-fixture-pilot
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact candidate before repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+      - name: Apply formatting-only repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          repairs = {
+              Path("src/mstr_qualify/software_evolution.py"): [
+                  (
+                      '    target_id = _string(boundary.get("target_event_id"), "future_history_boundary.target_event_id")\n',
+                      '    target_id = _string(\n        boundary.get("target_event_id"), "future_history_boundary.target_event_id"\n    )\n',
+                  ),
+                  (
+                      'def _supervision_target(kind: ProjectionKind, target: _Event, visible_ids: set[str]) -> dict[str, Any]:\n',
+                      'def _supervision_target(\n    kind: ProjectionKind, target: _Event, visible_ids: set[str]\n) -> dict[str, Any]:\n',
+                  ),
+                  (
+                      '    source_class = _string(repository_identity.get("source_class"), "repository_identity.source_class")\n',
+                      '    source_class = _string(\n        repository_identity.get("source_class"), "repository_identity.source_class"\n    )\n',
+                  ),
+              ],
+              Path("tests/unit/test_software_evolution_projection.py"): [
+                  (
+                      '    assert record["final_revision"] not in model_input_json or current_revision == record["final_revision"]\n',
+                      '    assert (\n        record["final_revision"] not in model_input_json\n        or current_revision == record["final_revision"]\n    )\n',
+                  ),
+                  (
+                      '    with pytest.raises(SoftwareEvolutionProjectionError, match="does not reference current revision"):\n',
+                      '    with pytest.raises(\n        SoftwareEvolutionProjectionError, match="does not reference current revision"\n    ):\n',
+                  ),
+                  (
+                      '    with pytest.raises(SoftwareEvolutionProjectionError, match="target event must remain future-hidden"):\n',
+                      '    with pytest.raises(\n        SoftwareEvolutionProjectionError, match="target event must remain future-hidden"\n    ):\n',
+                  ),
+                  (
+                      '        ("rights", {"license_or_terms_identity": "fixture", "decision": "UNRESOLVED"}, "compatible fixture rights"),\n',
+                      '        (\n            "rights",\n            {"license_or_terms_identity": "fixture", "decision": "UNRESOLVED"},\n            "compatible fixture rights",\n        ),\n',
+                  ),
+              ],
+          }
+
+          for path, items in repairs.items():
+              text = path.read_text(encoding="utf-8")
+              for old, new in items:
+                  count = text.count(old)
+                  if count != 1:
+                      raise SystemExit(f"expected exactly one repair target in {path}: {old!r}; found {count}")
+                  text = text.replace(old, new)
+              path.write_text(text, encoding="utf-8")
+          PY
+          git diff --check
+      - run: python -m pip install -e '.[dev]'
+      - name: Frozen lint gate after repair
+        run: ruff check src tests
+      - name: Focused B017 regression after repair
+        run: pytest -q tests/unit/test_software_evolution_projection.py tests/contract/test_software_evolution_contract.py
+      - name: Commit and fast-forward candidate branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          git config user.name "TheHalfMoon"
+          git config user.email "alshehriofficial@gmail.com"
+          git add src/mstr_qualify/software_evolution.py tests/unit/test_software_evolution_projection.py
+          git commit -m "fix(mstr-000b): satisfy B017 frozen lint gate"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
