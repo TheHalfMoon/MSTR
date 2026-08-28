@@ -1,8 +1,8 @@
 # B017 — Fixture-Only Software-Evolution Projection Pilot
 
-**Task:** `B017`  
-**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT  
-**Canonical main at execution:** `f7a386214a1346b75dd3311390aa1e19bf354bb1`  
+**Task:** `B017`
+**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT
+**Canonical main at execution:** `f7a386214a1346b75dd3311390aa1e19bf354bb1`
 **Exact entry evidence:** run `33174634290` / job `98859944051` — SUCCESS
 
 ## Scope
@@ -95,6 +95,7 @@ Intermediate build evidence retained transparently:
 - diagnostic run `33176730639`, job `98867173563` — the same pre-fix candidate independently passed offline validation, full pytest, Ruff, and mypy as separate steps. This diagnostic does not replace exact-head qualification.
 - run `33177063565`, job `98868325024` — FAILED at the standalone full Ruff step after entry, scope, focused tests, offline validation, and full pytest passed. This run is not treated as PASS.
 - Ruff-family diagnostic run `33177289096`, job `98869095454` — configured `E`, `F`, `I`, `UP`, and `B` rule families each passed independently on the same candidate. This diagnostic does not replace exact-head qualification.
+- exact-head qualification attempt run `33177408512`, job `98869505359` — FAILED at `git diff --check` because this evidence file contained Markdown trailing whitespace. No later gate in that run executed, and the run is not treated as PASS.
 
 A later exact-final-head qualification is required before merge and is the only evidence that may qualify the final implementation candidate.
 
