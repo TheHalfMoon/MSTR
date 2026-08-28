@@ -1,0 +1,111 @@
+name: Independent adversarial review B017
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: f7a386214a1346b75dd3311390aa1e19bf354bb1
+      EXPECTED_HEAD: 1bf95c8473e2bc68d5a9410cc07a04838ad7d61c
+      TARGET_BRANCH: feat/mstr-000b-b017-evolution-fixture-pilot
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind live main and candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          git fetch origin "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git merge-base "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          git checkout --detach "$EXPECTED_HEAD"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dev dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Review fixture-only and authority surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          source=Path('src/mstr_qualify/software_evolution.py').read_text()
+          assert 'REPOSITORY_OWNED_FIXTURE' in source
+          assert 'SYNTHETIC_VERIFIED' in source
+          for forbidden in ('requests', 'urllib.request', 'httpx', 'subprocess.run', 'MODEL_WEIGHT_ACCESS'):
+              assert forbidden not in source
+          evidence=Path('evidence/mstr-000b/B017-evolution-fixture-pilot.md').read_text()
+          assert '**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT' in evidence
+          for marker in (
+              'MODEL_WEIGHT_ACCESS = NONE',
+              'MODEL_EXECUTION = NONE',
+              'LARGE_DATASET_INGESTION = NONE',
+              'WEIGHT_CHANGING_TRAINING = NONE',
+          ):
+              assert marker in evidence
+          PY
+      - name: Adversarial future-history projection audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from mstr_qualify.software_evolution import project_software_evolution
+          root=Path('tests/fixtures/software_evolution')
+          cases=(
+              ('b017-localization.json','LOCALIZATION'),
+              ('b017-edit.json','EDIT'),
+              ('b017-review-repair.json','REVIEW_REPAIR'),
+          )
+          for filename, kind in cases:
+              record=json.loads((root/filename).read_text())
+              projected=project_software_evolution(record, kind=kind)
+              model_blob=json.dumps(projected['model_input'], sort_keys=True)
+              assert projected['audit']['future_history_hidden'] is True
+              for event_id in projected['audit']['excluded_future_event_ids']:
+                  assert event_id not in model_blob
+              boundary=record['future_history_boundary']
+              cutoff=boundary['cutoff_sequence']
+              for collection, artifact_field in (
+                  ('change_events','change_artifact_identity'),
+                  ('test_ci_events','evidence_identity'),
+                  ('review_events','feedback_identity'),
+              ):
+                  for event in record[collection]:
+                      if event['sequence'] > cutoff:
+                          assert event[artifact_field] not in model_blob
+              assert record['final_revision'] not in model_blob or projected['model_input']['current_revision'] == record['final_revision']
+          PY
+      - name: Run adversarial and frozen tests
+        run: pytest -q tests/unit/test_software_evolution_projection.py tests/contract/test_software_evolution_contract.py
+      - name: Offline validate
+        run: python -m mstr_qualify validate
+      - name: Full repository tests
+        run: pytest -q
+      - name: Ruff
+        run: ruff check src tests
+      - name: Mypy
+        run: mypy src
+      - name: Final remote immutability review
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B017_INDEPENDENT_REVIEW=PASS'
+          echo 'B011_REMAINS_BLOCKED=PASS'
