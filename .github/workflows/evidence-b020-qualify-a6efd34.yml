@@ -1,0 +1,125 @@
+name: Qualify exact B020 difficulty calibration candidate
+
+on:
+  push:
+    branches:
+      - evidence/b020-qualify-a6efd34
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: ef90e96ba3d4e2c253987d1d104e0de26ce93529
+  EXPECTED_HEAD: a6efd344fcd68f99be9a9a98eeff9b537be14e9f
+  PR_NUMBER: '81'
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a6efd344fcd68f99be9a9a98eeff9b537be14e9f
+          fetch-depth: 0
+      - name: Verify exact PR identity and scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_MAIN"
+          pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
+          test "$(jq -r '.state' <<<"$pr")" = "open"
+          test "$(jq -r '.draft' <<<"$pr")" = "false"
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$EXPECTED_HEAD"
+          mapfile -t actual < <(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" --jq '.[].filename' | sort)
+          expected=(
+            evidence/mstr-000b/B020-difficulty-contract.md
+            schemas/mstr-difficulty-calibration-v0.schema.json
+            specs/002-code-model-supremacy-foundation/contracts/mstr-difficulty-calibration-v0.schema.json
+            src/mstr_qualify/cli.py
+            src/mstr_qualify/schemas.py
+            tests/contract/test_difficulty_calibration_contract.py
+            tests/contract/test_schemas.py
+            tests/fixtures/schemas/invalid/mstr-difficulty-calibration-v0.json
+            tests/fixtures/schemas/valid/mstr-difficulty-calibration-v0.json
+            tests/integration/test_cli_offline.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 10
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          cmp schemas/mstr-difficulty-calibration-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-difficulty-calibration-v0.schema.json
+          test "$(git diff --name-only "$EXPECTED_MAIN"..."$EXPECTED_HEAD" -- configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md specs/002-code-model-supremacy-foundation/plan.md .specify/memory/constitution.md | wc -l)" -eq 0
+
+  exact_main_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ef90e96ba3d4e2c253987d1d104e0de26ce93529
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-prove exact-main eligibility and drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          mstr-qualify task eligible B020 > /tmp/b020.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b020.json
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+          if mstr-qualify task eligible B021 > /tmp/b021.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "PENDING"' /tmp/b021.json
+
+  candidate_quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a6efd344fcd68f99be9a9a98eeff9b537be14e9f
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run exact-head focused and full quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_difficulty_calibration_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          cmp schemas/mstr-difficulty-calibration-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-difficulty-calibration-v0.schema.json
+
+  complete:
+    needs: [identity_scope, exact_main_gate, candidate_quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b020-qualify-a6efd34
+          fetch-depth: 0
+      - name: Final immutable target recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/feat/000b-b020-difficulty-calibration-contract | cut -f1)" = "$EXPECTED_HEAD"
+          pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
+          test "$(jq -r '.state' <<<"$pr")" = "open"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$EXPECTED_HEAD"
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$EXPECTED_MAIN"
