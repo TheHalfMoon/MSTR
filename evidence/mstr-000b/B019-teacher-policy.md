@@ -12,6 +12,17 @@
 
 B018 is `COMPLETE_CANONICAL`. Exact-main post-closeout run `33190906137` proved B019 `eligible=true`, `PENDING`, with no external-effect authority required; task drift was clean and B011 remained blocked.
 
+## Canonical Entry Provenance
+
+```text
+ENTRY_GATE_TASK = B019
+ENTRY_GATE_CANONICAL_MAIN = 2605846607fc98291ded4e53e9bb6bb6c3cf52a0
+ENTRY_GATE_RUN = 33190906137
+ENTRY_GATE_JOB = 98915802159
+ENTRY_GATE_ELIGIBLE = true
+ENTRY_GATE_DRIFT = clean
+```
+
 ## Frozen Semantics
 
 The B019 candidate freezes a bounded teacher-rescue record that binds student failure, teacher/terms identity, concrete-output provenance and rights, contamination, execution-required output evidence, verifier-health identity, cost/network/model-execution facts, and admission.
