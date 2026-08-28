@@ -1,0 +1,233 @@
+name: Build and qualify B014 Data Constitution
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 90cf98f5f87b64f8e6da50a8444b1b598148f945
+      TARGET_BRANCH: feat/000b-b014-data-constitution-v2
+      DONOR_HEAD: 2ad16ed19c159897ce0f31730e016fac1c06afa9
+      ENTRY_RUN: '33164424310'
+      ENTRY_JOB: '98826328509'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/000b-b014-data-constitution-v2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Bind exact B014 entry and stale donor only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH" feat/000b-b014-data-constitution
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/feat/000b-b014-data-constitution)" = "$DONOR_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B014 > /tmp/b014-entry.json
+          python -m mstr_qualify task drift > /tmp/drift-entry.json
+          python - <<'PY'
+          import json, os
+          b014 = json.load(open('/tmp/b014-entry.json'))
+          drift = json.load(open('/tmp/drift-entry.json'))
+          assert b014['canonical_main'] == os.environ['EXPECTED_MAIN']
+          assert b014['eligible'] is True and b014['reasons'] == []
+          assert b014['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b014['prerequisite_results'] == []
+          assert b014['authority_result']['required'] is False
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B014_BUILD_ENTRY=PASS')
+          PY
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Recover reviewed B014 contract and integrate canonical runtime surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in \
+            docs/data/MSTR_DATA_CONSTITUTION.md \
+            schemas/mstr-data-constitution-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json \
+            tests/contract/test_data_constitution_contract.py \
+            tests/fixtures/schemas/invalid/mstr-data-constitution-v0.json \
+            tests/fixtures/schemas/valid/mstr-data-constitution-v0.json
+          do
+            mkdir -p "$(dirname "$path")"
+            git show "$DONOR_HEAD:$path" > "$path"
+          done
+
+          python - <<'PY'
+          from pathlib import Path
+
+          schemas = Path('src/mstr_qualify/schemas.py')
+          text = schemas.read_text(encoding='utf-8')
+          anchor = '    "mstr-task-eligibility-v0": "mstr-task-eligibility-v0.schema.json",\n'
+          addition = '    # MSTR-000B B014: fail-closed Data Constitution contract.\n    "mstr-data-constitution-v0": "mstr-data-constitution-v0.schema.json",\n'
+          assert text.count(anchor) == 1
+          assert '"mstr-data-constitution-v0"' not in text
+          schemas.write_text(text.replace(anchor, anchor + addition, 1), encoding='utf-8')
+
+          cli = Path('src/mstr_qualify/cli.py')
+          text = cli.read_text(encoding='utf-8')
+          anchor = '    "mstr.task-eligibility.v0": "mstr-task-eligibility-v0",\n'
+          addition = '    # MSTR-000B B014 Data Constitution contract.\n    "mstr.data-constitution.v0": "mstr-data-constitution-v0",\n'
+          assert text.count(anchor) == 1
+          assert '"mstr.data-constitution.v0"' not in text
+          cli.write_text(text.replace(anchor, anchor + addition, 1), encoding='utf-8')
+
+          tests = Path('tests/contract/test_schemas.py')
+          text = tests.read_text(encoding='utf-8')
+          anchor = '    "mstr-task-eligibility-v0": (\n        ROOT\n        / "specs"\n        / "002-code-model-supremacy-foundation"\n        / "contracts"\n        / "mstr-task-eligibility-v0.schema.json"\n    ),\n'
+          addition = '    "mstr-data-constitution-v0": (\n        ROOT\n        / "specs"\n        / "002-code-model-supremacy-foundation"\n        / "contracts"\n        / "mstr-data-constitution-v0.schema.json"\n    ),\n'
+          assert text.count(anchor) == 1
+          assert '"mstr-data-constitution-v0"' not in text
+          tests.write_text(text.replace(anchor, anchor + addition, 1), encoding='utf-8')
+
+          contract = Path('tests/contract/test_data_constitution_contract.py')
+          text = contract.read_text(encoding='utf-8')
+          import_anchor = 'from jsonschema import Draft202012Validator\n'
+          imports = '\nfrom mstr_qualify.cli import run_validate\nfrom mstr_qualify.schemas import SCHEMA_FILES, validate_instance\n'
+          assert text.count(import_anchor) == 1
+          text = text.replace(import_anchor, import_anchor + imports, 1)
+          appended = '''\n\ndef test_shared_schema_registry_exposes_data_constitution() -> None:\n    assert SCHEMA_FILES["mstr-data-constitution-v0"] == "mstr-data-constitution-v0.schema.json"\n    validate_instance("mstr-data-constitution-v0", _load(VALID_FIXTURE))\n\n\ndef test_cli_auto_detects_data_constitution_schema_version() -> None:\n    code, payload = run_validate([VALID_FIXTURE])\n    assert code == 0\n    assert payload["status"] == "pass"\n    assert payload["files"][0]["schema_version"] == "mstr.data-constitution.v0"\n\n    bad_code, bad_payload = run_validate([INVALID_FIXTURE])\n    assert bad_code == 1\n    assert bad_payload["status"] == "fail"\n    assert bad_payload["files"][0]["status"] == "fail"\n'''
+          assert 'test_shared_schema_registry_exposes_data_constitution' not in text
+          contract.write_text(text + appended, encoding='utf-8')
+
+          evidence = Path('evidence/mstr-000b/B014-data-constitution.md')
+          evidence.parent.mkdir(parents=True, exist_ok=True)
+          evidence.write_text(
+              '# B014 — MSTR Data Constitution v0\n\n'
+              '**Task:** `B014`\n'
+              '**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT\n'
+              '**Canonical main at execution:** `90cf98f5f87b64f8e6da50a8444b1b598148f945`\n'
+              '**Exact entry evidence:** run `33164424310` / job `98826328509`\n'
+              '**Recovered reviewed design donor:** `2ad16ed19c159897ce0f31730e016fac1c06afa9` from draft PR #42\n\n'
+              '## Runtime integration\n\n'
+              'The previously reviewed B014 design contract is rebased onto the canonical B001 schema/CLI interfaces rather than merging the stale draft branch. The runtime schema registry, CLI schema-version auto-detection, design-source byte-identity test routing, dedicated fixtures, and direct fail-closed contract tests are integrated on the current canonical interface.\n\n'
+              'The constitution freezes the canonical 13-role software taxonomy, stage-specific target-distribution binding, provenance and rights requirements, contamination and dedup controls, benchmark and hidden-test exclusion, verified synthetic/student/teacher rules, checkpoint-relative difficulty, verifier-health thresholds, explicit training/evaluation boundaries, and default rejection of private user repositories and production traces. B015 remains the owner of language/tooling target policy.\n\n'
+              '## Authority boundary\n\n'
+              '```text\n'
+              'PRIVATE_USER_DATA_INGESTION = NONE\n'
+              'PRODUCTION_TRACE_INGESTION = NONE\n'
+              'LARGE_DATASET_INGESTION = NONE\n'
+              'PAID_TEACHER_OR_MODEL_API = NONE\n'
+              'MODEL_WEIGHT_ACCESS = NONE\n'
+              'MODEL_EXECUTION = NONE\n'
+              'TOKENIZER_ARTIFACT_DOWNLOAD = NONE\n'
+              'WEIGHT_CHANGING_TRAINING = NONE\n'
+              'LARGE_SCALE_RL = NONE\n'
+              'PRODUCTION_RELEASE = NONE\n'
+              'FOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO\n'
+              '```\n',
+              encoding='utf-8',
+          )
+          PY
+
+          expected=$(printf '%s\n' \
+            docs/data/MSTR_DATA_CONSTITUTION.md \
+            evidence/mstr-000b/B014-data-constitution.md \
+            schemas/mstr-data-constitution-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_data_constitution_contract.py \
+            tests/contract/test_schemas.py \
+            tests/fixtures/schemas/invalid/mstr-data-constitution-v0.json \
+            tests/fixtures/schemas/valid/mstr-data-constitution-v0.json | sort)
+          actual=$(git status --porcelain=v1 --untracked-files=all | sed 's/^...//' | sort)
+          test "$actual" = "$expected"
+          cmp schemas/mstr-data-constitution-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json
+          git diff --check
+          git add docs/data/MSTR_DATA_CONSTITUTION.md \
+            evidence/mstr-000b/B014-data-constitution.md \
+            schemas/mstr-data-constitution-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json \
+            src/mstr_qualify/cli.py src/mstr_qualify/schemas.py \
+            tests/contract/test_data_constitution_contract.py tests/contract/test_schemas.py \
+            tests/fixtures/schemas/invalid/mstr-data-constitution-v0.json \
+            tests/fixtures/schemas/valid/mstr-data-constitution-v0.json
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat(mstr-000b): integrate B014 Data Constitution'
+          candidate=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$candidate" | wc -l)" -eq 10
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo "B014_LOCAL_HEAD=$candidate"
+
+      - name: Qualify exact local B014 implementation candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate=$(git rev-parse HEAD)
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          git branch -f main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          python -m mstr_qualify task eligible B014 > /tmp/b014-after.json
+          python -m mstr_qualify task drift > /tmp/drift-after.json
+          python - <<'PY'
+          import json
+          b014 = json.load(open('/tmp/b014-after.json'))
+          drift = json.load(open('/tmp/drift-after.json'))
+          assert b014['eligible'] is True and b014['reasons'] == []
+          assert b014['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b014['authority_result']['required'] is False
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B014_IMPLEMENTATION_SEMANTICS=PASS')
+          PY
+          pytest -q tests/contract/test_data_constitution_contract.py tests/contract/test_schemas.py
+          python -m mstr_qualify validate
+          python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-data-constitution-v0.json
+          set +e
+          python -m mstr_qualify validate tests/fixtures/schemas/invalid/mstr-data-constitution-v0.json > /tmp/b014-invalid.json
+          invalid_rc=$?
+          set -e
+          test "$invalid_rc" -eq 1
+          pytest -q
+          ruff check src tests
+          mypy src
+          git diff --check "$EXPECTED_MAIN...$candidate"
+          cmp schemas/mstr-data-constitution-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B014_IMPLEMENTATION_GATES=PASS'
+
+      - name: Restore live refs and push target only
+        shell: bash
+        run: |
+          set -euo pipefail
+          final=$(git rev-parse HEAD)
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin "HEAD:$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$final"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo "B014_IMPLEMENTATION_HEAD=$final"
+          echo "B014_BUILD_RUN=$GITHUB_RUN_ID"
+          echo 'PRIVATE_USER_DATA_INGESTION=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'TRAINING_EXECUTION=NONE'
+          echo 'PAID_COMPUTE=NONE'
