@@ -1,0 +1,86 @@
+name: Build B006 canonical closeout v2 c96e2fb
+
+on:
+  push:
+    branches: [evidence/b006-closeout-build2-c96e2fb]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: c96e2fb228a7f3fb0399484a9e6bb1e1d1eb086c
+      TARGET_BRANCH: docs/000b-b006-canonicalize
+      SOURCE_BUILDER_BRANCH: evidence/b006-closeout-build-c96e2fb
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/000b-b006-canonicalize
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Correct local main ref and re-prove entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH" "$SOURCE_BUILDER_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          git branch -f main "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B006 > /tmp/b006-entry.json
+          python -m mstr_qualify task drift > /tmp/drift-entry.json
+          python - <<'PY'
+          import json, os
+          b=json.load(open('/tmp/b006-entry.json'))
+          d=json.load(open('/tmp/drift-entry.json'))
+          assert b['canonical_main']==os.environ['EXPECTED_MAIN'] and b['task_id']=='B006',b
+          assert b['eligible'] is True and b['reasons']==[],b
+          assert b['state_consistency_result']['observed_state']=='PENDING',b
+          assert d['canonical_main']==os.environ['EXPECTED_MAIN'] and d['status']=='clean' and d['findings']==[],d
+          print('B006_CLOSEOUT_ENTRY_V2=PASS')
+          PY
+      - name: Extract unchanged builder scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "origin/$SOURCE_BUILDER_BRANCH:.github/workflows/evidence-b006-closeout-build-c96e2fb.yml" > /tmp/source-builder.yml
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+          src=Path('/tmp/source-builder.yml').read_text()
+          names={
+            'Apply exact five-file closeout':'/tmp/apply.sh',
+            'Prospectively verify closeout and frozen gates':'/tmp/verify.sh',
+            'Commit and push with final guards':'/tmp/commit.sh',
+          }
+          for name,out in names.items():
+              marker=f'      - name: {name}\n'
+              assert src.count(marker)==1,name
+              section=src.split(marker,1)[1]
+              if '\n      - name:' in section:
+                  section=section.split('\n      - name:',1)[0]
+              run_marker='        run: |\n'
+              assert run_marker in section,name
+              body=section.split(run_marker,1)[1]
+              body=textwrap.dedent(body)
+              Path(out).write_text(body)
+              print(f'EXTRACTED={name}')
+          PY
+          head -n 3 /tmp/apply.sh
+      - name: Execute unchanged five-file patch
+        shell: bash
+        run: bash /tmp/apply.sh
+      - name: Execute unchanged prospective verification
+        shell: bash
+        run: bash /tmp/verify.sh
+      - name: Execute unchanged guarded commit and push
+        shell: bash
+        run: bash /tmp/commit.sh
