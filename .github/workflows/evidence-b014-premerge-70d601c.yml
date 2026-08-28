@@ -1,0 +1,89 @@
+name: Enforce B014 exact-main premerge gate
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  premerge:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 90cf98f5f87b64f8e6da50a8444b1b598148f945
+      EXPECTED_HEAD: 70d601c4fb1c0603b6e757969a3a97b8c77744d8
+      TARGET_BRANCH: feat/000b-b014-data-constitution-v2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 90cf98f5f87b64f8e6da50a8444b1b598148f945
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Rebind exact live main and target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse "$EXPECTED_HEAD^")" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B014_PREMERGE_IDENTITY=PASS'
+      - name: Re-run mandatory B002 task gate on exact current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B014 > /tmp/b014.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then
+            echo 'B011 unexpectedly eligible' >&2
+            exit 1
+          fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          b14 = json.load(open('/tmp/b014.json'))
+          b11 = json.load(open('/tmp/b011.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          assert b14['canonical_main'] == os.environ['EXPECTED_MAIN']
+          assert b14['eligible'] is True and b14['reasons'] == []
+          assert b14['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b14['authority_result']['required'] is False
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B014_EXACT_MAIN_PREMERGE_ELIGIBILITY=PASS')
+          PY
+      - name: Reconfirm exact candidate smoke gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach "$EXPECTED_HEAD"
+          pytest -q tests/contract/test_data_constitution_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          python -m mstr_qualify validate
+          ruff check src tests
+          mypy src
+          cmp schemas/mstr-data-constitution-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B014_PREMERGE_SMOKE_GATES=PASS'
+      - name: Final immutable remote recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B014_PREMERGE_REMOTE_RECHECK=PASS'
+          echo 'B011_REMAINS_BLOCKED=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
