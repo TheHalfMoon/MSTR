@@ -1,0 +1,200 @@
+name: Reconcile B018 evidence with repaired contract
+
+on:
+  push:
+    branches:
+      - evidence/b018-evidence-consistency-0eda751
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 73b60aa9421f51be52560bbbca6e8dd46b77b6c9
+      EXPECTED_HEAD: 0eda751fd9dabbfa8ada12bd08a6a1b7f59a45b0
+      TARGET_BRANCH: feat/000b-b018-self-alignment-contract
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b018-evidence-consistency-0eda751
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind immutable canonical and candidate heads
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          git fetch origin main "$TARGET_BRANCH"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git merge-base "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1)"
+      - name: Reconcile evidence narrative
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("evidence/mstr-000b/B018-self-alignment-contract.md")
+          text = path.read_text(encoding="utf-8")
+
+          old_binding = '''## Per-Artifact Evidence Binding
+
+The planning data model describes generated-artifact provenance and rights as parallel conceptual collections. The runtime schema co-locates required provenance and rights evidence directly on every generated task, solution, and test artifact.
+
+This normalization is intentional: JSON Schema cannot prove referential completeness across independent parallel arrays. Co-location makes missing per-artifact provenance or rights structurally impossible for a valid record and prevents an `ADMIT` record from carrying an orphan artifact without its own evidence.
+
+Generated tasks are non-executable descriptions and reject an `execution_result`. Generated solutions and tests require execution evidence; `ADMIT` further requires that execution to be sandboxed and passing.
+'''
+          new_binding = '''## Per-Artifact Evidence Binding
+
+The runtime schema preserves the canonical first-class evidence collections from `data-model.md`:
+
+- `generated_artifact_provenance[]`
+- `generated_artifact_rights_decisions[]`
+- `execution_results[]`
+
+Generated artifacts also carry local evidence copies so a record remains directly inspectable at the artifact boundary. Because JSON Schema alone cannot prove referential completeness across independent arrays, the offline B018 semantic validator fails closed unless the canonical arrays exactly cover the generated artifact identities and exactly match the nested provenance, rights, execution-result, and environment bindings.
+
+Generated tasks are non-executable descriptions and reject an `execution_result`. Generated solutions and tests require execution evidence; `ADMIT` further requires that execution to be sandboxed and passing.
+'''
+          if text.count(old_binding) != 1:
+              raise SystemExit("per-artifact evidence section anchor mismatch")
+          text = text.replace(old_binding, new_binding)
+
+          old_difficulty = '''## Difficulty Boundary
+
+B018 does not implement B020 or freeze its future calibration algorithm.
+
+The enclosing `student_model_identity` carries the exact:
+
+```text
+model_id
+checkpoint_id
+harness_profile_id
+sampling_identity
+```
+
+The nested difficulty record binds a record identity and one of the B014-frozen classes:
+
+```text
+TOO_EASY
+LEARNABLE_FRONTIER
+HARD_FRONTIER
+CURRENTLY_UNPRODUCTIVE
+INVALID
+```
+
+Because the exact student/harness/sampling identity occurs once on the enclosing generation, B018 avoids duplicate identity fields that JSON Schema could not prove equal. B020 remains responsible for the detailed `DifficultyCalibrationRecord`, calibration procedure, refresh semantics, and frontier policy. `INVALID` may be recorded on rejected evidence but cannot be admitted.
+'''
+          new_difficulty = '''## Difficulty Boundary
+
+B018 does not implement B020 or freeze its future calibration algorithm.
+
+The enclosing `student_model_identity` carries the exact:
+
+```text
+model_id
+checkpoint_id
+harness_profile_id
+sampling_identity
+```
+
+The nested difficulty record binds its evidence identity, one of the B014-frozen classes, and an explicit copy of the exact student model/checkpoint, harness profile, and sampling identity used by the generation. The offline B018 semantic validator rejects any mismatch between those embedded bindings and the enclosing generation identity.
+
+```text
+TOO_EASY
+LEARNABLE_FRONTIER
+HARD_FRONTIER
+CURRENTLY_UNPRODUCTIVE
+INVALID
+```
+
+B020 remains responsible for the detailed `DifficultyCalibrationRecord`, calibration procedure, refresh semantics, and frontier policy. B018 consumes only the record identity/class and exact identity binding. `INVALID` may be recorded on rejected evidence but cannot be admitted.
+'''
+          if text.count(old_difficulty) != 1:
+              raise SystemExit("difficulty section anchor mismatch")
+          text = text.replace(old_difficulty, new_difficulty)
+
+          path.write_text(text, encoding="utf-8")
+          PY
+          test "$(git status --porcelain=v1 | sed 's/^...//')" = "evidence/mstr-000b/B018-self-alignment-contract.md"
+          git diff --check
+      - run: python -m pip install -e '.[dev]'
+      - name: Re-run B018 and frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q \
+            tests/contract/test_self_alignment_contract.py \
+            tests/contract/test_schemas.py \
+            tests/integration/test_cli_offline.py::test_validate_self_checks_schemas_and_fixtures
+          python -m mstr_qualify validate
+          python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-self-alignment-generation-v0.json
+          if python -m mstr_qualify validate tests/fixtures/schemas/invalid/mstr-self-alignment-generation-v0.json; then
+            echo 'invalid B018 fixture unexpectedly validated' >&2
+            exit 1
+          fi
+          pytest -q
+          ruff check src tests
+          mypy
+      - name: Commit locally and prove prospective canonical state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add evidence/mstr-000b/B018-self-alignment-contract.md
+          git commit -m 'docs(mstr-000b): align B018 evidence with canonical bindings'
+          candidate=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_HEAD"
+          expected_scope=$(printf '%s\n' \
+            evidence/mstr-000b/B018-self-alignment-contract.md \
+            schemas/mstr-self-alignment-generation-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-self-alignment-generation-v0.schema.json \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_schemas.py \
+            tests/contract/test_self_alignment_contract.py \
+            tests/fixtures/schemas/valid/mstr-self-alignment-generation-v0.json \
+            tests/fixtures/schemas/invalid/mstr-self-alignment-generation-v0.json \
+            tests/integration/test_cli_offline.py | sort)
+          actual_scope=$(git diff --name-only "$EXPECTED_MAIN...$candidate" | sort)
+          test "$actual_scope" = "$expected_scope"
+          git diff --check "$EXPECTED_MAIN...$candidate"
+          git branch -f main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          git checkout main
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python -m mstr_qualify task eligible B018 > /tmp/b018.json
+          set +e
+          python -m mstr_qualify task eligible B011 > /tmp/b011.json
+          b011_rc=$?
+          set -e
+          test "$b011_rc" -ne 0
+          python - <<'PY'
+          import json
+
+          drift = json.load(open('/tmp/drift.json'))
+          b018 = json.load(open('/tmp/b018.json'))
+          b011 = json.load(open('/tmp/b011.json'))
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          assert b018['eligible'] is True
+          assert b018['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b018['authority_result']['required'] is False
+          assert b018['authority_result']['satisfied'] is True
+          assert b011['eligible'] is False
+          assert b011['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert b011['authority_result']['required'] is True
+          assert b011['authority_result']['satisfied'] is False
+          PY
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          git push origin HEAD:refs/heads/$TARGET_BRANCH
+          echo "B018_FINAL_CANDIDATE=$candidate"
