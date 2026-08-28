@@ -121,8 +121,12 @@ jobs:
           assert '`7481a10a2394a7f7d81db453327f318615bb1ac6`' not in evidence
           assert '- [x] **B018 Freeze execution-filtered student self-alignment contract.**' in tasks
           assert '- [ ] **B019 Freeze bounded teacher-rescue policy.**' in tasks
-          b18 = evaluate_task_snapshot('B018', canonical_main='candidate-closeout')
-          b19 = evaluate_task_snapshot('B019', canonical_main='candidate-closeout')
+          b18 = evaluate_task_snapshot(
+              'B018', canonical_main='7481a10a2394a7f7d81db453327f318615bb1ac6'
+          )
+          b19 = evaluate_task_snapshot(
+              'B019', canonical_main='7481a10a2394a7f7d81db453327f318615bb1ac6'
+          )
           assert b18['eligible'] is False
           assert b18['state_consistency_result']['observed_state'] == 'COMPLETE_CANONICAL'
           assert 'task.already_terminal' in b18['reasons']
