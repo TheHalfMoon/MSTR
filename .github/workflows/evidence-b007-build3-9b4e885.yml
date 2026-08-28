@@ -1,0 +1,215 @@
+name: Build whitespace-clean B007 from 9b4e885
+
+on:
+  push:
+    branches: [evidence/b007-build3-9b4e885]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 9b4e885f215fd922ecf79ff9e15bdb1479396668
+      TARGET_BRANCH: feat/000b-b007-tokenizer-economics-v2
+      DONOR_BRANCH: feat/000b-b007-tokenizer-economics-protocol
+      DONOR_HEAD: 6f9161632e327b0048ec68bf79627c0e69ba1c60
+      OLD_MAIN: ead69ae26265b133c782ae8fd2795c126253a3b6
+      ENTRY_RUN: '33147997037'
+      ENTRY_JOB: '98773224654'
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/000b-b007-tokenizer-economics-v2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Guard exact canonical entry and donor
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH" "$DONOR_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$DONOR_BRANCH)" = "$DONOR_HEAD"
+          git branch -f main "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B007 > /tmp/b007-entry.json
+          python -m mstr_qualify task drift > /tmp/drift-entry.json
+          python - <<'PY'
+          import json, os
+          b=json.load(open('/tmp/b007-entry.json'))
+          d=json.load(open('/tmp/drift-entry.json'))
+          main=os.environ['EXPECTED_MAIN']
+          assert b['canonical_main']==main and b['task_id']=='B007', b
+          assert b['eligible'] is True and b['reasons']==[], b
+          assert b['state_consistency_result']['observed_state']=='PENDING', b
+          assert d['canonical_main']==main and d['status']=='clean' and d['findings']==[], d
+          print('B007_BUILDER_V3_ENTRY=PASS')
+          PY
+      - name: Materialize exact seven-file protocol package
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            benchmarks/fixtures/tokenizer-economics/B007-corpus.json
+            benchmarks/manifests/B007-tokenizer-economics.json
+            evidence/mstr-000b/B007-tokenizer-protocol.md
+            specs/002-code-model-supremacy-foundation/contracts/b007-tokenizer-economics-corpus-v0.schema.json
+            specs/002-code-model-supremacy-foundation/contracts/b007-tokenizer-economics-protocol-v0.schema.json
+            tests/contract/test_b007_protocol_fail_closed.py
+            tests/contract/test_b007_tokenizer_economics.py
+          )
+          for path in "${files[@]}"; do
+            mkdir -p "$(dirname "$path")"
+            git show "$DONOR_HEAD:$path" > "$path"
+            test -s "$path"
+          done
+          python - <<'PY'
+          from pathlib import Path
+          import json, os
+          old=os.environ['OLD_MAIN']; new=os.environ['EXPECTED_MAIN']
+          manifest=Path('benchmarks/manifests/B007-tokenizer-economics.json')
+          data=json.loads(manifest.read_text())
+          assert data['canonical_main_sha']==old
+          data['canonical_main_sha']=new
+          manifest.write_text(json.dumps(data,separators=(',',':'),ensure_ascii=False)+'\n')
+
+          schema=Path('specs/002-code-model-supremacy-foundation/contracts/b007-tokenizer-economics-protocol-v0.schema.json')
+          s=schema.read_text()
+          assert s.count(old)==1
+          schema.write_text(s.replace(old,new,1))
+
+          ev=Path('evidence/mstr-000b/B007-tokenizer-protocol.md')
+          s=ev.read_text()
+          old_binding=f'**Canonical main at execution:** `{old}`'
+          assert old_binding in s
+          s=s.replace(old_binding,f'**Canonical main at execution:** `{new}`',1)
+          assert s.count('## Review history')==1
+          s=s.replace('## Review history','## Donor review history (historical, non-authoritative)',1)
+          anchor='B007 freezes deterministic corpus bytes and tokenizer-measurement semantics only. It does not acquire or execute a tokenizer, run model inference, access model weights, use paid compute, ingest a large dataset, or authorize B008 execution.\n'
+          assert s.count(anchor)==1
+          current=(
+              '\n## Current execution binding\n\n'
+              f'Production exact-main entry run `{os.environ["ENTRY_RUN"]}` (job `{os.environ["ENTRY_JOB"]}`) proved B007 `eligible=true`, observed state `PENDING`, and clean canonical drift on `{new}` immediately before fresh material branch creation.\n\n'
+              f'The seven-file protocol/corpus package was imported from historical donor head `{os.environ["DONOR_HEAD"]}` only as source material. No donor review result, validation result, merge-readiness state, or canonical-state claim is inherited by this execution.\n'
+          )
+          s=s.replace(anchor,anchor+current,1)
+          # Donor Markdown used two-space hard breaks; new files must satisfy repository diff hygiene.
+          s='\n'.join(line.rstrip() for line in s.splitlines())+'\n'
+          ev.write_text(s)
+          print('B007_DONOR_CONTENT_REBOUND_AND_NORMALIZED=PASS')
+          PY
+          git add -N -- "${files[@]}"
+          changed="$(git diff --name-only | sort)"
+          expected="$(printf '%s\n' "${files[@]}" | sort)"
+          test "$changed" = "$expected"
+          git diff --check
+          ! printf '%s\n' "$changed" | grep -Eq '^(src/|artifacts/candidates/|configs/task-gate/|specs/002-code-model-supremacy-foundation/tasks.md$)'
+          echo B007_SEVEN_FILE_CONTAINMENT=PASS
+      - name: Verify B007 integrity schema and fail-closed contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_b007_tokenizer_economics.py tests/contract/test_b007_protocol_fail_closed.py | tee /tmp/targeted.txt
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          p=Path('benchmarks/fixtures/tokenizer-economics/B007-corpus.json')
+          raw=p.read_bytes(); corpus=json.loads(raw)
+          manifest=json.loads(Path('benchmarks/manifests/B007-tokenizer-economics.json').read_text())
+          git_blob=hashlib.sha1(f'blob {len(raw)}\0'.encode('ascii')+raw).hexdigest()
+          assert len(raw)==10951==manifest['corpus']['fixture_file_bytes']
+          assert hashlib.sha256(raw).hexdigest()=='425456fa39ae5dc67214b4871b1ac948c63bf9f0ae72a1407a5908d4a5c9e1d6'
+          assert git_blob=='af4cf20b29f5884010e79565e394af41c5a42214'
+          assert len(corpus['entries'])==34
+          assert manifest['canonical_main_sha']=='9b4e885f215fd922ecf79ff9e15bdb1479396668'
+          a=manifest['authority']
+          assert a['model_inference_authorized'] is False
+          assert a['model_weight_access_authorized'] is False
+          assert a['paid_compute_authorized'] is False
+          assert a['large_dataset_ingestion_authorized'] is False
+          assert a['tokenizer_measurement_authorized_by_b007'] is False
+          print('B007_CORPUS_PROTOCOL_INTEGRITY=PASS')
+          PY
+      - name: Frozen repository gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q | tee /tmp/full.txt
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+      - name: Record fresh validation truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import os, re
+          targeted=Path('/tmp/targeted.txt').read_text().strip().splitlines()[-1]
+          full=Path('/tmp/full.txt').read_text().strip().splitlines()[-1]
+          ev=Path('evidence/mstr-000b/B007-tokenizer-protocol.md')
+          s=ev.read_text()
+          pattern=re.compile(r'## Validation truth\n.*?(?=\n## Authority boundary)',re.S)
+          replacement=f'''## Current validation truth\n\nFresh validation was executed on the current canonical-main-derived B007 worktree. Historical donor validation and review results are not current authority.\n\n```text\nENTRY_ELIGIBILITY_RUN = {os.environ['ENTRY_RUN']}\nENTRY_ELIGIBILITY_JOB = {os.environ['ENTRY_JOB']}\nBUILDER_RUN = {os.environ['GITHUB_RUN_ID']}\nCANONICAL_MAIN = {os.environ['EXPECTED_MAIN']}\nDONOR_HEAD_SOURCE_ONLY = {os.environ['DONOR_HEAD']}\nB007_TARGETED_TESTS = {targeted}\nFULL_PYTEST = {full}\nRUFF = PASS\nMYPY = PASS / 26 source files\nVALIDATE = PASS / 10 valid / 10 invalid rejected\n```\n\nFinal-head identity, exact-head qualification, and independent review remain separate gates before merge.\n'''
+          s,n=pattern.subn(replacement,s,count=1)
+          assert n==1,n
+          s='\n'.join(line.rstrip() for line in s.splitlines())+'\n'
+          ev.write_text(s)
+          PY
+          git diff --check
+          files=(
+            benchmarks/fixtures/tokenizer-economics/B007-corpus.json
+            benchmarks/manifests/B007-tokenizer-economics.json
+            evidence/mstr-000b/B007-tokenizer-protocol.md
+            specs/002-code-model-supremacy-foundation/contracts/b007-tokenizer-economics-corpus-v0.schema.json
+            specs/002-code-model-supremacy-foundation/contracts/b007-tokenizer-economics-protocol-v0.schema.json
+            tests/contract/test_b007_protocol_fail_closed.py
+            tests/contract/test_b007_tokenizer_economics.py
+          )
+          test "$(git diff --name-only | sort)" = "$(printf '%s\n' "${files[@]}" | sort)"
+      - name: Guard commit and fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            benchmarks/fixtures/tokenizer-economics/B007-corpus.json
+            benchmarks/manifests/B007-tokenizer-economics.json
+            evidence/mstr-000b/B007-tokenizer-protocol.md
+            specs/002-code-model-supremacy-foundation/contracts/b007-tokenizer-economics-corpus-v0.schema.json
+            specs/002-code-model-supremacy-foundation/contracts/b007-tokenizer-economics-protocol-v0.schema.json
+            tests/contract/test_b007_protocol_fail_closed.py
+            tests/contract/test_b007_tokenizer_economics.py
+          )
+          expected="$(printf '%s\n' "${files[@]}" | sort)"
+          git fetch origin main "$TARGET_BRANCH" "$DONOR_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$DONOR_BRANCH)" = "$DONOR_HEAD"
+          git add -A
+          test "$(git diff --cached --name-only | sort)" = "$expected"
+          git diff --cached --check
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git commit -m 'docs(mstr-000b): freeze B007 tokenizer economics protocol'
+          head="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH" "$DONOR_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$DONOR_BRANCH)" = "$DONOR_HEAD"
+          git push origin "HEAD:$TARGET_BRANCH"
+          echo "B007_IMPLEMENTATION_HEAD=$head"
+          echo "B007_BUILDER_RUN=$GITHUB_RUN_ID"
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'TOKENIZER_ARTIFACT_DOWNLOAD=NONE'
+          echo 'TOKENIZER_MEASUREMENT=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'PAID_COMPUTE=NONE'
+          echo 'B008_MATERIAL_EXECUTION=NOT_STARTED'
