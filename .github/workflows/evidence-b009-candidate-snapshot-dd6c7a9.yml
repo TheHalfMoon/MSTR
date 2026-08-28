@@ -1,0 +1,79 @@
+name: Snapshot current B009 candidate records
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: dd6c7a9b163f1f34e6cc3570da234078d39f4fce
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dd6c7a9b163f1f34e6cc3570da234078d39f4fce
+          fetch-depth: 0
+
+      - name: Bind exact main and summarize all candidate records
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          rows = []
+          for path in sorted(Path('artifacts/candidates').glob('*.json')):
+              payload = json.loads(path.read_text())
+              rights = payload.get('rights', {})
+              upstream = payload.get('upstream', {})
+              identity = payload.get('identity', {})
+              repo_id = (
+                  payload.get('repo_id')
+                  or payload.get('repository')
+                  or upstream.get('repo_id')
+                  or upstream.get('repository')
+                  or identity.get('repo_id')
+              )
+              revision = (
+                  payload.get('revision')
+                  or upstream.get('revision')
+                  or identity.get('revision')
+              )
+              rows.append({
+                  'file': path.as_posix(),
+                  'candidate_id': payload.get('candidate_id') or payload.get('id') or path.stem,
+                  'repo_id': repo_id,
+                  'revision': revision,
+                  'status': payload.get('status'),
+                  'candidate_role': payload.get('candidate_role'),
+                  'rights_decision': rights.get('decision'),
+                  'account_gate_required': rights.get('account_gate_required'),
+                  'clickthrough_gate_required': rights.get('clickthrough_gate_required'),
+                  'architecture': payload.get('architecture') or payload.get('architecture_family') or payload.get('model_type'),
+              })
+          print('B009_CANDIDATE_RECORD_COUNT=' + str(len(rows)))
+          print(json.dumps(rows, indent=2, sort_keys=True))
+          serious = [
+              row for row in rows
+              if row['status'] == 'static_qualified'
+              and row['rights_decision'] == 'pass_permissive'
+              and row['account_gate_required'] is False
+              and row['clickthrough_gate_required'] is False
+          ]
+          print('B009_SERIOUS_STATIC_QUALIFIED_COUNT=' + str(len(serious)))
+          print(json.dumps(serious, indent=2, sort_keys=True))
+          PY
+          git fetch origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B009_CANDIDATE_SNAPSHOT=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'MODEL_INFERENCE=NONE'
