@@ -86,9 +86,14 @@ def test_task_eligible_b006_successor_returns_zero(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     expected = evaluate_task_snapshot("B006", canonical_main=_CANONICAL_MAIN)
+
+    def fake_evaluate_task_eligibility(task_id: str) -> dict[str, object]:
+        assert task_id == "B006"
+        return expected
+
     monkeypatch.setattr(
         "mstr_qualify.cli.evaluate_task_eligibility",
-        lambda task_id: expected,
+        fake_evaluate_task_eligibility,
     )
 
     exit_code = main(["task", "eligible", "B006"])
