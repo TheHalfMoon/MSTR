@@ -1,0 +1,97 @@
+name: Repair and qualify B010 new-candidate access preflight
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: e3ee155a7e0ed491984908998546900e594bda9a
+      TARGET_BRANCH: research/000b-b010-new-candidate-weight-access
+      SOURCE_HEAD: ac5e71f9d0940cffdf3db0d049d6776af617392a
+      SOURCE_WORKFLOW: .github/workflows/evidence-b010-build-e3ee155.yml
+      METADATA_RUN: '33161954193'
+      METADATA_JOB: '98818272943'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: research/000b-b010-new-candidate-weight-access
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bind exact unchanged target and source harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH" evidence/b010-build-e3ee155
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/evidence/b010-build-e3ee155)" = "$SOURCE_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B010_REPAIR_REMOTE_BINDING=PASS'
+
+      - name: Extract invalid-YAML harness bodies as plain text
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$SOURCE_HEAD:$SOURCE_WORKFLOW" > /tmp/source.yml
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path('/tmp/source.yml').read_text(encoding='utf-8')
+
+          def extract(step_name: str, destination: str) -> None:
+              marker = f'      - name: {step_name}\n'
+              start = source.index(marker)
+              run_marker = '        run: |\n'
+              body_start = source.index(run_marker, start) + len(run_marker)
+              next_step = source.find('\n      - name: ', body_start)
+              raw = source[body_start:] if next_step == -1 else source[body_start:next_step]
+              lines = raw.splitlines()
+              body = [line[10:] if line.startswith('          ') else line for line in lines]
+              Path(destination).write_text('\n'.join(body) + '\n', encoding='utf-8')
+
+          extract('Guard exact B010 entry', '/tmp/guard.sh')
+          extract('Materialize B010 artifact evidence and contract', '/tmp/materialize.sh')
+          extract('Qualify exact local implementation candidate', '/tmp/qualify.sh')
+          extract('Recheck refs and push target only', '/tmp/push.sh')
+          PY
+          bash -n /tmp/guard.sh
+          bash -n /tmp/materialize.sh
+          bash -n /tmp/qualify.sh
+          bash -n /tmp/push.sh
+          echo 'B010_REPAIR_EXTRACTION=PASS'
+
+      - name: Re-run exact B010 entry guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash /tmp/guard.sh
+
+      - name: Materialize exact three-file B010 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash /tmp/materialize.sh
+
+      - name: Qualify exact local B010 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash /tmp/qualify.sh
+
+      - name: Push target only after all gates pass
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash /tmp/push.sh
