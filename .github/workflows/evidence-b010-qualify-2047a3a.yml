@@ -1,0 +1,119 @@
+name: Qualify exact B010 implementation head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: e3ee155a7e0ed491984908998546900e594bda9a
+      EXPECTED_HEAD: 2047a3aa8b7063736a490d00d1fe10709aba23e2
+      TARGET_BRANCH: research/000b-b010-new-candidate-weight-access
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2047a3aa8b7063736a490d00d1fe10709aba23e2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact immutable identity and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          expected=$(printf '%s\n' \
+            artifacts/manifests/B010-new-candidate-weight-access.json \
+            evidence/mstr-000b/B010-weight-access-preflight.md \
+            tests/contract/test_b010_new_candidate_weight_access.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | wc -l)" -eq 3
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B010_EXACT_HEAD_IDENTITY=PASS'
+      - name: Re-prove frozen decision and zero authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path('artifacts/manifests/B010-new-candidate-weight-access.json').read_text())
+          d = m['decision']
+          assert d['qualification_candidates'] == ['mellum-4b', 'qwen3.5-0.8b-control']
+          assert d['new_weight_access_required_candidates'] == ['mellum-4b', 'qwen3.5-0.8b-control']
+          envs = {row['candidate_id']: row for row in m['candidate_access_envelopes']}
+          assert set(envs) == {'mellum-4b', 'qwen3.5-0.8b-control'}
+          mellum = envs['mellum-4b']
+          assert mellum['upstream']['repo_id'] == 'JetBrains/Mellum-4b-base'
+          assert mellum['upstream']['revision'] == '83cce2605fbdf6a3868627e9b0a5924e0072b94d'
+          assert mellum['expected_weight_bytes'] == 8038527904
+          assert mellum['expected_required_download_bytes'] == 8048099065
+          q = envs['qwen3.5-0.8b-control']
+          assert q['upstream']['repo_id'] == 'Qwen/Qwen3.5-0.8B-Base'
+          assert q['upstream']['revision'] == 'dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68'
+          assert q['expected_weight_bytes'] == 1746942600
+          assert q['expected_required_download_bytes'] == 1769897109
+          assert m['b011_authority']['authorized_by_b010'] is False
+          a = m['authority_boundary']
+          assert a['founder_machine_large_artifacts'] == 0
+          assert all(v is False for k, v in a.items() if k != 'founder_machine_large_artifacts')
+          assert Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text().count('- [ ] **B010 ') == 1
+          print('B010_FROZEN_DECISION_AND_ZERO_AUTHORITY=PASS')
+          PY
+      - name: Simulate exact head as canonical and verify task gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          python -m mstr_qualify task eligible B010 > /tmp/b010.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then
+            echo 'B011 unexpectedly eligible' >&2
+            exit 1
+          fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          b10 = json.load(open('/tmp/b010.json'))
+          b11 = json.load(open('/tmp/b011.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          assert b10['canonical_main'] == os.environ['EXPECTED_HEAD']
+          assert b10['eligible'] is True and b10['reasons'] == []
+          assert b10['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert any('blocked' in r.lower() or 'authority' in r.lower() for r in b11['reasons'])
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B010_TASK_GATE_SIMULATION=PASS')
+          PY
+      - name: Run frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_b010_new_candidate_weight_access.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B010_EXACT_HEAD_QUALIFICATION=PASS'
+      - name: Final live ref recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B010_QUALIFICATION_REMOTE_RECHECK=PASS'
