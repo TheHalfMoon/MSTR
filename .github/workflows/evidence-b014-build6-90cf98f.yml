@@ -1,0 +1,176 @@
+name: Rebuild and qualify B014 from reviewed materialization prefix
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 90cf98f5f87b64f8e6da50a8444b1b598148f945
+      TARGET_BRANCH: feat/000b-b014-data-constitution-v2
+      SOURCE_HEAD: 14ddc497f12d92ebe67f9f87072af60b383c1253
+      SOURCE_WORKFLOW: .github/workflows/evidence-b014-build-90cf98f.yml
+      DONOR_HEAD: 2ad16ed19c159897ce0f31730e016fac1c06afa9
+      ENTRY_RUN: '33164424310'
+      ENTRY_JOB: '98826328509'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/000b-b014-data-constitution-v2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Bind exact unchanged target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH" evidence/b014-build-90cf98f feat/000b-b014-data-constitution
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/evidence/b014-build-90cf98f)" = "$SOURCE_HEAD"
+          test "$(git rev-parse refs/remotes/origin/feat/000b-b014-data-constitution)" = "$DONOR_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B014_BUILD6_BINDING=PASS'
+
+      - name: Extract entry guard and materialization prefix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$SOURCE_HEAD:$SOURCE_WORKFLOW" > /tmp/source.yml
+          python - <<'PY'
+          from pathlib import Path
+          source = Path('/tmp/source.yml').read_text(encoding='utf-8')
+          def extract(step_name: str) -> str:
+              marker = f'      - name: {step_name}\n'
+              start = source.index(marker)
+              run_marker = '        run: |\n'
+              body_start = source.index(run_marker, start) + len(run_marker)
+              next_step = source.find('\n      - name: ', body_start)
+              raw = source[body_start:] if next_step == -1 else source[body_start:next_step]
+              return '\n'.join(line[10:] if line.startswith('          ') else line for line in raw.splitlines()) + '\n'
+          Path('/tmp/guard.sh').write_text(extract('Bind exact B014 entry and stale donor only'), encoding='utf-8')
+          materialize = extract('Recover reviewed B014 contract and integrate canonical runtime surfaces')
+          cut = materialize.index("expected=$(printf '%s\\n'")
+          Path('/tmp/materialize-prefix.sh').write_text(materialize[:cut], encoding='utf-8')
+          PY
+          bash -n /tmp/guard.sh
+          bash -n /tmp/materialize-prefix.sh
+          echo 'B014_BUILD6_EXTRACTION=PASS'
+
+      - name: Re-prove exact B014 entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash /tmp/guard.sh
+
+      - name: Materialize and commit exact eleven-file candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash /tmp/materialize-prefix.sh
+          python - <<'PY'
+          from pathlib import Path
+          doc = Path('docs/data/MSTR_DATA_CONSTITUTION.md')
+          doc.write_text('\n'.join(line.rstrip() for line in doc.read_text(encoding='utf-8').splitlines()) + '\n', encoding='utf-8')
+          path = Path('tests/integration/test_cli_offline.py')
+          text = path.read_text(encoding='utf-8')
+          old = '        "interaction-contract",\n        "mstr-loop-contract-v0",\n'
+          new = '        "interaction-contract",\n        "mstr-data-constitution-v0",\n        "mstr-loop-contract-v0",\n'
+          assert text.count(old) == 1
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          expected=$(printf '%s\n' \
+            docs/data/MSTR_DATA_CONSTITUTION.md \
+            evidence/mstr-000b/B014-data-constitution.md \
+            schemas/mstr-data-constitution-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_data_constitution_contract.py \
+            tests/contract/test_schemas.py \
+            tests/integration/test_cli_offline.py \
+            tests/fixtures/schemas/invalid/mstr-data-constitution-v0.json \
+            tests/fixtures/schemas/valid/mstr-data-constitution-v0.json | sort)
+          actual=$(git status --porcelain=v1 --untracked-files=all | sed 's/^...//' | sort)
+          test "$actual" = "$expected"
+          cmp schemas/mstr-data-constitution-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json
+          git diff --check
+          git add $expected
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat(mstr-000b): integrate B014 Data Constitution'
+          candidate=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$candidate" | wc -l)" -eq 11
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo "B014_LOCAL_HEAD=$candidate"
+
+      - name: Run exact-candidate frozen gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate=$(git rev-parse HEAD)
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          git branch -f main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          python -m mstr_qualify task eligible B014 > /tmp/b014.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          b014=json.load(open('/tmp/b014.json')); drift=json.load(open('/tmp/drift.json'))
+          assert b014['eligible'] is True and b014['reasons'] == []
+          assert b014['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b014['authority_result']['required'] is False
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B014_IMPLEMENTATION_SEMANTICS=PASS')
+          PY
+          pytest -q tests/contract/test_data_constitution_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          python -m mstr_qualify validate
+          python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-data-constitution-v0.json
+          set +e
+          python -m mstr_qualify validate tests/fixtures/schemas/invalid/mstr-data-constitution-v0.json >/tmp/b014-invalid.json
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+          pytest -q
+          ruff check src tests
+          mypy src
+          git diff --check "$EXPECTED_MAIN...$candidate"
+          cmp schemas/mstr-data-constitution-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B014_IMPLEMENTATION_GATES=PASS'
+
+      - name: Restore remote truth and push target only after PASS
+        shell: bash
+        run: |
+          set -euo pipefail
+          final=$(git rev-parse HEAD)
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin "HEAD:$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$final"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo "B014_IMPLEMENTATION_HEAD=$final"
+          echo "B014_BUILD_RUN=$GITHUB_RUN_ID"
+          echo 'PRIVATE_USER_DATA_INGESTION=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'TRAINING_EXECUTION=NONE'
+          echo 'PAID_COMPUTE=NONE'
