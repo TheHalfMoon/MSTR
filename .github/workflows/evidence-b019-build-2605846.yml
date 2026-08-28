@@ -38,6 +38,7 @@ jobs:
         run: |
           set -euo pipefail
           python tools/evidence/build_b019_candidate.py /tmp/b019
+          git -C /tmp/b019 add -N .
           git -C /tmp/b019 diff --check
           expected=$(printf '%s\n' \
             docs/data/TEACHER_RESCUE_POLICY.md \
@@ -52,6 +53,8 @@ jobs:
             tests/fixtures/schemas/valid/mstr-teacher-rescue-record-v0.json \
             tests/integration/test_cli_offline.py | sort)
           actual=$(git -C /tmp/b019 diff --name-only | sort)
+          printf 'B019_EXPECTED_SCOPE\n%s\n' "$expected"
+          printf 'B019_ACTUAL_SCOPE\n%s\n' "$actual"
           test "$actual" = "$expected"
       - name: Install candidate development environment
         working-directory: /tmp/b019
