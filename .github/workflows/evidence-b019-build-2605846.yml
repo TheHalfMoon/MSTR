@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Bind exact B019 entry state and generator
+      - name: Bind exact clean B019 entry checkout
         shell: bash
         run: |
           set -euo pipefail
@@ -35,6 +35,36 @@ jobs:
           git -C /tmp/b019 update-ref refs/heads/main "$EXPECTED_MAIN"
           test "$(git -C /tmp/b019 rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
           test -z "$(git -C /tmp/b019 status --porcelain)"
+      - name: Install exact-main development environment
+        working-directory: /tmp/b019
+        run: python -m pip install -e '.[dev]'
+      - name: Exact-main B019 task and authority gates
+        working-directory: /tmp/b019
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain)"
+          python -m mstr_qualify task eligible B019 > /tmp/b019.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+
+          b19 = json.load(open('/tmp/b019.json'))
+          b11 = json.load(open('/tmp/b011.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          assert b19['eligible'] is True
+          assert b19['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b19['authority_result']['required'] is False
+          assert b19['authority_result']['satisfied'] is True
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          PY
       - name: Materialize bounded teacher-rescue contract candidate
         shell: bash
         run: |
@@ -62,9 +92,6 @@ jobs:
           printf 'B019_EXPECTED_SCOPE\n%s\n' "$expected"
           printf 'B019_ACTUAL_SCOPE\n%s\n' "$actual"
           test "$actual" = "$expected"
-      - name: Install candidate development environment
-        working-directory: /tmp/b019
-        run: python -m pip install -e '.[dev]'
       - name: Focused B019 contract and registration gates
         working-directory: /tmp/b019
         shell: bash
@@ -89,31 +116,6 @@ jobs:
           pytest -q
           ruff check src tests
           mypy
-      - name: Prospective-main task and authority gates
-        working-directory: /tmp/b019
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
-          python -m mstr_qualify task eligible B019 > /tmp/b019.json
-          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
-          python -m mstr_qualify task drift > /tmp/drift.json
-          python - <<'PY'
-          import json
-
-          b19 = json.load(open('/tmp/b019.json'))
-          b11 = json.load(open('/tmp/b011.json'))
-          drift = json.load(open('/tmp/drift.json'))
-          assert b19['eligible'] is True
-          assert b19['state_consistency_result']['observed_state'] == 'PENDING'
-          assert b19['authority_result']['required'] is False
-          assert b19['authority_result']['satisfied'] is True
-          assert b11['eligible'] is False
-          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
-          assert b11['authority_result']['required'] is True
-          assert b11['authority_result']['satisfied'] is False
-          assert drift['status'] == 'clean' and drift['findings'] == []
-          PY
       - name: Commit locally and fast-forward exact B019 candidate only after gates
         working-directory: /tmp/b019
         shell: bash
