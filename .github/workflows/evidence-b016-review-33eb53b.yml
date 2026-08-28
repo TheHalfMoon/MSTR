@@ -1,0 +1,180 @@
+name: Adversarially review exact B016 implementation
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 2cd82ba78bcb886962a163013fa2861d5dd2b013
+      EXPECTED_HEAD: 33eb53b7ae4c2fd43d639af9c6e67512fb883423
+      TARGET_BRANCH: feat/000b-b016-software-evolution-contract
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 33eb53b7ae4c2fd43d639af9c6e67512fb883423
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Bind exact reviewed bytes and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git merge-base "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "$EXPECTED_MAIN"
+          expected=$(printf '%s\n' \
+            evidence/mstr-000b/B016-software-evolution.md \
+            schemas/mstr-software-evolution-record-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-software-evolution-record-v0.schema.json \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_schemas.py \
+            tests/contract/test_software_evolution_contract.py \
+            tests/fixtures/schemas/invalid/mstr-software-evolution-record-v0.json \
+            tests/fixtures/schemas/valid/mstr-software-evolution-record-v0.json \
+            tests/integration/test_cli_offline.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | wc -l)" -eq 10
+          test -z "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | grep -E '\.(safetensors|bin|gguf|pt|pth|onnx|parquet|arrow)$' || true)"
+          test -z "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | grep -E '(^|/)B017|software_evolution.*extract|evolution.*projection' || true)"
+          cmp schemas/mstr-software-evolution-record-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-software-evolution-record-v0.schema.json
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          echo 'B016_REVIEW_IDENTITY_SCOPE=PASS'
+      - name: Attack external references and private-source admission
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          schema = json.loads(Path('schemas/mstr-software-evolution-record-v0.schema.json').read_text())
+          refs = []
+          def walk(value):
+              if isinstance(value, dict):
+                  for key, item in value.items():
+                      if key == '$ref':
+                          refs.append(item)
+                      walk(item)
+              elif isinstance(value, list):
+                  for item in value:
+                      walk(item)
+          walk(schema)
+          assert refs and all(isinstance(ref, str) and ref.startswith('#') for ref in refs)
+          source_classes = schema['properties']['repository_identity']['properties']['source_class']['enum']
+          assert not any('PRIVATE' in item or 'USER' in item for item in source_classes)
+          assert 'training_admission' not in schema['properties']
+          print('B016_SCHEMA_REFERENCE_AND_SOURCE_REVIEW=PASS')
+          PY
+      - name: Attack every forward future-history channel
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python - <<'PY'
+          import copy
+          import json
+          from pathlib import Path
+          from mstr_qualify.schemas import validate_instance, validation_errors
+
+          name = 'mstr-software-evolution-record-v0'
+          base = json.loads(Path('tests/fixtures/schemas/valid/mstr-software-evolution-record-v0.json').read_text())
+          validate_instance(name, base)
+          for field in (
+              'final_revision_visibility',
+              'future_patch_visibility',
+              'future_test_result_visibility',
+              'future_review_visibility',
+          ):
+              candidate = copy.deepcopy(base)
+              candidate['future_history_boundary'][field] = 'VISIBLE_AS_RETROSPECTIVE_CONTEXT'
+              assert validation_errors(name, candidate), field
+          candidate = copy.deepcopy(base)
+          candidate['future_history_boundary']['retrospective_context_reason'] = 'smuggled future context'
+          assert validation_errors(name, candidate)
+          candidate = copy.deepcopy(base)
+          candidate['future_history_boundary']['projection_mode'] = 'RETROSPECTIVE_REVIEW'
+          candidate['future_history_boundary']['future_review_visibility'] = 'VISIBLE_AS_RETROSPECTIVE_CONTEXT'
+          assert validation_errors(name, candidate)
+          candidate['future_history_boundary']['retrospective_context_reason'] = 'Explicit retrospective review.'
+          validate_instance(name, candidate)
+          print('B016_FUTURE_HISTORY_ATTACKS=PASS')
+          PY
+      - name: Attack visibility evidence and unknown patch smuggling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import copy
+          import json
+          from pathlib import Path
+          from mstr_qualify.schemas import validation_errors
+
+          name = 'mstr-software-evolution-record-v0'
+          base = json.loads(Path('tests/fixtures/schemas/valid/mstr-software-evolution-record-v0.json').read_text())
+          for field in ('future_history_boundary', 'provenance', 'rights', 'contamination_status', 'final_verifier_identity'):
+              candidate = copy.deepcopy(base)
+              del candidate[field]
+              assert validation_errors(name, candidate), field
+          candidate = copy.deepcopy(base)
+          del candidate['visible_context_manifest']['excluded_future_event_ids']
+          assert validation_errors(name, candidate)
+          for collection in ('change_events', 'test_ci_events', 'review_events', 'recovery_events'):
+              candidate = copy.deepcopy(base)
+              del candidate[collection][0]['model_visibility']
+              assert validation_errors(name, candidate), collection
+          candidate = copy.deepcopy(base)
+          candidate['change_events'][0]['future_patch_contents'] = 'leaked patch'
+          assert validation_errors(name, candidate)
+          print('B016_VISIBILITY_AND_PATCH_SMUGGLING_ATTACKS=PASS')
+          PY
+      - name: Review evidence ownership and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          evidence = Path('evidence/mstr-000b/B016-software-evolution.md').read_text()
+          for marker in (
+              'ENTRY_GATE_TASK = B016',
+              'ENTRY_GATE_CANONICAL_MAIN = 2cd82ba78bcb886962a163013fa2861d5dd2b013',
+              'ENTRY_GATE_RUN = 33171129526',
+              'ENTRY_GATE_JOB = 98848292231',
+              'ENTRY_GATE_ELIGIBLE = true',
+              'ENTRY_GATE_DRIFT = clean',
+              'B017 owns the tiny fixture-only extractor/projection proof',
+              'MSTR-DATA-CONSTITUTION-v0',
+              'MODEL_WEIGHT_ACCESS = NONE',
+              'LARGE_DATASET_INGESTION = NONE',
+              'PRIVATE_USER_DATA_INGESTION = NONE',
+              'WEIGHT_CHANGING_TRAINING = NONE',
+              'FOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO',
+          ):
+              assert marker in evidence, marker
+          print('B016_EVIDENCE_AUTHORITY_REVIEW=PASS')
+          PY
+      - name: Exercise focused contract and offline gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_schemas.py tests/contract/test_software_evolution_contract.py tests/integration/test_cli_offline.py
+          python -m mstr_qualify validate
+          ruff check src tests
+          mypy src
+          echo 'B016_ADVERSARIAL_REVIEW=PASS'
+      - name: Final immutable remote recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B016_REVIEW_REMOTE_RECHECK=PASS'
