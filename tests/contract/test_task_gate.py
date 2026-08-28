@@ -1205,13 +1205,14 @@ def test_b018_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b018_closeout_opens_b019_teacher_policy() -> None:
+def test_b019_is_terminal_after_canonical_closeout() -> None:
     result = evaluate_task_snapshot("B019", canonical_main=_CANONICAL_MAIN)
 
-    assert result["eligible"] is True
-    assert result["reasons"] == []
-    assert result["state_consistency_result"]["observed_state"] == "PENDING"
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
     assert result["authority_result"]["required"] is False
+    assert "task.already_terminal" in result["reasons"]
     predecessor = next(
         item for item in result["prerequisite_results"] if item["task_id"] == "B018"
     )

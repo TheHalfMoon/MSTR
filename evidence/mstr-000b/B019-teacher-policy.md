@@ -1,7 +1,10 @@
 # B019 — Bounded Teacher-Rescue Policy Evidence
 
 **Task:** `B019`
-**State:** IMPLEMENTATION_CANDIDATE
+**Implementation PR:** #78
+**Final implementation head:** `25907c32fb60e83a6b171192e8c12c8092bc9f5e`
+**Canonical implementation merge:** `ac68e2ff9de9962807ab32ce983b2e808bf4fab9`
+**State:** COMPLETE_CANONICAL
 **Contract:** `mstr.teacher-rescue-record.v0`
 **Canonical entry main:** `2605846607fc98291ded4e53e9bb6bb6c3cf52a0`
 
@@ -39,3 +42,17 @@ PRODUCTION_RELEASE = NONE
 B020_DIFFICULTY_CALIBRATION_AUTHORITY = NONE
 B022_VERIFIER_HEALTH_AUTHORITY = NONE
 ```
+
+## Canonical Implementation Closeout
+
+The bounded teacher-rescue contract was merged without widening authority, data scope, or external effects.
+
+- implementation PR: `#78`
+- final implementation head: `25907c32fb60e83a6b171192e8c12c8092bc9f5e`
+- canonical implementation merge: `ac68e2ff9de9962807ab32ce983b2e808bf4fab9`
+- exact-final-head qualification: run `33193446438` — SUCCESS
+- independent adversarial review: run `33193784736` / job `98925641414` — SUCCESS
+- mandatory pre-merge verification: run `33193968205` — SUCCESS
+- post-merge implementation verification: run `33194149258` — SUCCESS
+
+This closeout changes only canonical task/provenance state and regression assertions. It grants no model-weight access, teacher/model/API execution, paid compute, network teacher calls, large-data ingestion, weight-changing training, B020 difficulty-calibration authority, B022 verifier-health authority, or production release authority. B011 remains blocked.

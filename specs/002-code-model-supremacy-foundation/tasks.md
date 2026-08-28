@@ -137,9 +137,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: schema/fixtures, `evidence/mstr-000b/B018-self-alignment-contract.md`.
   Canonical implementation: PR #76 / final head `23c83ebae95ca3f0d893840e9d994b33712f124f` / merge `7e4996e92128e4e02ec6dbcf6ed29eed2b753838`.
 
-- [ ] **B019 Freeze bounded teacher-rescue policy.**  
+- [x] **B019 Freeze bounded teacher-rescue policy.**
   Teachers are optional frontier-rescue/reference sources. Record teacher identity/terms/cost plus concrete-output provenance, output-rights decisions and contamination status; independently execute/verify outputs; reject incompatible or unresolved rights. Paid/API teacher use is not authorized here.  
   Outputs: `docs/data/TEACHER_RESCUE_POLICY.md`, schema/fixtures, `evidence/mstr-000b/B019-teacher-policy.md`.
+  Canonical implementation: PR #78 / final head `25907c32fb60e83a6b171192e8c12c8092bc9f5e` / merge `ac68e2ff9de9962807ab32ce983b2e808bf4fab9`.
 
 - [ ] **B020 Freeze checkpoint-relative difficulty calibration contract.**  
   Define exact student/harness/sampling identity and classes `TOO_EASY`, `LEARNABLE_FRONTIER`, `HARD_FRONTIER`, `CURRENTLY_UNPRODUCTIVE`, `INVALID`.  

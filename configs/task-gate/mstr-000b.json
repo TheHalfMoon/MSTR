@@ -279,7 +279,7 @@
       ]
     },
     "B019": {
-      "canonical_state": "PENDING",
+      "canonical_state": "COMPLETE_CANONICAL",
       "closeout_rule": {
         "require_all_outputs": true
       },
