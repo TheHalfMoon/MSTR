@@ -45,12 +45,15 @@ ADMISSION_REASONS = []
 
 ## Per-Artifact Evidence Binding
 
-The planning data model describes generated-artifact provenance and rights as parallel conceptual collections. The runtime schema co-locates required provenance and rights evidence directly on every generated task, solution, and test artifact.
+The runtime schema preserves the canonical first-class evidence collections from `data-model.md`:
 
-This normalization is intentional: JSON Schema cannot prove referential completeness across independent parallel arrays. Co-location makes missing per-artifact provenance or rights structurally impossible for a valid record and prevents an `ADMIT` record from carrying an orphan artifact without its own evidence.
+- `generated_artifact_provenance[]`
+- `generated_artifact_rights_decisions[]`
+- `execution_results[]`
+
+Generated artifacts also carry local evidence copies so a record remains directly inspectable at the artifact boundary. Because JSON Schema alone cannot prove referential completeness across independent arrays, the offline B018 semantic validator fails closed unless the canonical arrays exactly cover the generated artifact identities and exactly match the nested provenance, rights, execution-result, and environment bindings.
 
 Generated tasks are non-executable descriptions and reject an `execution_result`. Generated solutions and tests require execution evidence; `ADMIT` further requires that execution to be sandboxed and passing.
-
 ## Difficulty Boundary
 
 B018 does not implement B020 or freeze its future calibration algorithm.
@@ -64,7 +67,7 @@ harness_profile_id
 sampling_identity
 ```
 
-The nested difficulty record binds a record identity and one of the B014-frozen classes:
+The nested difficulty record binds its evidence identity, one of the B014-frozen classes, and an explicit copy of the exact student model/checkpoint, harness profile, and sampling identity used by the generation. The offline B018 semantic validator rejects any mismatch between those embedded bindings and the enclosing generation identity.
 
 ```text
 TOO_EASY
@@ -74,8 +77,7 @@ CURRENTLY_UNPRODUCTIVE
 INVALID
 ```
 
-Because the exact student/harness/sampling identity occurs once on the enclosing generation, B018 avoids duplicate identity fields that JSON Schema could not prove equal. B020 remains responsible for the detailed `DifficultyCalibrationRecord`, calibration procedure, refresh semantics, and frontier policy. `INVALID` may be recorded on rejected evidence but cannot be admitted.
-
+B020 remains responsible for the detailed `DifficultyCalibrationRecord`, calibration procedure, refresh semantics, and frontier policy. B018 consumes only the record identity/class and exact identity binding. `INVALID` may be recorded on rejected evidence but cannot be admitted.
 ## Verifier-Health Boundary
 
 B018 does not implement B022/B023.
