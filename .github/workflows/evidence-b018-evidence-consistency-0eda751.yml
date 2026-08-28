@@ -43,85 +43,61 @@ jobs:
 
           path = Path("evidence/mstr-000b/B018-self-alignment-contract.md")
           text = path.read_text(encoding="utf-8")
-
-          old_binding = '''## Per-Artifact Evidence Binding
-
-The planning data model describes generated-artifact provenance and rights as parallel conceptual collections. The runtime schema co-locates required provenance and rights evidence directly on every generated task, solution, and test artifact.
-
-This normalization is intentional: JSON Schema cannot prove referential completeness across independent parallel arrays. Co-location makes missing per-artifact provenance or rights structurally impossible for a valid record and prevents an `ADMIT` record from carrying an orphan artifact without its own evidence.
-
-Generated tasks are non-executable descriptions and reject an `execution_result`. Generated solutions and tests require execution evidence; `ADMIT` further requires that execution to be sandboxed and passing.
-'''
-          new_binding = '''## Per-Artifact Evidence Binding
-
-The runtime schema preserves the canonical first-class evidence collections from `data-model.md`:
-
-- `generated_artifact_provenance[]`
-- `generated_artifact_rights_decisions[]`
-- `execution_results[]`
-
-Generated artifacts also carry local evidence copies so a record remains directly inspectable at the artifact boundary. Because JSON Schema alone cannot prove referential completeness across independent arrays, the offline B018 semantic validator fails closed unless the canonical arrays exactly cover the generated artifact identities and exactly match the nested provenance, rights, execution-result, and environment bindings.
-
-Generated tasks are non-executable descriptions and reject an `execution_result`. Generated solutions and tests require execution evidence; `ADMIT` further requires that execution to be sandboxed and passing.
-'''
-          if text.count(old_binding) != 1:
-              raise SystemExit("per-artifact evidence section anchor mismatch")
-          text = text.replace(old_binding, new_binding)
-
-          old_difficulty = '''## Difficulty Boundary
-
-B018 does not implement B020 or freeze its future calibration algorithm.
-
-The enclosing `student_model_identity` carries the exact:
-
-```text
-model_id
-checkpoint_id
-harness_profile_id
-sampling_identity
-```
-
-The nested difficulty record binds a record identity and one of the B014-frozen classes:
-
-```text
-TOO_EASY
-LEARNABLE_FRONTIER
-HARD_FRONTIER
-CURRENTLY_UNPRODUCTIVE
-INVALID
-```
-
-Because the exact student/harness/sampling identity occurs once on the enclosing generation, B018 avoids duplicate identity fields that JSON Schema could not prove equal. B020 remains responsible for the detailed `DifficultyCalibrationRecord`, calibration procedure, refresh semantics, and frontier policy. `INVALID` may be recorded on rejected evidence but cannot be admitted.
-'''
-          new_difficulty = '''## Difficulty Boundary
-
-B018 does not implement B020 or freeze its future calibration algorithm.
-
-The enclosing `student_model_identity` carries the exact:
-
-```text
-model_id
-checkpoint_id
-harness_profile_id
-sampling_identity
-```
-
-The nested difficulty record binds its evidence identity, one of the B014-frozen classes, and an explicit copy of the exact student model/checkpoint, harness profile, and sampling identity used by the generation. The offline B018 semantic validator rejects any mismatch between those embedded bindings and the enclosing generation identity.
-
-```text
-TOO_EASY
-LEARNABLE_FRONTIER
-HARD_FRONTIER
-CURRENTLY_UNPRODUCTIVE
-INVALID
-```
-
-B020 remains responsible for the detailed `DifficultyCalibrationRecord`, calibration procedure, refresh semantics, and frontier policy. B018 consumes only the record identity/class and exact identity binding. `INVALID` may be recorded on rejected evidence but cannot be admitted.
-'''
-          if text.count(old_difficulty) != 1:
-              raise SystemExit("difficulty section anchor mismatch")
-          text = text.replace(old_difficulty, new_difficulty)
-
+          binding_start = text.index("## Per-Artifact Evidence Binding")
+          difficulty_start = text.index("## Difficulty Boundary")
+          verifier_start = text.index("## Verifier-Health Boundary")
+          if not binding_start < difficulty_start < verifier_start:
+              raise SystemExit("B018 evidence section order mismatch")
+          binding_lines = [
+              "## Per-Artifact Evidence Binding",
+              "",
+              "The runtime schema preserves the canonical first-class evidence collections from `data-model.md`:",
+              "",
+              "- `generated_artifact_provenance[]`",
+              "- `generated_artifact_rights_decisions[]`",
+              "- `execution_results[]`",
+              "",
+              "Generated artifacts also carry local evidence copies so a record remains directly inspectable at the artifact boundary. Because JSON Schema alone cannot prove referential completeness across independent arrays, the offline B018 semantic validator fails closed unless the canonical arrays exactly cover the generated artifact identities and exactly match the nested provenance, rights, execution-result, and environment bindings.",
+              "",
+              "Generated tasks are non-executable descriptions and reject an `execution_result`. Generated solutions and tests require execution evidence; `ADMIT` further requires that execution to be sandboxed and passing.",
+              "",
+          ]
+          difficulty_lines = [
+              "## Difficulty Boundary",
+              "",
+              "B018 does not implement B020 or freeze its future calibration algorithm.",
+              "",
+              "The enclosing `student_model_identity` carries the exact:",
+              "",
+              "```text",
+              "model_id",
+              "checkpoint_id",
+              "harness_profile_id",
+              "sampling_identity",
+              "```",
+              "",
+              "The nested difficulty record binds its evidence identity, one of the B014-frozen classes, and an explicit copy of the exact student model/checkpoint, harness profile, and sampling identity used by the generation. The offline B018 semantic validator rejects any mismatch between those embedded bindings and the enclosing generation identity.",
+              "",
+              "```text",
+              "TOO_EASY",
+              "LEARNABLE_FRONTIER",
+              "HARD_FRONTIER",
+              "CURRENTLY_UNPRODUCTIVE",
+              "INVALID",
+              "```",
+              "",
+              "B020 remains responsible for the detailed `DifficultyCalibrationRecord`, calibration procedure, refresh semantics, and frontier policy. B018 consumes only the record identity/class and exact identity binding. `INVALID` may be recorded on rejected evidence but cannot be admitted.",
+              "",
+          ]
+          binding = "\n".join(binding_lines)
+          difficulty = "\n".join(difficulty_lines)
+          text = text[:binding_start] + binding + difficulty + text[verifier_start:]
+          forbidden = [
+              "runtime schema co-locates required provenance and rights evidence",
+              "B018 avoids duplicate identity fields",
+          ]
+          if any(item in text for item in forbidden):
+              raise SystemExit("stale B018 evidence narrative remains")
           path.write_text(text, encoding="utf-8")
           PY
           test "$(git status --porcelain=v1 | sed 's/^...//')" = "evidence/mstr-000b/B018-self-alignment-contract.md"
