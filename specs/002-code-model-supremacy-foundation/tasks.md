@@ -132,9 +132,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: implementation/tests/fixtures, `evidence/mstr-000b/B017-evolution-fixture-pilot.md`.
   Canonical implementation: PR #73 / final head `6bab90d46fca0323fe9c1d66f37a69e8b13d8ae3` / merge `79e1b5ceca4ed39e10f53b0f85f93ffb7b02208c`.
 
-- [ ] **B018 Freeze execution-filtered student self-alignment contract.**  
+- [x] **B018 Freeze execution-filtered student self-alignment contract.**
   Student-generated tasks/solutions/tests require seed and per-artifact provenance, compatible rights, sandbox execution, independent verifier health, contamination checks and difficulty records before training admission. Missing/unresolved provenance or rights fails closed.  
   Outputs: schema/fixtures, `evidence/mstr-000b/B018-self-alignment-contract.md`.
+  Canonical implementation: PR #76 / final head `23c83ebae95ca3f0d893840e9d994b33712f124f` / merge `7e4996e92128e4e02ec6dbcf6ed29eed2b753838`.
 
 - [ ] **B019 Freeze bounded teacher-rescue policy.**  
   Teachers are optional frontier-rescue/reference sources. Record teacher identity/terms/cost plus concrete-output provenance, output-rights decisions and contamination status; independently execute/verify outputs; reject incompatible or unresolved rights. Paid/API teacher use is not authorized here.  
