@@ -1,0 +1,150 @@
+name: Adversarially review B015 closeout head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 5104f7ef63ba37caa518868ad89d0f78fe70641f
+      EXPECTED_HEAD: 230b5ffd02990fe67fee0f2b76002f24ab27f82a
+      TARGET_BRANCH: docs/000b-b015-canonicalize
+      IMPLEMENTATION_HEAD: e6191fefc9b870f3376f6faead6149841fe7dd31
+      IMPLEMENTATION_MERGE: 5104f7ef63ba37caa518868ad89d0f78fe70641f
+      ENTRY_MAIN: 205df4be5f2e25bd28b697816eac3ea6ce361aed
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 230b5ffd02990fe67fee0f2b76002f24ab27f82a
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact reviewed bytes and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          expected=$(printf '%s\n' \
+            artifacts/decisions/B015-language-target-policy.json \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B015-language-mix.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_b015_language_target_policy.py \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          test -z "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | grep -E '\.(safetensors|bin|gguf|pt|pth|onnx|parquet|arrow)$' || true)"
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          echo 'B015_CLOSEOUT_REVIEW_IDENTITY=PASS'
+      - name: Attack policy-semantic mutation during closeout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          before = json.loads(subprocess.check_output([
+              'git', 'show',
+              '5104f7ef63ba37caa518868ad89d0f78fe70641f:artifacts/decisions/B015-language-target-policy.json',
+          ], text=True))
+          after = json.loads(Path('artifacts/decisions/B015-language-target-policy.json').read_text())
+          assert before['state'] == 'IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT'
+          assert after['state'] == 'COMPLETE_CANONICAL'
+          canonical = after.pop('canonical_implementation')
+          assert canonical == {
+              'final_head': 'e6191fefc9b870f3376f6faead6149841fe7dd31',
+              'merge_commit': '5104f7ef63ba37caa518868ad89d0f78fe70641f',
+              'pr_number': 69,
+          }
+          after['state'] = 'IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT'
+          assert after == before
+          print('B015_CLOSEOUT_POLICY_SEMANTICS_IMMUTABLE=PASS')
+          PY
+      - name: Attack provenance fabrication and capability escalation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import re
+          import subprocess
+          from pathlib import Path
+
+          evidence = Path('evidence/mstr-000b/B015-language-mix.md').read_text()
+          tasks = Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text()
+          policy = json.loads(Path('artifacts/decisions/B015-language-target-policy.json').read_text())
+          assert '**State:** COMPLETE_CANONICAL' in evidence
+          assert '**Implementation PR:** #69' in evidence
+          assert '**Final implementation head:** `e6191fefc9b870f3376f6faead6149841fe7dd31`' in evidence
+          assert '**Canonical implementation merge:** `5104f7ef63ba37caa518868ad89d0f78fe70641f`' in evidence
+          assert 'ENTRY_GATE_TASK = B015' in evidence
+          assert 'ENTRY_GATE_CANONICAL_MAIN = 205df4be5f2e25bd28b697816eac3ea6ce361aed' in evidence
+          assert 'ENTRY_GATE_RUN = 33166914253' in evidence
+          assert 'ENTRY_GATE_JOB = 98834411321' in evidence
+          assert 'ENTRY_GATE_ELIGIBLE = true' in evidence
+          assert 'ENTRY_GATE_DRIFT = clean' in evidence
+          assert re.search(r'^- \[x\] \*\*B015 .+$', tasks, re.MULTILINE)
+          assert 'Canonical implementation: PR #69 / final head `e6191fefc9b870f3376f6faead6149841fe7dd31` / merge `5104f7ef63ba37caa518868ad89d0f78fe70641f`' in tasks
+          assert all(value is False for value in policy['authority_boundary'].values())
+          def ancestor(a: str, b: str) -> bool:
+              return subprocess.run(['git', 'merge-base', '--is-ancestor', a, b]).returncode == 0
+          assert ancestor('205df4be5f2e25bd28b697816eac3ea6ce361aed', 'e6191fefc9b870f3376f6faead6149841fe7dd31')
+          assert ancestor('e6191fefc9b870f3376f6faead6149841fe7dd31', '5104f7ef63ba37caa518868ad89d0f78fe70641f')
+          print('B015_CLOSEOUT_PROVENANCE_AND_AUTHORITY_REVIEW=PASS')
+          PY
+      - name: Attack machine truth and successor leakage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          if python -m mstr_qualify task eligible B015 > /tmp/b015.json; then exit 1; fi
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
+          python -m mstr_qualify task eligible B016 > /tmp/b016.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          b15 = json.load(open('/tmp/b015.json'))
+          b16 = json.load(open('/tmp/b016.json'))
+          b11 = json.load(open('/tmp/b011.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          assert b15['eligible'] is False and 'task.already_terminal' in b15['reasons']
+          assert b15['state_consistency_result']['observed_state'] == 'COMPLETE_CANONICAL'
+          assert b16['eligible'] is True and b16['reasons'] == []
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B015_CLOSEOUT_MACHINE_ADVERSARIAL_REVIEW=PASS')
+          PY
+      - name: Exercise closeout regression gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_b015_language_target_policy.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          echo 'B015_CLOSEOUT_ADVERSARIAL_REVIEW=PASS'
+      - name: Final immutable remote recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B015_CLOSEOUT_REVIEW_REMOTE_RECHECK=PASS'
