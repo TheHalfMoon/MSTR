@@ -1,0 +1,63 @@
+name: Verify B014 entry on exact canonical main
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 90cf98f5f87b64f8e6da50a8444b1b598148f945
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 90cf98f5f87b64f8e6da50a8444b1b598148f945
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove exact B014 entry and independent-lane authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main feat/000b-b014-data-constitution
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B014 > /tmp/b014.json
+          set +e
+          python -m mstr_qualify task eligible B011 > /tmp/b011.json
+          b011_rc=$?
+          set -e
+          test "$b011_rc" -eq 1
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          main = os.environ['EXPECTED_MAIN']
+          b014 = json.load(open('/tmp/b014.json'))
+          b011 = json.load(open('/tmp/b011.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          assert b014['canonical_main'] == main
+          assert b014['eligible'] is True and b014['reasons'] == []
+          assert b014['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b014['prerequisite_results'] == []
+          assert b014['authority_result']['required'] is False
+          assert b011['eligible'] is False and 'task.blocked' in b011['reasons']
+          assert b011['authority_result']['required'] is True
+          assert b011['authority_result']['satisfied'] is False
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          tasks = Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text()
+          assert '- [ ] **B014 Freeze `MSTR-DATA-CONSTITUTION-v0`.**' in tasks
+          print('B014_EXACT_MAIN_ENTRY=PASS')
+          print('B014_EXTERNAL_EFFECT=NONE')
+          print('B011_REMAINS_INDEPENDENTLY_BLOCKED=PASS')
+          PY
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
