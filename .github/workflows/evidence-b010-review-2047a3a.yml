@@ -1,0 +1,149 @@
+name: Adversarially review exact B010 implementation head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: e3ee155a7e0ed491984908998546900e594bda9a
+      EXPECTED_HEAD: 2047a3aa8b7063736a490d00d1fe10709aba23e2
+      TARGET_BRANCH: research/000b-b010-new-candidate-weight-access
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2047a3aa8b7063736a490d00d1fe10709aba23e2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Rebind exact reviewed bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | wc -l)" -eq 3
+          test -z "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | grep -E '\.(safetensors|bin|gguf|pt|pth|onnx)$' || true)"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B010_REVIEW_IDENTITY=PASS'
+      - name: Attack authority escalation and artifact substitution
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path('artifacts/manifests/B010-new-candidate-weight-access.json').read_text())
+          catalog = json.loads(Path('configs/task-gate/mstr-000b.json').read_text())
+          b011 = catalog['tasks']['B011']
+          assert b011['canonical_state'] == 'BLOCKED'
+          assert b011['external_effect_class'] == 'MODEL_WEIGHT_ACCESS'
+          assert b011['required_authority_id'] == 'B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED'
+          assert manifest['b011_authority']['authorized_by_b010'] is False
+
+          decision = manifest['decision']
+          assert decision['qualification_candidates'] == decision['new_weight_access_required_candidates']
+          assert decision['qualification_candidates'] == ['mellum-4b', 'qwen3.5-0.8b-control']
+          assert decision['no_new_candidates_marker'] is None
+          assert decision['no_new_access_marker'] is None
+
+          envelopes = {x['candidate_id']: x for x in manifest['candidate_access_envelopes']}
+          expected = {
+              'mellum-4b': {
+                  'revision': '83cce2605fbdf6a3868627e9b0a5924e0072b94d',
+                  'weight_bytes': 8038527904,
+                  'download_bytes': 8048099065,
+                  'weights': {
+                      'model-00001-of-00002.safetensors': (4986625856, '04bf4f574526ebecd75283af1f7ed0a412362388ddd28360c1581706cb3a00d2'),
+                      'model-00002-of-00002.safetensors': (3051902048, '8fa0269d11332e13874280dbf5a15d5d6086d038656832c16e984544caf4b21b'),
+                  },
+              },
+              'qwen3.5-0.8b-control': {
+                  'revision': 'dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68',
+                  'weight_bytes': 1746942600,
+                  'download_bytes': 1769897109,
+                  'weights': {
+                      'model.safetensors-00001-of-00001.safetensors': (1746942600, 'c2b1e5a17d9c1e27685d92ed9b382911ebb99955ecd89052d1721241adfbab6c'),
+                  },
+              },
+          }
+          for cid, spec in expected.items():
+              row = envelopes[cid]
+              assert row['upstream']['revision'] == spec['revision']
+              assert row['expected_weight_bytes'] == spec['weight_bytes']
+              assert row['expected_required_download_bytes'] == spec['download_bytes']
+              actual = {w['path']: (w['bytes'], w['sha256']) for w in row['weight_files']}
+              assert actual == spec['weights']
+              assert row['rights']['license'] == 'Apache-2.0'
+              assert row['rights']['public'] is True
+              assert row['rights']['gated'] is False
+              assert row['cost']['expected_usd'] == 0
+              assert row['cost']['ceiling_usd'] == 0
+
+          allowed = set(manifest['network_policy']['allowed_hosts'])
+          assert allowed == {
+              'huggingface.co',
+              'cdn-lfs.huggingface.co',
+              'cas-bridge.xethub.hf.co',
+              'transfer.xethub.hf.co',
+              'us.aws.cdn.hf.co',
+          }
+          assert manifest['network_policy']['abort_on_auth_or_account_gate'] is True
+          assert manifest['network_policy']['abort_on_payment'] is True
+          assert manifest['network_policy']['abort_on_unlisted_redirect'] is True
+          print('B010_ADVERSARIAL_AUTHORITY_AND_PINNING=PASS')
+          PY
+      - name: Prove no hidden execution authority or model bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path('artifacts/manifests/B010-new-candidate-weight-access.json').read_text())
+          a = m['authority_boundary']
+          assert a['founder_machine_large_artifacts'] == 0
+          assert all(v is False for k, v in a.items() if k != 'founder_machine_large_artifacts')
+          evidence = Path('evidence/mstr-000b/B010-weight-access-preflight.md').read_text()
+          for marker in [
+              'MODEL_WEIGHT_ACCESS = NONE',
+              'MODEL_EXECUTION = NONE',
+              'TRAINING_EXECUTION = NONE',
+              'PAID_COMPUTE = NONE',
+          ]:
+              assert marker in evidence
+          for path in Path('.').rglob('*'):
+              if path.is_file() and '.git' not in path.parts:
+                  assert path.suffix not in {'.safetensors', '.gguf', '.onnx', '.pth', '.pt'}
+          print('B010_ADVERSARIAL_ZERO_EXECUTION=PASS')
+          PY
+      - name: Independently exercise contract and frozen gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_b010_new_candidate_weight_access.py
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B010_ADVERSARIAL_REVIEW=PASS'
+      - name: Final immutable remote recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B010_REVIEW_REMOTE_RECHECK=PASS'
