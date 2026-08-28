@@ -1,0 +1,204 @@
+name: Build B008 tokenizer economics results v4
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 7f2fe43797db4b94103ca07c172de5672806f624
+      TARGET_BRANCH: feat/000b-b008-tokenizer-economics
+      SOURCE_BRANCH: evidence/b008-measure-build-7f2fe43
+      SOURCE_HEAD: 1b446bb6552bac1d046101641dadf42825020492
+      ENTRY_RUN: "33151438249"
+      ENTRY_JOB: "98784106816"
+      LOADABILITY_RUN: "33151738043"
+      LOADABILITY_JOB: "98785061204"
+      HF_HUB_DISABLE_IMPLICIT_TOKEN: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/000b-b008-tokenizer-economics
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Guard exact B008 material entry with local canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH" "$SOURCE_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$SOURCE_BRANCH)" = "$SOURCE_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          git branch -f main "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]' 'huggingface_hub==0.34.4' 'tokenizers==0.22.0'
+          python -m mstr_qualify task eligible B008 > /tmp/b008.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          e=json.load(open('/tmp/b008.json')); d=json.load(open('/tmp/drift.json')); m=os.environ['EXPECTED_MAIN']
+          assert e['canonical_main']==m and e['eligible'] is True and e['reasons']==[], e
+          assert e['state_consistency_result']['observed_state']=='PENDING', e
+          assert d['canonical_main']==m and d['status']=='clean' and d['findings']==[], d
+          print('B008_MEASUREMENT_ENTRY=PASS')
+          PY
+
+      - name: Reuse frozen materialization and repair source before measurement
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$SOURCE_HEAD:.github/workflows/evidence-b008-measure-build-7f2fe43.yml" > /tmp/source.yml
+          python - <<'PY'
+          from pathlib import Path
+          lines=Path('/tmp/source.yml').read_text().splitlines()
+          target='      - name: Materialize reproducible measurement implementation and contract test'
+          start=lines.index(target)
+          run_idx=next(i for i in range(start+1,len(lines)) if lines[i]=='        run: |')
+          body=[]
+          for line in lines[run_idx+1:]:
+              if line.startswith('      - name: '):
+                  break
+              if line.startswith('          '):
+                  body.append(line[10:])
+              elif line == '':
+                  body.append('')
+              else:
+                  raise AssertionError(line)
+          Path('/tmp/materialize.sh').write_text('\n'.join(body)+'\n')
+          PY
+          bash /tmp/materialize.sh
+          python - <<'PY'
+          import base64
+          import zlib
+          from pathlib import Path
+
+          p=Path('benchmarks/tokenizer_economics/b008_measure.py')
+          s=p.read_text()
+          s=s.replace('import sys\n','')
+          old='''            "overflow_or_truncation_observation": "encoding.overflowing recorded; no truncation requested",
+          },
+          "token_count_api_identity": "tokenizers.Tokenizer.encode(text, add_special_tokens=False).ids length",'''
+          new='''            "overflow_or_truncation_observation": (
+                "encoding.overflowing recorded; "
+                "no truncation requested"
+            ),
+          },
+          "token_count_api_identity": (
+              "tokenizers.Tokenizer.encode(text, "
+              "add_special_tokens=False).ids length"
+          ),'''
+          assert old in s
+          s=s.replace(old,new,1)
+          old='''              "estimated_effective_payload_bytes_at_8192_tokens": math.floor((total_bytes / total_tokens) * 8192),
+              "numerator_denominator_totals": {"bytes": total_bytes, "characters": total_chars, "tokens": total_tokens},'''
+          new='''              "estimated_effective_payload_bytes_at_8192_tokens": math.floor(
+                  (total_bytes / total_tokens) * 8192
+              ),
+              "numerator_denominator_totals": {
+                  "bytes": total_bytes,
+                  "characters": total_chars,
+                  "tokens": total_tokens,
+              },'''
+          assert old in s
+          s=s.replace(old,new,1)
+          encoded='eNqdWFtz2jgUfu+v0NAHtl1w02zbbdPJgwNO4pZLBpyZdjOMEbYMaozkSnIS2vS/7zkyVwca0swEsK1zdC6fvvMBIYQoKq5ZTI6Jlsqw+K9nZP6nmM5To2vLG9dsdpzS6SimRMnbI3y5qtDxWLExNSycMqN4pCuDq8ot4+MJOAtHM8N0mDEVGnnNRGVQW3N/w5Rmx4HKWXH3hX1NuWAawrlarqw8JycHB+9JgC74D6aIF0khp7AZaTOqc8WmTJjKyndl/fPLlwHV10cvX5IhuhnCrY2nfQPR42O/fdHy2l4n8Jrhhddp+p2zsOF2uh2/4bbCRqvb97qXwYZ5AvYNKqTgEU0JBKFmZEq5sLv9lNph4oYrKZwxM39VvS8XXgO9t12/U61Vc3Et5K2ovvg13BX88+fEs16piAm7Y1FuuBSE3fCYiYjtMhsOh4bdmY1IIbHe1/DMDbywd9mBCj+Mz66Ahxux7XLyqXuy2wk83MvJqr5Yk63+dhZtPeE1l17LP/NPWh44M4CttVUrbFuboPvZ6/j/eb3wU7/bCVtdt+me+C0/+DovUGVjfVJ5EFvJZDO6pfGLP4mgqO6TInhQ820RJJW25/Yvexbou4Bw5gfnlyf4NPSbu2peymXdrffFa1wG3R74PuPmPB/VJ1IDH5B8lAuT1w/fOAdvyKtSepWLmZkAuP9xXr+Gh2Zx3DU5cA4PnYOt+VRgyy50/dRveXBqe4iopt8EIGD/Fy6cbxocS5HO1kHT7ja9Vuh3Tr2e12mgAYDRW1+BgGqGgddr90O30fAuAnf7wgvXb4aNbvviMtj2+LR72WlCcG23ce53vLDl9s680O0F/qnbCPpgASDolk7wbzgBOCfmMfAW0WwX8ZWxNmFkWrBljFaEaxIzxW/gMlFySqIlj0VL74pFUsWa3HIzKXdrqIE4c32MbzwKv+c05Qln8bBGhgr5Xzsxi7gGvjrOqLZjYMq1hh1hCfKZkGWfNIokIORVlPLo2kyUzMcTgtPFId4djUw6I68PVvFpomFvncyImVBDVJ6yskdou4HMV9TsbIdRqcC9YvjtV9pzyBam0mLqETv1XlnwYckFFlpoWJHRWSopHAMBlYe4oAUJvwOLUtB6JiBoqCqB8me5dgh27/3rD4f1wuvCETig8zV1BaWQhGnDp1CaWtmnkMauFTgY6rdcxPKWRCnl08crUsr3fg1/9+RkLdt7GNIGEGSvNFy+/7yM1VYFbpXiavIkWa2HYQyNVzRiq3uBlClBglzduqCAx8XV9vDv6/U6/h898jJPc2BfE6nmuodwMZdGR0ufETWoTH5a4QMXbCzVrDKwSqgwhXe0sx6uKqh7FstW8ujX0h9oJ3C3WL1FSS1XWlHk0CxjIi41o+J8k1xs3sS/qwd3Cvq/B2Ey37K6PEghj6uDX0PsTm2H3U+I76q6S9lVB0fOu+TX4w4M4qOw0bDl4wYLQMchSxIWGaCPcA6peRDUhHg09nSKTbyqxoC66uBp4RSWGhEaWoj+mQMDcA5xHv2ZecJTLICZ6K32W8wHG3dePNv8VOjtvzcEd4kM10S2JRDIfc+hUycNS05wKuAYKG5mSFnRhEX4nYOOgY+1sQQNI+gHEAgo9H+BpgVPoO9lqhgxOGQMRsdsNdnRX65Z7Oyjt+qkCxKAZFwI2H64KQ+Glk2j7znHCYnHmdFosho2H4shU4qJ4Vgi2BQ075+79cO37yDdGyiWVByzFJanMUkUIGuhU2V4guYln4jtvTNaZaGd5TckByd6iFENFwXaPsNpHIc6gzG9RNFxQlPNhh+hS5CtYdMsxUlbAx6PYy7GNVTVIsJhIx4MmUyxupBqClLgx3zFSbdvS+DBOxff8ATDTKbQR5xIT2idD0PUoMJQ9ZRfg/LJcLKCg3X8uP2G7wOljtmd3RX3gS9KMn44ZIGouZapDdMh2duDV9mHt9ZfzAxKFcE1jmDBwIk2dZwGBAgvwjBSoOP9wu5DuSKTK5iKcgQi4MZuqG1khbyaow0pqVYgyR7vGrFUUw7bMo+2yZnlYAQVAVvsHZObprazUlG1DkjcvIgsZilDKcPn8imbwPHHHKD3AlZuP5mRBLQwW9C9VFYD5QcZgeSLIZC9daxmix8n7I4Y7yoHtvxtYC79NrtpCWan3JrX0R5UK7pmJJYWqIAAOkq5npBMZnmBmnrKbhjIZUDXA1pIEh5xQN6sRqbwPCVWHxu45CJhCr+8r25BT7mgI15cSfXwWMk4Lw5Owg3wtX6yZgtQbBqqryEh6DGmBFiGrk3n8S3DAm0eRSwzVncDyKB4gEU8F+WoKI9tA3KUmxA1MEXEtvDbshWJLJTvFIgVxs7vkxg8+x+/uRqy'
+          replacement=zlib.decompress(base64.b64decode(encoded)).decode()
+          start=s.index('    ranked = sorted(results,')
+          end=s.index('    args.evidence.parent.mkdir', start)
+          s=s[:start]+replacement+s[end:]
+          p.write_text(s)
+          PY
+          ruff format benchmarks/tokenizer_economics/b008_measure.py tests/contract/test_b008_tokenizer_economics_results.py
+          python - <<'PY'
+          from pathlib import Path
+          for path in [
+              Path('benchmarks/tokenizer_economics/b008_measure.py'),
+              Path('tests/contract/test_b008_tokenizer_economics_results.py'),
+          ]:
+              too_long=[(i,len(line),line) for i,line in enumerate(path.read_text().splitlines(),1) if len(line)>100]
+              assert not too_long, (path, too_long)
+          print('B008_SOURCE_STYLE_PREFLIGHT=PASS')
+          PY
+          python -m py_compile benchmarks/tokenizer_economics/b008_measure.py tests/contract/test_b008_tokenizer_economics_results.py
+          ruff check benchmarks/tokenizer_economics/b008_measure.py tests/contract/test_b008_tokenizer_economics_results.py
+          git diff --check
+          echo 'B008_MATERIALIZATION=PASS'
+
+      - name: Execute pinned tokenizer-only B008 measurement
+        shell: bash
+        run: |
+          set -euo pipefail
+          python benchmarks/tokenizer_economics/b008_measure.py \
+            --output-dir artifacts/results/tokenizer/B008 \
+            --evidence evidence/mstr-000b/B008-tokenizer-economics.md
+          test "$(find artifacts/results/tokenizer/B008 -maxdepth 1 -name '*.json' | wc -l)" -eq 10
+          test ! -e /tmp/b008-tokenizer-measurement
+          echo 'B008_MEASUREMENT=PASS'
+
+      - name: Validate exact implementation scope and frozen gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(printf '%s\n' \
+            benchmarks/tokenizer_economics/b008_measure.py \
+            evidence/mstr-000b/B008-tokenizer-economics.md \
+            tests/contract/test_b008_tokenizer_economics_results.py \
+            artifacts/results/tokenizer/B008/granite-4.1-3b.json \
+            artifacts/results/tokenizer/B008/mellum-4b.json \
+            artifacts/results/tokenizer/B008/ministral-3-3b.json \
+            artifacts/results/tokenizer/B008/qwen2.5-coder-1.5b.json \
+            artifacts/results/tokenizer/B008/qwen3-4b.json \
+            artifacts/results/tokenizer/B008/qwen3.5-0.8b-control.json \
+            artifacts/results/tokenizer/B008/qwen3.5-2b.json \
+            artifacts/results/tokenizer/B008/qwen3.5-4b.json \
+            artifacts/results/tokenizer/B008/smollm3-3b.json \
+            artifacts/results/tokenizer/B008/yi-coder-1.5b.json | sort)
+          actual=$(git status --porcelain=v1 --untracked-files=all | sed 's/^...//' | sort)
+          test "$actual" = "$expected"
+          test "$(find . -name 'tokenizer.json' -not -path './.git/*' | wc -l)" -eq 0
+          git diff --check
+          pytest -q tests/contract/test_b008_tokenizer_economics_results.py | tee /tmp/b008-targeted.txt
+          pytest -q | tee /tmp/full.txt
+          ruff check src tests benchmarks/tokenizer_economics/b008_measure.py
+          mypy src
+          python -m mstr_qualify validate
+          echo 'B008_FROZEN_GATES=PASS'
+
+      - name: Commit and guarded fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add benchmarks/tokenizer_economics/b008_measure.py \
+            evidence/mstr-000b/B008-tokenizer-economics.md \
+            tests/contract/test_b008_tokenizer_economics_results.py \
+            artifacts/results/tokenizer/B008
+          git diff --cached --check
+          git commit -m 'feat(mstr-000b): measure B008 tokenizer economics'
+          final=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH" "$SOURCE_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$SOURCE_BRANCH)" = "$SOURCE_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          git push origin "HEAD:$TARGET_BRANCH"
+          echo "B008_IMPLEMENTATION_HEAD=$final"
+          echo "B008_MEASUREMENT_RUN=$GITHUB_RUN_ID"
+          echo 'REMOTE_FILE_PER_CANDIDATE=tokenizer.json-only'
+          echo 'MODEL_INFERENCE=NONE'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'GATED_TERMS_ACCEPTANCE=NONE'
+          echo 'PAID_COMPUTE=NONE'
+          echo 'FOUNDER_MACHINE_LARGE_ARTIFACTS=ZERO'
