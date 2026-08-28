@@ -2,7 +2,10 @@
 
 **Workstream:** MSTR-000B
 **Task:** B006
-**State:** IMPLEMENTATION_ACTIVE / NOT_COMPLETE_CANONICAL
+**State:** COMPLETE_CANONICAL
+**Implementation PR:** `#57`
+**Final implementation head:** `98b549e9d8b2550725861e133ee8f909690dc9c8`
+**Canonical implementation merge:** `c96e2fb228a7f3fb0399484a9e6bb1e1d1eb086c`
 **Canonical main at entry:** `ebd31e7657cb42479b28a4cb1cc8a5ce2ae56b6a`
 **Branch:** `research/000b-b006-candidate-reconciliation`
 
@@ -125,3 +128,51 @@ FOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO
 ## Closeout rule
 
 This evidence is implementation evidence only. B006 remains not `COMPLETE_CANONICAL` until the exact implementation head is schema/rights/test qualified, independently reviewed with no unresolved material finding, merged to `main` with expected-head protection, and post-merge verification succeeds. A separate canonical closeout must then align the task catalog/checkbox/evidence identity before any successor task materially mutates the repository.
+## Canonical closeout evidence
+
+B006 is canonicalized only after the implementation was independently qualified, reviewed, merged with exact-head protection, and re-verified on the resulting canonical main.
+
+```text
+ENTRY_RUN = 33145225542
+ENTRY_JOB = 98764633198
+IMPLEMENTATION_PR = #57
+FINAL_IMPLEMENTATION_HEAD = 98b549e9d8b2550725861e133ee8f909690dc9c8
+CANONICAL_IMPLEMENTATION_MERGE = c96e2fb228a7f3fb0399484a9e6bb1e1d1eb086c
+EXACT_HEAD_QUALIFICATION_RUN = 33146528197
+EXACT_HEAD_QUALIFICATION_JOB = 98768693522
+INDEPENDENT_REVIEW_RUN = 33146704635
+INDEPENDENT_REVIEW_JOB = 98769231950
+POST_IMPLEMENTATION_VERIFY_RUN = 33146803658
+POST_IMPLEMENTATION_VERIFY_JOB = 98769528432
+POST_IMPLEMENTATION_MAIN = c96e2fb228a7f3fb0399484a9e6bb1e1d1eb086c
+POST_IMPLEMENTATION_B006_ELIGIBLE = true
+POST_IMPLEMENTATION_B007_ELIGIBLE = false
+POST_IMPLEMENTATION_B007_REASON = prerequisite.unsatisfied:B006
+POST_IMPLEMENTATION_DRIFT = clean
+TARGETED_GOVERNANCE_TESTS = 59 passed
+FULL_PYTEST = 502 passed
+RUFF = PASS
+MYPY = PASS / 26 source files
+VALIDATE = PASS / 10 valid / 10 invalid rejected
+```
+
+The B007 block observed after the implementation merge is the expected pre-closeout state: B006 remained `PENDING` until this separate canonical state transition. This closeout changes no candidate classification, rights fact, model artifact, runtime behavior, or external authority.
+
+```text
+MODEL_WEIGHT_ACCESS = NONE
+MODEL_FILE_RESOLVE_OR_DOWNLOAD = NONE
+TOKENIZER_ARTIFACT_DOWNLOAD = NONE
+MODEL_EXECUTION = NONE
+GATED_TERMS_ACCEPTANCE = NONE
+PAID_MODEL_API_EXECUTION = NONE
+PAID_COMPUTE = NONE
+RENTED_COMPUTE = NONE
+LARGE_DATASET_INGESTION = NONE
+WEIGHT_CHANGING_TRAINING = NONE
+LONG_TRAINING = NONE
+LARGE_SCALE_RL = NONE
+PRODUCTION_RELEASE = NONE
+NEW_AUTHORITY_CREATED = NO
+FOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO
+B007_MATERIAL_EXECUTION = NOT_STARTED
+```

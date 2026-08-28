@@ -138,12 +138,22 @@ def test_b005_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b006_is_eligible_after_b005_closeout() -> None:
+def test_b006_is_terminal_after_canonical_closeout() -> None:
     result = evaluate_task_snapshot("B006", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert "task.already_terminal" in result["reasons"]
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b007_is_eligible_after_b006_closeout() -> None:
+    result = evaluate_task_snapshot("B007", canonical_main=_CANONICAL_MAIN)
 
     assert result["eligible"] is True
     assert result["reasons"] == []
-    assert result["prerequisite_results"][0]["task_id"] == "B005"
+    assert result["prerequisite_results"][0]["task_id"] == "B006"
     assert result["prerequisite_results"][0]["satisfied"] is True
     validate_instance("mstr-task-eligibility-v0", result)
 
@@ -817,3 +827,65 @@ def test_external_symlink_cannot_satisfy_globbed_required_evidence(tmp_path: Pat
     assert result["eligible"] is False
     assert predecessor["evidence_present"] is False
     assert "prerequisite.required_artifact_missing" in predecessor["reasons"]
+
+
+def test_b007_fails_closed_when_b006_candidate_outputs_are_missing(tmp_path: Path) -> None:
+    tasks_dir = tmp_path / "specs" / "002-code-model-supremacy-foundation"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / "tasks.md").write_text(
+        "- [x] **B006 Predecessor task.**\n- [ ] **B007 Successor task.**\n",
+        encoding="utf-8",
+    )
+    evidence = (
+        tmp_path
+        / "evidence"
+        / "mstr-000b"
+        / "candidates"
+        / "B006-candidate-reconciliation.md"
+    )
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text("canonical evidence\n", encoding="utf-8")
+    payload = {
+        "catalog_version": "mstr.task-catalog.v0",
+        "workstream_id": "MSTR-000B",
+        "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",
+        "defaults": {
+            "outputs": [],
+            "candidate_dependent": False,
+            "external_effect_class": "NO_EXTERNAL_EFFECT",
+            "parallel_safe": False, "supersedes": [], "superseded_by": [],
+            "closeout_rule": {
+                "terminal_states": ["COMPLETE_CANONICAL"], "require_all_outputs": False,
+                "require_all_evidence_outputs": True, "completion_requires_merge": True,
+            },
+        },
+        "tasks": {
+            "B006": {
+                "canonical_state": "COMPLETE_CANONICAL",
+                "closeout_rule": {"require_all_outputs": True},
+                "prerequisites": [],
+                "outputs": ["artifacts/candidates/*.json"],
+                "evidence_outputs": ["evidence/mstr-000b/candidates/*.md"],
+            },
+            "B007": {
+                "canonical_state": "PENDING",
+                "prerequisites": ["B006"],
+                "evidence_outputs": [],
+            },
+        },
+    }
+    catalog_path = tmp_path / "configs" / "task-gate" / "mstr-000b.json"
+    catalog_path.parent.mkdir(parents=True)
+    catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = evaluate_task_snapshot(
+        "B007", repository_root=tmp_path, catalog_path=catalog_path, canonical_main=_CANONICAL_MAIN
+    )
+
+    assert result["eligible"] is False
+    assert "prerequisite.unsatisfied:B006" in result["reasons"]
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["satisfied"] is False
+    assert "prerequisite.required_artifact_missing" in predecessor["reasons"]
+    assert "missing:artifacts/candidates/*.json" in predecessor["reasons"]
+    validate_instance("mstr-task-eligibility-v0", result)

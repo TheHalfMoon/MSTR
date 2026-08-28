@@ -81,14 +81,34 @@ def test_task_eligible_b004_terminal_returns_one(
     validate_instance("mstr-task-eligibility-v0", payload)
 
 
-def test_task_eligible_b006_successor_returns_zero(
+def test_task_eligible_b006_terminal_returns_one(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     expected = evaluate_task_snapshot("B006", canonical_main=_CANONICAL_MAIN)
+    monkeypatch.setattr(
+        "mstr_qualify.cli.evaluate_task_eligibility",
+        lambda task_id: expected,
+    )
+
+    exit_code = main(["task", "eligible", "B006"])
+    payload = _stdout_json(capsys)
+
+    assert exit_code == 1
+    assert payload == expected
+    assert payload["eligible"] is False
+    assert "task.already_terminal" in payload["reasons"]
+    validate_instance("mstr-task-eligibility-v0", payload)
+
+
+def test_task_eligible_b007_successor_returns_zero(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    expected = evaluate_task_snapshot("B007", canonical_main=_CANONICAL_MAIN)
 
     def fake_evaluate_task_eligibility(task_id: str) -> dict[str, object]:
-        assert task_id == "B006"
+        assert task_id == "B007"
         return expected
 
     monkeypatch.setattr(
@@ -96,7 +116,7 @@ def test_task_eligible_b006_successor_returns_zero(
         fake_evaluate_task_eligibility,
     )
 
-    exit_code = main(["task", "eligible", "B006"])
+    exit_code = main(["task", "eligible", "B007"])
     payload = _stdout_json(capsys)
 
     assert exit_code == 0
