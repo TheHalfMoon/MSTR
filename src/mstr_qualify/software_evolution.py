@@ -172,7 +172,9 @@ def _validate_forward_boundary(
     target_id = _string(boundary.get("target_event_id"), "future_history_boundary.target_event_id")
     cutoff = _integer(boundary.get("cutoff_sequence"), "future_history_boundary.cutoff_sequence")
     if manifest.get("target_event_id") != target_id or manifest.get("cutoff_sequence") != cutoff:
-        raise SoftwareEvolutionProjectionError("visible context and future-history boundary disagree")
+        raise SoftwareEvolutionProjectionError(
+            "visible context and future-history boundary disagree"
+        )
 
     by_id = {event.event_id: event for event in events}
     target = by_id.get(target_id)
@@ -189,9 +191,7 @@ def _validate_forward_boundary(
 
     for event in events:
         if event.sequence > cutoff and event.model_visibility != "FUTURE_HIDDEN":
-            raise SoftwareEvolutionProjectionError(
-                f"future event is not hidden: {event.event_id}"
-            )
+            raise SoftwareEvolutionProjectionError(f"future event is not hidden: {event.event_id}")
         if (
             event.sequence <= cutoff
             and event.event_kind in {"CHANGE", "RECOVERY"}
@@ -248,7 +248,9 @@ def _current_revision(record: Mapping[str, Any], events: tuple[_Event, ...], cut
     return revision
 
 
-def _supervision_target(kind: ProjectionKind, target: _Event, visible_ids: set[str]) -> dict[str, Any]:
+def _supervision_target(
+    kind: ProjectionKind, target: _Event, visible_ids: set[str]
+) -> dict[str, Any]:
     payload = target.payload
     if kind in {"LOCALIZATION", "EDIT"}:
         if target.event_kind != "CHANGE":
@@ -287,15 +289,15 @@ def _supervision_target(kind: ProjectionKind, target: _Event, visible_ids: set[s
     }
 
 
-def project_software_evolution(
-    record: dict[str, Any], *, kind: ProjectionKind
-) -> dict[str, Any]:
+def project_software_evolution(record: dict[str, Any], *, kind: ProjectionKind) -> dict[str, Any]:
     """Project one B016 record into a deterministic B017 forward-step example."""
 
     validate_instance("mstr-software-evolution-record-v0", record)
 
     repository_identity = _object(record["repository_identity"], "repository_identity")
-    source_class = _string(repository_identity.get("source_class"), "repository_identity.source_class")
+    source_class = _string(
+        repository_identity.get("source_class"), "repository_identity.source_class"
+    )
     if source_class not in _ALLOWED_FIXTURE_SOURCE_CLASSES:
         raise SoftwareEvolutionProjectionError(
             f"B017 is fixture-only; unsupported source_class: {source_class}"
@@ -340,9 +342,7 @@ def project_software_evolution(
         ],
     }
     if "issue_pr_identity" in record:
-        model_input["issue_pr_identity"] = _string(
-            record["issue_pr_identity"], "issue_pr_identity"
-        )
+        model_input["issue_pr_identity"] = _string(record["issue_pr_identity"], "issue_pr_identity")
 
     return {
         "projection_version": "mstr.software-evolution-projection.v0",

@@ -57,13 +57,14 @@ def test_fixture_projections_are_deterministic_and_future_hidden(
     model_input_json = json.dumps(first["model_input"], sort_keys=True)
     for excluded_event_id in first["audit"]["excluded_future_event_ids"]:
         assert excluded_event_id not in model_input_json
-    assert record["final_revision"] not in model_input_json or current_revision == record["final_revision"]
+    assert (
+        record["final_revision"] not in model_input_json
+        or current_revision == record["final_revision"]
+    )
 
 
 def test_localization_projection_has_no_prior_events_and_labels_change_identity() -> None:
-    projection = project_software_evolution(
-        _record("b017-localization.json"), kind="LOCALIZATION"
-    )
+    projection = project_software_evolution(_record("b017-localization.json"), kind="LOCALIZATION")
 
     assert _visible_event_ids(projection) == []
     assert projection["supervision_target"] == {
@@ -140,7 +141,9 @@ def test_rejects_stale_test_revision() -> None:
     record = _record("b017-edit.json")
     record["test_ci_events"][0]["revision"] = "fixture-r0"
 
-    with pytest.raises(SoftwareEvolutionProjectionError, match="does not reference current revision"):
+    with pytest.raises(
+        SoftwareEvolutionProjectionError, match="does not reference current revision"
+    ):
         project_software_evolution(record, kind="EDIT")
 
 
@@ -188,15 +191,15 @@ def test_rejects_future_event_marked_model_visible() -> None:
     record = _record("b017-edit.json")
     record["change_events"][1]["model_visibility"] = "MODEL_VISIBLE"
 
-    with pytest.raises(SoftwareEvolutionProjectionError, match="target event must remain future-hidden"):
+    with pytest.raises(
+        SoftwareEvolutionProjectionError, match="target event must remain future-hidden"
+    ):
         project_software_evolution(record, kind="EDIT")
 
 
 def test_rejects_future_patch_artifact_in_visible_context() -> None:
     record = _record("b017-edit.json")
-    record["visible_context_manifest"]["visible_artifact_ids"].append(
-        "sha256:fixture-change-r1-r2"
-    )
+    record["visible_context_manifest"]["visible_artifact_ids"].append("sha256:fixture-change-r1-r2")
 
     with pytest.raises(SoftwareEvolutionProjectionError, match="future event artifacts"):
         project_software_evolution(record, kind="EDIT")
@@ -204,9 +207,7 @@ def test_rejects_future_patch_artifact_in_visible_context() -> None:
 
 def test_rejects_future_test_result_artifact_in_visible_context() -> None:
     record = _record("b017-edit.json")
-    record["visible_context_manifest"]["visible_artifact_ids"].append(
-        "sha256:fixture-test-r2-pass"
-    )
+    record["visible_context_manifest"]["visible_artifact_ids"].append("sha256:fixture-test-r2-pass")
 
     with pytest.raises(SoftwareEvolutionProjectionError, match="future event artifacts"):
         project_software_evolution(record, kind="EDIT")
@@ -224,7 +225,11 @@ def test_rejects_public_repository_input_for_fixture_only_pilot() -> None:
     ("field", "value", "message"),
     [
         ("contamination_status", "UNRESOLVED", "CLEAR fixture contamination"),
-        ("rights", {"license_or_terms_identity": "fixture", "decision": "UNRESOLVED"}, "compatible fixture rights"),
+        (
+            "rights",
+            {"license_or_terms_identity": "fixture", "decision": "UNRESOLVED"},
+            "compatible fixture rights",
+        ),
         (
             "provenance",
             {
