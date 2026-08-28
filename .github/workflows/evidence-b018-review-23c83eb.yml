@@ -1,0 +1,129 @@
+name: Independently review exact B018 implementation head
+
+on:
+  push:
+    branches:
+      - evidence/b018-review-23c83eb
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: 73b60aa9421f51be52560bbbca6e8dd46b77b6c9
+  EXPECTED_HEAD: 23c83ebae95ca3f0d893840e9d994b33712f124f
+  TARGET_BRANCH: feat/000b-b018-self-alignment-contract
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 23c83ebae95ca3f0d893840e9d994b33712f124f
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e '.[dev]'
+      - name: Bind live main, exact candidate, and immutable scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git merge-base "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "$EXPECTED_MAIN"
+          expected=$(printf '%s\n' \
+            evidence/mstr-000b/B018-self-alignment-contract.md \
+            schemas/mstr-self-alignment-generation-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-self-alignment-generation-v0.schema.json \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_schemas.py \
+            tests/contract/test_self_alignment_contract.py \
+            tests/fixtures/schemas/valid/mstr-self-alignment-generation-v0.json \
+            tests/fixtures/schemas/invalid/mstr-self-alignment-generation-v0.json \
+            tests/integration/test_cli_offline.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+      - name: Audit authority containment and forbidden external-effect surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in \
+            configs/task-gate/mstr-000b.json \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            .specify/memory/constitution.md \
+            configs/quality.toml \
+            pyproject.toml; do
+            git diff --quiet "$EXPECTED_MAIN" "$EXPECTED_HEAD" -- "$path"
+          done
+          changed=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD")
+          ! printf '%s\n' "$changed" | grep -E '(^|/)(models|weights|data/raw|artifacts/external|colab|checkpoints)/|\.(safetensors|gguf|pt|pth|onnx|bin)$' >/dev/null
+          ! printf '%s\n' "$changed" | grep -E '(^|/)(training|train|finetune|fine-tune)(/|\.)' >/dev/null
+      - name: Adversarial canonical-field and cross-binding audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp \
+            schemas/mstr-self-alignment-generation-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-self-alignment-generation-v0.schema.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          schema = json.loads(
+              Path('schemas/mstr-self-alignment-generation-v0.schema.json').read_text(
+                  encoding='utf-8'
+              )
+          )
+          assert schema['$id'] == 'mstr.self-alignment-generation.v0'
+          required = set(schema['required'])
+          assert {
+              'student_model_identity',
+              'seed_identity',
+              'generated_task',
+              'generated_solutions',
+              'generated_tests',
+              'generated_artifact_provenance',
+              'generated_artifact_rights_decisions',
+              'environment_identity',
+              'execution_results',
+              'verifier_health',
+              'contamination_status',
+              'difficulty_record',
+              'admission_decision',
+          } <= required
+          difficulty_required = set(
+              schema['properties']['difficulty_record']['required']
+          )
+          assert {
+              'difficulty_record_identity',
+              'difficulty_class',
+              'student_model_identity',
+              'harness_profile_id',
+              'sampling_identity',
+          } <= difficulty_required
+          PY
+          ! grep -F 'runtime schema co-locates required provenance and rights evidence' evidence/mstr-000b/B018-self-alignment-contract.md
+          ! grep -F 'B018 avoids duplicate identity fields' evidence/mstr-000b/B018-self-alignment-contract.md
+          grep -F 'B020_DIFFICULTY_CALIBRATION_AUTHORITY = NONE' evidence/mstr-000b/B018-self-alignment-contract.md
+          grep -F 'B022_VERIFIER_HEALTH_AUTHORITY = NONE' evidence/mstr-000b/B018-self-alignment-contract.md
+          pytest -q tests/contract/test_self_alignment_contract.py
+      - name: Frozen schema selfcheck
+        run: python -m mstr_qualify validate
+      - name: Frozen full test suite
+        run: pytest -q
+      - name: Frozen lint
+        run: ruff check src tests
+      - name: Frozen strict typecheck
+        run: mypy
+      - name: Final remote immutability review
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B018_INDEPENDENT_ADVERSARIAL_REVIEW=PASS'
+          echo 'B011_REMAINS_BLOCKED=PASS'
