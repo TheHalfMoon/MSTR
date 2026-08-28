@@ -1,0 +1,149 @@
+name: Independent review B006 exact head 98b549e
+
+on:
+  push:
+    branches: [evidence/b006-independent-review-98b549e]
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: ebd31e7657cb42479b28a4cb1cc8a5ce2ae56b6a
+      EXPECTED_HEAD: 98b549e9d8b2550725861e133ee8f909690dc9c8
+      TARGET_BRANCH: research/000b-b006-candidate-reconciliation
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 98b549e9d8b2550725861e133ee8f909690dc9c8
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Establish independent exact-head review identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git merge-base "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+      - name: Adversarial review of B006 scope classifications and authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, re, subprocess
+          from pathlib import Path
+          from jsonschema import Draft202012Validator
+          from mstr_qualify.rights import evaluate_component_rights
+
+          base=os.environ['EXPECTED_MAIN']
+          changed=subprocess.check_output(['git','diff','--name-only',f'{base}..HEAD'],text=True).splitlines()
+          assert len(changed)==14, f'expected 14 paths, found {len(changed)}'
+          assert all(p.startswith('artifacts/candidates/') or p=='evidence/mstr-000b/candidates/B006-candidate-reconciliation.md' for p in changed), changed
+          forbidden_prefixes=('configs/task-gate/','specs/002-code-model-supremacy-foundation/','src/','tests/','.github/')
+          assert not [p for p in changed if p.startswith(forbidden_prefixes)], 'B006 implementation changed authority/code/test surface'
+
+          schema=json.loads(Path('schemas/candidate-record.schema.json').read_text())
+          validator=Draft202012Validator(schema)
+          paths=sorted(p for p in changed if p.endswith('.json'))
+          assert len(paths)==13, paths
+
+          intended={
+            'JetBrains/Mellum-4b-base':('foundation','static_qualified',True),
+            'Qwen/Qwen3.5-0.8B-Base':('control','static_qualified',True),
+            'Qwen/Qwen3.5-2B-Base':('foundation','static_qualified',True),
+            'Qwen/Qwen3.5-4B-Base':('foundation','static_qualified',True),
+            '01-ai/Yi-Coder-1.5B':('control','static_qualified',True),
+            'mistralai/Ministral-3-3B-Base-2512':('foundation','static_qualified',True),
+            'bigcode/starcoder2-3b':('reference_only','reference_only',False),
+            'stabilityai/stable-code-3b':('reference_only','reference_only',False),
+            'google/codegemma-2b':('reference_only','reference_only',False),
+            'LiquidAI/LFM2.5-2.6B-Base':('reference_only','reference_only',False),
+            'LiquidAI/LFM2.5-1.2B-Base':('reference_only','reference_only',False),
+            'microsoft/bitnet-b1.58-2B-4T-bf16':('control','reference_only',False),
+            'tiiuae/Falcon-H1-3B-Base':('reference_only','discovered',False),
+          }
+          seen={}
+          for path in paths:
+            d=json.loads(Path(path).read_text())
+            errs=list(validator.iter_errors(d)); assert not errs,(path,[e.message for e in errs])
+            uid=d['upstream_id']; assert uid not in seen,f'duplicate upstream {uid}'
+            seen[uid]=d
+            assert uid in intended,f'unplanned upstream {uid}'
+            role,status,should_pass=intended[uid]
+            assert d['candidate_role']==role,(uid,d['candidate_role'],role)
+            assert d['status']==status,(uid,d['status'],status)
+            rr=evaluate_component_rights(d['candidate_id'],d['rights'])
+            assert rr.eligible_for_primary is should_pass,(uid,rr)
+            assert (d['rights']['decision']=='pass_permissive') is should_pass,(uid,d['rights']['decision'])
+            if should_pass:
+              assert not d['rights']['field_or_scale_restrictions'],uid
+              assert not d['rights']['account_gate_required'],uid
+              assert not d['rights']['clickthrough_gate_required'],uid
+              assert not d['rights']['end_user_separate_license_required'],uid
+            else:
+              assert rr.reason_codes,f'fail-closed candidate without mechanical reason {uid}'
+          assert set(seen)==set(intended),f'candidate set mismatch: {set(seen)^set(intended)}'
+
+          exact_revisions={
+            'JetBrains/Mellum-4b-base':'83cce2605fbdf6a3868627e9b0a5924e0072b94d',
+            'bigcode/starcoder2-3b':'733247c55e3f73af49ce8e9c7949bf14af205928',
+            'stabilityai/stable-code-3b':'5cee3fa2905e7a03c4a1b0bc02f39da7ceaa6cb5',
+            'google/codegemma-2b':'e7583edabd3dd48a9c705974a9456852f1205ab1',
+            'tiiuae/Falcon-H1-3B-Base':'c096902c69be0eed2e5369d3420a8bb960d293e1',
+            'microsoft/bitnet-b1.58-2B-4T-bf16':'276681394656abdadb8e80e5b2c3db5e5d7fcaff',
+            'LiquidAI/LFM2.5-2.6B-Base':'c57bdaed1ef166fe3095dda07f4a5e789ad5321e',
+            'LiquidAI/LFM2.5-1.2B-Base':'7453bca97ca1e67754c4035a4b4c584e1c9dd725',
+            'Qwen/Qwen3.5-0.8B-Base':'dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68',
+            'Qwen/Qwen3.5-2B-Base':'b1485b2fa6dfa1287294f269f5fb618e03d52d7c',
+            'Qwen/Qwen3.5-4B-Base':'1001bb4d826a52d1f399e183466143f4da7b741b',
+            '01-ai/Yi-Coder-1.5B':'00e59e64f47d3c78e4cfbdd345888479797e8109',
+            'mistralai/Ministral-3-3B-Base-2512':'6f9c4b12a95b139af68670a6713616b757923735',
+          }
+          for uid,rev in exact_revisions.items():
+            assert seen[uid]['upstream_revision']==rev,(uid,seen[uid]['upstream_revision'],rev)
+            assert re.fullmatch(r'[0-9a-f]{40}',rev),rev
+
+          discovery=json.loads(Path('artifacts/manifests/B005-code-backbone-discovery.json').read_text())
+          expected_new=set(discovery['newly_relevant_for_b006'])
+          expected_reval={x['repo_id'] for x in discovery['existing_records_requiring_material_revalidation']}
+          assert expected_new|expected_reval==set(seen),((expected_new|expected_reval)^set(seen))
+          assert 'zai-org/GLM-5.3-Flash' not in seen
+          assert 'moonshotai/Kimi-K2-Base' not in seen
+
+          evidence=Path('evidence/mstr-000b/candidates/B006-candidate-reconciliation.md').read_text()
+          required_none=['MODEL_WEIGHT_ACCESS = NONE','MODEL_FILE_RESOLVE_OR_DOWNLOAD = NONE','TOKENIZER_ARTIFACT_DOWNLOAD = NONE','MODEL_EXECUTION = NONE','GATED_TERMS_ACCEPTANCE = NONE','PAID_MODEL_API_EXECUTION = NONE','PAID_COMPUTE = NONE','RENTED_COMPUTE = NONE','LARGE_DATASET_INGESTION = NONE','WEIGHT_CHANGING_TRAINING = NONE','LONG_TRAINING = NONE','LARGE_SCALE_RL = NONE','PRODUCTION_RELEASE = NONE','NEW_AUTHORITY_CREATED = NO']
+          for marker in required_none: assert marker in evidence,marker
+          assert 'NOT_COMPLETE_CANONICAL' in evidence
+          assert 'B007' in evidence and 'before any successor task materially mutates' in evidence
+
+          print('B006_INDEPENDENT_ADVERSARIAL_REVIEW=PASS')
+          PY
+          git diff --check "$EXPECTED_MAIN"..HEAD
+      - name: Re-run frozen repository gates independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/unit/test_rights.py tests/contract/test_schemas.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+      - name: Final review immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo B006_INDEPENDENT_EXACT_HEAD_REVIEW=PASS
