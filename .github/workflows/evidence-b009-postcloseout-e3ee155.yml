@@ -1,0 +1,161 @@
+name: Verify B009 canonical closeout on exact main
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: e3ee155a7e0ed491984908998546900e594bda9a
+      EXPECTED_PREVIOUS_MAIN: 4fdb6966c085819e69823136fb5e2cd8c56ba58f
+      EXPECTED_CLOSEOUT_HEAD: 1b393c045f0a22853fb4f4835b27bcaa255bb1d6
+      IMPLEMENTATION_HEAD: 88ebc70e12dcc117ba99bb10bb687eed1a220a7b
+      IMPLEMENTATION_MERGE: 4fdb6966c085819e69823136fb5e2cd8c56ba58f
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e3ee155a7e0ed491984908998546900e594bda9a
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bind exact canonical closeout merge identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_PREVIOUS_MAIN"
+          test "$(git rev-parse HEAD^2)" = "$EXPECTED_CLOSEOUT_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$(git rev-parse "$EXPECTED_CLOSEOUT_HEAD^{tree}")"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B009_POSTCLOSEOUT_MERGE_IDENTITY=PASS'
+
+      - name: Prove production B009 terminal state and B010 eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+
+          set +e
+          python -m mstr_qualify task eligible B009 > /tmp/b009.json
+          b009_rc=$?
+          set -e
+          test "$b009_rc" -eq 1
+          python -m mstr_qualify task eligible B010 > /tmp/b010.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          main = os.environ['EXPECTED_MAIN']
+          b009 = json.load(open('/tmp/b009.json'))
+          b010 = json.load(open('/tmp/b010.json'))
+          drift = json.load(open('/tmp/drift.json'))
+
+          assert b009['canonical_main'] == main
+          assert b009['eligible'] is False
+          assert b009['state_consistency_result']['observed_state'] == 'COMPLETE_CANONICAL'
+          assert b009['state_consistency_result']['satisfied'] is True
+          assert 'task.already_terminal' in b009['reasons']
+
+          assert b010['canonical_main'] == main
+          assert b010['eligible'] is True
+          assert b010['reasons'] == []
+          assert b010['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b010['state_consistency_result']['satisfied'] is True
+          predecessor = b010['prerequisite_results'][0]
+          assert predecessor['task_id'] == 'B009'
+          assert predecessor['observed_state'] == 'COMPLETE_CANONICAL'
+          assert predecessor['evidence_present'] is True
+          assert predecessor['satisfied'] is True
+          assert predecessor['reasons'] == []
+
+          assert drift['canonical_main'] == main
+          assert drift['status'] == 'clean'
+          assert drift['findings'] == []
+
+          catalog = json.loads(Path('configs/task-gate/mstr-000b.json').read_text())
+          assert catalog['tasks']['B009']['canonical_state'] == 'COMPLETE_CANONICAL'
+          assert catalog['tasks']['B009']['outputs'] == ['artifacts/decisions/B009-training-runtime-compatibility.json']
+          assert catalog['tasks']['B009']['closeout_rule']['require_all_outputs'] is True
+          assert catalog['tasks']['B010']['canonical_state'] == 'PENDING'
+
+          tasks = Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text()
+          assert '- [x] **B009 Freeze candidate trainability / conversion / runtime compatibility matrix.**' in tasks
+          assert 'Canonical implementation: PR #63 / final head `88ebc70e12dcc117ba99bb10bb687eed1a220a7b` / merge `4fdb6966c085819e69823136fb5e2cd8c56ba58f`.' in tasks
+          assert '- [ ] **B010 Freeze exact new-candidate qualification/access envelope.**' in tasks
+
+          evidence = Path('evidence/mstr-000b/B009-compatibility.md').read_text()
+          required = [
+              '**Task:** B009',
+              '**State:** COMPLETE_CANONICAL',
+              '**Implementation PR:** `#63`',
+              '**Final implementation head:** `88ebc70e12dcc117ba99bb10bb687eed1a220a7b`',
+              '**Canonical implementation merge:** `4fdb6966c085819e69823136fb5e2cd8c56ba58f`',
+              'MODEL_WEIGHT_ACCESS = NONE',
+              'MODEL_EXECUTION = NONE',
+              'TOKENIZER_ARTIFACT_DOWNLOAD = NONE',
+              'CONVERSION_EXECUTION = NONE',
+              'QUANTIZATION_EXECUTION = NONE',
+              'TRAINING_EXECUTION = NONE',
+              'GATED_TERMS_ACCEPTANCE = NONE',
+              'PAID_COMPUTE = NONE',
+              'LARGE_DATASET_INGESTION = NONE',
+              'FOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO',
+          ]
+          assert all(item in evidence for item in required)
+          print('B009_POSTCLOSEOUT_PRODUCTION_TRUTH=PASS')
+          print('B010_PRODUCTION_ELIGIBILITY=PASS')
+          PY
+
+      - name: Run frozen production quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          pytest -q tests/contract/test_b009_training_runtime_compatibility.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check HEAD^
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B009_POSTCLOSEOUT_FROZEN_GATES=PASS'
+
+      - name: Final immutable canonical-main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B009_POSTCLOSEOUT_EXACT_MAIN_VERIFICATION=PASS'
+          echo 'B009=COMPLETE_CANONICAL'
+          echo 'B010=ELIGIBLE'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'TOKENIZER_ARTIFACT_DOWNLOAD=NONE'
+          echo 'CONVERSION_EXECUTION=NONE'
+          echo 'QUANTIZATION_EXECUTION=NONE'
+          echo 'TRAINING_EXECUTION=NONE'
+          echo 'GATED_TERMS_ACCEPTANCE=NONE'
+          echo 'PAID_MODEL_API=NONE'
+          echo 'PAID_COMPUTE=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'PRODUCTION_RELEASE=NONE'
+          echo 'FOUNDER_MACHINE_LARGE_ARTIFACTS=ZERO'
