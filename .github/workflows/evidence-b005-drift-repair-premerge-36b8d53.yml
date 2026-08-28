@@ -1,0 +1,95 @@
+name: Premerge qualify B005 drift repair 36b8d53
+
+on:
+  push:
+    branches: [evidence/b005-drift-repair-premerge-36b8d53]
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: bd4ad13f076ba2a44cf9bf6cd7ba95d39119eba5
+  EXPECTED_HEAD: 36b8d531b1615ee9e35eadcd9f094fad875346cb
+  TARGET_BRANCH: docs/000b-b005-drift-repair
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  premerge:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          path: canonical
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/000b-b005-drift-repair
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify exact live identities and one-file diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C canonical fetch origin main "$TARGET_BRANCH"
+          git -C candidate fetch origin main "$TARGET_BRANCH"
+          test "$(git -C canonical rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git -C canonical rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git -C canonical rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git -C candidate rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test -z "$(git -C canonical status --short)"
+          test -z "$(git -C candidate status --short)"
+          test "$(git -C candidate diff --name-only "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "evidence/mstr-000b/B005-code-backbone-rescan.md"
+          git -C candidate diff --check "$EXPECTED_MAIN" "$EXPECTED_HEAD"
+          echo "B005_DRIFT_REPAIR_PREMERGE_IDENTITIES=PASS"
+      - name: Verify exact evidence identity content
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          text=Path('candidate/evidence/mstr-000b/B005-code-backbone-rescan.md').read_text(encoding='utf-8')
+          assert '**State:** COMPLETE_CANONICAL' in text
+          assert '**Implementation PR:** `#54`' in text
+          assert '**Final implementation head:** `0a7ee7e392d827fb08c8cc9f3b2d9ec45c8cca1a`' in text
+          assert '**Canonical implementation merge:** `1e096f4d1f270b2803da6a6306e9e7f0cf8fb81b`' in text
+          print('B005_DRIFT_REPAIR_IDENTITY_CONTENT=PASS')
+          PY
+      - name: Install exact candidate tooling
+        run: python -m pip install -e './candidate[dev]'
+      - name: Targeted governance tests
+        working-directory: candidate
+        run: pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/unit/test_task_drift.py tests/integration/test_task_drift_cli.py
+      - name: Pytest
+        working-directory: candidate
+        run: pytest -q
+      - name: Ruff
+        working-directory: candidate
+        run: ruff check src tests
+      - name: Mypy
+        working-directory: candidate
+        run: mypy
+      - name: Validate
+        working-directory: candidate
+        run: python -m mstr_qualify validate
+      - name: Re-verify exact live identities after qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C canonical fetch origin main "$TARGET_BRANCH"
+          git -C candidate fetch origin main "$TARGET_BRANCH"
+          test "$(git -C canonical rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git -C canonical rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git -C canonical rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git -C candidate rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test -z "$(git -C candidate status --short)"
+          echo "B005_DRIFT_REPAIR_PREMERGE_IMMUTABLE_FINAL=PASS"
