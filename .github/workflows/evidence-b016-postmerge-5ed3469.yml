@@ -55,12 +55,12 @@ jobs:
           pred=next(x for x in b16['prerequisite_results'] if x['task_id']=='B014')
           assert pred['observed_state']=='COMPLETE_CANONICAL' and pred['evidence_present'] is True and pred['satisfied'] is True
           assert b17['eligible'] is False
-          assert any('B016' in reason or 'prerequisite' in reason for reason in b17['reasons'])
+          assert 'prerequisite.unsatisfied:B016' in b17['reasons']
           assert b11['eligible'] is False and b11['state_consistency_result']['observed_state']=='BLOCKED'
           assert b11['authority_result']['required'] is True and b11['authority_result']['satisfied'] is False
           assert drift['status']=='clean' and drift['findings']==[]
           evidence=Path('evidence/mstr-000b/B016-software-evolution.md').read_text(encoding='utf-8')
-          assert '**State:** `IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT`' in evidence
+          assert '**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT' in evidence
           assert 'ENTRY_GATE_TASK = B016' in evidence
           assert 'MODEL_WEIGHT_ACCESS = NONE' in evidence
           assert 'LARGE_DATASET_INGESTION = NONE' in evidence
