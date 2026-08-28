@@ -1,7 +1,10 @@
 # B017 — Fixture-Only Software-Evolution Projection Pilot
 
 **Task:** `B017`
-**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT
+**Implementation PR:** #73
+**Final implementation head:** `6bab90d46fca0323fe9c1d66f37a69e8b13d8ae3`
+**Canonical implementation merge:** `79e1b5ceca4ed39e10f53b0f85f93ffb7b02208c`
+**State:** COMPLETE_CANONICAL
 **Canonical main at execution:** `f7a386214a1346b75dd3311390aa1e19bf354bb1`
 **Exact entry evidence:** run `33174634290` / job `98859944051` — SUCCESS
 
@@ -117,3 +120,17 @@ PRODUCTION_RELEASE = NONE
 ```
 
 B011 remains blocked by its exact repository-required founder authority envelope.
+
+## Canonical Implementation Closeout
+
+The fixture-only implementation was merged without widening authority or source scope.
+
+- implementation PR: `#73`
+- final implementation head: `6bab90d46fca0323fe9c1d66f37a69e8b13d8ae3`
+- canonical implementation merge: `79e1b5ceca4ed39e10f53b0f85f93ffb7b02208c`
+- exact-final-head qualification: run `33179382488` — SUCCESS
+- independent adversarial review: run `33179494695` / job `98876712043` — SUCCESS
+- mandatory pre-merge verification: run `33180496859` — SUCCESS
+- post-merge implementation verification: run `33182524688` — SUCCESS
+
+This closeout changes only canonical task/provenance state and regression assertions. It grants no external-effect authority. B011 remains blocked.

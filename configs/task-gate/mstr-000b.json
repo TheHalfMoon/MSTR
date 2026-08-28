@@ -261,7 +261,7 @@
       ]
     },
     "B017": {
-      "canonical_state": "PENDING",
+      "canonical_state": "COMPLETE_CANONICAL",
       "evidence_outputs": [
         "evidence/mstr-000b/B017-evolution-fixture-pilot.md"
       ],
