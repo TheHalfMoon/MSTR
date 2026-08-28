@@ -148,6 +148,77 @@ def test_b006_is_eligible_after_b005_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
+def test_b006_fails_closed_when_b005_discovery_manifest_is_missing(
+    tmp_path: Path,
+) -> None:
+    tasks_dir = tmp_path / "specs" / "002-code-model-supremacy-foundation"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / "tasks.md").write_text(
+        "- [x] **B005 Root task.**\n- [ ] **B006 Successor task.**\n",
+        encoding="utf-8",
+    )
+    evidence = tmp_path / "evidence" / "mstr-000b" / "B005-code-backbone-rescan.md"
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text("canonical evidence\n", encoding="utf-8")
+    payload = {
+        "catalog_version": "mstr.task-catalog.v0",
+        "workstream_id": "MSTR-000B",
+        "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",
+        "defaults": {
+            "outputs": [],
+            "candidate_dependent": False,
+            "external_effect_class": "NO_EXTERNAL_EFFECT",
+            "parallel_safe": False,
+            "supersedes": [],
+            "superseded_by": [],
+            "closeout_rule": {
+                "terminal_states": ["COMPLETE_CANONICAL"],
+                "require_all_outputs": False,
+                "require_all_evidence_outputs": True,
+                "completion_requires_merge": True,
+            },
+        },
+        "tasks": {
+            "B005": {
+                "canonical_state": "COMPLETE_CANONICAL",
+                "closeout_rule": {"require_all_outputs": True},
+                "prerequisites": [],
+                "outputs": ["artifacts/manifests/B005-code-backbone-discovery.json"],
+                "evidence_outputs": [
+                    "evidence/mstr-000b/B005-code-backbone-rescan.md"
+                ],
+            },
+            "B006": {
+                "canonical_state": "PENDING",
+                "prerequisites": ["B005"],
+                "evidence_outputs": [],
+            },
+        },
+    }
+    catalog_path = tmp_path / "configs" / "task-gate" / "mstr-000b.json"
+    catalog_path.parent.mkdir(parents=True)
+    catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = evaluate_task_snapshot(
+        "B006",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    assert "prerequisite.unsatisfied:B005" in result["reasons"]
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["evidence_present"] is False
+    assert predecessor["satisfied"] is False
+    assert "prerequisite.required_artifact_missing" in predecessor["reasons"]
+    assert (
+        "missing:artifacts/manifests/B005-code-backbone-discovery.json"
+        in predecessor["reasons"]
+    )
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
 def test_explicitly_blocked_task_never_becomes_eligible() -> None:
     result = evaluate_task_snapshot("B011", canonical_main=_CANONICAL_MAIN)
 

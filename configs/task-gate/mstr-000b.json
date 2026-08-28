@@ -76,8 +76,14 @@
     },
     "B005": {
       "canonical_state": "COMPLETE_CANONICAL",
+      "closeout_rule": {
+        "require_all_outputs": true
+      },
       "evidence_outputs": [
         "evidence/mstr-000b/B005-code-backbone-rescan.md"
+      ],
+      "outputs": [
+        "artifacts/manifests/B005-code-backbone-discovery.json"
       ],
       "prerequisites": []
     },
