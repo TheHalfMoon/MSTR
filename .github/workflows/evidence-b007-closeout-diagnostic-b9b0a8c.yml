@@ -1,0 +1,98 @@
+name: Diagnose B007 closeout candidate semantics
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: b9b0a8ca7b9b7528f5da518baa83b23e2348c6f6
+  TARGET_BRANCH: docs/000b-b007-canonicalize
+  SOURCE_BUILDER_BRANCH: evidence/b007-closeout-build3-b9b0a8c
+  SOURCE_BUILDER_HEAD: c400c20b28235e3d28be4bc2176c9be6082a1328
+  PIP_DISABLE_PIP_VERSION_CHECK: '1'
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Guard exact live identities and materialize local-only candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH" "$SOURCE_BUILDER_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$SOURCE_BUILDER_BRANCH)" = "$SOURCE_BUILDER_HEAD"
+          git branch -f main "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python -m pip install -e '.[dev]'
+          git show "$SOURCE_BUILDER_HEAD:.github/workflows/evidence-b007-closeout-build3-b9b0a8c.yml" > /tmp/source.yml
+          python - <<'PY'
+          from pathlib import Path
+          lines=Path('/tmp/source.yml').read_text().splitlines()
+          target='      - name: Materialize five-file closeout and create clean local candidate commit'
+          start=lines.index(target)
+          run_idx=next(i for i in range(start+1,len(lines)) if lines[i]=='        run: |')
+          body=[]
+          for line in lines[run_idx+1:]:
+              if line.startswith('      - name: '):
+                  break
+              if line.startswith('          '):
+                  body.append(line[10:])
+              elif line == '':
+                  body.append('')
+              else:
+                  raise AssertionError(line)
+          Path('/tmp/materialize.sh').write_text('\n'.join(body)+'\n')
+          PY
+          bash /tmp/materialize.sh
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          candidate=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          git branch -f main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          echo "DIAGNOSTIC_HEAD=$candidate"
+          echo "LOCAL_MAIN=$(git rev-parse refs/heads/main)"
+          echo "LOCAL_ORIGIN_MAIN=$(git rev-parse refs/remotes/origin/main)"
+      - name: Print all prospective payloads before asserting
+        shell: bash
+        run: |
+          set +e
+          python -m mstr_qualify task eligible B007 > /tmp/b007.json 2>/tmp/b007.err
+          b7=$?
+          python -m mstr_qualify task eligible B008 > /tmp/b008.json 2>/tmp/b008.err
+          b8=$?
+          python -m mstr_qualify task drift > /tmp/drift.json 2>/tmp/drift.err
+          drift=$?
+          set -e
+          echo "B007_RC=$b7"
+          echo '--- B007 STDOUT ---'
+          cat /tmp/b007.json || true
+          echo '--- B007 STDERR ---'
+          cat /tmp/b007.err || true
+          echo "B008_RC=$b8"
+          echo '--- B008 STDOUT ---'
+          cat /tmp/b008.json || true
+          echo '--- B008 STDERR ---'
+          cat /tmp/b008.err || true
+          echo "DRIFT_RC=$drift"
+          echo '--- DRIFT STDOUT ---'
+          cat /tmp/drift.json || true
+          echo '--- DRIFT STDERR ---'
+          cat /tmp/drift.err || true
+          echo "HEAD=$(git rev-parse HEAD)"
+          echo "MAIN=$(git rev-parse refs/heads/main)"
+          echo "ORIGIN_MAIN_TRACKING=$(git rev-parse refs/remotes/origin/main)"
+          echo "REMOTE_TARGET=$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)"
+          # This workflow is diagnostic-only. Never push the candidate.
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
