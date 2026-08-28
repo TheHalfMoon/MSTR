@@ -1,0 +1,163 @@
+name: Adversarially review exact B014 implementation head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 90cf98f5f87b64f8e6da50a8444b1b598148f945
+      EXPECTED_HEAD: 70d601c4fb1c0603b6e757969a3a97b8c77744d8
+      TARGET_BRANCH: feat/000b-b014-data-constitution-v2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 70d601c4fb1c0603b6e757969a3a97b8c77744d8
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Rebind exact reviewed bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          expected=$(printf '%s\n' \
+            docs/data/MSTR_DATA_CONSTITUTION.md \
+            evidence/mstr-000b/B014-data-constitution.md \
+            schemas/mstr-data-constitution-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_data_constitution_contract.py \
+            tests/contract/test_schemas.py \
+            tests/fixtures/schemas/invalid/mstr-data-constitution-v0.json \
+            tests/fixtures/schemas/valid/mstr-data-constitution-v0.json \
+            tests/integration/test_cli_offline.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          test -z "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | grep -E '\.(safetensors|bin|gguf|pt|pth|onnx|parquet|arrow)$' || true)"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B014_REVIEW_IDENTITY=PASS'
+      - name: Attack authority and private-data escalation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          schema = json.loads(Path('schemas/mstr-data-constitution-v0.schema.json').read_text())
+          props = schema['properties']
+          private = props['private_user_data_policy']['properties']
+          teacher = props['teacher_policy']['properties']
+          assert private['default_admission']['const'] == 'REJECT'
+          assert private['private_user_repositories_default_ingest']['const'] is False
+          assert private['production_traces_default_ingest']['const'] is False
+          assert private['hidden_telemetry_allowed']['const'] is False
+          assert private['future_exception_requires_separate_policy_and_authority']['const'] is True
+          assert teacher['paid_or_api_teacher_authorized_by_constitution']['const'] is False
+          evidence = Path('evidence/mstr-000b/B014-data-constitution.md').read_text()
+          for marker in [
+              'PRIVATE_USER_DATA_INGESTION = NONE',
+              'PRODUCTION_TRACE_INGESTION = NONE',
+              'LARGE_DATASET_INGESTION = NONE',
+              'MODEL_WEIGHT_ACCESS = NONE',
+              'MODEL_EXECUTION = NONE',
+              'WEIGHT_CHANGING_TRAINING = NONE',
+              'LARGE_SCALE_RL = NONE',
+              'PRODUCTION_RELEASE = NONE',
+          ]:
+              assert marker in evidence
+          print('B014_ADVERSARIAL_AUTHORITY=PASS')
+          PY
+      - name: Attack leakage rights contamination and self-confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python - <<'PY'
+          import copy
+          import json
+          from pathlib import Path
+          from mstr_qualify.schemas import validation_errors
+
+          fixture = json.loads(Path('tests/fixtures/schemas/valid/mstr-data-constitution-v0.json').read_text())
+          attacks = [
+              ('rights unresolved allow', 'rights_policy', 'unresolved_rights_admission', 'ALLOW'),
+              ('rights incompatible allow', 'rights_policy', 'incompatible_rights_admission', 'ALLOW'),
+              ('contamination unresolved allow', 'contamination_policy', 'unresolved_contamination_admission', 'ALLOW'),
+              ('hidden tests trainable', 'benchmark_exclusion_policy', 'hidden_tests_in_training', 'ALLOWED'),
+              ('future history optional', 'training_eval_boundary_policy', 'future_history_visibility_required', False),
+              ('student self-verifies', 'student_generated_policy', 'independent_verifier_required', False),
+              ('teacher is truth', 'teacher_policy', 'teacher_identity_is_truth', True),
+              ('broken verifier positive', 'verifier_health_thresholds', 'clean_positive_allowed_classes', ['HEALTHY', 'BROKEN']),
+              ('private repo ingest', 'private_user_data_policy', 'private_user_repositories_default_ingest', True),
+          ]
+          for label, section, field, value in attacks:
+              candidate = copy.deepcopy(fixture)
+              candidate[section][field] = value
+              errors = validation_errors('mstr-data-constitution-v0', candidate)
+              assert errors, label
+          prohibited = set(fixture['prohibited_source_classes'])
+          assert {
+              'PRIVATE_USER_REPOSITORY', 'PRODUCTION_TRACE', 'UNKNOWN_PROVENANCE',
+              'UNRESOLVED_RIGHTS', 'BENCHMARK_EVALUATION_ITEM',
+              'FUTURE_HISTORY_LEAKAGE', 'UNVERIFIED_SYNTHETIC',
+              'UNVERIFIED_TEACHER_OUTPUT',
+          } <= prohibited
+          print('B014_ADVERSARIAL_DATA_GATES=PASS')
+          PY
+      - name: Attack B015 ownership and runtime registration drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from mstr_qualify.schemas import SCHEMA_FILES, validation_errors
+          from mstr_qualify.cli import run_validate
+
+          fixture_path = Path('tests/fixtures/schemas/valid/mstr-data-constitution-v0.json')
+          fixture = json.loads(fixture_path.read_text())
+          assert fixture['language_target_policy']['required_policy_task_id'] == 'B015'
+          mutated = json.loads(fixture_path.read_text())
+          mutated['language_target_policy']['required_policy_task_id'] = 'B014'
+          assert validation_errors('mstr-data-constitution-v0', mutated)
+          assert SCHEMA_FILES['mstr-data-constitution-v0'] == 'mstr-data-constitution-v0.schema.json'
+          code, payload = run_validate([fixture_path])
+          assert code == 0 and payload['status'] == 'pass'
+          assert payload['files'][0]['schema_version'] == 'mstr.data-constitution.v0'
+          runtime = Path('schemas/mstr-data-constitution-v0.schema.json').read_bytes()
+          design = Path('specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json').read_bytes()
+          assert runtime == design
+          print('B014_ADVERSARIAL_OWNERSHIP_AND_REGISTRY=PASS')
+          PY
+      - name: Independently exercise contract and repository gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_data_constitution_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B014_ADVERSARIAL_REVIEW=PASS'
+      - name: Final immutable remote recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B014_REVIEW_REMOTE_RECHECK=PASS'
