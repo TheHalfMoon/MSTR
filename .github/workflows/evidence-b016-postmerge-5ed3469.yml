@@ -1,0 +1,93 @@
+name: Postmerge verify B016 implementation 5ed3469
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 5ed34690dbc71db2359c927e96b511c32dffb2c4
+      EXPECTED_PARENT1: 2cd82ba78bcb886962a163013fa2861d5dd2b013
+      EXPECTED_PARENT2: 33eb53b7ae4c2fd43d639af9c6e67512fb883423
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5ed34690dbc71db2359c927e96b511c32dffb2c4
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact merged main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          parents=$(git show -s --format='%P' "$EXPECTED_MAIN")
+          test "$parents" = "$EXPECTED_PARENT1 $EXPECTED_PARENT2"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B016_POSTMERGE_IDENTITY=PASS'
+      - name: Prove live B016 frontier and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B016 > /tmp/b016.json
+          if python -m mstr_qualify task eligible B017 > /tmp/b017.json; then exit 1; fi
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          b16=json.load(open('/tmp/b016.json')); b17=json.load(open('/tmp/b017.json')); b11=json.load(open('/tmp/b011.json')); drift=json.load(open('/tmp/drift.json'))
+          assert b16['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert b16['eligible'] is True and b16['reasons']==[]
+          assert b16['state_consistency_result']['observed_state']=='PENDING'
+          assert b16['authority_result']['required'] is False
+          pred=next(x for x in b16['prerequisite_results'] if x['task_id']=='B014')
+          assert pred['observed_state']=='COMPLETE_CANONICAL' and pred['evidence_present'] is True and pred['satisfied'] is True
+          assert b17['eligible'] is False
+          assert any('B016' in reason or 'prerequisite' in reason for reason in b17['reasons'])
+          assert b011['eligible'] is False if False else True
+          assert b11['eligible'] is False and b11['state_consistency_result']['observed_state']=='BLOCKED'
+          assert b11['authority_result']['required'] is True and b11['authority_result']['satisfied'] is False
+          assert drift['status']=='clean' and drift['findings']==[]
+          evidence=Path('evidence/mstr-000b/B016-software-evolution.md').read_text(encoding='utf-8')
+          assert '**State:** `IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT`' in evidence
+          assert 'ENTRY_GATE_TASK = B016' in evidence
+          assert 'MODEL_WEIGHT_ACCESS = NONE' in evidence
+          assert 'LARGE_DATASET_INGESTION = NONE' in evidence
+          assert 'WEIGHT_CHANGING_TRAINING = NONE' in evidence
+          print('B016_POSTMERGE_STATE=PASS')
+          PY
+      - name: Run frozen postmerge gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp schemas/mstr-software-evolution-record-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-software-evolution-record-v0.schema.json
+          pytest -q tests/contract/test_schemas.py tests/contract/test_software_evolution_contract.py tests/integration/test_cli_offline.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          git diff --check "$EXPECTED_PARENT1...$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B016_POSTMERGE_GATES=PASS'
+      - name: Final canonical main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo 'B016_POSTMERGE=PASS'
+          echo 'B011_REMAINS_BLOCKED=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
