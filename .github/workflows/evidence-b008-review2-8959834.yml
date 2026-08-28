@@ -1,0 +1,220 @@
+name: Complete adversarial review exact B008 head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 7f2fe43797db4b94103ca07c172de5672806f624
+      EXPECTED_HEAD: 895983470f72128ad698023b3578553ed1cfe7c4
+      TARGET_BRANCH: feat/000b-b008-tokenizer-economics
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 895983470f72128ad698023b3578553ed1cfe7c4
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bind exact head and independently audit result arithmetic
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          python - <<'PY'
+          import json
+          import math
+          import re
+          from collections import defaultdict
+          from pathlib import Path
+
+          corpus = json.loads(Path("benchmarks/fixtures/tokenizer-economics/B007-corpus.json").read_text())
+          entries = {entry["fixture_id"]: entry for entry in corpus["entries"]}
+          identifier = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+          result_paths = sorted(Path("artifacts/results/tokenizer/B008").glob("*.json"))
+          assert len(result_paths) == 10
+          for path in result_paths:
+              result = json.loads(path.read_text())
+              rows = result["per_entry_metrics"]
+              assert len(rows) == len(entries) == 34
+              grouped = defaultdict(list)
+              for row in rows:
+                  fixture = entries[row["fixture_id"]]
+                  assert row["byte_count"] == len(fixture["content_utf8"].encode("utf-8"))
+                  assert row["character_count"] == len(fixture["content_utf8"])
+                  assert row["identifier_like_occurrence_count"] == len(
+                      list(identifier.finditer(fixture["content_utf8"]))
+                  )
+                  assert row["token_count"] > 0
+                  assert math.isclose(
+                      row["bytes_per_token"], row["byte_count"] / row["token_count"]
+                  )
+                  assert math.isclose(
+                      row["characters_per_token"],
+                      row["character_count"] / row["token_count"],
+                  )
+                  grouped[row["category"]].append(row)
+              category_rows = {row["category"]: row for row in result["per_category_metrics"]}
+              assert set(category_rows) == set(grouped)
+              for category, values in grouped.items():
+                  summary = category_rows[category]
+                  total_bytes = sum(row["byte_count"] for row in values)
+                  total_chars = sum(row["character_count"] for row in values)
+                  total_tokens = sum(row["token_count"] for row in values)
+                  assert summary["entry_count"] == len(values)
+                  assert summary["total_bytes"] == total_bytes
+                  assert summary["total_characters"] == total_chars
+                  assert summary["total_tokens"] == total_tokens
+                  assert math.isclose(
+                      summary["weighted_bytes_per_token"], total_bytes / total_tokens
+                  )
+              total_bytes = sum(row["byte_count"] for row in rows)
+              total_chars = sum(row["character_count"] for row in rows)
+              total_tokens = sum(row["token_count"] for row in rows)
+              aggregate = result["aggregate_metrics"]
+              assert aggregate["total_bytes"] == total_bytes == 3605
+              assert aggregate["total_characters"] == total_chars
+              assert aggregate["total_tokens"] == total_tokens
+              assert math.isclose(
+                  aggregate["weighted_bytes_per_token"], total_bytes / total_tokens
+              )
+              assert aggregate["estimated_effective_payload_bytes_at_8192_tokens"] == math.floor(
+                  (total_bytes / total_tokens) * 8192
+              )
+          print("B008_REVIEW2_ARITHMETIC=PASS")
+          PY
+
+      - name: Verify evidence ranking using full precision stable ordering
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          evidence = Path("evidence/mstr-000b/B008-tokenizer-economics.md").read_text()
+          pattern = re.compile(
+              r"^\| `([^`]+)` \| ([0-9.]+) \| (\d+) \| (\d+) \| "
+              r"(\d+) \| (\d+) \| (\d+) \| (\d+) \|$",
+              re.M,
+          )
+          parsed = [
+              (
+                  cid,
+                  float(bpt),
+                  int(total),
+                  int(payload),
+                  int(diff),
+                  int(stack),
+                  int(tool),
+                  int(paths),
+              )
+              for cid, bpt, total, payload, diff, stack, tool, paths in pattern.findall(evidence)
+          ]
+          assert len(parsed) == 10
+          records = []
+          for path in sorted(Path("artifacts/results/tokenizer/B008").glob("*.json")):
+              result = json.loads(path.read_text())
+              aggregate = result["aggregate_metrics"]
+              categories = {row["category"]: row for row in result["per_category_metrics"]}
+              records.append((result, aggregate, categories))
+          records.sort(
+              key=lambda item: item[1]["weighted_bytes_per_token"],
+              reverse=True,
+          )
+          expected = [
+              (
+                  result["candidate_id"],
+                  round(aggregate["weighted_bytes_per_token"], 6),
+                  aggregate["total_tokens"],
+                  aggregate["estimated_effective_payload_bytes_at_8192_tokens"],
+                  categories["diff"]["total_tokens"],
+                  categories["stack_trace"]["total_tokens"],
+                  categories["tool_json"]["total_tokens"],
+                  categories["file_paths"]["total_tokens"],
+              )
+              for result, aggregate, categories in records
+          ]
+          assert parsed == expected, (parsed, expected)
+          assert "not a context-window claim" in evidence
+          assert "do not establish population-level code efficiency" in evidence
+          assert "model quality" in evidence
+          assert "production fitness" in evidence
+          print("B008_REVIEW2_EVIDENCE_DERIVATION=PASS")
+          PY
+
+      - name: Adversarially audit source and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          source = Path("benchmarks/tokenizer_economics/b008_measure.py").read_text()
+          tree = ast.parse(source)
+          calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
+          hub_calls = [
+              node
+              for node in calls
+              if isinstance(node.func, ast.Name) and node.func.id == "hf_hub_download"
+          ]
+          assert len(hub_calls) == 1
+          kwargs = {kw.arg: kw.value for kw in hub_calls[0].keywords if kw.arg is not None}
+          assert isinstance(kwargs["filename"], ast.Constant)
+          assert kwargs["filename"].value == "tokenizer.json"
+          assert isinstance(kwargs["token"], ast.Constant)
+          assert kwargs["token"].value is False
+          assert "repo_id" in kwargs and "revision" in kwargs and "local_dir" in kwargs
+          for forbidden in (
+              "AutoTokenizer",
+              "AutoModel",
+              "snapshot_download",
+              "from_pretrained",
+              "trust_remote_code",
+              "safetensors",
+              "pytorch_model",
+              ".gguf",
+          ):
+              assert forbidden not in source, forbidden
+          assert source.count("Tokenizer.from_file") == 1
+          assert "add_special_tokens=False" in source
+          assert 'candidate.get("status") != "static_qualified"' in source
+          assert 'rights.get("decision") == "pass_permissive"' in source
+          assert 'rights.get("account_gate_required") is False' in source
+          assert 'rights.get("clickthrough_gate_required") is False' in source
+          assert "shutil.rmtree(work, ignore_errors=True)" in source
+          assert not list(Path(".").rglob("tokenizer.json"))
+          forbidden_artifacts = []
+          for suffix in ("*.safetensors", "*.gguf", "*.pt", "*.pth", "*.ckpt", "*.onnx"):
+              forbidden_artifacts.extend(Path(".").rglob(suffix))
+          assert not forbidden_artifacts, forbidden_artifacts
+          print("B008_REVIEW2_AUTHORITY=PASS")
+          PY
+
+      - name: Focused regression and final live identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_b008_tokenizer_economics_results.py
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo "B008_INDEPENDENT_REVIEWED_HEAD=$EXPECTED_HEAD"
+          echo 'B008_INDEPENDENT_ADVERSARIAL_REVIEW=PASS'
