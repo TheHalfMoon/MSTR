@@ -1,0 +1,117 @@
+name: Build B018 self-alignment contract v2
+
+on:
+  push:
+    branches:
+      - evidence/b018-build-v2-73b60aa
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 73b60aa9421f51be52560bbbca6e8dd46b77b6c9
+      TARGET_BRANCH: feat/000b-b018-self-alignment-contract
+      EVIDENCE_BRANCH: evidence/b018-build-v2-73b60aa
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b018-build-v2-73b60aa
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Bind canonical and untouched feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          cp .github/evidence/build_b018.py /tmp/build_b018.py
+          git fetch origin "$TARGET_BRANCH" main
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain)"
+      - name: Materialize candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/build_b018.py
+          expected=$(printf '%s\n' \
+            schemas/mstr-self-alignment-generation-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-self-alignment-generation-v0.schema.json \
+            tests/fixtures/schemas/valid/mstr-self-alignment-generation-v0.json \
+            tests/fixtures/schemas/invalid/mstr-self-alignment-generation-v0.json \
+            src/mstr_qualify/schemas.py \
+            src/mstr_qualify/cli.py \
+            tests/contract/test_self_alignment_contract.py \
+            evidence/mstr-000b/B018-self-alignment-contract.md | sort)
+          actual=$(git status --porcelain=v1 | sed 's/^...//' | sort)
+          test "$actual" = "$expected"
+          git diff --check
+      - run: python -m pip install -e '.[dev]'
+      - name: Normalize new Python test only
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruff check --fix tests/contract/test_self_alignment_contract.py
+          ruff format tests/contract/test_self_alignment_contract.py
+          git diff --check
+      - name: Focused and frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_self_alignment_contract.py
+          python -m mstr_qualify validate
+          python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-self-alignment-generation-v0.json
+          if python -m mstr_qualify validate tests/fixtures/schemas/invalid/mstr-self-alignment-generation-v0.json; then exit 1; fi
+          pytest -q
+          ruff check src tests
+          mypy
+      - name: Commit locally and prove prospective canonical state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add \
+            schemas/mstr-self-alignment-generation-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-self-alignment-generation-v0.schema.json \
+            tests/fixtures/schemas/valid/mstr-self-alignment-generation-v0.json \
+            tests/fixtures/schemas/invalid/mstr-self-alignment-generation-v0.json \
+            src/mstr_qualify/schemas.py src/mstr_qualify/cli.py \
+            tests/contract/test_self_alignment_contract.py \
+            evidence/mstr-000b/B018-self-alignment-contract.md
+          git commit -m 'feat(mstr-000b): freeze B018 self-alignment contract'
+          candidate=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          git branch -f main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          git checkout main
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python -m mstr_qualify task eligible B018 > /tmp/b018.json
+          set +e
+          python -m mstr_qualify task eligible B011 > /tmp/b011.json
+          b011_rc=$?
+          set -e
+          test "$b011_rc" -ne 0
+          python - <<'PY'
+          import json
+          drift=json.load(open('/tmp/drift.json'))
+          b18=json.load(open('/tmp/b018.json'))
+          b11=json.load(open('/tmp/b011.json'))
+          assert drift['status']=='clean' and drift['findings']==[]
+          assert b18['eligible'] is True
+          assert b18['state_consistency_result']['observed_state']=='PENDING'
+          assert b18['authority_result']['required'] is False
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state']=='BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          PY
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin HEAD:refs/heads/$TARGET_BRANCH
+          echo "B018_CANDIDATE=$candidate"
