@@ -39,6 +39,8 @@ SCHEMA_FILES: Mapping[str, str] = {
     "mstr-software-evolution-record-v0": "mstr-software-evolution-record-v0.schema.json",
     # MSTR-000B B018: execution-filtered student self-alignment contract.
     "mstr-self-alignment-generation-v0": "mstr-self-alignment-generation-v0.schema.json",
+    # MSTR-000B B019: bounded teacher-rescue record contract.
+    "mstr-teacher-rescue-record-v0": "mstr-teacher-rescue-record-v0.schema.json",
 }
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -234,6 +236,106 @@ def _self_alignment_semantic_errors(instance: Any) -> tuple[str, ...]:
     return tuple(sorted(errors))
 
 
+
+def _teacher_rescue_semantic_errors(instance: Any) -> tuple[str, ...]:
+    """Enforce B019 output bindings and external-effect authority semantics."""
+
+    if not isinstance(instance, dict):
+        return ()
+
+    errors: list[str] = []
+    outputs: dict[str, dict[str, Any]] = {}
+    raw_outputs = instance.get("teacher_outputs")
+    if isinstance(raw_outputs, list):
+        for index, output in enumerate(raw_outputs):
+            if not isinstance(output, dict):
+                continue
+            output_id = output.get("output_id")
+            if not isinstance(output_id, str):
+                continue
+            if output_id in outputs:
+                errors.append(
+                    f"$.teacher_outputs[{index}]: duplicate output_id {output_id!r}"
+                )
+                continue
+            outputs[output_id] = output
+
+    def collect_bindings(field: str) -> dict[str, dict[str, Any]]:
+        bindings: dict[str, dict[str, Any]] = {}
+        raw = instance.get(field)
+        if not isinstance(raw, list):
+            return bindings
+        for index, binding in enumerate(raw):
+            if not isinstance(binding, dict):
+                continue
+            output_id = binding.get("output_id")
+            if not isinstance(output_id, str):
+                continue
+            if output_id in bindings:
+                errors.append(
+                    f"$.{field}[{index}]: duplicate output binding {output_id!r}"
+                )
+                continue
+            bindings[output_id] = binding
+        return bindings
+
+    for field in ("output_provenance", "output_rights_decisions"):
+        bindings = collect_bindings(field)
+        if set(bindings) != set(outputs):
+            errors.append(f"$.{field}: bindings must exactly cover teacher output ids")
+
+    expected_execution = {
+        output_id
+        for output_id, output in outputs.items()
+        if output.get("execution_required") is True
+    }
+    execution_bindings = collect_bindings("independent_execution_results")
+    if set(execution_bindings) != expected_execution:
+        errors.append(
+            "$.independent_execution_results: bindings must exactly cover "
+            "execution-required teacher output ids"
+        )
+
+    cost = instance.get("cost_record")
+    teacher = instance.get("teacher_identity")
+    if isinstance(cost, dict):
+        paid = cost.get("paid_cost_usd")
+        network_used = cost.get("network_used") is True
+        model_executed = cost.get("model_execution_occurred") is True
+        authority = cost.get("external_effect_authority_identity")
+        external_effect = (
+            isinstance(paid, (int, float)) and not isinstance(paid, bool) and paid > 0
+        ) or network_used or model_executed
+        if external_effect and not isinstance(authority, str):
+            errors.append(
+                "$.cost_record.external_effect_authority_identity: required when "
+                "paid cost, network use, or model execution is recorded"
+            )
+        if not external_effect and authority is not None:
+            errors.append(
+                "$.cost_record.external_effect_authority_identity: must be null when "
+                "no external effect is recorded"
+            )
+        if isinstance(teacher, dict):
+            access_mode = teacher.get("access_mode")
+            if access_mode == "REFERENCE_ONLY" and external_effect:
+                errors.append(
+                    "$.teacher_identity.access_mode: REFERENCE_ONLY cannot record "
+                    "paid cost, network use, or model execution"
+                )
+            if access_mode == "REMOTE_API" and not (network_used and model_executed):
+                errors.append(
+                    "$.teacher_identity.access_mode: REMOTE_API requires recorded "
+                    "network use and model execution"
+                )
+            if access_mode == "LOCAL_MODEL" and not model_executed:
+                errors.append(
+                    "$.teacher_identity.access_mode: LOCAL_MODEL requires recorded "
+                    "model execution"
+                )
+
+    return tuple(sorted(errors))
+
 def validation_errors(
     name: str,
     instance: Any,
@@ -255,6 +357,8 @@ def validation_errors(
     formatted = [_format_validation_error(error) for error in errors]
     if name == "mstr-self-alignment-generation-v0":
         formatted.extend(_self_alignment_semantic_errors(instance))
+    if name == "mstr-teacher-rescue-record-v0":
+        formatted.extend(_teacher_rescue_semantic_errors(instance))
     return tuple(sorted(formatted))
 
 
