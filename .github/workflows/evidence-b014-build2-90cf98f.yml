@@ -14,6 +14,9 @@ jobs:
       TARGET_BRANCH: feat/000b-b014-data-constitution-v2
       SOURCE_HEAD: 14ddc497f12d92ebe67f9f87072af60b383c1253
       SOURCE_WORKFLOW: .github/workflows/evidence-b014-build-90cf98f.yml
+      DONOR_HEAD: 2ad16ed19c159897ce0f31730e016fac1c06afa9
+      ENTRY_RUN: '33164424310'
+      ENTRY_JOB: '98826328509'
     steps:
       - uses: actions/checkout@v4
         with:
