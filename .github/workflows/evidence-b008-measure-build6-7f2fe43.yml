@@ -12,8 +12,10 @@ jobs:
     env:
       EXPECTED_MAIN: 7f2fe43797db4b94103ca07c172de5672806f624
       TARGET_BRANCH: feat/000b-b008-tokenizer-economics
-      SOURCE_BRANCH: evidence/b008-measure-build5-7f2fe43
-      SOURCE_HEAD: d63954c1e092724c77dece89507e58c4859b1aee
+      SOURCE_BRANCH: evidence/b008-measure-build-7f2fe43
+      SOURCE_HEAD: 1b446bb6552bac1d046101641dadf42825020492
+      V5_BRANCH: evidence/b008-measure-build5-7f2fe43
+      V5_HEAD: d63954c1e092724c77dece89507e58c4859b1aee
       ENTRY_RUN: "33151438249"
       ENTRY_JOB: "98784106816"
       LOADABILITY_RUN: "33151738043"
@@ -36,11 +38,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin main "$TARGET_BRANCH" "$SOURCE_BRANCH"
+          git fetch origin main "$TARGET_BRANCH" "$SOURCE_BRANCH" "$V5_BRANCH"
           test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
           test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
           test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
           test "$(git rev-parse refs/remotes/origin/$SOURCE_BRANCH)" = "$SOURCE_HEAD"
+          test "$(git rev-parse refs/remotes/origin/$V5_BRANCH)" = "$V5_HEAD"
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
           git branch -f main "$EXPECTED_MAIN"
           python -m pip install -e '.[dev]' 'huggingface_hub==0.34.4' 'tokenizers==0.22.0'
@@ -65,7 +68,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git show "$SOURCE_HEAD:.github/workflows/evidence-b008-measure-build5-7f2fe43.yml" > /tmp/v5.yml
+          git show "$V5_HEAD:.github/workflows/evidence-b008-measure-build5-7f2fe43.yml" > /tmp/v5.yml
           python - <<'PY'
           from pathlib import Path
 
@@ -174,10 +177,11 @@ jobs:
           git commit -m 'feat(mstr-000b): measure B008 tokenizer economics'
           final=$(git rev-parse HEAD)
           test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
-          git fetch origin main "$TARGET_BRANCH" "$SOURCE_BRANCH"
+          git fetch origin main "$TARGET_BRANCH" "$SOURCE_BRANCH" "$V5_BRANCH"
           test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
           test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
           test "$(git rev-parse refs/remotes/origin/$SOURCE_BRANCH)" = "$SOURCE_HEAD"
+          test "$(git rev-parse refs/remotes/origin/$V5_BRANCH)" = "$V5_HEAD"
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
           git push origin "HEAD:$TARGET_BRANCH"
           echo "B008_IMPLEMENTATION_HEAD=$final"
