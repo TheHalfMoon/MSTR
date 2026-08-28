@@ -1,0 +1,153 @@
+name: Qualify exact B014 implementation head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 90cf98f5f87b64f8e6da50a8444b1b598148f945
+      EXPECTED_HEAD: 70d601c4fb1c0603b6e757969a3a97b8c77744d8
+      TARGET_BRANCH: feat/000b-b014-data-constitution-v2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 70d601c4fb1c0603b6e757969a3a97b8c77744d8
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact identity and eleven-file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          expected=$(printf '%s\n' \
+            docs/data/MSTR_DATA_CONSTITUTION.md \
+            evidence/mstr-000b/B014-data-constitution.md \
+            schemas/mstr-data-constitution-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_data_constitution_contract.py \
+            tests/contract/test_schemas.py \
+            tests/fixtures/schemas/invalid/mstr-data-constitution-v0.json \
+            tests/fixtures/schemas/valid/mstr-data-constitution-v0.json \
+            tests/integration/test_cli_offline.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | wc -l)" -eq 11
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B014_EXACT_HEAD_IDENTITY=PASS'
+      - name: Re-prove Data Constitution fail-closed semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp schemas/mstr-data-constitution-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          schema = json.loads(Path('schemas/mstr-data-constitution-v0.schema.json').read_text())
+          props = schema['properties']
+          assert schema['additionalProperties'] is False
+          assert props['schema_version']['const'] == 'mstr.data-constitution.v0'
+          assert props['constitution_id']['const'] == 'MSTR-DATA-CONSTITUTION-v0'
+          prohibited = props['prohibited_source_classes']['allOf']
+          required_prohibited = {
+              'PRIVATE_USER_REPOSITORY', 'PRODUCTION_TRACE', 'UNKNOWN_PROVENANCE',
+              'UNRESOLVED_RIGHTS', 'BENCHMARK_EVALUATION_ITEM',
+              'FUTURE_HISTORY_LEAKAGE', 'UNVERIFIED_SYNTHETIC',
+              'UNVERIFIED_TEACHER_OUTPUT',
+          }
+          observed = {entry['contains']['const'] for entry in prohibited}
+          assert observed == required_prohibited
+          assert props['rights_policy']['properties']['unresolved_rights_admission']['const'] == 'REJECT'
+          assert props['rights_policy']['properties']['incompatible_rights_admission']['const'] == 'REJECT'
+          assert props['contamination_policy']['properties']['unresolved_contamination_admission']['const'] == 'REJECT'
+          assert props['benchmark_exclusion_policy']['properties']['hidden_tests_in_training']['const'] == 'PROHIBITED'
+          assert props['teacher_policy']['properties']['paid_or_api_teacher_authorized_by_constitution']['const'] is False
+          assert props['stage_admission_rules']['properties']['unresolved_evidence_admission']['const'] == 'REJECT'
+          private = props['private_user_data_policy']['properties']
+          assert private['default_admission']['const'] == 'REJECT'
+          assert private['private_user_repositories_default_ingest']['const'] is False
+          assert private['production_traces_default_ingest']['const'] is False
+          assert private['hidden_telemetry_allowed']['const'] is False
+          evidence = Path('evidence/mstr-000b/B014-data-constitution.md').read_text()
+          assert '**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT' in evidence
+          assert 'MODEL_WEIGHT_ACCESS = NONE' in evidence
+          assert 'WEIGHT_CHANGING_TRAINING = NONE' in evidence
+          assert 'LARGE_DATASET_INGESTION = NONE' in evidence
+          print('B014_CONSTITUTION_SEMANTICS=PASS')
+          PY
+      - name: Simulate exact candidate as canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          python -m mstr_qualify task eligible B014 > /tmp/b014.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then
+            echo 'B011 unexpectedly eligible' >&2
+            exit 1
+          fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          b14 = json.load(open('/tmp/b014.json'))
+          b11 = json.load(open('/tmp/b011.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          assert b14['canonical_main'] == os.environ['EXPECTED_HEAD']
+          assert b14['eligible'] is True and b14['reasons'] == []
+          assert b14['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b14['prerequisite_results'] == []
+          assert b14['authority_result']['required'] is False
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B014_TASK_GATE_SIMULATION=PASS')
+          PY
+      - name: Run exact-head frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_data_constitution_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          python -m mstr_qualify validate
+          python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-data-constitution-v0.json
+          set +e
+          python -m mstr_qualify validate tests/fixtures/schemas/invalid/mstr-data-constitution-v0.json >/tmp/b014-invalid.json
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+          pytest -q
+          ruff check src tests
+          mypy src
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          cmp schemas/mstr-data-constitution-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B014_EXACT_HEAD_QUALIFICATION=PASS'
+      - name: Final remote identity recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B014_QUALIFICATION_REMOTE_RECHECK=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
+          echo 'PAID_COMPUTE=NONE'
