@@ -18,7 +18,12 @@ def test_b015_policy_identity_and_exact_entry_gate() -> None:
     assert policy["artifact_version"] == "mstr.b015.language-target-policy.v1"
     assert policy["policy_id"] == "MSTR-LANGUAGE-TARGET-POLICY-v0"
     assert policy["task_id"] == "B015"
-    assert policy["state"] == "IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT"
+    assert policy["state"] == "COMPLETE_CANONICAL"
+    assert policy["canonical_implementation"] == {
+        "final_head": "e6191fefc9b870f3376f6faead6149841fe7dd31",
+        "merge_commit": "5104f7ef63ba37caa518868ad89d0f78fe70641f",
+        "pr_number": 69,
+    }
     assert (
         policy["canonical_main_at_entry"]
         == "205df4be5f2e25bd28b697816eac3ea6ce361aed"
@@ -131,7 +136,18 @@ def test_b015_external_sources_and_non_authority_are_explicit() -> None:
     assert boundary
     assert all(value is False for value in boundary.values())
     evidence = EVIDENCE_PATH.read_text(encoding="utf-8")
-    assert "IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT" in evidence
+    assert "**State:** COMPLETE_CANONICAL" in evidence
+    assert "**Implementation PR:** #69" in evidence
+    assert (
+        "**Canonical implementation merge:** "
+        "`5104f7ef63ba37caa518868ad89d0f78fe70641f`" in evidence
+    )
+    assert "ENTRY_GATE_TASK = B015" in evidence
+    assert (
+        "ENTRY_GATE_CANONICAL_MAIN = "
+        "205df4be5f2e25bd28b697816eac3ea6ce361aed" in evidence
+    )
+    assert "ENTRY_GATE_ELIGIBLE = true" in evidence
     assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
     assert "LARGE_DATASET_INGESTION = NONE" in evidence
     assert "MODEL_WEIGHT_ACCESS = NONE" in evidence

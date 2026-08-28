@@ -12,6 +12,11 @@
     "production_trace_ingestion": false,
     "weight_changing_training": false
   },
+  "canonical_implementation": {
+    "final_head": "e6191fefc9b870f3376f6faead6149841fe7dd31",
+    "merge_commit": "5104f7ef63ba37caa518868ad89d0f78fe70641f",
+    "pr_number": 69
+  },
   "canonical_main_at_entry": "205df4be5f2e25bd28b697816eac3ea6ce361aed",
   "decision_basis": {
     "external_evidence": [
@@ -144,7 +149,7 @@
     "Preserve provenance, rights, contamination, dedup, benchmark exclusion, and verifier-health gates from MSTR-DATA-CONSTITUTION-v0.",
     "Do not admit private user repositories or production traces by default."
   ],
-  "state": "IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT",
+  "state": "COMPLETE_CANONICAL",
   "task_id": "B015",
   "tiers": {
     "core": [

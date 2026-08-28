@@ -117,9 +117,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Define allowed/prohibited source classes, software-role taxonomy, provenance/rights, contamination, dedup, benchmark exclusion, synthetic/student/teacher policy, difficulty policy, verifier-health thresholds, stage admission rules, and private-user-data default rejection.  
   Outputs: `docs/data/MSTR_DATA_CONSTITUTION.md`, schema/fixtures, `evidence/mstr-000b/B014-data-constitution.md`.
 
-- [ ] **B015 Freeze programming-language/tooling target policy.**  
+- [x] **B015 Freeze programming-language/tooling target policy.**
   Use target-user/product evidence, not marketing breadth. Define core/secondary/long-tail language tiers and replay minimums; include build/config/shell/SQL where relevant.  
   Outputs: `artifacts/decisions/B015-language-target-policy.json`, `evidence/mstr-000b/B015-language-mix.md`.
+  Canonical implementation: PR #69 / final head `e6191fefc9b870f3376f6faead6149841fe7dd31` / merge `5104f7ef63ba37caa518868ad89d0f78fe70641f`.
 
 - [ ] **B016 Freeze `SoftwareEvolutionRecord` contract and future-history boundary.**  
   Bind base revision, direction/issue, visible context, change/test/CI/review/recovery events and final verified revision while explicitly preventing future patches/results from leaking into earlier model-visible steps.  

@@ -1,7 +1,10 @@
 # B015 — Programming Language and Tooling Target Policy
 
 **Task:** `B015`
-**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT
+**Implementation PR:** #69
+**Final implementation head:** `e6191fefc9b870f3376f6faead6149841fe7dd31`
+**Canonical implementation merge:** `5104f7ef63ba37caa518868ad89d0f78fe70641f`
+**State:** COMPLETE_CANONICAL
 **Policy:** `MSTR-LANGUAGE-TARGET-POLICY-v0`
 **Canonical main at entry:** `205df4be5f2e25bd28b697816eac3ea6ce361aed`
 **Entry gate:** run `33166914253` / job `98834411321` / `eligible=true` / drift clean
@@ -145,6 +148,17 @@ Every downstream material stage that carries a language/tooling slice must:
 4. preserve B014 provenance, rights, contamination, dedup, benchmark-exclusion, verifier-health, and private-data rules;
 5. refresh the evidence before each material training stage and record any inability to satisfy a floor;
 6. use a canonical B015 amendment for tier/floor changes rather than silently changing the policy.
+
+## Canonical entry provenance
+
+```text
+ENTRY_GATE_TASK = B015
+ENTRY_GATE_CANONICAL_MAIN = 205df4be5f2e25bd28b697816eac3ea6ce361aed
+ENTRY_GATE_RUN = 33166914253
+ENTRY_GATE_JOB = 98834411321
+ENTRY_GATE_ELIGIBLE = true
+ENTRY_GATE_DRIFT = clean
+```
 
 ## Authority boundary
 
