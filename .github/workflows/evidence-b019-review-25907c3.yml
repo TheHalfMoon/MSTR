@@ -1,0 +1,94 @@
+name: Independently review exact B019 teacher-rescue head
+
+on:
+  push:
+    branches:
+      - evidence/b019-review-25907c3
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: 2605846607fc98291ded4e53e9bb6bb6c3cf52a0
+  EXPECTED_HEAD: 25907c32fb60e83a6b171192e8c12c8092bc9f5e
+  TARGET_BRANCH: feat/000b-b019-teacher-rescue-policy
+  PR_NUMBER: "78"
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b019-review-25907c3
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind immutable review target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
+          test "$(jq -r '.state' <<<"$pr")" = "open"
+          test "$(jq -r '.draft' <<<"$pr")" = "false"
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$EXPECTED_HEAD"
+          git worktree add --detach /tmp/b019-review "$EXPECTED_HEAD"
+          test "$(git -C /tmp/b019-review rev-parse HEAD)" = "$EXPECTED_HEAD"
+      - name: Verify exact scope and authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(printf '%s\n' \
+            docs/data/TEACHER_RESCUE_POLICY.md \
+            evidence/mstr-000b/B019-teacher-policy.md \
+            schemas/mstr-teacher-rescue-record-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-teacher-rescue-record-v0.schema.json \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_schemas.py \
+            tests/contract/test_teacher_rescue_contract.py \
+            tests/fixtures/schemas/invalid/mstr-teacher-rescue-record-v0.json \
+            tests/fixtures/schemas/valid/mstr-teacher-rescue-record-v0.json \
+            tests/integration/test_cli_offline.py | sort)
+          actual=$(git -C /tmp/b019-review diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          test -z "$(git -C /tmp/b019-review diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" -- configs/task-gate specs/002-code-model-supremacy-foundation/tasks.md specs/002-code-model-supremacy-foundation/plan.md .specify/memory/constitution.md)"
+          git -C /tmp/b019-review diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          python tools/evidence/review_b019_candidate.py /tmp/b019-review
+      - name: Install candidate environment
+        working-directory: /tmp/b019-review
+        run: python -m pip install -e '.[dev]'
+      - name: Re-run focused B019 adversarial regressions
+        working-directory: /tmp/b019-review
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_teacher_rescue_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          python -m mstr_qualify validate
+      - name: Re-run frozen full quality
+        working-directory: /tmp/b019-review
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q
+          ruff check src tests
+          mypy
+      - name: Final immutable review target recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
+          test "$(jq -r '.state' <<<"$pr")" = "open"
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$EXPECTED_HEAD"
