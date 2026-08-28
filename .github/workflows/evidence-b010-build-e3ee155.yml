@@ -1,0 +1,502 @@
+name: Build and qualify B010 new-candidate access preflight
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: e3ee155a7e0ed491984908998546900e594bda9a
+      TARGET_BRANCH: research/000b-b010-new-candidate-weight-access
+      METADATA_RUN: '33161954193'
+      METADATA_JOB: '98818272943'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: research/000b-b010-new-candidate-weight-access
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Guard exact B010 entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          git branch -f main "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B010 > /tmp/b010-entry.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011-entry.json; then
+            echo 'B011 unexpectedly eligible before B010 canonical closeout' >&2
+            exit 1
+          fi
+          python -m mstr_qualify task drift > /tmp/drift-entry.json
+          python - <<'PY'
+          import json, os
+          expected = os.environ['EXPECTED_MAIN']
+          b010 = json.load(open('/tmp/b010-entry.json'))
+          b011 = json.load(open('/tmp/b011-entry.json'))
+          drift = json.load(open('/tmp/drift-entry.json'))
+          assert b010['canonical_main'] == expected
+          assert b010['eligible'] is True and b010['reasons'] == []
+          assert b010['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b011['eligible'] is False
+          assert 'prerequisite.unsatisfied:B010' in b011['reasons']
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B010_BUILD_ENTRY=PASS')
+          PY
+
+      - name: Materialize B010 artifact evidence and contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+          import json
+          from pathlib import Path
+
+          main = 'e3ee155a7e0ed491984908998546900e594bda9a'
+          metadata_run = 33161954193
+          metadata_job = 98818272943
+          common_hosts = [
+              'huggingface.co',
+              'cdn-lfs.huggingface.co',
+              'cas-bridge.xethub.hf.co',
+              'transfer.xethub.hf.co',
+              'us.aws.cdn.hf.co',
+          ]
+
+          mellum_files = [
+              {'path': 'config.json', 'size_bytes': 730, 'sha256': None},
+              {'path': 'generation_config.json', 'size_bytes': 132, 'sha256': None},
+              {'path': 'merges.txt', 'size_bytes': 914920, 'sha256': None},
+              {'path': 'model-00001-of-00002.safetensors', 'size_bytes': 4986625856, 'sha256': '04bf4f574526ebecd75283af1f7ed0a412362388ddd28360c1581706cb3a00d2'},
+              {'path': 'model-00002-of-00002.safetensors', 'size_bytes': 3051902048, 'sha256': '8fa0269d11332e13874280dbf5a15d5d6086d038656832c16e984544caf4b21b'},
+              {'path': 'model.safetensors.index.json', 'size_bytes': 22463, 'sha256': None},
+              {'path': 'special_tokens_map.json', 'size_bytes': 1127, 'sha256': None},
+              {'path': 'tokenizer.json', 'size_bytes': 7030308, 'sha256': None},
+              {'path': 'tokenizer_config.json', 'size_bytes': 5650, 'sha256': None},
+              {'path': 'vocab.json', 'size_bytes': 1595831, 'sha256': None},
+          ]
+          qwen_files = [
+              {'path': 'config.json', 'size_bytes': 2907, 'sha256': None},
+              {'path': 'merges.txt', 'size_bytes': 3353259, 'sha256': None},
+              {'path': 'model.safetensors-00001-of-00001.safetensors', 'size_bytes': 1746942600, 'sha256': 'c2b1e5a17d9c1e27685d92ed9b382911ebb99955ecd89052d1721241adfbab6c'},
+              {'path': 'model.safetensors.index.json', 'size_bytes': 50900, 'sha256': None},
+              {'path': 'preprocessor_config.json', 'size_bytes': 390, 'sha256': None},
+              {'path': 'tokenizer.json', 'size_bytes': 12807196, 'sha256': 'fe000e3ed39ed12b8d2481d527d44f93c65d37e87645d2dcc80d1bf9d50d2927'},
+              {'path': 'tokenizer_config.json', 'size_bytes': 16712, 'sha256': None},
+              {'path': 'video_preprocessor_config.json', 'size_bytes': 386, 'sha256': None},
+              {'path': 'vocab.json', 'size_bytes': 6722759, 'sha256': None},
+          ]
+
+          def envelope(candidate_id: str, upstream_id: str, revision: str, files: list[dict[str, object]], weight_files: set[str], role: str, rationale: str) -> dict[str, object]:
+              return {
+                  'candidate_id': candidate_id,
+                  'candidate_role': role,
+                  'upstream_id': upstream_id,
+                  'exact_revision': revision,
+                  'qualification_required': True,
+                  'qualification_reason': rationale,
+                  'already_authorized_or_available_weight_artifacts': False,
+                  'available_artifact_evidence': {
+                      't028_contains_candidate': False,
+                      'b008_scope': 'TOKENIZER_JSON_ONLY_EPHEMERAL_AND_DESTROYED',
+                      'repository_weight_bodies_present': False,
+                  },
+                  'new_weight_access_required': True,
+                  'public_metadata': {
+                      'source': 'HUGGING_FACE_MODEL_API_BLOBS_TRUE',
+                      'snapshot_run_id': metadata_run,
+                      'snapshot_job_id': metadata_job,
+                      'private': False,
+                      'gated': False,
+                      'disabled': False,
+                  },
+                  'required_files': [
+                      {
+                          **record,
+                          'artifact_class': 'MODEL_WEIGHT' if record['path'] in weight_files else 'MODEL_OR_TOKENIZER_METADATA',
+                          'upstream_sha256_status': 'PINNED' if record['sha256'] else 'NOT_EXPOSED_BY_PUBLIC_METADATA',
+                      }
+                      for record in files
+                  ],
+                  'expected_weight_bytes': sum(int(record['size_bytes']) for record in files if record['path'] in weight_files),
+                  'expected_required_download_bytes': sum(int(record['size_bytes']) for record in files),
+                  'network_hosts': common_hosts,
+                  'network_policy': 'HTTPS_GET_ONLY_AFTER_B011_EXACT_FOUNDER_AUTHORIZATION; ABORT_ON_AUTH_GATING_PAYMENT_OR_UNLISTED_REDIRECT',
+                  'rights_status': {
+                      'license': 'Apache-2.0',
+                      'decision': 'pass_permissive',
+                      'account_required': False,
+                      'clickthrough_required': False,
+                      'gated_terms_acceptance_required': False,
+                  },
+                  'executor': 'B011_APPROVED_EPHEMERAL_CLOUD_RUNNER_AFTER_EXACT_FOUNDER_AUTHORIZATION',
+                  'storage': 'EXTERNAL_EPHEMERAL_OR_APPROVED_EXTERNAL_ACQUISITION_DIR; NEVER_GIT; NEVER_FOUNDER_MACHINE',
+                  'retention': 'RETAIN_VERIFIED_ARTIFACTS_ONLY_UNTIL_B012_QUALIFICATION_AND_DOWNSTREAM_ADMISSION_CLOSEOUT_REQUIRES_OTHERWISE',
+                  'cleanup': 'DELETE_PARTIAL_OR_FAILED_DOWNLOADS_IMMEDIATELY; REMOVE_EPHEMERAL_RUNNER_STORAGE_AT_JOB_END; FOLLOW_CANONICAL_EXTERNAL_ARTIFACT_RETENTION_FOR_SUCCESS',
+                  'usd_ceiling': 0.0,
+                  'expected_usd': 0.0,
+              }
+
+          qualification = ['mellum-4b', 'qwen3.5-0.8b-control']
+          access = list(qualification)
+          manifest = {
+              'schema_version': 'mstr.b010-new-candidate-weight-access.v1',
+              'task_id': 'B010',
+              'state': 'IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT',
+              'canonical_main_at_execution': main,
+              'purpose': 'Freeze new-candidate equivalent-qualification and model-weight-access planning without authorizing access or execution.',
+              'frozen_inputs': {
+                  'b006_reconciliation': 'evidence/mstr-000b/candidates/B006-candidate-reconciliation.md',
+                  'b008_tokenizer_economics': 'evidence/mstr-000b/B008-tokenizer-economics.md',
+                  'b009_compatibility': 'artifacts/decisions/B009-training-runtime-compatibility.json',
+                  'prior_weight_acquisition': 'artifacts/manifests/T028-acquired-artifacts.json',
+                  'public_metadata_run_id': metadata_run,
+                  'public_metadata_job_id': metadata_job,
+              },
+              'decision': {
+                  'qualification_candidates': qualification,
+                  'new_weight_access_required_candidates': access,
+                  'no_new_candidates_marker': None,
+                  'no_new_access_marker': None,
+                  'interpretation': 'Both newly admitted B006 candidates require equivalent artifact-backed qualification. Neither has already-authorized or retained model weights; B008 measured tokenizer.json only and T028 acquired only the prior eight candidates.',
+              },
+              'prior_candidate_disposition': {
+                  't028_previously_acquired_candidates': [
+                      'granite-4.1-3b', 'ministral-3-3b', 'qwen2.5-coder-1.5b', 'qwen3-4b',
+                      'qwen3.5-2b', 'qwen3.5-4b', 'smollm3-3b', 'yi-coder-1.5b'
+                  ],
+                  'new_b006_candidates_rejected_or_reference_only_before_equivalent_qualification': [
+                      'bitnet-b1.58-2b-bf16-control', 'codegemma-2b', 'falcon-h1-3b',
+                      'lfm2.5-1.2b', 'lfm2.5-2.6b', 'stable-code-3b', 'starcoder2-3b'
+                  ],
+              },
+              'candidate_access_envelopes': [
+                  envelope(
+                      'mellum-4b', 'JetBrains/Mellum-4b-base',
+                      '83cce2605fbdf6a3868627e9b0a5924e0072b94d', mellum_files,
+                      {'model-00001-of-00002.safetensors', 'model-00002-of-00002.safetensors'},
+                      'primary_eligible_foundation',
+                      'B006 newly admitted serious candidate; B009 source evidence requires artifact-backed qualification.'
+                  ),
+                  envelope(
+                      'qwen3.5-0.8b-control', 'Qwen/Qwen3.5-0.8B-Base',
+                      'dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68', qwen_files,
+                      {'model.safetensors-00001-of-00001.safetensors'},
+                      'lower_bound_control',
+                      'B006 newly admitted serious control; B009 source evidence requires artifact-backed qualification.'
+                  ),
+              ],
+              'b011_handoff': {
+                  'requires_separate_founder_authorization': True,
+                  'authorization_reason': 'new_weight_access_required_candidates is non-empty',
+                  'authorized_by_b010': False,
+                  'exact_authority_needed': 'Founder authorization for B011 model-weight access for exactly mellum-4b and qwen3.5-0.8b-control at the pinned revisions/files/ceilings in this manifest.',
+              },
+              'authority_boundary': {
+                  'model_weight_access': False,
+                  'model_execution': False,
+                  'tokenizer_artifact_download': False,
+                  'conversion_execution': False,
+                  'quantization_execution': False,
+                  'training_execution': False,
+                  'weight_changing_training': False,
+                  'gated_terms_acceptance': False,
+                  'paid_model_api': False,
+                  'paid_compute': False,
+                  'large_dataset_ingestion': False,
+                  'production_release': False,
+                  'founder_machine_large_artifacts': 0,
+              },
+          }
+          artifact = Path('artifacts/manifests/B010-new-candidate-weight-access.json')
+          artifact.parent.mkdir(parents=True, exist_ok=True)
+          artifact.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+
+          evidence = '''# B010 — New-candidate qualification / weight-access preflight
+
+**Task:** `B010`
+**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT
+**Canonical main at execution:** `e3ee155a7e0ed491984908998546900e594bda9a`
+**Manifest:** `artifacts/manifests/B010-new-candidate-weight-access.json`
+**Public metadata evidence:** run `33161954193` / job `98818272943`
+
+## Decision
+
+`qualification_candidates[]` is frozen to:
+
+- `mellum-4b`
+- `qwen3.5-0.8b-control`
+
+`new_weight_access_required_candidates[]` is frozen to the same two candidates.
+
+The lists are intentionally distinct fields even though their current members are equal. B006 admitted these two newly relevant candidates into the serious/static-qualified set. The seven other newly reviewed B006 candidates remain reference-only or fail-closed and do not enter equivalent qualification. The eight pre-existing serious T022 candidates are already represented by the prior T027/T028 acquisition/qualification lineage and are not new B010 candidates.
+
+## Why new access is required
+
+T028 acquired and verified model artifacts only for the prior eight candidates; neither B010 candidate appears in `artifacts/manifests/T028-acquired-artifacts.json`.
+
+B008 accessed only `tokenizer.json` on ephemeral runners for tokenizer economics, retained no tokenizer body, and explicitly kept `MODEL_WEIGHT_ACCESS = NONE`. Therefore B008 is not reusable model-weight availability for B011/B012.
+
+Both B010 candidates remain subject to artifact-backed equivalent qualification under B009. No model-weight body is present in Git, and no current authority permits obtaining one.
+
+## Frozen artifact envelope
+
+### `mellum-4b`
+
+- Upstream: `JetBrains/Mellum-4b-base`
+- Revision: `83cce2605fbdf6a3868627e9b0a5924e0072b94d`
+- Weight files: two safetensor shards
+- Frozen weight bytes: `8,038,527,904`
+- Frozen required download bytes: `8,048,099,065`
+- Rights: Apache-2.0 / permissive / public / non-gated
+- USD ceiling: `0.00`
+
+### `qwen3.5-0.8b-control`
+
+- Upstream: `Qwen/Qwen3.5-0.8B-Base`
+- Revision: `dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68`
+- Weight files: one safetensor shard
+- Frozen weight bytes: `1,746,942,600`
+- Frozen required download bytes: `1,769,897,109`
+- Rights: Apache-2.0 / permissive / public / non-gated
+- USD ceiling: `0.00`
+
+The JSON manifest carries per-file byte counts and upstream SHA-256 values wherever the public model metadata exposed them. Missing upstream SHA-256 values for ordinary Git metadata files are explicitly marked unavailable rather than guessed.
+
+## Executor, storage, retention, cleanup
+
+Any future B011 access is restricted to an approved ephemeral cloud runner after exact separate founder authorization. Large artifacts must never be committed to Git or stored on the founder machine. Partial/failed downloads must be deleted immediately. Successful verified artifacts may be retained only in the canonical external-artifact location for the minimum period required by B012/downstream closeout. Any authentication, gated terms, payment, unexpected redirect host, or cost above USD 0.00 must fail closed.
+
+## Authority boundary
+
+```text
+MODEL_WEIGHT_ACCESS = NONE
+MODEL_EXECUTION = NONE
+TOKENIZER_ARTIFACT_DOWNLOAD = NONE
+CONVERSION_EXECUTION = NONE
+QUANTIZATION_EXECUTION = NONE
+TRAINING_EXECUTION = NONE
+WEIGHT_CHANGING_TRAINING = NONE
+GATED_TERMS_ACCEPTANCE = NONE
+PAID_MODEL_API = NONE
+PAID_COMPUTE = NONE
+LARGE_DATASET_INGESTION = NONE
+PRODUCTION_RELEASE = NONE
+FOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO
+```
+
+B010 freezes an access plan only. Because `new_weight_access_required_candidates[]` is non-empty, B011 requires separate exact founder authorization before any model-weight access. Continuation authority or completion of B010 is not that authorization.
+'''
+          evidence_path = Path('evidence/mstr-000b/B010-weight-access-preflight.md')
+          evidence_path.parent.mkdir(parents=True, exist_ok=True)
+          evidence_path.write_text(evidence, encoding='utf-8')
+
+          test = '''from __future__ import annotations
+
+import json
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[2]
+_MANIFEST = _ROOT / "artifacts" / "manifests" / "B010-new-candidate-weight-access.json"
+
+
+def _load(path: Path) -> dict[str, object]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    assert isinstance(value, dict)
+    return value
+
+
+def test_b010_freezes_only_newly_admitted_equivalent_qualification_candidates() -> None:
+    manifest = _load(_MANIFEST)
+    assert manifest["task_id"] == "B010"
+    assert manifest["state"] == "IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT"
+    assert manifest["canonical_main_at_execution"] == "e3ee155a7e0ed491984908998546900e594bda9a"
+    decision = manifest["decision"]
+    assert decision["qualification_candidates"] == ["mellum-4b", "qwen3.5-0.8b-control"]
+    assert decision["new_weight_access_required_candidates"] == ["mellum-4b", "qwen3.5-0.8b-control"]
+    assert decision["no_new_candidates_marker"] is None
+    assert decision["no_new_access_marker"] is None
+
+    source = {
+        row["candidate_id"]: row
+        for row in (_load(path) for path in sorted((_ROOT / "artifacts" / "candidates").glob("*.json")))
+    }
+    envelopes = {row["candidate_id"]: row for row in manifest["candidate_access_envelopes"]}
+    assert set(envelopes) == {"mellum-4b", "qwen3.5-0.8b-control"}
+    for candidate_id, envelope in envelopes.items():
+        candidate = source[candidate_id]
+        assert candidate["status"] == "static_qualified"
+        assert candidate["rights"]["decision"] == "pass_permissive"
+        assert envelope["upstream_id"] == candidate["upstream_id"]
+        assert envelope["exact_revision"] == candidate["upstream_revision"]
+        assert envelope["qualification_required"] is True
+        assert envelope["new_weight_access_required"] is True
+        assert envelope["already_authorized_or_available_weight_artifacts"] is False
+
+
+def test_b010_new_access_is_not_confused_with_prior_t028_or_b008_tokenizers() -> None:
+    manifest = _load(_MANIFEST)
+    prior = _load(_ROOT / "artifacts" / "manifests" / "T028-acquired-artifacts.json")
+    prior_ids = {row["candidate_id"] for row in prior["candidates"]}
+    expected_prior = {
+        "granite-4.1-3b", "ministral-3-3b", "qwen2.5-coder-1.5b", "qwen3-4b",
+        "qwen3.5-2b", "qwen3.5-4b", "smollm3-3b", "yi-coder-1.5b",
+    }
+    assert prior_ids == expected_prior
+    access = set(manifest["decision"]["new_weight_access_required_candidates"])
+    assert access.isdisjoint(prior_ids)
+
+    b008 = (_ROOT / "evidence" / "mstr-000b" / "B008-tokenizer-economics.md").read_text(encoding="utf-8")
+    assert "MODEL_WEIGHT_ACCESS = NONE" in b008
+    assert "tokenizer.json" in b008
+    assert "destroyed" in b008.lower()
+    for envelope in manifest["candidate_access_envelopes"]:
+        assert envelope["available_artifact_evidence"]["b008_scope"] == "TOKENIZER_JSON_ONLY_EPHEMERAL_AND_DESTROYED"
+        assert envelope["available_artifact_evidence"]["t028_contains_candidate"] is False
+
+
+def test_b010_access_envelopes_bind_exact_weight_hashes_bytes_and_zero_cost() -> None:
+    manifest = _load(_MANIFEST)
+    envelopes = {row["candidate_id"]: row for row in manifest["candidate_access_envelopes"]}
+    expected = {
+        "mellum-4b": {
+            "weight_bytes": 8038527904,
+            "download_bytes": 8048099065,
+            "weights": {
+                "model-00001-of-00002.safetensors": (4986625856, "04bf4f574526ebecd75283af1f7ed0a412362388ddd28360c1581706cb3a00d2"),
+                "model-00002-of-00002.safetensors": (3051902048, "8fa0269d11332e13874280dbf5a15d5d6086d038656832c16e984544caf4b21b"),
+            },
+        },
+        "qwen3.5-0.8b-control": {
+            "weight_bytes": 1746942600,
+            "download_bytes": 1769897109,
+            "weights": {
+                "model.safetensors-00001-of-00001.safetensors": (1746942600, "c2b1e5a17d9c1e27685d92ed9b382911ebb99955ecd89052d1721241adfbab6c"),
+            },
+        },
+    }
+    for candidate_id, facts in expected.items():
+        envelope = envelopes[candidate_id]
+        assert envelope["expected_weight_bytes"] == facts["weight_bytes"]
+        assert envelope["expected_required_download_bytes"] == facts["download_bytes"]
+        assert envelope["usd_ceiling"] == 0.0
+        assert envelope["expected_usd"] == 0.0
+        assert envelope["rights_status"]["gated_terms_acceptance_required"] is False
+        assert envelope["rights_status"]["account_required"] is False
+        weights = {
+            row["path"]: (row["size_bytes"], row["sha256"])
+            for row in envelope["required_files"]
+            if row["artifact_class"] == "MODEL_WEIGHT"
+        }
+        assert weights == facts["weights"]
+        assert "huggingface.co" in envelope["network_hosts"]
+        assert "us.aws.cdn.hf.co" in envelope["network_hosts"]
+        assert "AFTER_B011_EXACT_FOUNDER_AUTHORIZATION" in envelope["network_policy"]
+
+
+def test_b010_remains_plan_only_and_requires_separate_b011_founder_authority() -> None:
+    manifest = _load(_MANIFEST)
+    handoff = manifest["b011_handoff"]
+    assert handoff["requires_separate_founder_authorization"] is True
+    assert handoff["authorized_by_b010"] is False
+    assert "mellum-4b" in handoff["exact_authority_needed"]
+    assert "qwen3.5-0.8b-control" in handoff["exact_authority_needed"]
+    authority = manifest["authority_boundary"]
+    assert authority["founder_machine_large_artifacts"] == 0
+    for key, value in authority.items():
+        if key != "founder_machine_large_artifacts":
+            assert value is False, key
+'''
+          Path('tests/contract/test_b010_new_candidate_weight_access.py').write_text(test, encoding='utf-8')
+          PY
+
+          expected=$(printf '%s\n' \
+            artifacts/manifests/B010-new-candidate-weight-access.json \
+            evidence/mstr-000b/B010-weight-access-preflight.md \
+            tests/contract/test_b010_new_candidate_weight_access.py | sort)
+          actual=$(git status --porcelain=v1 --untracked-files=all | sed 's/^...//' | sort)
+          test "$actual" = "$expected"
+          git diff --check
+          git add artifacts/manifests/B010-new-candidate-weight-access.json \
+            evidence/mstr-000b/B010-weight-access-preflight.md \
+            tests/contract/test_b010_new_candidate_weight_access.py
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'research(mstr-000b): freeze B010 access preflight'
+          candidate=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$candidate" | wc -l)" -eq 3
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo "B010_LOCAL_HEAD=$candidate"
+
+      - name: Qualify exact local implementation candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate=$(git rev-parse HEAD)
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B010 > /tmp/b010-after.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011-after.json; then
+            echo 'B011 unexpectedly eligible from implementation-only B010 artifact' >&2
+            exit 1
+          fi
+          python -m mstr_qualify task drift > /tmp/drift-after.json
+          python - <<'PY'
+          import json, os
+          expected = os.environ['EXPECTED_MAIN']
+          b010 = json.load(open('/tmp/b010-after.json'))
+          b011 = json.load(open('/tmp/b011-after.json'))
+          drift = json.load(open('/tmp/drift-after.json'))
+          assert b010['canonical_main'] == expected
+          assert b010['eligible'] is True and b010['reasons'] == []
+          assert b010['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b011['eligible'] is False
+          assert 'prerequisite.unsatisfied:B010' in b011['reasons']
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B010_IMPLEMENTATION_SEMANTICS=PASS')
+          PY
+          pytest -q tests/contract/test_b010_new_candidate_weight_access.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check "$EXPECTED_MAIN...$candidate"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B010_IMPLEMENTATION_GATES=PASS'
+
+      - name: Recheck refs and push target only
+        shell: bash
+        run: |
+          set -euo pipefail
+          final=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin "HEAD:$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$final"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo "B010_IMPLEMENTATION_HEAD=$final"
+          echo "B010_BUILD_RUN=$GITHUB_RUN_ID"
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'TOKENIZER_ARTIFACT_DOWNLOAD=NONE'
+          echo 'TRAINING_EXECUTION=NONE'
+          echo 'PAID_COMPUTE=NONE'
