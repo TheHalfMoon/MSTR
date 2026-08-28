@@ -62,10 +62,12 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
 
 # Phase B — Product-Aligned Backbone Rescan and Economics
 
-- [ ] **B005 Run mission-aligned compact backbone metadata rescan.**  
+- [x] **B005 Run mission-aligned compact backbone metadata rescan.**
   Search compact general and code-specialized base/foundation models without category exclusion. Revalidate exact current repositories, revisions, base/post-trained provenance, license/gating, context, parameter counts and intended use. `JetBrains/Mellum-4b-base` is mandatory to review.  
   No weight access.  
   Outputs: `evidence/mstr-000b/B005-code-backbone-rescan.md`, discovery manifest.
+  Canonical implementation: PR #54 / final head `0a7ee7e392d827fb08c8cc9f3b2d9ec45c8cca1a` / merge `1e096f4d1f270b2803da6a6306e9e7f0cf8fb81b`.
+
 
 - [ ] **B006 Create/reconcile candidate records for newly relevant code-specialized models.**  
   Explicitly classify each as primary-eligible candidate, control, reference-only, rejected, or needs-founder/legal clarification. Apply the same derivative redistribution and accountless-release rights gate as existing candidates.  
