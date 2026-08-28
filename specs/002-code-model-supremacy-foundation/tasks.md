@@ -79,9 +79,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: `benchmarks/manifests/B007-tokenizer-economics.json`, fixtures, `evidence/mstr-000b/B007-tokenizer-protocol.md`.
   Canonical implementation: PR #59 / final head `965fbdbf152272397ae6ef721260e806be5d251c` / merge `b9b0a8ca7b9b7528f5da518baa83b23e2348c6f6`.
 
-- [ ] **B008 Measure tokenizer code density for all serious candidates.**  
+- [x] **B008 Measure tokenizer code density for all serious candidates.**
   Record bytes/token, tokens/diff, tokens/stacktrace, tokens/tool call, per-language fragmentation and 8K effective code payload. Run any tokenizer acquisition/measurement in approved ephemeral research infrastructure when required; founder Mac remains zero-large-artifact. No model inference is authorized by this task.  
   Outputs: `artifacts/results/tokenizer/B008/*.json`, `evidence/mstr-000b/B008-tokenizer-economics.md`.
+  Canonical implementation: PR #61 / final head `895983470f72128ad698023b3578553ed1cfe7c4` / merge `07762204ab126c0fccf9ca55a8b572bd6368d8bc`.
 
 - [ ] **B009 Freeze candidate trainability / conversion / runtime compatibility matrix.**  
   Revalidate current Transformers/Unsloth/PEFT/TRL compatibility, llama.cpp/GGUF conversion/quantization support, tokenizer/export hazards, and architecture-specific restrictions. Metadata/code/docs validation only unless already-authorized artifacts are sufficient.  

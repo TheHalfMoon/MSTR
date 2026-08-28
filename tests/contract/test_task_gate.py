@@ -158,12 +158,22 @@ def test_b007_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b008_is_eligible_after_b007_closeout() -> None:
+def test_b008_is_terminal_after_canonical_closeout() -> None:
     result = evaluate_task_snapshot("B008", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert "task.already_terminal" in result["reasons"]
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b009_is_eligible_after_b008_closeout() -> None:
+    result = evaluate_task_snapshot("B009", canonical_main=_CANONICAL_MAIN)
 
     assert result["eligible"] is True
     assert result["reasons"] == []
-    assert result["prerequisite_results"][0]["task_id"] == "B007"
+    assert result["prerequisite_results"][0]["task_id"] == "B008"
     assert result["prerequisite_results"][0]["satisfied"] is True
     validate_instance("mstr-task-eligibility-v0", result)
 
@@ -298,6 +308,76 @@ def test_b008_fails_closed_when_b007_corpus_is_missing(
     assert (
         "missing:benchmarks/fixtures/tokenizer-economics/B007-corpus.json" in predecessor["reasons"]
     )
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b009_fails_closed_when_one_b008_result_is_missing(tmp_path: Path) -> None:
+    tasks_dir = tmp_path / "specs" / "002-code-model-supremacy-foundation"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / "tasks.md").write_text(
+        "- [x] **B008 Root task.**\n- [ ] **B009 Successor task.**\n",
+        encoding="utf-8",
+    )
+    evidence = tmp_path / "evidence" / "mstr-000b" / "B008-tokenizer-economics.md"
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text("canonical evidence\n", encoding="utf-8")
+    result_paths = [
+        "artifacts/results/tokenizer/B008/granite-4.1-3b.json",
+        "artifacts/results/tokenizer/B008/mellum-4b.json",
+    ]
+    present = tmp_path / result_paths[0]
+    present.parent.mkdir(parents=True)
+    present.write_text("{}\n", encoding="utf-8")
+    payload = {
+        "catalog_version": "mstr.task-catalog.v0",
+        "workstream_id": "MSTR-000B",
+        "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",
+        "defaults": {
+            "outputs": [],
+            "candidate_dependent": False,
+            "external_effect_class": "NO_EXTERNAL_EFFECT",
+            "parallel_safe": False,
+            "supersedes": [],
+            "superseded_by": [],
+            "closeout_rule": {
+                "terminal_states": ["COMPLETE_CANONICAL"],
+                "require_all_outputs": False,
+                "require_all_evidence_outputs": True,
+                "completion_requires_merge": True,
+            },
+        },
+        "tasks": {
+            "B008": {
+                "canonical_state": "COMPLETE_CANONICAL",
+                "closeout_rule": {"require_all_outputs": True},
+                "prerequisites": [],
+                "outputs": result_paths,
+                "evidence_outputs": ["evidence/mstr-000b/B008-tokenizer-economics.md"],
+            },
+            "B009": {
+                "canonical_state": "PENDING",
+                "prerequisites": ["B008"],
+                "evidence_outputs": [],
+            },
+        },
+    }
+    catalog_path = tmp_path / "configs" / "task-gate" / "mstr-000b.json"
+    catalog_path.parent.mkdir(parents=True)
+    catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = evaluate_task_snapshot(
+        "B009",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    assert "prerequisite.unsatisfied:B008" in result["reasons"]
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["satisfied"] is False
+    assert "prerequisite.required_artifact_missing" in predecessor["reasons"]
+    assert f"missing:{result_paths[1]}" in predecessor["reasons"]
     validate_instance("mstr-task-eligibility-v0", result)
 
 
