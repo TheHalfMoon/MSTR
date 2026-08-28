@@ -1,0 +1,99 @@
+name: Verify B009 implementation on canonical main
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 4fdb6966c085819e69823136fb5e2cd8c56ba58f
+      IMPLEMENTATION_HEAD: 88ebc70e12dcc117ba99bb10bb687eed1a220a7b
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 4fdb6966c085819e69823136fb5e2cd8c56ba58f
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact signed canonical implementation merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          parents=$(git show -s --format='%P' HEAD)
+          test "$parents" = "dd6c7a9b163f1f34e6cc3570da234078d39f4fce $IMPLEMENTATION_HEAD"
+          for p in artifacts/decisions/B009-training-runtime-compatibility.json evidence/mstr-000b/B009-compatibility.md tests/contract/test_b009_training_runtime_compatibility.py; do
+            test "$(git rev-parse "$EXPECTED_MAIN:$p")" = "$(git rev-parse "$IMPLEMENTATION_HEAD:$p")"
+          done
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B009_POSTMERGE_IDENTITY=PASS'
+      - name: Prove production pre-closeout truth and clean drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B009 > /tmp/b009.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          b=json.load(open('/tmp/b009.json')); d=json.load(open('/tmp/drift.json'))
+          assert b['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert b['eligible'] is True and b['reasons']==[]
+          assert b['state_consistency_result']['observed_state']=='PENDING'
+          assert b['prerequisite_results'][0]['task_id']=='B008' and b['prerequisite_results'][0]['satisfied'] is True
+          assert d['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert d['status']=='clean' and d['findings']==[]
+          print('B009_POSTMERGE_PRECLOSEOUT_TRUTH=PASS')
+          PY
+      - name: Re-prove merged B009 semantics and zero authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('artifacts/decisions/B009-training-runtime-compatibility.json').read_text())
+          assert d['state']=='IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT'
+          assert d['candidate_inventory']['record_count']==19
+          assert d['candidate_inventory']['serious_static_qualified_count']==10
+          assert d['candidate_inventory']['reference_or_non_serious_count']==9
+          assert d['b010_handoff']['qualification_candidates']=='NOT_DECIDED_BY_B009'
+          assert d['b010_handoff']['new_weight_access_required_candidates']=='NOT_DECIDED_BY_B009'
+          a=d['authority_boundary']; assert a['founder_machine_large_artifacts']==0
+          assert all(v is False for k,v in a.items() if k!='founder_machine_large_artifacts')
+          e=Path('evidence/mstr-000b/B009-compatibility.md').read_text()
+          assert 'ENTRY_GATE_TASK = B009' in e
+          assert 'MODEL_WEIGHT_ACCESS = NONE' in e and 'TRAINING_EXECUTION = NONE' in e
+          print('B009_POSTMERGE_SEMANTICS=PASS')
+          PY
+      - name: Run frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_b009_training_runtime_compatibility.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff HEAD^1..HEAD --check
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B009_POSTMERGE_GATES=PASS'
+      - name: Final canonical main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B009_POST_IMPLEMENTATION_VERIFICATION=PASS'
