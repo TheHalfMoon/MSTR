@@ -1,0 +1,106 @@
+name: Qualify B015 implementation head 256c2b
+
+on:
+  push:
+    branches:
+      - evidence/b015-qualify-256c2b
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: 205df4be5f2e25bd28b697816eac3ea6ce361aed
+  CANDIDATE_HEAD: 256c2bba7a2cc1b20d27d830b6ddcccaeac74beb
+  TARGET_BRANCH: feat/000b-b015-language-target-policy
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 256c2bba7a2cc1b20d27d830b6ddcccaeac74beb
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Bind exact candidate and live main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$CANDIDATE_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$CANDIDATE_HEAD"
+          test "$(git merge-base "$EXPECTED_MAIN" "$CANDIDATE_HEAD")" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+      - name: Prove exact three-file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(printf '%s\n' \
+            artifacts/decisions/B015-language-target-policy.json \
+            evidence/mstr-000b/B015-language-mix.md \
+            tests/contract/test_b015_language_target_policy.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$CANDIDATE_HEAD" | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$CANDIDATE_HEAD" | wc -l)" -eq 3
+          git diff --check "$EXPECTED_MAIN...$CANDIDATE_HEAD"
+          echo 'B015_SCOPE=PASS'
+      - name: Run B015 and frozen repository gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_b015_language_target_policy.py tests/contract/test_data_constitution_contract.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          echo 'B015_QUALITY_GATES=PASS'
+      - name: Re-run exact-main task eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach "$EXPECTED_MAIN"
+          git branch -f main "$EXPECTED_MAIN"
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python -m mstr_qualify task eligible B015 > /tmp/b015.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then
+            echo 'B011 unexpectedly eligible' >&2
+            exit 1
+          fi
+          python - <<'PY'
+          import json
+          b15 = json.load(open('/tmp/b015.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          b11 = json.load(open('/tmp/b011.json'))
+          assert b15['task_id'] == 'B015'
+          assert b15['canonical_main'] == '205df4be5f2e25bd28b697816eac3ea6ce361aed'
+          assert b15['eligible'] is True and b15['reasons'] == []
+          assert b15['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b15['authority_result']['required'] is False
+          assert b15['authority_result']['satisfied'] is True
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          print('B015_EXACT_MAIN_ELIGIBLE=PASS')
+          print('B011_REMAINS_BLOCKED=PASS')
+          PY
+      - name: Final remote immutability recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$CANDIDATE_HEAD"
+          echo 'B015_HEAD_QUALIFIED=PASS'
