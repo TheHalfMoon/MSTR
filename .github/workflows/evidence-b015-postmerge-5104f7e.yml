@@ -1,0 +1,84 @@
+name: Postmerge verify B015 implementation 5104f7e
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 5104f7ef63ba37caa518868ad89d0f78fe70641f
+      EXPECTED_PARENT1: 205df4be5f2e25bd28b697816eac3ea6ce361aed
+      EXPECTED_PARENT2: e6191fefc9b870f3376f6faead6149841fe7dd31
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5104f7ef63ba37caa518868ad89d0f78fe70641f
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact merged main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          parents=$(git show -s --format='%P' "$EXPECTED_MAIN")
+          test "$parents" = "$EXPECTED_PARENT1 $EXPECTED_PARENT2"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B015_POSTMERGE_IDENTITY=PASS'
+      - name: Prove live B015 state and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B015 > /tmp/b015.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          b15=json.load(open('/tmp/b015.json')); b11=json.load(open('/tmp/b011.json')); drift=json.load(open('/tmp/drift.json'))
+          assert b15['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert b15['eligible'] is True and b15['reasons']==[]
+          assert b15['state_consistency_result']['observed_state']=='PENDING'
+          assert b15['authority_result']['required'] is False
+          pred=next(x for x in b15['prerequisite_results'] if x['task_id']=='B014')
+          assert pred['observed_state']=='COMPLETE_CANONICAL' and pred['evidence_present'] is True and pred['satisfied'] is True
+          assert b11['eligible'] is False and b11['state_consistency_result']['observed_state']=='BLOCKED'
+          assert b11['authority_result']['required'] is True and b11['authority_result']['satisfied'] is False
+          assert drift['status']=='clean' and drift['findings']==[]
+          p=json.loads(Path('artifacts/decisions/B015-language-target-policy.json').read_text())
+          assert p['state']=='IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT'
+          assert p['authority_boundary'] and all(v is False for v in p['authority_boundary'].values())
+          print('B015_POSTMERGE_STATE=PASS')
+          PY
+      - name: Run frozen postmerge gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_b015_language_target_policy.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          git diff --check "$EXPECTED_PARENT1...$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B015_POSTMERGE_GATES=PASS'
+      - name: Final canonical main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo 'B015_POSTMERGE=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
