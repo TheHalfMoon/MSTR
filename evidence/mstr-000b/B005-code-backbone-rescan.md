@@ -3,6 +3,9 @@
 **Workstream:** MSTR-000B  
 **Task:** B005  
 **State:** COMPLETE_CANONICAL
+**Implementation PR:** `#54`
+**Final implementation head:** `0a7ee7e392d827fb08c8cc9f3b2d9ec45c8cca1a`
+**Canonical implementation merge:** `1e096f4d1f270b2803da6a6306e9e7f0cf8fb81b`
 **Canonical main at execution:** `e1b3cbd74ae0a74a80e3f345faef56da13818149`  
 **Branch:** `research/000b-b005-code-backbone-rescan`  
 **Discovery manifest:** `artifacts/manifests/B005-code-backbone-discovery.json`
