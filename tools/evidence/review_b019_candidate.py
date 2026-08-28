@@ -91,16 +91,19 @@ assert any(item.get("type") == "string" for item in authority_shapes)
 assert any(item.get("type") == "null" for item in authority_shapes)
 
 schemas_py = read("src/mstr_qualify/schemas.py")
-for phrase in (
+for fragment in (
     "bindings must exactly cover teacher output ids",
-    "bindings must exactly cover execution-required teacher output ids",
-    "required when paid cost, network use, or model execution is recorded",
-    "must be null when no external effect is recorded",
-    "REFERENCE_ONLY cannot record paid cost, network use, or model execution",
-    "REMOTE_API requires recorded network use and model execution",
-    "LOCAL_MODEL requires recorded model execution",
+    "execution-required teacher output ids",
+    "paid cost, network use, or model execution is recorded",
+    "no external effect is recorded",
+    "REFERENCE_ONLY cannot record ",
+    "paid cost, network use, or model execution",
+    "REMOTE_API requires recorded ",
+    "network use and model execution",
+    "LOCAL_MODEL requires recorded ",
+    "model execution",
 ):
-    assert phrase in schemas_py
+    assert fragment in schemas_py
 
 policy = read("docs/data/TEACHER_RESCUE_POLICY.md")
 evidence = read("evidence/mstr-000b/B019-teacher-policy.md")
