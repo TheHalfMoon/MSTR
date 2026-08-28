@@ -1,0 +1,110 @@
+name: Verify B014 canonical closeout on main
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 205df4be5f2e25bd28b697816eac3ea6ce361aed
+      PREVIOUS_MAIN: f6925f3e0d8378fedd6ec1d3aed30b725115e07e
+      CLOSEOUT_HEAD: 376c540d46ea76b7bacd906152afda1260bca17f
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 205df4be5f2e25bd28b697816eac3ea6ce361aed
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact signed canonical closeout merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git show -s --format='%P' HEAD)" = "$PREVIOUS_MAIN $CLOSEOUT_HEAD"
+          for p in configs/task-gate/mstr-000b.json evidence/mstr-000b/B014-data-constitution.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py; do
+            test "$(git rev-parse "$EXPECTED_MAIN:$p")" = "$(git rev-parse "$CLOSEOUT_HEAD:$p")"
+          done
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B014_POSTCLOSEOUT_IDENTITY=PASS'
+      - name: Prove terminal state and live frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          if python -m mstr_qualify task eligible B014 > /tmp/b014.json; then
+            echo 'B014 unexpectedly eligible after canonical closeout' >&2
+            exit 1
+          fi
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then
+            echo 'B011 unexpectedly eligible after B014 closeout' >&2
+            exit 1
+          fi
+          for task in B015 B016 B018 B020 B022 B025; do
+            python -m mstr_qualify task eligible "$task" > "/tmp/$task.json"
+          done
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          expected=os.environ['EXPECTED_MAIN']
+          b14=json.load(open('/tmp/b014.json'))
+          assert b14['canonical_main']==expected
+          assert b14['eligible'] is False
+          assert b14['state_consistency_result']['observed_state']=='COMPLETE_CANONICAL'
+          assert b14['state_consistency_result']['satisfied'] is True
+          assert 'task.already_terminal' in b14['reasons']
+          for task in ['B015','B016','B018','B020','B022','B025']:
+              payload=json.load(open(f'/tmp/{task}.json'))
+              assert payload['canonical_main']==expected
+              assert payload['eligible'] is True and payload['reasons']==[]
+              assert payload['state_consistency_result']['observed_state']=='PENDING'
+              assert payload['authority_result']['required'] is False
+              pred=next(x for x in payload['prerequisite_results'] if x['task_id']=='B014')
+              assert pred['observed_state']=='COMPLETE_CANONICAL'
+              assert pred['evidence_present'] is True and pred['satisfied'] is True
+          b11=json.load(open('/tmp/b011.json'))
+          assert b11['canonical_main']==expected
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state']=='BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          drift=json.load(open('/tmp/drift.json'))
+          assert drift['canonical_main']==expected
+          assert drift['status']=='clean' and drift['findings']==[]
+          print('B014_POSTCLOSEOUT_MACHINE_TRUTH=PASS')
+          PY
+      - name: Run frozen repository gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/contract/test_data_constitution_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check "$PREVIOUS_MAIN...$EXPECTED_MAIN"
+          echo 'B014_POSTCLOSEOUT_GATES=PASS'
+      - name: Final canonical main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo 'B014_POSTCLOSEOUT_VERIFICATION=PASS'
+          echo 'B015_FRONTIER_READY=PASS'
+          echo 'B011_REMAINS_BLOCKED=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
