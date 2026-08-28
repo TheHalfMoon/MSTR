@@ -1,0 +1,200 @@
+name: Build B005 post-closeout drift repair
+
+on:
+  push:
+    branches: [evidence/b005-drift-repair-build-bd4ad13]
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: bd4ad13f076ba2a44cf9bf6cd7ba95d39119eba5
+  TARGET_BRANCH: docs/000b-b005-drift-repair
+  EXPECTED_TARGET: bd4ad13f076ba2a44cf9bf6cd7ba95d39119eba5
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          path: canonical
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/000b-b005-drift-repair
+          fetch-depth: 0
+          path: target
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify live repair preconditions
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C canonical fetch origin main "$TARGET_BRANCH"
+          git -C target fetch origin main "$TARGET_BRANCH"
+          test "$(git -C canonical rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git -C canonical rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git -C canonical rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git -C canonical rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_TARGET"
+          test "$(git -C target rev-parse HEAD)" = "$EXPECTED_TARGET"
+          test "$(git -C target rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git -C target rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_TARGET"
+          test -z "$(git -C canonical status --short)"
+          test -z "$(git -C target status --short)"
+          echo "B005_DRIFT_REPAIR_ENTRY_IDENTITIES=PASS"
+      - name: Install canonical tooling
+        run: python -m pip install -e './canonical[dev]'
+      - name: Prove exact current post-closeout condition
+        working-directory: canonical
+        shell: bash
+        run: |
+          set -euo pipefail
+          b005_rc=0
+          python -m mstr_qualify task eligible B005 > /tmp/b005-before.json || b005_rc=$?
+          python -m mstr_qualify task eligible B006 > /tmp/b006-before.json
+          drift_rc=0
+          python -m mstr_qualify task drift > /tmp/drift-before.json || drift_rc=$?
+          python - "$b005_rc" "$drift_rc" <<'PY'
+          import json, os, sys
+          b005_rc=int(sys.argv[1]); drift_rc=int(sys.argv[2])
+          b005=json.load(open('/tmp/b005-before.json',encoding='utf-8'))
+          b006=json.load(open('/tmp/b006-before.json',encoding='utf-8'))
+          drift=json.load(open('/tmp/drift-before.json',encoding='utf-8'))
+          assert b005_rc == 1, b005_rc
+          assert b005['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert b005['state_consistency_result']['observed_state']=='COMPLETE_CANONICAL'
+          assert b005['state_consistency_result']['satisfied'] is True
+          assert b005['eligible'] is False
+          assert 'task.already_terminal' in b005['reasons']
+          assert b006['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert b006['eligible'] is True, b006
+          assert b006['state_consistency_result']['observed_state']=='PENDING'
+          assert drift_rc == 1, drift_rc
+          assert drift['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert drift['status']=='drift'
+          assert drift['tasks_checked']==34
+          expected={
+              'task_id':'B005',
+              'code':'evidence.implementation_identity_missing',
+              'details':{
+                  'missing_fields':['final_head','implementation_pr','merge_sha']
+              },
+          }
+          assert drift['findings']==[expected], drift
+          print('B005_POSTCLOSEOUT_KNOWN_SINGLE_DRIFT=PASS')
+          PY
+      - name: Apply one-file machine-readable identity repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('target/evidence/mstr-000b/B005-code-backbone-rescan.md')
+          s=p.read_text(encoding='utf-8')
+          old='''**State:** COMPLETE_CANONICAL\n**Canonical main at execution:** `e1b3cbd74ae0a74a80e3f345faef56da13818149`  \n'''
+          new='''**State:** COMPLETE_CANONICAL\n**Implementation PR:** `#54`\n**Final implementation head:** `0a7ee7e392d827fb08c8cc9f3b2d9ec45c8cca1a`\n**Canonical implementation merge:** `1e096f4d1f270b2803da6a6306e9e7f0cf8fb81b`\n**Canonical main at execution:** `e1b3cbd74ae0a74a80e3f345faef56da13818149`  \n'''
+          assert s.count(old)==1
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          print('B005_MACHINE_READABLE_IMPLEMENTATION_IDENTITY=ADDED')
+          PY
+      - name: Verify exact one-file mutation
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          changed="$(git diff --name-only)"
+          test "$changed" = "evidence/mstr-000b/B005-code-backbone-rescan.md"
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('evidence/mstr-000b/B005-code-backbone-rescan.md').read_text(encoding='utf-8')
+          assert '**State:** COMPLETE_CANONICAL' in s
+          assert '**Implementation PR:** `#54`' in s
+          assert '**Final implementation head:** `0a7ee7e392d827fb08c8cc9f3b2d9ec45c8cca1a`' in s
+          assert '**Canonical implementation merge:** `1e096f4d1f270b2803da6a6306e9e7f0cf8fb81b`' in s
+          print('B005_DRIFT_REPAIR_SCOPE=PASS_ONE_FILE')
+          PY
+      - name: Commit candidate locally
+        id: candidate
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add evidence/mstr-000b/B005-code-backbone-rescan.md
+          git commit -m "fix(mstr-000b): bind B005 implementation identity"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_TARGET"
+          git diff --check "$EXPECTED_MAIN" HEAD
+          test -z "$(git status --short)"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Install candidate tooling
+        run: python -m pip install -e './target[dev]'
+      - name: Prove prospective canonical state and clean drift
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="${{ steps.candidate.outputs.sha }}"
+          test "$(git rev-parse HEAD)" = "$candidate"
+          git branch -f main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          b005_rc=0
+          python -m mstr_qualify task eligible B005 > /tmp/b005-after.json || b005_rc=$?
+          python -m mstr_qualify task eligible B006 > /tmp/b006-after.json
+          python -m mstr_qualify task drift > /tmp/drift-after.json
+          python - "$b005_rc" <<'PY'
+          import json, sys
+          b005_rc=int(sys.argv[1])
+          b005=json.load(open('/tmp/b005-after.json',encoding='utf-8'))
+          b006=json.load(open('/tmp/b006-after.json',encoding='utf-8'))
+          drift=json.load(open('/tmp/drift-after.json',encoding='utf-8'))
+          assert b005_rc == 1
+          assert b005['state_consistency_result']['observed_state']=='COMPLETE_CANONICAL'
+          assert b005['state_consistency_result']['satisfied'] is True
+          assert b005['eligible'] is False
+          assert 'task.already_terminal' in b005['reasons']
+          assert b006['eligible'] is True, b006
+          assert b006['state_consistency_result']['observed_state']=='PENDING'
+          assert drift['status']=='clean', drift
+          assert drift['findings']==[], drift
+          assert drift['tasks_checked']==34
+          print('B005_DRIFT_REPAIR_PROSPECTIVE_CANONICAL=PASS')
+          print('B006_PROSPECTIVE_ELIGIBLE=PASS')
+          print('CANONICAL_DRIFT_PROSPECTIVE=CLEAN')
+          PY
+      - name: Targeted governance tests
+        working-directory: target
+        run: pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/unit/test_task_drift.py tests/integration/test_task_drift_cli.py
+      - name: Frozen gate - pytest
+        working-directory: target
+        run: pytest -q
+      - name: Frozen gate - Ruff
+        working-directory: target
+        run: ruff check src tests
+      - name: Frozen gate - mypy
+        working-directory: target
+        run: mypy
+      - name: Frozen gate - validate
+        working-directory: target
+        run: python -m mstr_qualify validate
+      - name: Guarded fast-forward push
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="${{ steps.candidate.outputs.sha }}"
+          test "$(git rev-parse HEAD)" = "$candidate"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_TARGET"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_TARGET"
+          test -z "$(git status --short)"
+          git push origin HEAD:"$TARGET_BRANCH"
+          echo "B005_DRIFT_REPAIR_HEAD=$candidate"
