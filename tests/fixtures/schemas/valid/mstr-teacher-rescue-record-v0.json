@@ -1,0 +1,80 @@
+{
+  "admission_decision": "ADMIT",
+  "admission_reasons": [],
+  "contamination_status": "CLEAR",
+  "cost_record": {
+    "cost_record_identity": "fixture-cost-zero-001",
+    "currency": "USD",
+    "external_effect_authority_identity": null,
+    "model_execution_occurred": false,
+    "network_used": false,
+    "paid_cost_usd": 0
+  },
+  "independent_execution_results": [
+    {
+      "environment_identity": "fixture-sandbox-env-v1",
+      "evidence_identity": "fixture-execution-evidence-001",
+      "output_id": "teacher-output-solution-001",
+      "result": "PASS",
+      "sandboxed": true
+    }
+  ],
+  "output_provenance": [
+    {
+      "output_id": "teacher-output-solution-001",
+      "provenance": {
+        "lineage_status": "COMPLETE",
+        "source_identity": "repository-owned-fixture",
+        "source_revision": "fixture-v1"
+      }
+    }
+  ],
+  "output_rights_decisions": [
+    {
+      "output_id": "teacher-output-solution-001",
+      "rights_decision": {
+        "decision": "COMPATIBLE",
+        "license_or_terms_identity": "fixture-terms-compatible-v1"
+      }
+    }
+  ],
+  "rescue_id": "b019-fixture-rescue-001",
+  "schema_version": "mstr.teacher-rescue-record.v0",
+  "student_failure_evidence": {
+    "attempt_count": 2,
+    "difficulty_record_identity": "fixture-difficulty-record-001",
+    "failure_class": "FRONTIER_RESCUE_REQUESTED",
+    "failure_evidence_identity": "fixture-student-failure-001",
+    "student_model_identity": {
+      "checkpoint_id": "fixture-checkpoint-001",
+      "harness_profile_id": "fixture-harness-v0",
+      "model_id": "fixture/student-model",
+      "sampling_identity": "fixture-sampling-v0"
+    }
+  },
+  "task_identity": "fixture-task-frontier-001",
+  "teacher_identity": {
+    "access_mode": "REFERENCE_ONLY",
+    "model_or_service_id": "fixture/reference-only",
+    "provider_identity": "repository-owned-fixture",
+    "revision_or_version": "fixture-v1",
+    "teacher_id": "fixture-reference-teacher-001"
+  },
+  "teacher_outputs": [
+    {
+      "contamination_status": "CLEAR",
+      "content_identity": "sha256:fixture-solution-001",
+      "execution_required": true,
+      "output_id": "teacher-output-solution-001",
+      "output_kind": "SOLUTION"
+    }
+  ],
+  "teacher_terms_identity": "fixture-terms-compatible-v1",
+  "verifier_health": {
+    "health_class": "HEALTHY",
+    "independence": "INDEPENDENT",
+    "teacher_output_sole_authority": false,
+    "verifier_health_record_identity": "fixture-verifier-health-001",
+    "verifier_identity": "fixture-independent-verifier-v1"
+  }
+}

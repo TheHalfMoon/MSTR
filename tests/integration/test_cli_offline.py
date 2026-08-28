@@ -142,6 +142,7 @@ def test_validate_self_checks_schemas_and_fixtures(capsys: pytest.CaptureFixture
         "mstr-software-evolution-record-v0",
         "mstr-task-eligibility-v0",
         "mstr-task-node-v0",
+        "mstr-teacher-rescue-record-v0",
         "run-evidence",
         "storage-amendment",
         "task-manifest",
