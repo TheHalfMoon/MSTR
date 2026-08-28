@@ -1,0 +1,128 @@
+name: Corrected adversarial review B007 965fbdb
+
+on:
+  push:
+    branches: [evidence/b007-review2-965fbdb]
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 9b4e885f215fd922ecf79ff9e15bdb1479396668
+      EXPECTED_HEAD: 965fbdbf152272397ae6ef721260e806be5d251c
+      TARGET_BRANCH: feat/000b-b007-tokenizer-economics-v2
+      OLD_DONOR_MAIN: ead69ae26265b133c782ae8fd2795c126253a3b6
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/000b-b007-tokenizer-economics-v2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Adversarial scope provenance and authority review
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          git branch -f main "$EXPECTED_MAIN"
+          files=(
+            benchmarks/fixtures/tokenizer-economics/B007-corpus.json
+            benchmarks/manifests/B007-tokenizer-economics.json
+            evidence/mstr-000b/B007-tokenizer-protocol.md
+            specs/002-code-model-supremacy-foundation/contracts/b007-tokenizer-economics-corpus-v0.schema.json
+            specs/002-code-model-supremacy-foundation/contracts/b007-tokenizer-economics-protocol-v0.schema.json
+            tests/contract/test_b007_protocol_fail_closed.py
+            tests/contract/test_b007_tokenizer_economics.py
+          )
+          actual="$(git diff --name-only "$EXPECTED_MAIN"..."$EXPECTED_HEAD" | sort)"
+          expected="$(printf '%s\n' "${files[@]}" | sort)"
+          test "$actual" = "$expected"
+          git diff --check "$EXPECTED_MAIN"..."$EXPECTED_HEAD"
+          ! printf '%s\n' "$actual" | grep -Eq '^(src/|configs/task-gate/|artifacts/candidates/|specs/002-code-model-supremacy-foundation/tasks.md$)'
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          main=os.environ['EXPECTED_MAIN']; old=os.environ['OLD_DONOR_MAIN']
+          cp=Path('benchmarks/fixtures/tokenizer-economics/B007-corpus.json')
+          raw=cp.read_bytes(); corpus=json.loads(raw)
+          mp=Path('benchmarks/manifests/B007-tokenizer-economics.json')
+          manifest=json.loads(mp.read_text())
+          schema=Path('specs/002-code-model-supremacy-foundation/contracts/b007-tokenizer-economics-protocol-v0.schema.json').read_text()
+          evidence=Path('evidence/mstr-000b/B007-tokenizer-protocol.md').read_text()
+
+          assert manifest['canonical_main_sha']==main
+          assert old not in mp.read_text()
+          assert old not in schema
+          assert f'**Canonical main at execution:** `{main}`' in evidence
+          assert 'Donor review history (historical, non-authoritative)' in evidence
+          assert 'No donor review result, validation result, merge-readiness state, or canonical-state claim is inherited' in evidence
+          assert '**State:** IMPLEMENTATION_ACTIVE / NOT_COMPLETE_CANONICAL' in evidence
+
+          assert len(raw)==10951
+          assert hashlib.sha256(raw).hexdigest()=='425456fa39ae5dc67214b4871b1ac948c63bf9f0ae72a1407a5908d4a5c9e1d6'
+          assert hashlib.sha1(f'blob {len(raw)}\0'.encode()+raw).hexdigest()=='af4cf20b29f5884010e79565e394af41c5a42214'
+          entries=corpus['entries']; assert len(entries)==34
+          required={'python','typescript','javascript','rust','go','java','c','cpp','sql','shell','json','yaml','toml','diff','stack_trace','file_paths','tool_json'}
+          assert {e['category'] for e in entries}==required
+          for category in required:
+              group=[e for e in entries if e['category']==category]
+              assert len(group)==2
+              assert {e['profile'] for e in group}=={'baseline','adversarial'}
+          scope=manifest['claim_scope']
+          assert scope=='DETERMINISTIC_STRATIFIED_V0_FIXTURE_NOT_A_POPULATION_REPRESENTATIVE_SAMPLE',scope
+
+          authority=manifest['authority']
+          for key in (
+              'model_inference_authorized',
+              'model_weight_access_authorized',
+              'paid_compute_authorized',
+              'large_dataset_ingestion_authorized',
+              'tokenizer_measurement_authorized_by_b007',
+          ):
+              assert authority[key] is False,key
+          for phrase in (
+              'TOKENIZER_MEASUREMENT',
+              'NOT_AUTHORIZED',
+              'B008',
+          ):
+              assert phrase in evidence,phrase
+          print('B007_CORRECTED_ADVERSARIAL_SCOPE_PROVENANCE_AUTHORITY=PASS')
+          PY
+      - name: Adversarial fail-closed proof and frozen gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_b007_protocol_fail_closed.py tests/contract/test_b007_tokenizer_economics.py
+          python - <<'PY'
+          from mstr_qualify.task_gate import evaluate_task_snapshot
+          b7=evaluate_task_snapshot('B007',canonical_main='9b4e885f215fd922ecf79ff9e15bdb1479396668')
+          assert b7['eligible'] is True and b7['reasons']==[],b7
+          assert b7['state_consistency_result']['observed_state']=='PENDING',b7
+          assert b7['prerequisite_results'][0]['task_id']=='B006'
+          assert b7['prerequisite_results'][0]['satisfied'] is True
+          print('B007_REVIEW_TASK_STATE=PASS')
+          PY
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+      - name: Reviewer final immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo B007_CORRECTED_INDEPENDENT_ADVERSARIAL_REVIEW=PASS
