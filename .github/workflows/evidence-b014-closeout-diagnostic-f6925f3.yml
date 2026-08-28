@@ -50,7 +50,7 @@ jobs:
           tasks = tasks_path.read_text()
           heading = re.search(r'^- \[ \] \*\*B014 .+$', tasks, re.MULTILINE)
           assert heading, 'B014 unchecked heading missing'
-          replacement = heading.group(0).replace('- [ ]', '- [x]', 1)
+          replacement = heading.group(0).rstrip().replace('- [ ]', '- [x]', 1)
           replacement += (
               '\n  - Canonical implementation: PR #67 / final head '
               '`70d601c4fb1c0603b6e757969a3a97b8c77744d8` / merge '
