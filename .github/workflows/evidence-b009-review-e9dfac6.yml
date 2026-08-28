@@ -1,0 +1,182 @@
+name: Adversarial review exact B009 implementation head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: dd6c7a9b163f1f34e6cc3570da234078d39f4fce
+      EXPECTED_HEAD: e9dfac6cd30e451bd2380d4dbc1a455c154f5b05
+      TARGET_BRANCH: feat/000b-b009-training-runtime-compatibility-v2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e9dfac6cd30e451bd2380d4dbc1a455c154f5b05
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bind exact review identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_b009_training_runtime_compatibility.py
+          echo 'B009_REVIEW_BASELINE=PASS'
+
+      - name: Prove inventory omission fails closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp artifacts/decisions/B009-training-runtime-compatibility.json /tmp/b009.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('artifacts/decisions/B009-training-runtime-compatibility.json')
+          d = json.loads(p.read_text())
+          removed = d['serious_candidates'].pop()
+          p.write_text(json.dumps(d, indent=2, sort_keys=True) + '\n')
+          print('REMOVED_SERIOUS_CANDIDATE=' + removed['candidate_id'])
+          PY
+          if pytest -q tests/contract/test_b009_training_runtime_compatibility.py; then
+            echo 'ERROR: serious-candidate omission escaped the contract'
+            exit 1
+          fi
+          cp /tmp/b009.json artifacts/decisions/B009-training-runtime-compatibility.json
+          pytest -q tests/contract/test_b009_training_runtime_compatibility.py
+          echo 'B009_REVIEW_OMISSION_FAIL_CLOSED=PASS'
+
+      - name: Prove promotion escalation fails closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp artifacts/decisions/B009-training-runtime-compatibility.json /tmp/b009.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('artifacts/decisions/B009-training-runtime-compatibility.json')
+          d = json.loads(p.read_text())
+          d['serious_candidates'][0]['promotion_from_b009_allowed'] = True
+          p.write_text(json.dumps(d, indent=2, sort_keys=True) + '\n')
+          PY
+          if pytest -q tests/contract/test_b009_training_runtime_compatibility.py; then
+            echo 'ERROR: promotion escalation escaped the contract'
+            exit 1
+          fi
+          cp /tmp/b009.json artifacts/decisions/B009-training-runtime-compatibility.json
+          pytest -q tests/contract/test_b009_training_runtime_compatibility.py
+          echo 'B009_REVIEW_PROMOTION_FAIL_CLOSED=PASS'
+
+      - name: Prove fake execution PASS fails closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp artifacts/decisions/B009-training-runtime-compatibility.json /tmp/b009.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('artifacts/decisions/B009-training-runtime-compatibility.json')
+          d = json.loads(p.read_text())
+          d['serious_candidates'][0]['unsloth']['exact_train_save_export_status'] = 'PASS'
+          d['serious_candidates'][0]['llama_cpp']['runtime_status'] = 'PASS'
+          p.write_text(json.dumps(d, indent=2, sort_keys=True) + '\n')
+          PY
+          if pytest -q tests/contract/test_b009_training_runtime_compatibility.py; then
+            echo 'ERROR: fake execution PASS escaped the contract'
+            exit 1
+          fi
+          cp /tmp/b009.json artifacts/decisions/B009-training-runtime-compatibility.json
+          pytest -q tests/contract/test_b009_training_runtime_compatibility.py
+          echo 'B009_REVIEW_FAKE_PASS_FAIL_CLOSED=PASS'
+
+      - name: Prove authority escalation fails closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp artifacts/decisions/B009-training-runtime-compatibility.json /tmp/b009.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('artifacts/decisions/B009-training-runtime-compatibility.json')
+          d = json.loads(p.read_text())
+          keys = [k for k in d['authority_boundary'] if k != 'founder_machine_large_artifacts']
+          assert keys
+          d['authority_boundary'][keys[0]] = True
+          p.write_text(json.dumps(d, indent=2, sort_keys=True) + '\n')
+          print('ESCALATED_AUTHORITY_KEY=' + keys[0])
+          PY
+          if pytest -q tests/contract/test_b009_training_runtime_compatibility.py; then
+            echo 'ERROR: authority escalation escaped the contract'
+            exit 1
+          fi
+          cp /tmp/b009.json artifacts/decisions/B009-training-runtime-compatibility.json
+          pytest -q tests/contract/test_b009_training_runtime_compatibility.py
+          echo 'B009_REVIEW_AUTHORITY_FAIL_CLOSED=PASS'
+
+      - name: Review internal semantic consistency
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d = json.loads(Path('artifacts/decisions/B009-training-runtime-compatibility.json').read_text())
+          serious = d['serious_candidates']
+          refs = d['reference_candidates']
+          ids = [r['candidate_id'] for r in serious + refs]
+          assert len(ids) == len(set(ids)) == 19
+          assert len(serious) == 10 and len(refs) == 9
+          assert all(r['promotion_from_b009_allowed'] is False for r in serious + refs)
+          assert all(r['compatibility_scope'] == 'INFORMATIONAL_REFERENCE_ONLY' for r in refs)
+          for r in serious:
+              assert r['transformers']['exact_candidate_load_status'] == 'UNEXECUTED'
+              assert r['unsloth']['exact_train_save_export_status'] == 'UNEXECUTED'
+              assert r['peft']['exact_target_module_coverage_status'] == 'UNEXECUTED'
+              assert r['trl']['exact_candidate_training_status'] == 'UNEXECUTED'
+              assert r['llama_cpp']['conversion_status'] == 'UNEXECUTED'
+              assert r['llama_cpp']['quantization_status'] == 'UNEXECUTED'
+              assert r['llama_cpp']['runtime_status'] == 'UNVERIFIED'
+          evidence = Path('evidence/mstr-000b/B009-compatibility.md').read_text()
+          forbidden = [
+              'TRAINING_EXECUTION = PASS',
+              'MODEL_WEIGHT_ACCESS = PASS',
+              'CONVERSION_EXECUTION = PASS',
+              'QUANTIZATION_EXECUTION = PASS',
+              'B009_CAN_PROMOTE = YES',
+          ]
+          assert not any(x in evidence for x in forbidden)
+          assert 'Qwen3.5' in evidence
+          assert 'Ministral' in evidence
+          assert 'B010' in evidence
+          assert 'SOURCE_REGISTERED != RUNTIME_PASS' in evidence
+          print('B009_REVIEW_SEMANTIC_CONSISTENCY=PASS')
+          PY
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Final immutable identity recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B009_INDEPENDENT_ADVERSARIAL_REVIEW=PASS'
