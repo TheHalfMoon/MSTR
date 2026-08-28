@@ -1,0 +1,101 @@
+name: Independently review exact B019 drift repair
+
+on:
+  push:
+    branches:
+      - evidence/b019-drift-repair-review-19c255a
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: 1badcb9b159f99ed8f752a7412dfb5f52b995c01
+  EXPECTED_HEAD: 19c255a1aabe106bd991fdf9262fe34dec280068
+  TARGET_BRANCH: docs/000b-b019-entry-gate-drift-repair
+  PR_NUMBER: '80'
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b019-drift-repair-review-19c255a
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Bind immutable review target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
+          test "$(jq -r '.state' <<<"$pr")" = "open"
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$EXPECTED_HEAD"
+          git worktree add --detach /tmp/review-base "$EXPECTED_MAIN"
+          git worktree add --detach /tmp/review-head "$EXPECTED_HEAD"
+      - name: Audit exact scope and provenance truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(printf '%s\n' evidence/mstr-000b/B019-teacher-policy.md tests/contract/test_teacher_rescue_contract.py | sort)
+          actual=$(git -C /tmp/review-head diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          git -C /tmp/review-head diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          evidence=/tmp/review-head/evidence/mstr-000b/B019-teacher-policy.md
+          grep -Fx 'ENTRY_GATE_TASK = B019' "$evidence"
+          grep -Fx 'ENTRY_GATE_CANONICAL_MAIN = 2605846607fc98291ded4e53e9bb6bb6c3cf52a0' "$evidence"
+          grep -Fx 'ENTRY_GATE_RUN = 33190906137' "$evidence"
+          grep -Fx 'ENTRY_GATE_JOB = 98915802159' "$evidence"
+          grep -Fx 'ENTRY_GATE_ELIGIBLE = true' "$evidence"
+          grep -Fx 'ENTRY_GATE_DRIFT = clean' "$evidence"
+          grep -F 'test_b019_machine_readable_entry_gate_provenance' /tmp/review-head/tests/contract/test_teacher_rescue_contract.py
+      - name: Independently prove prospective drift clean
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/review-head
+          git update-ref refs/heads/main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          python -m pip install -e '.[dev]'
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          if mstr-qualify task eligible B019 > /tmp/b019.json; then exit 1; else test "$?" -eq 1; fi
+          mstr-qualify task eligible B020 > /tmp/b020.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "COMPLETE_CANONICAL"' /tmp/b019.json
+          jq -e '.eligible == true and .authority_result.required == false' /tmp/b020.json
+          jq -e '.state_consistency_result.observed_state == "BLOCKED" and .authority_result.satisfied == false' /tmp/b011.json
+      - name: Re-run focused repair regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/review-head
+          pytest -q tests/contract/test_teacher_rescue_contract.py tests/unit/test_task_drift.py tests/integration/test_task_drift_cli.py
+      - name: Re-run frozen full quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/review-head
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+      - name: Final immutable review target recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
+          test "$(jq -r '.state' <<<"$pr")" = "open"
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$EXPECTED_HEAD"
