@@ -1,0 +1,28 @@
+name: Diagnose B017 Ruff configured command
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  ruff:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e0d4a64929376f91a7aef502abedc2bc4645afbc
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e '.[dev]'
+      - name: Configured command
+        continue-on-error: true
+        run: ruff check src tests
+      - name: Explicit configured families
+        continue-on-error: true
+        run: ruff check src tests --select E,F,I,UP,B
+      - name: Configured command no cache
+        continue-on-error: true
+        run: ruff check src tests --no-cache
