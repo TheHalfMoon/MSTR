@@ -1,0 +1,143 @@
+name: Repair B010 closeout entry provenance
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 215d52f4de772639c5e64193ff48deaafb6eb2d7
+      TARGET_BRANCH: docs/000b-b010-canonicalize
+      SOURCE_HEAD: b0e4571056cffd34cd34fb4db4e7f16c7b7f7d8c
+      SOURCE_WORKFLOW: .github/workflows/evidence-b010-closeout-build-215d52f.yml
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/000b-b010-canonicalize
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Bind exact unchanged closeout target and source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH" evidence/b010-closeout-build-215d52f
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git cat-file -e "$SOURCE_HEAD^{commit}"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B010_CLOSEOUT_REPAIR_BINDING=PASS'
+
+      - name: Extract proven closeout builder bodies
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$SOURCE_HEAD:$SOURCE_WORKFLOW" > /tmp/source.yml
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path('/tmp/source.yml').read_text(encoding='utf-8')
+
+          def extract(step_name: str, destination: str) -> None:
+              marker = f'      - name: {step_name}\n'
+              start = source.index(marker)
+              run_marker = '        run: |\n'
+              body_start = source.index(run_marker, start) + len(run_marker)
+              next_step = source.find('\n      - name: ', body_start)
+              raw = source[body_start:] if next_step == -1 else source[body_start:next_step]
+              lines = raw.splitlines()
+              body = [line[10:] if line.startswith('          ') else line for line in lines]
+              Path(destination).write_text('\n'.join(body) + '\n', encoding='utf-8')
+
+          extract('Guard exact remote closeout entry', '/tmp/guard.sh')
+          extract('Materialize exact five-file closeout', '/tmp/materialize.sh')
+          extract('Simulate closeout candidate as canonical main and run frozen gates', '/tmp/simulate.sh')
+          extract('Restore remote truth and push target only', '/tmp/push.sh')
+          PY
+          bash -n /tmp/guard.sh
+          bash -n /tmp/materialize.sh
+          bash -n /tmp/simulate.sh
+          bash -n /tmp/push.sh
+          echo 'B010_CLOSEOUT_REPAIR_EXTRACTION=PASS'
+
+      - name: Re-prove remote closeout entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash /tmp/guard.sh
+
+      - name: Materialize original five-file closeout candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash /tmp/materialize.sh
+
+      - name: Bind parser-readable B010 entry provenance and amend
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('evidence/mstr-000b/B010-weight-access-preflight.md')
+          text = path.read_text(encoding='utf-8')
+          marker = '**Post-implementation verification:** run `33163418160` / job `98823047750`\n'
+          assert text.count(marker) == 1
+          assert 'ENTRY_GATE_TASK = B010' not in text
+          entry_lines = [
+              '',
+              '## Exact entry evidence',
+              '',
+              '```text',
+              'ENTRY_GATE_TASK = B010',
+              'ENTRY_GATE_CANONICAL_MAIN = e3ee155a7e0ed491984908998546900e594bda9a',
+              'ENTRY_GATE_RUN = 33161954193',
+              'ENTRY_GATE_JOB = 98818272943',
+              'ENTRY_GATE_ELIGIBLE = true',
+              'ENTRY_GATE_DRIFT = clean',
+              '```',
+              '',
+          ]
+          entry = '\n'.join(entry_lines)
+          path.write_text(text.replace(marker, marker + entry, 1), encoding='utf-8')
+          PY
+          git diff --check
+          git add evidence/mstr-000b/B010-weight-access-preflight.md
+          git diff --cached --check
+          git commit --amend --no-edit
+          candidate=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          expected=$(printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B010-weight-access-preflight.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$candidate" | sort)
+          test "$actual" = "$expected"
+          git diff --quiet "$EXPECTED_MAIN" -- artifacts/manifests/B010-new-candidate-weight-access.json
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo "B010_CLOSEOUT_REPAIRED_LOCAL_HEAD=$candidate"
+
+      - name: Simulate repaired closeout and run all frozen gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash /tmp/simulate.sh
+
+      - name: Restore live refs and push target only after PASS
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash /tmp/push.sh
+          echo "B010_CLOSEOUT_REPAIR_RUN=$GITHUB_RUN_ID"
