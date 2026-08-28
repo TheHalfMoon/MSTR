@@ -1,0 +1,211 @@
+name: Build and qualify B014 canonical closeout
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: f6925f3e0d8378fedd6ec1d3aed30b725115e07e
+      TARGET_BRANCH: docs/000b-b014-canonicalize
+      IMPLEMENTATION_HEAD: 70d601c4fb1c0603b6e757969a3a97b8c77744d8
+      IMPLEMENTATION_MERGE: f6925f3e0d8378fedd6ec1d3aed30b725115e07e
+      ENTRY_MAIN: 90cf98f5f87b64f8e6da50a8444b1b598148f945
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f6925f3e0d8378fedd6ec1d3aed30b725115e07e
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Guard exact closeout entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B014_CLOSEOUT_ENTRY=PASS'
+      - name: Materialize exact five-file closeout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          catalog_path = Path('configs/task-gate/mstr-000b.json')
+          catalog = catalog_path.read_text()
+          old = '"B014": {\n      "canonical_state": "PENDING",'
+          new = '"B014": {\n      "canonical_state": "COMPLETE_CANONICAL",'
+          assert catalog.count(old) == 1
+          catalog_path.write_text(catalog.replace(old, new, 1))
+
+          tasks_path = Path('specs/002-code-model-supremacy-foundation/tasks.md')
+          tasks = tasks_path.read_text()
+          heading = re.search(r'^- \[ \] \*\*B014 .+$', tasks, re.MULTILINE)
+          assert heading, 'B014 unchecked heading missing'
+          replacement = heading.group(0).rstrip().replace('- [ ]', '- [x]', 1)
+          replacement += (
+              '\n  - Canonical implementation: PR #67 / final head '
+              '`70d601c4fb1c0603b6e757969a3a97b8c77744d8` / merge '
+              '`f6925f3e0d8378fedd6ec1d3aed30b725115e07e`'
+          )
+          tasks_path.write_text(tasks[:heading.start()] + replacement + tasks[heading.end():])
+
+          evidence_path = Path('evidence/mstr-000b/B014-data-constitution.md')
+          evidence = evidence_path.read_text()
+          assert '**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT' in evidence
+          assert '**Implementation PR:**' not in evidence
+          evidence = evidence.replace(
+              '**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT',
+              '**State:** COMPLETE_CANONICAL',
+              1,
+          )
+          anchor = '**Task:** `B014`\n'
+          assert evidence.count(anchor) == 1
+          metadata = (
+              '**Implementation PR:** #67\n'
+              '**Final implementation head:** `70d601c4fb1c0603b6e757969a3a97b8c77744d8`\n'
+              '**Canonical implementation merge:** `f6925f3e0d8378fedd6ec1d3aed30b725115e07e`\n'
+          )
+          evidence = evidence.replace(anchor, anchor + metadata, 1)
+          assert 'ENTRY_GATE_TASK = B014' not in evidence
+          evidence += (
+              '\n## Canonical entry provenance\n\n```text\n'
+              'ENTRY_GATE_TASK = B014\n'
+              'ENTRY_GATE_CANONICAL_MAIN = 90cf98f5f87b64f8e6da50a8444b1b598148f945\n'
+              'ENTRY_GATE_RUN = 33164424310\n'
+              'ENTRY_GATE_JOB = 98826328509\n'
+              'ENTRY_GATE_ELIGIBLE = true\n'
+              'ENTRY_GATE_DRIFT = clean\n'
+              '```\n'
+          )
+          evidence_path.write_text(evidence)
+
+          contract_path = Path('tests/contract/test_task_gate.py')
+          contract = contract_path.read_text()
+          assert 'test_b014_is_terminal_after_canonical_closeout' not in contract
+          contract += '''\n\ndef test_b014_is_terminal_after_canonical_closeout() -> None:\n    result = evaluate_task_snapshot("B014", canonical_main=_CANONICAL_MAIN)\n\n    assert result["eligible"] is False\n    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"\n    assert result["state_consistency_result"]["satisfied"] is True\n    assert "task.already_terminal" in result["reasons"]\n    validate_instance("mstr-task-eligibility-v0", result)\n\n\n@pytest.mark.parametrize("task_id", ["B015", "B016", "B018", "B020", "B022", "B025"])\ndef test_b014_closeout_opens_direct_nongated_successors(task_id: str) -> None:\n    result = evaluate_task_snapshot(task_id, canonical_main=_CANONICAL_MAIN)\n\n    assert result["eligible"] is True\n    assert result["reasons"] == []\n    assert result["state_consistency_result"]["observed_state"] == "PENDING"\n    assert result["authority_result"]["required"] is False\n    assert result["authority_result"]["satisfied"] is True\n    predecessor = next(\n        item for item in result["prerequisite_results"] if item["task_id"] == "B014"\n    )\n    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"\n    assert predecessor["evidence_present"] is True\n    assert predecessor["satisfied"] is True\n    assert predecessor["reasons"] == []\n    validate_instance("mstr-task-eligibility-v0", result)\n\n\ndef test_b014_closeout_does_not_authorize_b011_weight_access() -> None:\n    result = evaluate_task_snapshot("B011", canonical_main=_CANONICAL_MAIN)\n\n    assert result["eligible"] is False\n    assert result["state_consistency_result"]["observed_state"] == "BLOCKED"\n    assert result["authority_result"]["required"] is True\n    assert result["authority_result"]["satisfied"] is False\n    assert result["authority_result"]["authority_id"] == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"\n    validate_instance("mstr-task-eligibility-v0", result)\n'''
+          contract_path.write_text(contract)
+
+          integration_path = Path('tests/integration/test_task_gate_cli.py')
+          integration = integration_path.read_text()
+          assert 'test_task_eligible_b014_terminal_returns_one' not in integration
+          integration += '''\n\ndef test_task_eligible_b014_terminal_returns_one(\n    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]\n) -> None:\n    expected = evaluate_task_snapshot("B014", canonical_main=_CANONICAL_MAIN)\n\n    def fake_evaluate_task_eligibility(task_id: str) -> dict[str, object]:\n        assert task_id == "B014"\n        return expected\n\n    monkeypatch.setattr(\n        "mstr_qualify.cli.evaluate_task_eligibility", fake_evaluate_task_eligibility\n    )\n    exit_code = main(["task", "eligible", "B014"])\n    payload = _stdout_json(capsys)\n    assert exit_code == 1\n    assert payload == expected\n    assert payload["eligible"] is False\n    assert "task.already_terminal" in payload["reasons"]\n    validate_instance("mstr-task-eligibility-v0", payload)\n'''
+          integration_path.write_text(integration)
+          PY
+          git diff --check
+          expected=$(printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B014-data-constitution.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort)
+          actual=$(git diff --name-only | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only | wc -l)" -eq 5
+          echo 'B014_CLOSEOUT_SCOPE=PASS'
+      - name: Commit candidate and simulate canonical truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add configs/task-gate/mstr-000b.json evidence/mstr-000b/B014-data-constitution.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          git commit -m 'docs(mstr-000b): canonicalize B014 closeout'
+          CANDIDATE=$(git rev-parse HEAD)
+          echo "CANDIDATE=$CANDIDATE" >> "$GITHUB_ENV"
+          git branch -f main "$CANDIDATE"
+          git update-ref refs/remotes/origin/main "$CANDIDATE"
+          python -m pip install -e '.[dev]'
+          if python -m mstr_qualify task eligible B014 > /tmp/b014.json; then
+            echo 'B014 unexpectedly execution-eligible after terminal closeout' >&2
+            exit 1
+          fi
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then
+            echo 'B011 unexpectedly eligible' >&2
+            exit 1
+          fi
+          for task in B015 B016 B018 B020 B022 B025; do
+            python -m mstr_qualify task eligible "$task" > "/tmp/$task.json"
+          done
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          b14 = json.load(open('/tmp/b014.json'))
+          assert b14['eligible'] is False
+          assert b14['state_consistency_result']['observed_state'] == 'COMPLETE_CANONICAL'
+          assert b14['state_consistency_result']['satisfied'] is True
+          assert 'task.already_terminal' in b14['reasons']
+          for task in ['B015', 'B016', 'B018', 'B020', 'B022', 'B025']:
+              payload = json.load(open(f'/tmp/{task}.json'))
+              assert payload['eligible'] is True, (task, payload['reasons'])
+              assert payload['reasons'] == []
+              assert payload['authority_result']['required'] is False
+              predecessor = next(item for item in payload['prerequisite_results'] if item['task_id'] == 'B014')
+              assert predecessor['observed_state'] == 'COMPLETE_CANONICAL'
+              assert predecessor['evidence_present'] is True
+              assert predecessor['satisfied'] is True
+          b11 = json.load(open('/tmp/b011.json'))
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          drift = json.load(open('/tmp/drift.json'))
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B014_CLOSEOUT_MACHINE_TRUTH=PASS')
+          PY
+      - name: Run targeted and frozen repository gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/contract/test_data_constitution_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check "$EXPECTED_MAIN...$CANDIDATE"
+          expected=$(printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B014-data-constitution.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$CANDIDATE" | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$CANDIDATE" | wc -l)" -eq 5
+          for p in docs/data/MSTR_DATA_CONSTITUTION.md schemas/mstr-data-constitution-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json src/mstr_qualify/cli.py src/mstr_qualify/schemas.py tests/contract/test_data_constitution_contract.py tests/contract/test_schemas.py tests/fixtures/schemas/invalid/mstr-data-constitution-v0.json tests/fixtures/schemas/valid/mstr-data-constitution-v0.json tests/integration/test_cli_offline.py; do
+            test "$(git rev-parse "$CANDIDATE:$p")" = "$(git rev-parse "$EXPECTED_MAIN:$p")"
+          done
+          echo 'B014_CLOSEOUT_FROZEN_GATES=PASS'
+      - name: Restore live truth and push target only after PASS
+        shell: bash
+        run: |
+          set -euo pipefail
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse "$CANDIDATE^")" = "$EXPECTED_MAIN"
+          git push origin "$CANDIDATE:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$CANDIDATE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo "B014_CLOSEOUT_HEAD=$CANDIDATE"
+          echo 'B014_CLOSEOUT_BUILD=PASS'
+          echo 'B011_REMAINS_BLOCKED=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
