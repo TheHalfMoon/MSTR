@@ -1,0 +1,49 @@
+name: Diagnose B017 post-closeout task gate
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: 4919891be2e10c84a4c57a420ee2884d72da4e93
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: python -m pip install -e '.[dev]'
+      - name: Capture exact task-gate outcomes
+        shell: bash
+        run: |
+          set -u
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN" || exit 91
+          set +e
+          python -m mstr_qualify task eligible B017 > /tmp/b017.json
+          b17_rc=$?
+          python -m mstr_qualify task eligible B018 > /tmp/b018.json
+          b18_rc=$?
+          python -m mstr_qualify task eligible B011 > /tmp/b011.json
+          b11_rc=$?
+          python -m mstr_qualify task drift > /tmp/drift.json
+          drift_rc=$?
+          set -e
+          echo "B017_RC=$b17_rc"
+          cat /tmp/b017.json
+          echo "B018_RC=$b18_rc"
+          cat /tmp/b018.json
+          echo "B011_RC=$b11_rc"
+          cat /tmp/b011.json
+          echo "DRIFT_RC=$drift_rc"
+          cat /tmp/drift.json
+          python - <<'PY'
+          import json
+          for name in ('b017','b018','b011','drift'):
+              with open(f'/tmp/{name}.json', encoding='utf-8') as f:
+                  json.load(f)
+          PY
