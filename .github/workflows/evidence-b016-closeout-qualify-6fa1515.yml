@@ -1,0 +1,134 @@
+name: Qualify exact B016 closeout head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 5ed34690dbc71db2359c927e96b511c32dffb2c4
+      EXPECTED_HEAD: 6fa15157f8e02ed71be3744b8c276cdc410765bd
+      TARGET_BRANCH: docs/000b-b016-canonicalize
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6fa15157f8e02ed71be3744b8c276cdc410765bd
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact closeout identity and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          expected=$(printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B016-software-evolution.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_software_evolution_contract.py \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | wc -l)" -eq 6
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          echo 'B016_CLOSEOUT_EXACT_IDENTITY=PASS'
+      - name: Prove B016 implementation semantics are immutable
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in \
+            schemas/mstr-software-evolution-record-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-software-evolution-record-v0.schema.json \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/fixtures/schemas/invalid/mstr-software-evolution-record-v0.json \
+            tests/fixtures/schemas/valid/mstr-software-evolution-record-v0.json; do
+            git diff --quiet "$EXPECTED_MAIN" "$EXPECTED_HEAD" -- "$path"
+          done
+          cmp schemas/mstr-software-evolution-record-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-software-evolution-record-v0.schema.json
+          echo 'B016_CLOSEOUT_SEMANTICS_IMMUTABLE=PASS'
+      - name: Re-prove terminal and next-task machine truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          if python -m mstr_qualify task eligible B016 > /tmp/b016.json; then exit 1; fi
+          python -m mstr_qualify task eligible B017 > /tmp/b017.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          b16 = json.load(open('/tmp/b016.json'))
+          assert b16['eligible'] is False
+          assert b16['state_consistency_result']['observed_state'] == 'COMPLETE_CANONICAL'
+          assert b16['state_consistency_result']['satisfied'] is True
+          assert 'task.already_terminal' in b16['reasons']
+
+          b17 = json.load(open('/tmp/b017.json'))
+          assert b17['eligible'] is True and b17['reasons'] == []
+          assert b17['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b17['authority_result']['required'] is False
+          pred = next(x for x in b17['prerequisite_results'] if x['task_id'] == 'B016')
+          assert pred['observed_state'] == 'COMPLETE_CANONICAL'
+          assert pred['evidence_present'] is True and pred['satisfied'] is True
+
+          b11 = json.load(open('/tmp/b011.json'))
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+
+          drift = json.load(open('/tmp/drift.json'))
+          assert drift['status'] == 'clean' and drift['findings'] == []
+
+          evidence = Path('evidence/mstr-000b/B016-software-evolution.md').read_text(encoding='utf-8')
+          assert '**State:** COMPLETE_CANONICAL' in evidence
+          assert '**Implementation PR:** #71' in evidence
+          assert '**Final implementation head:** `33eb53b7ae4c2fd43d639af9c6e67512fb883423`' in evidence
+          assert '**Canonical implementation merge:** `5ed34690dbc71db2359c927e96b511c32dffb2c4`' in evidence
+          assert 'ENTRY_GATE_CANONICAL_MAIN = 2cd82ba78bcb886962a163013fa2861d5dd2b013' in evidence
+          assert 'ENTRY_GATE_RUN = 33171129526' in evidence
+          assert 'ENTRY_GATE_JOB = 98848292231' in evidence
+          assert 'ENTRY_GATE_ELIGIBLE = true' in evidence
+          assert 'ENTRY_GATE_DRIFT = clean' in evidence
+          print('B016_CLOSEOUT_MACHINE_REQUALIFICATION=PASS')
+          PY
+      - name: Run frozen exact-head gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_software_evolution_contract.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          echo 'B016_CLOSEOUT_EXACT_HEAD_GATES=PASS'
+      - name: Final immutable remote recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B016_CLOSEOUT_QUALIFICATION=PASS'
+          echo 'B017_NEXT_ELIGIBLE=PASS'
+          echo 'B011_REMAINS_BLOCKED=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
