@@ -32,6 +32,8 @@ jobs:
           python -m py_compile tools/evidence/build_b019_candidate.py
           git worktree add --detach /tmp/b019 "$EXPECTED_MAIN"
           test "$(git -C /tmp/b019 rev-parse HEAD)" = "$EXPECTED_MAIN"
+          git -C /tmp/b019 update-ref refs/heads/main "$EXPECTED_MAIN"
+          test "$(git -C /tmp/b019 rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
           test -z "$(git -C /tmp/b019 status --porcelain)"
       - name: Materialize bounded teacher-rescue contract candidate
         shell: bash
@@ -92,6 +94,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
           python -m mstr_qualify task eligible B019 > /tmp/b019.json
           if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
           python -m mstr_qualify task drift > /tmp/drift.json
@@ -116,6 +119,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
           test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
           git config user.name "TheHalfMoon"
