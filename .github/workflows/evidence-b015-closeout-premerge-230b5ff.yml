@@ -1,0 +1,109 @@
+name: Enforce B015 closeout premerge gate
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  premerge:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 5104f7ef63ba37caa518868ad89d0f78fe70641f
+      EXPECTED_HEAD: 230b5ffd02990fe67fee0f2b76002f24ab27f82a
+      TARGET_BRANCH: docs/000b-b015-canonicalize
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5104f7ef63ba37caa518868ad89d0f78fe70641f
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Rebind exact live main and target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse "$EXPECTED_HEAD^")" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B015_CLOSEOUT_PREMERGE_IDENTITY=PASS'
+      - name: Re-run mandatory B002 gate on exact current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B015 > /tmp/b015-main.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011-main.json; then exit 1; fi
+          python -m mstr_qualify task drift > /tmp/drift-main.json
+          python - <<'PY'
+          import json
+          import os
+          b15 = json.load(open('/tmp/b015-main.json'))
+          b11 = json.load(open('/tmp/b011-main.json'))
+          drift = json.load(open('/tmp/drift-main.json'))
+          assert b15['canonical_main'] == os.environ['EXPECTED_MAIN']
+          assert b15['eligible'] is True and b15['reasons'] == []
+          assert b15['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b15['authority_result']['required'] is False
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B015_CLOSEOUT_EXACT_MAIN_PREMERGE_ELIGIBILITY=PASS')
+          PY
+      - name: Reconfirm exact closeout candidate truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach "$EXPECTED_HEAD"
+          git branch -f main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          if python -m mstr_qualify task eligible B015 > /tmp/b015-closeout.json; then exit 1; fi
+          if python -m mstr_qualify task eligible B011 > /tmp/b011-closeout.json; then exit 1; fi
+          python -m mstr_qualify task eligible B016 > /tmp/b016.json
+          python -m mstr_qualify task drift > /tmp/drift-closeout.json
+          python - <<'PY'
+          import json
+          b15 = json.load(open('/tmp/b015-closeout.json'))
+          b16 = json.load(open('/tmp/b016.json'))
+          b11 = json.load(open('/tmp/b011-closeout.json'))
+          drift = json.load(open('/tmp/drift-closeout.json'))
+          assert b15['eligible'] is False
+          assert b15['state_consistency_result']['observed_state'] == 'COMPLETE_CANONICAL'
+          assert 'task.already_terminal' in b15['reasons']
+          assert b16['eligible'] is True and b16['reasons'] == []
+          assert b16['authority_result']['required'] is False
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B015_CLOSEOUT_CANDIDATE_PREMERGE_TRUTH=PASS')
+          PY
+          pytest -q tests/contract/test_b015_language_target_policy.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          echo 'B015_CLOSEOUT_PREMERGE_SMOKE=PASS'
+      - name: Final immutable remote recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B015_CLOSEOUT_PREMERGE=PASS'
+          echo 'B011_REMAINS_BLOCKED=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
