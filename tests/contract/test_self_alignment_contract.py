@@ -397,3 +397,29 @@ def test_b018_does_not_claim_b020_or_b022_authority() -> None:
     )
     assert "B020_DIFFICULTY_CALIBRATION_AUTHORITY = NONE" in evidence
     assert "B022_VERIFIER_HEALTH_AUTHORITY = NONE" in evidence
+
+
+def test_b018_canonical_closeout_provenance_and_authority_boundary() -> None:
+    evidence = (
+        ROOT / "evidence" / "mstr-000b" / "B018-self-alignment-contract.md"
+    ).read_text(encoding="utf-8")
+    assert "**State:** COMPLETE_CANONICAL" in evidence
+    assert "**Implementation PR:** #76" in evidence
+    assert (
+        "**Final implementation head:** "
+        "`23c83ebae95ca3f0d893840e9d994b33712f124f`" in evidence
+    )
+    assert (
+        "**Canonical implementation merge:** "
+        "`7e4996e92128e4e02ec6dbcf6ed29eed2b753838`" in evidence
+    )
+    assert "run `33188891501` — SUCCESS" in evidence
+    assert "run `33189093479` / job `98909650689` — SUCCESS" in evidence
+    assert "run `33189307397` — SUCCESS" in evidence
+    assert "run `33189815147` — SUCCESS" in evidence
+    assert "MODEL_WEIGHT_ACCESS = NONE" in evidence
+    assert "MODEL_EXECUTION = NONE" in evidence
+    assert "LARGE_DATASET_INGESTION = NONE" in evidence
+    assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
+    assert "B020_DIFFICULTY_CALIBRATION_AUTHORITY = NONE" in evidence
+    assert "B022_VERIFIER_HEALTH_AUTHORITY = NONE" in evidence

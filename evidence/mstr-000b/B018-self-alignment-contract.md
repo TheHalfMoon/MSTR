@@ -1,7 +1,10 @@
 # B018 — Execution-Filtered Student Self-Alignment Contract
 
 **Task:** `B018`
-**State:** IMPLEMENTATION_CANDIDATE
+**Implementation PR:** #76
+**Final implementation head:** `23c83ebae95ca3f0d893840e9d994b33712f124f`
+**Canonical implementation merge:** `7e4996e92128e4e02ec6dbcf6ed29eed2b753838`
+**State:** COMPLETE_CANONICAL
 **Contract:** `mstr.self-alignment-generation.v0`
 **Canonical main at execution:** `73b60aa9421f51be52560bbbca6e8dd46b77b6c9`
 **Exact entry evidence:** run `33185451160` / job `98897160421` — SUCCESS
@@ -159,3 +162,17 @@ B022_VERIFIER_HEALTH_AUTHORITY = NONE
 B020_BINDING_SURFACE = difficulty_record_identity + exact student/harness/sampling identity
 B022_BINDING_SURFACE = verifier_health_record_identity + verifier identity/health snapshot
 ```
+
+## Canonical Implementation Closeout
+
+The contract implementation was merged without widening authority, data scope, or external effects.
+
+- implementation PR: `#76`
+- final implementation head: `23c83ebae95ca3f0d893840e9d994b33712f124f`
+- canonical implementation merge: `7e4996e92128e4e02ec6dbcf6ed29eed2b753838`
+- exact-final-head qualification: run `33188891501` — SUCCESS
+- independent adversarial review: run `33189093479` / job `98909650689` — SUCCESS
+- mandatory pre-merge verification: run `33189307397` — SUCCESS
+- post-merge implementation verification: run `33189815147` — SUCCESS
+
+This closeout changes only canonical task/provenance state and regression assertions. It grants no model-weight access, model execution, paid compute, large-data ingestion, training, B020 difficulty-calibration authority, B022 verifier-health authority, or production release authority. B011 remains blocked.

@@ -1194,7 +1194,35 @@ def test_b017_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-@pytest.mark.parametrize("task_id", ["B018", "B020", "B022", "B025"])
+def test_b018_is_terminal_after_canonical_closeout() -> None:
+    result = evaluate_task_snapshot("B018", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert result["authority_result"]["required"] is False
+    assert "task.already_terminal" in result["reasons"]
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b018_closeout_opens_b019_teacher_policy() -> None:
+    result = evaluate_task_snapshot("B019", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is True
+    assert result["reasons"] == []
+    assert result["state_consistency_result"]["observed_state"] == "PENDING"
+    assert result["authority_result"]["required"] is False
+    predecessor = next(
+        item for item in result["prerequisite_results"] if item["task_id"] == "B018"
+    )
+    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
+    assert predecessor["evidence_present"] is True
+    assert predecessor["satisfied"] is True
+    assert predecessor["reasons"] == []
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+@pytest.mark.parametrize("task_id", ["B020", "B022", "B025"])
 def test_b014_closeout_opens_direct_nongated_successors(task_id: str) -> None:
     result = evaluate_task_snapshot(task_id, canonical_main=_CANONICAL_MAIN)
 
