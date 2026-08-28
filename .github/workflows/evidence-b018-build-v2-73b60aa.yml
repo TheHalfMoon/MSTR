@@ -46,40 +46,35 @@ jobs:
 
           schemas_test = root / "tests/contract/test_schemas.py"
           schemas_text = schemas_test.read_text(encoding="utf-8")
-          schemas_anchor = '''    "mstr-software-evolution-record-v0": (
-              ROOT
-              / "specs"
-              / "002-code-model-supremacy-foundation"
-              / "contracts"
-              / "mstr-software-evolution-record-v0.schema.json"
-          ),
-          '''
-          if schemas_text.count(schemas_anchor) != 1:
-              raise SystemExit("test_schemas.py B016 override anchor mismatch")
-          schemas_replacement = schemas_anchor + '''    "mstr-self-alignment-generation-v0": (
-              ROOT
-              / "specs"
-              / "002-code-model-supremacy-foundation"
-              / "contracts"
-              / "mstr-self-alignment-generation-v0.schema.json"
-          ),
-          '''
+          schemas_marker = '    "mstr-software-evolution-record-v0": (\n'
+          if schemas_text.count(schemas_marker) != 1:
+              raise SystemExit("test_schemas.py B016 override marker mismatch")
+          schemas_entry = (
+              '    "mstr-self-alignment-generation-v0": (\n'
+              '        ROOT\n'
+              '        / "specs"\n'
+              '        / "002-code-model-supremacy-foundation"\n'
+              '        / "contracts"\n'
+              '        / "mstr-self-alignment-generation-v0.schema.json"\n'
+              '    ),\n'
+          )
           schemas_test.write_text(
-              schemas_text.replace(schemas_anchor, schemas_replacement), encoding="utf-8"
+              schemas_text.replace(schemas_marker, schemas_entry + schemas_marker),
+              encoding="utf-8",
           )
 
           cli_test = root / "tests/integration/test_cli_offline.py"
           cli_text = cli_test.read_text(encoding="utf-8")
-          cli_anchor = '''        "mstr-run-event-v0",
-                  "mstr-software-evolution-record-v0",
-          '''
-          if cli_text.count(cli_anchor) != 1:
-              raise SystemExit("test_cli_offline.py schema-list anchor mismatch")
-          cli_replacement = '''        "mstr-run-event-v0",
-                  "mstr-self-alignment-generation-v0",
-                  "mstr-software-evolution-record-v0",
-          '''
-          cli_test.write_text(cli_text.replace(cli_anchor, cli_replacement), encoding="utf-8")
+          cli_marker = '        "mstr-software-evolution-record-v0",\n'
+          if cli_text.count(cli_marker) != 1:
+              raise SystemExit("test_cli_offline.py schema-list marker mismatch")
+          cli_test.write_text(
+              cli_text.replace(
+                  cli_marker,
+                  '        "mstr-self-alignment-generation-v0",\n' + cli_marker,
+              ),
+              encoding="utf-8",
+          )
           PY
           expected=$(printf '%s\n' \
             schemas/mstr-self-alignment-generation-v0.schema.json \
