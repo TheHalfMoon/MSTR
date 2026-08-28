@@ -1,0 +1,182 @@
+name: Build B006 canonical closeout c96e2fb
+
+on:
+  push:
+    branches: [evidence/b006-closeout-build-c96e2fb]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: c96e2fb228a7f3fb0399484a9e6bb1e1d1eb086c
+      TARGET_BRANCH: docs/000b-b006-canonicalize
+      IMPLEMENTATION_PR: '57'
+      IMPLEMENTATION_HEAD: 98b549e9d8b2550725861e133ee8f909690dc9c8
+      IMPLEMENTATION_MERGE: c96e2fb228a7f3fb0399484a9e6bb1e1d1eb086c
+      QUALIFY_RUN: '33146528197'
+      QUALIFY_JOB: '98768693522'
+      REVIEW_RUN: '33146704635'
+      REVIEW_JOB: '98769231950'
+      POSTMERGE_RUN: '33146803658'
+      POSTMERGE_JOB: '98769528432'
+      ENTRY_RUN: '33145225542'
+      ENTRY_JOB: '98764633198'
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - name: Checkout closeout target
+        uses: actions/checkout@v4
+        with:
+          ref: docs/000b-b006-canonicalize
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Guard canonical entry and install
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B006 > /tmp/b006-entry.json
+          python -m mstr_qualify task drift > /tmp/drift-entry.json
+          python - <<'PY'
+          import json, os
+          b=json.load(open('/tmp/b006-entry.json'))
+          d=json.load(open('/tmp/drift-entry.json'))
+          assert b['canonical_main']==os.environ['EXPECTED_MAIN'] and b['task_id']=='B006'
+          assert b['eligible'] is True and b['reasons']==[],b
+          assert b['state_consistency_result']['observed_state']=='PENDING',b
+          assert d['canonical_main']==os.environ['EXPECTED_MAIN'] and d['status']=='clean' and d['findings']==[],d
+          print('B006_CLOSEOUT_ENTRY=PASS')
+          PY
+      - name: Apply exact five-file closeout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import json, os, re
+
+          # 1) Machine state.
+          cfg_path=Path('configs/task-gate/mstr-000b.json')
+          cfg=json.loads(cfg_path.read_text())
+          assert cfg['tasks']['B006']['canonical_state']=='PENDING'
+          assert cfg['tasks']['B007']['canonical_state']=='PENDING'
+          assert cfg['tasks']['B007']['prerequisites']==['B006']
+          cfg['tasks']['B006']['canonical_state']='COMPLETE_CANONICAL'
+          cfg_path.write_text(json.dumps(cfg, indent=2) + '\n')
+
+          # 2) Canonical task checkbox + implementation identity.
+          tasks_path=Path('specs/002-code-model-supremacy-foundation/tasks.md')
+          tasks=tasks_path.read_text()
+          old='- [ ] **B006 Create/reconcile candidate records for newly relevant code-specialized models.**'
+          new='- [x] **B006 Create/reconcile candidate records for newly relevant code-specialized models.**'
+          assert tasks.count(old)==1
+          tasks=tasks.replace(old,new,1)
+          marker='  Outputs: `artifacts/candidates/*.json`, `evidence/mstr-000b/candidates/*.md`.\n'
+          assert tasks.count(marker)>=1
+          identity=(marker + '  Canonical implementation: PR #57 / final head `98b549e9d8b2550725861e133ee8f909690dc9c8` / merge `c96e2fb228a7f3fb0399484a9e6bb1e1d1eb086c`.\n')
+          # Insert only into B006 section.
+          b6_start=tasks.index(new)
+          b7_start=tasks.index('- [ ] **B007 Freeze tokenizer-economics benchmark corpus/protocol.**', b6_start)
+          section=tasks[b6_start:b7_start]
+          assert section.count(marker)==1
+          section=section.replace(marker,identity,1)
+          tasks=tasks[:b6_start]+section+tasks[b7_start:]
+          tasks_path.write_text(tasks)
+
+          # 3) Canonical evidence identity and closeout proof.
+          ev_path=Path('evidence/mstr-000b/candidates/B006-candidate-reconciliation.md')
+          ev=ev_path.read_text()
+          assert '**State:** IMPLEMENTATION_ACTIVE / NOT_COMPLETE_CANONICAL' in ev
+          ev=ev.replace(
+              '**State:** IMPLEMENTATION_ACTIVE / NOT_COMPLETE_CANONICAL\n',
+              '**State:** COMPLETE_CANONICAL\n'
+              '**Implementation PR:** `#57`\n'
+              '**Final implementation head:** `98b549e9d8b2550725861e133ee8f909690dc9c8`\n'
+              '**Canonical implementation merge:** `c96e2fb228a7f3fb0399484a9e6bb1e1d1eb086c`\n',1)
+          closeout='''\n## Canonical closeout evidence\n\nB006 is canonicalized only after the implementation was independently qualified, reviewed, merged with exact-head protection, and re-verified on the resulting canonical main.\n\n```text\nENTRY_RUN = 33145225542\nENTRY_JOB = 98764633198\nIMPLEMENTATION_PR = #57\nFINAL_IMPLEMENTATION_HEAD = 98b549e9d8b2550725861e133ee8f909690dc9c8\nCANONICAL_IMPLEMENTATION_MERGE = c96e2fb228a7f3fb0399484a9e6bb1e1d1eb086c\nEXACT_HEAD_QUALIFICATION_RUN = 33146528197\nEXACT_HEAD_QUALIFICATION_JOB = 98768693522\nINDEPENDENT_REVIEW_RUN = 33146704635\nINDEPENDENT_REVIEW_JOB = 98769231950\nPOST_IMPLEMENTATION_VERIFY_RUN = 33146803658\nPOST_IMPLEMENTATION_VERIFY_JOB = 98769528432\nPOST_IMPLEMENTATION_MAIN = c96e2fb228a7f3fb0399484a9e6bb1e1d1eb086c\nPOST_IMPLEMENTATION_B006_ELIGIBLE = true\nPOST_IMPLEMENTATION_B007_ELIGIBLE = false\nPOST_IMPLEMENTATION_B007_REASON = prerequisite.unsatisfied:B006\nPOST_IMPLEMENTATION_DRIFT = clean\nTARGETED_GOVERNANCE_TESTS = 59 passed\nFULL_PYTEST = 502 passed\nRUFF = PASS\nMYPY = PASS / 26 source files\nVALIDATE = PASS / 10 valid / 10 invalid rejected\n```\n\nThe B007 block observed after the implementation merge is the expected pre-closeout state: B006 remained `PENDING` until this separate canonical state transition. This closeout changes no candidate classification, rights fact, model artifact, runtime behavior, or external authority.\n\n```text\nMODEL_WEIGHT_ACCESS = NONE\nMODEL_FILE_RESOLVE_OR_DOWNLOAD = NONE\nTOKENIZER_ARTIFACT_DOWNLOAD = NONE\nMODEL_EXECUTION = NONE\nGATED_TERMS_ACCEPTANCE = NONE\nPAID_MODEL_API_EXECUTION = NONE\nPAID_COMPUTE = NONE\nRENTED_COMPUTE = NONE\nLARGE_DATASET_INGESTION = NONE\nWEIGHT_CHANGING_TRAINING = NONE\nLONG_TRAINING = NONE\nLARGE_SCALE_RL = NONE\nPRODUCTION_RELEASE = NONE\nNEW_AUTHORITY_CREATED = NO\nFOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO\nB007_MATERIAL_EXECUTION = NOT_STARTED\n```\n'''
+          assert '## Canonical closeout evidence' not in ev
+          ev=ev.rstrip()+closeout+'\n'
+          ev_path.write_text(ev)
+
+          # 4) Contract tests: B006 terminal, B007 successor eligible.
+          cpath=Path('tests/contract/test_task_gate.py')
+          c=cpath.read_text()
+          pat=re.compile(r'def test_b006_is_eligible_after_b005_closeout\(\) -> None:\n.*?(?=\ndef test_b006_fails_closed_when_b005_discovery_manifest_is_missing)',re.S)
+          repl='''def test_b006_is_terminal_after_canonical_closeout() -> None:\n    result = evaluate_task_snapshot("B006", canonical_main=_CANONICAL_MAIN)\n\n    assert result["eligible"] is False\n    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"\n    assert result["state_consistency_result"]["satisfied"] is True\n    assert "task.already_terminal" in result["reasons"]\n    validate_instance("mstr-task-eligibility-v0", result)\n\n\ndef test_b007_is_eligible_after_b006_closeout() -> None:\n    result = evaluate_task_snapshot("B007", canonical_main=_CANONICAL_MAIN)\n\n    assert result["eligible"] is True\n    assert result["reasons"] == []\n    assert result["prerequisite_results"][0]["task_id"] == "B006"\n    assert result["prerequisite_results"][0]["satisfied"] is True\n    validate_instance("mstr-task-eligibility-v0", result)\n\n'''
+          c,n=pat.subn(repl,c,count=1); assert n==1,n
+          # Add a fail-closed regression proving B006 outputs are successor prerequisites.
+          assert 'def test_b007_fails_closed_when_b006_candidate_outputs_are_missing' not in c
+          c += '''\n\ndef test_b007_fails_closed_when_b006_candidate_outputs_are_missing(tmp_path: Path) -> None:\n    tasks_dir = tmp_path / "specs" / "002-code-model-supremacy-foundation"\n    tasks_dir.mkdir(parents=True)\n    (tasks_dir / "tasks.md").write_text(\n        "- [x] **B006 Predecessor task.**\\n- [ ] **B007 Successor task.**\\n",\n        encoding="utf-8",\n    )\n    evidence = tmp_path / "evidence" / "mstr-000b" / "candidates" / "B006-candidate-reconciliation.md"\n    evidence.parent.mkdir(parents=True)\n    evidence.write_text("canonical evidence\\n", encoding="utf-8")\n    payload = {\n        "catalog_version": "mstr.task-catalog.v0",\n        "workstream_id": "MSTR-000B",\n        "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",\n        "defaults": {\n            "outputs": [], "candidate_dependent": False, "external_effect_class": "NO_EXTERNAL_EFFECT",\n            "parallel_safe": False, "supersedes": [], "superseded_by": [],\n            "closeout_rule": {\n                "terminal_states": ["COMPLETE_CANONICAL"], "require_all_outputs": False,\n                "require_all_evidence_outputs": True, "completion_requires_merge": True,\n            },\n        },\n        "tasks": {\n            "B006": {\n                "canonical_state": "COMPLETE_CANONICAL",\n                "closeout_rule": {"require_all_outputs": True},\n                "prerequisites": [],\n                "outputs": ["artifacts/candidates/*.json"],\n                "evidence_outputs": ["evidence/mstr-000b/candidates/*.md"],\n            },\n            "B007": {"canonical_state": "PENDING", "prerequisites": ["B006"], "evidence_outputs": []},\n        },\n    }\n    catalog_path = tmp_path / "configs" / "task-gate" / "mstr-000b.json"\n    catalog_path.parent.mkdir(parents=True)\n    catalog_path.write_text(json.dumps(payload), encoding="utf-8")\n\n    result = evaluate_task_snapshot(\n        "B007", repository_root=tmp_path, catalog_path=catalog_path, canonical_main=_CANONICAL_MAIN\n    )\n\n    assert result["eligible"] is False\n    assert "prerequisite.unsatisfied:B006" in result["reasons"]\n    predecessor = result["prerequisite_results"][0]\n    assert predecessor["satisfied"] is False\n    assert "prerequisite.required_artifact_missing" in predecessor["reasons"]\n    assert "missing:artifacts/candidates/*.json" in predecessor["reasons"]\n    validate_instance("mstr-task-eligibility-v0", result)\n'''
+          cpath.write_text(c)
+
+          # 5) CLI regression: terminal B006 returns 1; B007 successor dispatch returns 0.
+          ipath=Path('tests/integration/test_task_gate_cli.py')
+          i=ipath.read_text()
+          ipat=re.compile(r'def test_task_eligible_b006_successor_returns_zero\(.*?(?=\ndef test_task_eligible_configuration_error_returns_two)',re.S)
+          irepl='''def test_task_eligible_b006_terminal_returns_one(\n    monkeypatch: pytest.MonkeyPatch,\n    capsys: pytest.CaptureFixture[str],\n) -> None:\n    expected = evaluate_task_snapshot("B006", canonical_main=_CANONICAL_MAIN)\n    monkeypatch.setattr(\n        "mstr_qualify.cli.evaluate_task_eligibility",\n        lambda task_id: expected,\n    )\n\n    exit_code = main(["task", "eligible", "B006"])\n    payload = _stdout_json(capsys)\n\n    assert exit_code == 1\n    assert payload == expected\n    assert payload["eligible"] is False\n    assert "task.already_terminal" in payload["reasons"]\n    validate_instance("mstr-task-eligibility-v0", payload)\n\n\ndef test_task_eligible_b007_successor_returns_zero(\n    monkeypatch: pytest.MonkeyPatch,\n    capsys: pytest.CaptureFixture[str],\n) -> None:\n    expected = evaluate_task_snapshot("B007", canonical_main=_CANONICAL_MAIN)\n\n    def fake_evaluate_task_eligibility(task_id: str) -> dict[str, object]:\n        assert task_id == "B007"\n        return expected\n\n    monkeypatch.setattr(\n        "mstr_qualify.cli.evaluate_task_eligibility",\n        fake_evaluate_task_eligibility,\n    )\n\n    exit_code = main(["task", "eligible", "B007"])\n    payload = _stdout_json(capsys)\n\n    assert exit_code == 0\n    assert payload == expected\n    assert payload["eligible"] is True\n    assert payload["reasons"] == []\n    validate_instance("mstr-task-eligibility-v0", payload)\n\n'''
+          i,n=ipat.subn(irepl,i,count=1); assert n==1,n
+          ipath.write_text(i)
+          print('B006_CLOSEOUT_FIVE_FILES_PATCHED=PASS')
+          PY
+
+          git diff --check
+          changed="$(git diff --name-only | sort)"
+          expected="$(printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/candidates/B006-candidate-reconciliation.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort)"
+          test "$changed" = "$expected"
+      - name: Prospectively verify closeout and frozen gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from mstr_qualify.task_gate import evaluate_task_snapshot
+          b6=evaluate_task_snapshot('B006', canonical_main='a'*40)
+          b7=evaluate_task_snapshot('B007', canonical_main='a'*40)
+          assert b6['eligible'] is False and b6['state_consistency_result']['observed_state']=='COMPLETE_CANONICAL' and 'task.already_terminal' in b6['reasons'],b6
+          assert b7['eligible'] is True and b7['reasons']==[],b7
+          print('B006_PROSPECTIVE_TERMINAL=PASS')
+          print('B007_PROSPECTIVE_ELIGIBLE=PASS')
+          PY
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check
+      - name: Commit and push with final guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          changed="$(git diff --name-only | sort)"
+          expected="$(printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/candidates/B006-candidate-reconciliation.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort)"
+          test "$changed" = "$expected"
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add -- $changed
+          git commit -m 'docs(mstr-000b): canonicalize B006 closeout'
+          new_head="$(git rev-parse HEAD)"
+          git push origin "HEAD:$TARGET_BRANCH"
+          echo "B006_CLOSEOUT_HEAD=$new_head"
+          echo "B006_CLOSEOUT_BUILD_RUN=$GITHUB_RUN_ID"
+          echo 'B007_MATERIAL_EXECUTION=NOT_STARTED'
