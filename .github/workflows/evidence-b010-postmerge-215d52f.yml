@@ -1,0 +1,107 @@
+name: Verify B010 implementation on canonical main
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 215d52f4de772639c5e64193ff48deaafb6eb2d7
+      PREVIOUS_MAIN: e3ee155a7e0ed491984908998546900e594bda9a
+      IMPLEMENTATION_HEAD: 2047a3aa8b7063736a490d00d1fe10709aba23e2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 215d52f4de772639c5e64193ff48deaafb6eb2d7
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact signed canonical implementation merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git show -s --format='%P' HEAD)" = "$PREVIOUS_MAIN $IMPLEMENTATION_HEAD"
+          for p in artifacts/manifests/B010-new-candidate-weight-access.json evidence/mstr-000b/B010-weight-access-preflight.md tests/contract/test_b010_new_candidate_weight_access.py; do
+            test "$(git rev-parse "$EXPECTED_MAIN:$p")" = "$(git rev-parse "$IMPLEMENTATION_HEAD:$p")"
+          done
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B010_POSTMERGE_IDENTITY=PASS'
+      - name: Prove canonical pre-closeout task truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B010 > /tmp/b010.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then
+            echo 'B011 unexpectedly eligible after B010 implementation merge' >&2
+            exit 1
+          fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          b10 = json.load(open('/tmp/b010.json'))
+          b11 = json.load(open('/tmp/b011.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          expected = os.environ['EXPECTED_MAIN']
+          assert b10['canonical_main'] == expected
+          assert b10['eligible'] is True and b10['reasons'] == []
+          assert b10['state_consistency_result']['observed_state'] == 'PENDING'
+          assert b11['canonical_main'] == expected
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert drift['canonical_main'] == expected
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B010_POSTMERGE_PRECLOSEOUT_TRUTH=PASS')
+          PY
+      - name: Re-prove B010 zero-authority semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path('artifacts/manifests/B010-new-candidate-weight-access.json').read_text())
+          assert m['state'] == 'IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT'
+          assert m['decision']['qualification_candidates'] == ['mellum-4b', 'qwen3.5-0.8b-control']
+          assert m['decision']['new_weight_access_required_candidates'] == ['mellum-4b', 'qwen3.5-0.8b-control']
+          assert m['b011_handoff']['authorized_by_b010'] is False
+          assert m['b011_handoff']['requires_separate_founder_authorization'] is True
+          a = m['authority_boundary']
+          assert a['founder_machine_large_artifacts'] == 0
+          assert all(v is False for k, v in a.items() if k != 'founder_machine_large_artifacts')
+          evidence = Path('evidence/mstr-000b/B010-weight-access-preflight.md').read_text()
+          for marker in ['MODEL_WEIGHT_ACCESS = NONE', 'MODEL_EXECUTION = NONE', 'TRAINING_EXECUTION = NONE', 'PAID_COMPUTE = NONE']:
+              assert marker in evidence
+          print('B010_POSTMERGE_ZERO_AUTHORITY=PASS')
+          PY
+      - name: Run frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_b010_new_candidate_weight_access.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check "$PREVIOUS_MAIN...$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B010_POSTMERGE_GATES=PASS'
+      - name: Final canonical main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo 'B010_POST_IMPLEMENTATION_VERIFICATION=PASS'
