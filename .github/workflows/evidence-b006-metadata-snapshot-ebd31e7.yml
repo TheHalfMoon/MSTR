@@ -1,0 +1,78 @@
+name: Snapshot B006 public metadata ebd31e7
+
+on:
+  push:
+    branches:
+      - evidence/b006-metadata-snapshot-ebd31e7
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: ebd31e7657cb42479b28a4cb1cc8a5ce2ae56b6a
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify main and fetch metadata-only API records
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          python - <<'PY'
+          import json
+          import urllib.request
+
+          rows = [
+            ('JetBrains/Mellum-4b-base','83cce2605fbdf6a3868627e9b0a5924e0072b94d'),
+            ('bigcode/starcoder2-3b','733247c55e3f73af49ce8e9c7949bf14af205928'),
+            ('stabilityai/stable-code-3b','5cee3fa2905e7a03c4a1b0bc02f39da7ceaa6cb5'),
+            ('google/codegemma-2b','e7583edabd3dd48a9c705974a9456852f1205ab1'),
+            ('tiiuae/Falcon-H1-3B-Base','c096902c69be0eed2e5369d3420a8bb960d293e1'),
+            ('microsoft/bitnet-b1.58-2B-4T-bf16','276681394656abdadb8e80e5b2c3db5e5d7fcaff'),
+            ('LiquidAI/LFM2.5-2.6B-Base','c57bdaed1ef166fe3095dda07f4a5e789ad5321e'),
+            ('LiquidAI/LFM2.5-1.2B-Base','7453bca97ca1e67754c4035a4b4c584e1c9dd725'),
+            ('Qwen/Qwen3.5-0.8B-Base','dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68'),
+          ]
+          out=[]
+          for repo, rev in rows:
+              url=f'https://huggingface.co/api/models/{repo}/revision/{rev}'
+              req=urllib.request.Request(url, headers={'User-Agent':'MSTR-B006-metadata-review/1.0'})
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  data=json.load(r)
+              assert data.get('sha') == rev, (repo, data.get('sha'), rev)
+              out.append({
+                  'repo_id': repo,
+                  'revision': rev,
+                  'gated': data.get('gated'),
+                  'private': data.get('private'),
+                  'disabled': data.get('disabled'),
+                  'license': (data.get('cardData') or {}).get('license'),
+                  'license_name': (data.get('cardData') or {}).get('license_name'),
+                  'license_link': (data.get('cardData') or {}).get('license_link'),
+                  'safetensors_total': (data.get('safetensors') or {}).get('total'),
+                  'pipeline_tag': data.get('pipeline_tag'),
+                  'library_name': data.get('library_name'),
+                  'config': data.get('config'),
+              })
+          print('B006_METADATA_SNAPSHOT_JSON_BEGIN')
+          print(json.dumps(out, indent=2, sort_keys=True))
+          print('B006_METADATA_SNAPSHOT_JSON_END')
+          print('MODEL_WEIGHT_ACCESS=NONE')
+          print('TOKENIZER_ARTIFACT_DOWNLOAD=NONE')
+          print('GATED_TERMS_ACCEPTANCE=NONE')
+          print('MODEL_EXECUTION=NONE')
+          PY
+          git fetch origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          echo 'B006_PUBLIC_METADATA_SNAPSHOT=PASS'
