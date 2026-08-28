@@ -33,6 +33,8 @@ SCHEMA_FILES: Mapping[str, str] = {
     # MSTR-000B B001: machine-readable task graph and eligibility result contracts.
     "mstr-task-node-v0": "mstr-task-node-v0.schema.json",
     "mstr-task-eligibility-v0": "mstr-task-eligibility-v0.schema.json",
+    # MSTR-000B B014: fail-closed Data Constitution contract.
+    "mstr-data-constitution-v0": "mstr-data-constitution-v0.schema.json",
 }
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
