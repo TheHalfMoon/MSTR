@@ -137,3 +137,23 @@ FOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO
 ```
 
 B011 remains separately blocked by its exact repository-required founder authority envelope.
+
+
+## Canonical Field-Shape and Cross-Binding Repair
+
+The contract exposes the canonical `SelfAlignmentGeneration` evidence surfaces as first-class fields rather than relying only on nested convenience copies:
+
+- `generated_artifact_provenance[]`
+- `generated_artifact_rights_decisions[]`
+- `execution_results[]`
+
+The offline validator fails closed unless those arrays exactly cover the generated artifact identities and exactly match the nested provenance, rights, execution result, and environment bindings. It also fails closed unless the embedded `difficulty_record` binds the exact student model/checkpoint, harness profile, and sampling identity used by the generation.
+
+These are evidence bindings only. B018 does not perform difficulty calibration and does not create or certify verifier-health authority; those remain owned by their canonical tasks.
+
+```text
+B020_DIFFICULTY_CALIBRATION_AUTHORITY = NONE
+B022_VERIFIER_HEALTH_AUTHORITY = NONE
+B020_BINDING_SURFACE = difficulty_record_identity + exact student/harness/sampling identity
+B022_BINDING_SURFACE = verifier_health_record_identity + verifier identity/health snapshot
+```

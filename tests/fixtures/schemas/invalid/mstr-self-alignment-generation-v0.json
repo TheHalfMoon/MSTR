@@ -4,9 +4,86 @@
   "contamination_status": "CLEAR",
   "difficulty_record": {
     "difficulty_class": "LEARNABLE_FRONTIER",
-    "difficulty_record_identity": "fixture-difficulty"
+    "difficulty_record_identity": "fixture-difficulty",
+    "harness_profile_id": "fixture-harness",
+    "sampling_identity": "fixture-sampling",
+    "student_model_identity": {
+      "checkpoint_id": "ckpt",
+      "harness_profile_id": "fixture-harness",
+      "model_id": "student",
+      "sampling_identity": "fixture-sampling"
+    }
   },
   "environment_identity": "sandbox",
+  "execution_results": [
+    {
+      "artifact_id": "sol",
+      "environment_identity": "sandbox",
+      "execution_result": {
+        "evidence_identity": "exec-sol",
+        "result": "PASS",
+        "sandboxed": true
+      }
+    },
+    {
+      "artifact_id": "test",
+      "environment_identity": "sandbox",
+      "execution_result": {
+        "evidence_identity": "exec-test",
+        "result": "PASS",
+        "sandboxed": true
+      }
+    }
+  ],
+  "generated_artifact_provenance": [
+    {
+      "artifact_id": "task",
+      "provenance": {
+        "lineage_status": "COMPLETE",
+        "source_identity": "student",
+        "source_revision": "ckpt"
+      }
+    },
+    {
+      "artifact_id": "sol",
+      "provenance": {
+        "lineage_status": "COMPLETE",
+        "source_identity": "student",
+        "source_revision": "ckpt"
+      }
+    },
+    {
+      "artifact_id": "test",
+      "provenance": {
+        "lineage_status": "COMPLETE",
+        "source_identity": "student",
+        "source_revision": "ckpt"
+      }
+    }
+  ],
+  "generated_artifact_rights_decisions": [
+    {
+      "artifact_id": "task",
+      "rights_decision": {
+        "decision": "COMPATIBLE",
+        "license_or_terms_identity": "rights"
+      }
+    },
+    {
+      "artifact_id": "sol",
+      "rights_decision": {
+        "decision": "COMPATIBLE",
+        "license_or_terms_identity": "rights"
+      }
+    },
+    {
+      "artifact_id": "test",
+      "rights_decision": {
+        "decision": "UNRESOLVED",
+        "license_or_terms_identity": "rights"
+      }
+    }
+  ],
   "generated_solutions": [
     {
       "artifact_id": "sol",

@@ -214,6 +214,16 @@ def test_reject_record_preserves_negative_evidence() -> None:
     rights = test["rights_decision"]
     assert isinstance(rights, dict)
     rights["decision"] = "UNRESOLVED"
+    rights_bindings = record["generated_artifact_rights_decisions"]
+    assert isinstance(rights_bindings, list)
+    test_rights_binding = next(
+        binding
+        for binding in rights_bindings
+        if isinstance(binding, dict) and binding.get("artifact_id") == "test"
+    )
+    bound_rights = test_rights_binding["rights_decision"]
+    assert isinstance(bound_rights, dict)
+    bound_rights["decision"] = "UNRESOLVED"
     health = record["verifier_health"]
     assert isinstance(health, dict)
     health["health_class"] = "BROKEN"
@@ -256,3 +266,134 @@ def test_b018_entry_provenance_and_authority_boundary() -> None:
     assert "MODEL_EXECUTION = NONE" in evidence
     assert "LARGE_DATASET_INGESTION = NONE" in evidence
     assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "generated_artifact_provenance",
+        "generated_artifact_rights_decisions",
+        "execution_results",
+    ],
+)
+def test_canonical_generated_evidence_arrays_are_required(field: str) -> None:
+    record = _valid_record()
+    del record[field]
+    assert validation_errors(SCHEMA_NAME, record)
+
+
+def test_generated_provenance_bindings_must_exactly_cover_artifacts() -> None:
+    record = _valid_record()
+    bindings = record["generated_artifact_provenance"]
+    assert isinstance(bindings, list)
+    bindings.pop()
+    errors = validation_errors(SCHEMA_NAME, record)
+    assert any("exactly cover generated artifact ids" in error for error in errors)
+
+
+def test_generated_provenance_binding_must_match_artifact() -> None:
+    record = _valid_record()
+    bindings = record["generated_artifact_provenance"]
+    assert isinstance(bindings, list)
+    binding = bindings[0]
+    assert isinstance(binding, dict)
+    provenance = binding["provenance"]
+    assert isinstance(provenance, dict)
+    provenance["source_revision"] = "mismatched-revision"
+    errors = validation_errors(SCHEMA_NAME, record)
+    assert any("does not match artifact provenance" in error for error in errors)
+
+
+def test_generated_rights_binding_must_match_artifact() -> None:
+    record = _valid_record()
+    bindings = record["generated_artifact_rights_decisions"]
+    assert isinstance(bindings, list)
+    binding = bindings[0]
+    assert isinstance(binding, dict)
+    rights = binding["rights_decision"]
+    assert isinstance(rights, dict)
+    rights["license_or_terms_identity"] = "mismatched-rights"
+    errors = validation_errors(SCHEMA_NAME, record)
+    assert any("does not match artifact rights_decision" in error for error in errors)
+
+
+def test_execution_bindings_must_exactly_cover_executable_artifacts() -> None:
+    record = _valid_record()
+    bindings = record["execution_results"]
+    assert isinstance(bindings, list)
+    bindings.pop()
+    errors = validation_errors(SCHEMA_NAME, record)
+    assert any("exactly cover executable artifact ids" in error for error in errors)
+
+
+def test_execution_binding_must_match_artifact_result() -> None:
+    record = _valid_record()
+    bindings = record["execution_results"]
+    assert isinstance(bindings, list)
+    binding = bindings[0]
+    assert isinstance(binding, dict)
+    result = binding["execution_result"]
+    assert isinstance(result, dict)
+    result["evidence_identity"] = "mismatched-execution"
+    errors = validation_errors(SCHEMA_NAME, record)
+    assert any("does not match artifact execution_result" in error for error in errors)
+
+
+def test_execution_binding_must_match_environment_identity() -> None:
+    record = _valid_record()
+    bindings = record["execution_results"]
+    assert isinstance(bindings, list)
+    binding = bindings[0]
+    assert isinstance(binding, dict)
+    binding["environment_identity"] = "other-sandbox"
+    errors = validation_errors(SCHEMA_NAME, record)
+    assert any("does not match environment_identity" in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        (
+            "student_model_identity",
+            {
+                "model_id": "other-model",
+                "checkpoint_id": "other-checkpoint",
+                "harness_profile_id": "fixture-harness",
+                "sampling_identity": "fixture-sampling",
+            },
+        ),
+        ("harness_profile_id", "other-harness"),
+        ("sampling_identity", "other-sampling"),
+    ],
+)
+def test_difficulty_binding_must_match_exact_student_harness_sampling_identity(
+    field: str, value: object
+) -> None:
+    record = _valid_record()
+    difficulty = record["difficulty_record"]
+    assert isinstance(difficulty, dict)
+    difficulty[field] = value
+    errors = validation_errors(SCHEMA_NAME, record)
+    assert any("difficulty_record" in error and "match" in error for error in errors)
+
+
+def test_schema_exposes_exact_canonical_self_alignment_evidence_fields() -> None:
+    schema = json.loads(
+        (ROOT / "schemas" / "mstr-self-alignment-generation-v0.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    required = set(schema["required"])
+    assert {
+        "generated_artifact_provenance",
+        "generated_artifact_rights_decisions",
+        "execution_results",
+    } <= required
+
+
+def test_b018_does_not_claim_b020_or_b022_authority() -> None:
+    evidence = (ROOT / "evidence" / "mstr-000b" / "B018-self-alignment-contract.md").read_text(
+        encoding="utf-8"
+    )
+    assert "B020_DIFFICULTY_CALIBRATION_AUTHORITY = NONE" in evidence
+    assert "B022_VERIFIER_HEALTH_AUTHORITY = NONE" in evidence

@@ -1,5 +1,65 @@
 {
   "$defs": {
+    "artifact_provenance_binding": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "provenance"
+      ],
+      "type": "object"
+    },
+    "artifact_rights_binding": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "rights_decision": {
+          "$ref": "#/$defs/rights"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "rights_decision"
+      ],
+      "type": "object"
+    },
+    "execution_binding": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "environment_identity": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "execution_result": {
+          "$ref": "#/$defs/execution_result"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "environment_identity",
+        "execution_result"
+      ],
+      "type": "object"
+    },
     "execution_result": {
       "additionalProperties": false,
       "properties": {
@@ -161,6 +221,38 @@
       "required": [
         "license_or_terms_identity",
         "decision"
+      ],
+      "type": "object"
+    },
+    "student_model_identity": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "harness_profile_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "model_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sampling_identity": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "model_id",
+        "checkpoint_id",
+        "harness_profile_id",
+        "sampling_identity"
       ],
       "type": "object"
     }
@@ -379,11 +471,27 @@
           "maxLength": 512,
           "minLength": 1,
           "type": "string"
+        },
+        "harness_profile_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sampling_identity": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "student_model_identity": {
+          "$ref": "#/$defs/student_model_identity"
         }
       },
       "required": [
         "difficulty_record_identity",
-        "difficulty_class"
+        "difficulty_class",
+        "student_model_identity",
+        "harness_profile_id",
+        "sampling_identity"
       ],
       "type": "object"
     },
@@ -391,6 +499,30 @@
       "maxLength": 512,
       "minLength": 1,
       "type": "string"
+    },
+    "execution_results": {
+      "items": {
+        "$ref": "#/$defs/execution_binding"
+      },
+      "minItems": 2,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "generated_artifact_provenance": {
+      "items": {
+        "$ref": "#/$defs/artifact_provenance_binding"
+      },
+      "minItems": 3,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "generated_artifact_rights_decisions": {
+      "items": {
+        "$ref": "#/$defs/artifact_rights_binding"
+      },
+      "minItems": 3,
+      "type": "array",
+      "uniqueItems": true
     },
     "generated_solutions": {
       "items": {
@@ -469,36 +601,7 @@
       "$ref": "#/$defs/rights"
     },
     "student_model_identity": {
-      "additionalProperties": false,
-      "properties": {
-        "checkpoint_id": {
-          "maxLength": 512,
-          "minLength": 1,
-          "type": "string"
-        },
-        "harness_profile_id": {
-          "maxLength": 512,
-          "minLength": 1,
-          "type": "string"
-        },
-        "model_id": {
-          "maxLength": 512,
-          "minLength": 1,
-          "type": "string"
-        },
-        "sampling_identity": {
-          "maxLength": 512,
-          "minLength": 1,
-          "type": "string"
-        }
-      },
-      "required": [
-        "model_id",
-        "checkpoint_id",
-        "harness_profile_id",
-        "sampling_identity"
-      ],
-      "type": "object"
+      "$ref": "#/$defs/student_model_identity"
     },
     "verifier_health": {
       "additionalProperties": false,
@@ -560,7 +663,10 @@
     "contamination_status",
     "difficulty_record",
     "admission_decision",
-    "admission_reasons"
+    "admission_reasons",
+    "generated_artifact_provenance",
+    "generated_artifact_rights_decisions",
+    "execution_results"
   ],
   "title": "MSTR Self Alignment Generation v0",
   "type": "object"
