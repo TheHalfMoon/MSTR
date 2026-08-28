@@ -1,0 +1,240 @@
+name: Finalize adversarial review exact B008 head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 7f2fe43797db4b94103ca07c172de5672806f624
+      EXPECTED_HEAD: 895983470f72128ad698023b3578553ed1cfe7c4
+      TARGET_BRANCH: feat/000b-b008-tokenizer-economics
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 895983470f72128ad698023b3578553ed1cfe7c4
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bind exact review identity and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | wc -l)" -eq 13
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B008_REVIEW3_IDENTITY=PASS'
+
+      - name: Independently verify result and evidence semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import math
+          import re
+          from collections import defaultdict
+          from pathlib import Path
+
+          corpus = json.loads(Path("benchmarks/fixtures/tokenizer-economics/B007-corpus.json").read_text())
+          entries = {entry["fixture_id"]: entry for entry in corpus["entries"]}
+          results = []
+          for path in sorted(Path("artifacts/results/tokenizer/B008").glob("*.json")):
+              result = json.loads(path.read_text())
+              rows = result["per_entry_metrics"]
+              assert {row["fixture_id"] for row in rows} == set(entries)
+              grouped = defaultdict(list)
+              for row in rows:
+                  fixture = entries[row["fixture_id"]]
+                  assert row["byte_count"] == len(fixture["content_utf8"].encode("utf-8"))
+                  assert row["character_count"] == len(fixture["content_utf8"])
+                  assert row["token_count"] > 0
+                  assert math.isclose(
+                      row["bytes_per_token"], row["byte_count"] / row["token_count"]
+                  )
+                  grouped[row["category"]].append(row)
+              category = {row["category"]: row for row in result["per_category_metrics"]}
+              for name, rows_for_category in grouped.items():
+                  total_tokens = sum(row["token_count"] for row in rows_for_category)
+                  total_bytes = sum(row["byte_count"] for row in rows_for_category)
+                  assert category[name]["total_tokens"] == total_tokens
+                  assert category[name]["total_bytes"] == total_bytes
+                  assert math.isclose(
+                      category[name]["weighted_bytes_per_token"],
+                      total_bytes / total_tokens,
+                  )
+              total_tokens = sum(row["token_count"] for row in rows)
+              aggregate = result["aggregate_metrics"]
+              assert aggregate["total_bytes"] == 3605
+              assert aggregate["total_tokens"] == total_tokens
+              assert math.isclose(
+                  aggregate["weighted_bytes_per_token"], 3605 / total_tokens
+              )
+              assert aggregate["estimated_effective_payload_bytes_at_8192_tokens"] == math.floor(
+                  (3605 / total_tokens) * 8192
+              )
+              assert result["measurement_failures"] == []
+              assert result["executor_identity"] == "github-actions:33153206993:build"
+              assert result["measurement_runtime_identity"]["executor_identity"] == result[
+                  "executor_identity"
+              ]
+              inventory = result["loaded_tokenizer_artifact_sha256_inventory"]
+              assert len(inventory) == 1 and inventory[0]["path"] == "tokenizer.json"
+              acquisition = result["acquisition_source_and_provenance"]
+              assert acquisition["filename"] == "tokenizer.json"
+              assert acquisition["requested_remote_files"] == ["tokenizer.json"]
+              assert acquisition["authenticated"] is False
+              results.append(result)
+          assert len(results) == 10
+
+          evidence = Path("evidence/mstr-000b/B008-tokenizer-economics.md").read_text()
+          table_pattern = re.compile(
+              r"^\| `([^`]+)` \| ([0-9.]+) \| (\d+) \| (\d+) \| "
+              r"(\d+) \| (\d+) \| (\d+) \| (\d+) \|$",
+              re.M,
+          )
+          parsed = [
+              (
+                  cid,
+                  float(bpt),
+                  int(total),
+                  int(payload),
+                  int(diff),
+                  int(stack),
+                  int(tool),
+                  int(paths),
+              )
+              for cid, bpt, total, payload, diff, stack, tool, paths in table_pattern.findall(evidence)
+          ]
+          results.sort(
+              key=lambda result: result["aggregate_metrics"]["weighted_bytes_per_token"],
+              reverse=True,
+          )
+          expected = []
+          for result in results:
+              aggregate = result["aggregate_metrics"]
+              category = {row["category"]: row for row in result["per_category_metrics"]}
+              expected.append(
+                  (
+                      result["candidate_id"],
+                      round(aggregate["weighted_bytes_per_token"], 6),
+                      aggregate["total_tokens"],
+                      aggregate["estimated_effective_payload_bytes_at_8192_tokens"],
+                      category["diff"]["total_tokens"],
+                      category["stack_trace"]["total_tokens"],
+                      category["tool_json"]["total_tokens"],
+                      category["file_paths"]["total_tokens"],
+                  )
+              )
+          assert parsed == expected
+          assert "not a context-window claim" in evidence
+          assert "model quality" in evidence
+          assert "production fitness" in evidence
+          print('B008_REVIEW3_RESULT_AND_EVIDENCE=PASS')
+          PY
+
+      - name: AST-audit acquisition, candidate gating, and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          source_path = Path("benchmarks/tokenizer_economics/b008_measure.py")
+          source = source_path.read_text()
+          tree = ast.parse(source)
+          calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
+          hub_calls = [
+              node
+              for node in calls
+              if isinstance(node.func, ast.Name) and node.func.id == "hf_hub_download"
+          ]
+          assert len(hub_calls) == 1
+          kwargs = {kw.arg: kw.value for kw in hub_calls[0].keywords if kw.arg is not None}
+          assert isinstance(kwargs["filename"], ast.Constant)
+          assert kwargs["filename"].value == "tokenizer.json"
+          assert isinstance(kwargs["token"], ast.Constant)
+          assert kwargs["token"].value is False
+          assert {"repo_id", "revision", "local_dir"} <= set(kwargs)
+
+          tokenizer_loads = [
+              node
+              for node in calls
+              if isinstance(node.func, ast.Attribute)
+              and node.func.attr == "from_file"
+              and isinstance(node.func.value, ast.Name)
+              and node.func.value.id == "Tokenizer"
+          ]
+          assert len(tokenizer_loads) == 1
+
+          encode_calls = [
+              node
+              for node in calls
+              if isinstance(node.func, ast.Attribute) and node.func.attr == "encode"
+          ]
+          assert encode_calls
+          for node in encode_calls:
+              special = [kw for kw in node.keywords if kw.arg == "add_special_tokens"]
+              assert len(special) == 1
+              assert isinstance(special[0].value, ast.Constant)
+              assert special[0].value.value is False
+
+          for forbidden in (
+              "AutoTokenizer",
+              "AutoModel",
+              "snapshot_download",
+              "from_pretrained",
+              "trust_remote_code",
+              "safetensors",
+              "pytorch_model",
+              ".gguf",
+          ):
+              assert forbidden not in source, forbidden
+
+          assert 'candidate.get("status") != "static_qualified"' in source
+          assert 'rights.get("decision") == "pass_permissive"' in source
+          assert 'rights.get("account_gate_required") is False' in source
+          assert 'rights.get("clickthrough_gate_required") is False' in source
+          assert "shutil.rmtree(work, ignore_errors=True)" in source
+          assert not list(Path(".").rglob("tokenizer.json"))
+
+          forbidden_files = []
+          for pattern in (
+              "*.safetensors",
+              "*.gguf",
+              "*.pt",
+              "*.pth",
+              "*.ckpt",
+              "*.onnx",
+          ):
+              forbidden_files.extend(Path(".").rglob(pattern))
+          assert not forbidden_files, forbidden_files
+          print('B008_REVIEW3_AUTHORITY=PASS')
+          PY
+
+      - name: Focused regression and final immutable-ref check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_b008_tokenizer_economics_results.py
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo "B008_INDEPENDENT_REVIEWED_HEAD=$EXPECTED_HEAD"
+          echo 'B008_INDEPENDENT_ADVERSARIAL_REVIEW=PASS'
