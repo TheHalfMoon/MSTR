@@ -1,0 +1,84 @@
+name: Verify B006 post-closeout v2 9b4e885
+
+on:
+  push:
+    branches: [evidence/b006-postcloseout2-9b4e885]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 9b4e885f215fd922ecf79ff9e15bdb1479396668
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify exact canonical main and task state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python -m pip install -e '.[dev]'
+          set +e
+          python -m mstr_qualify task eligible B006 > /tmp/b006.json
+          b6_rc=$?
+          set -e
+          test "$b6_rc" -eq 1
+          python -m mstr_qualify task eligible B007 > /tmp/b007.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          cat /tmp/b006.json
+          cat /tmp/b007.json
+          cat /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          b6=json.load(open('/tmp/b006.json'))
+          b7=json.load(open('/tmp/b007.json'))
+          drift=json.load(open('/tmp/drift.json'))
+          main=os.environ['EXPECTED_MAIN']
+          assert b6['canonical_main']==main and b6['task_id']=='B006', b6
+          assert b6['eligible'] is False, b6
+          assert b6['state_consistency_result']['observed_state']=='COMPLETE_CANONICAL', b6
+          assert b6['state_consistency_result']['satisfied'] is True, b6
+          assert 'task.already_terminal' in b6['reasons'], b6
+          assert b7['canonical_main']==main and b7['task_id']=='B007', b7
+          assert b7['eligible'] is True and b7['reasons']==[], b7
+          assert b7['state_consistency_result']['observed_state']=='PENDING', b7
+          assert b7['prerequisite_results'][0]['task_id']=='B006', b7
+          assert b7['prerequisite_results'][0]['satisfied'] is True, b7
+          assert drift['canonical_main']==main, drift
+          assert drift['status']=='clean' and drift['findings']==[], drift
+          print('B006_POSTCLOSEOUT_TERMINAL=PASS')
+          print('B007_PRODUCTION_ELIGIBLE=PASS')
+          print('CANONICAL_DRIFT=clean')
+          PY
+      - name: Frozen repository gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+      - name: Final canonical immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo B006_POSTCLOSEOUT_EXACT_MAIN_VERIFY=PASS
