@@ -69,9 +69,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Canonical implementation: PR #54 / final head `0a7ee7e392d827fb08c8cc9f3b2d9ec45c8cca1a` / merge `1e096f4d1f270b2803da6a6306e9e7f0cf8fb81b`.
 
 
-- [ ] **B006 Create/reconcile candidate records for newly relevant code-specialized models.**  
+- [x] **B006 Create/reconcile candidate records for newly relevant code-specialized models.**
   Explicitly classify each as primary-eligible candidate, control, reference-only, rejected, or needs-founder/legal clarification. Apply the same derivative redistribution and accountless-release rights gate as existing candidates.  
   Outputs: `artifacts/candidates/*.json`, `evidence/mstr-000b/candidates/*.md`.
+  Canonical implementation: PR #57 / final head `98b549e9d8b2550725861e133ee8f909690dc9c8` / merge `c96e2fb228a7f3fb0399484a9e6bb1e1d1eb086c`.
 
 - [ ] **B007 Freeze tokenizer-economics benchmark corpus/protocol.**  
   Include Python, TypeScript/JavaScript, Rust, Go, Java, C/C++, SQL, shell, JSON/YAML/TOML, diffs, stack traces, file paths and tool JSON. Pin bytes and source hashes.  
