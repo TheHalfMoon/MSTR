@@ -274,3 +274,26 @@ def test_review_repair_rejects_hidden_trigger() -> None:
 
     with pytest.raises(SoftwareEvolutionProjectionError, match="trigger event to be model-visible"):
         project_software_evolution(record, kind="REVIEW_REPAIR")
+
+
+def test_b017_canonical_closeout_provenance_and_authority_boundary() -> None:
+    evidence = (ROOT / "evidence" / "mstr-000b" / "B017-evolution-fixture-pilot.md").read_text(
+        encoding="utf-8"
+    )
+    assert "**State:** COMPLETE_CANONICAL" in evidence
+    assert "**Implementation PR:** #73" in evidence
+    assert (
+        "**Final implementation head:** "
+        "`6bab90d46fca0323fe9c1d66f37a69e8b13d8ae3`" in evidence
+    )
+    assert (
+        "**Canonical implementation merge:** "
+        "`79e1b5ceca4ed39e10f53b0f85f93ffb7b02208c`" in evidence
+    )
+    assert "run `33179382488` — SUCCESS" in evidence
+    assert "run `33179494695` / job `98876712043` — SUCCESS" in evidence
+    assert "run `33180496859` — SUCCESS" in evidence
+    assert "run `33182524688` — SUCCESS" in evidence
+    assert "MODEL_WEIGHT_ACCESS = NONE" in evidence
+    assert "LARGE_DATASET_INGESTION = NONE" in evidence
+    assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence

@@ -127,9 +127,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: schema, fixtures, `evidence/mstr-000b/B016-software-evolution.md`.
   Canonical implementation: PR #71 / final head `33eb53b7ae4c2fd43d639af9c6e67512fb883423` / merge `5ed34690dbc71db2359c927e96b511c32dffb2c4`.
 
-- [ ] **B017 Build a tiny fixture-only software-evolution extractor/projection proof.**  
+- [x] **B017 Build a tiny fixture-only software-evolution extractor/projection proof.**
   No large corpus ingestion. Demonstrate deterministic projection of localization/edit/review-repair examples from synthetic or already-repository-owned fixtures.  
   Outputs: implementation/tests/fixtures, `evidence/mstr-000b/B017-evolution-fixture-pilot.md`.
+  Canonical implementation: PR #73 / final head `6bab90d46fca0323fe9c1d66f37a69e8b13d8ae3` / merge `79e1b5ceca4ed39e10f53b0f85f93ffb7b02208c`.
 
 - [ ] **B018 Freeze execution-filtered student self-alignment contract.**  
   Student-generated tasks/solutions/tests require seed and per-artifact provenance, compatible rights, sandbox execution, independent verifier health, contamination checks and difficulty records before training admission. Missing/unresolved provenance or rights fails closed.  
