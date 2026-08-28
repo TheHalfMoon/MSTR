@@ -1,0 +1,151 @@
+name: Diagnose B014 canonical closeout frontier
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: f6925f3e0d8378fedd6ec1d3aed30b725115e07e
+      ENTRY_MAIN: 90cf98f5f87b64f8e6da50a8444b1b598148f945
+      IMPLEMENTATION_HEAD: 70d601c4fb1c0603b6e757969a3a97b8c77744d8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f6925f3e0d8378fedd6ec1d3aed30b725115e07e
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact current canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B014_CLOSEOUT_DIAGNOSTIC_IDENTITY=PASS'
+      - name: Materialize closeout state locally only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          catalog_path = Path('configs/task-gate/mstr-000b.json')
+          catalog = json.loads(catalog_path.read_text())
+          assert catalog['tasks']['B014']['canonical_state'] == 'PENDING'
+          catalog['tasks']['B014']['canonical_state'] = 'COMPLETE_CANONICAL'
+          catalog_path.write_text(json.dumps(catalog, indent=2) + '\n')
+
+          tasks_path = Path('specs/002-code-model-supremacy-foundation/tasks.md')
+          tasks = tasks_path.read_text()
+          heading = re.search(r'^- \[ \] \*\*B014 .+$', tasks, re.MULTILINE)
+          assert heading, 'B014 unchecked heading missing'
+          replacement = heading.group(0).replace('- [ ]', '- [x]', 1)
+          replacement += (
+              '\n  - Canonical implementation: PR #67 / final head '
+              '`70d601c4fb1c0603b6e757969a3a97b8c77744d8` / merge '
+              '`f6925f3e0d8378fedd6ec1d3aed30b725115e07e`'
+          )
+          tasks = tasks[:heading.start()] + replacement + tasks[heading.end():]
+          tasks_path.write_text(tasks)
+
+          evidence_path = Path('evidence/mstr-000b/B014-data-constitution.md')
+          evidence = evidence_path.read_text()
+          assert '**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT' in evidence
+          evidence = evidence.replace(
+              '**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT',
+              '**State:** COMPLETE_CANONICAL',
+              1,
+          )
+          anchor = '**Task:** `B014`\n'
+          assert anchor in evidence
+          metadata = (
+              '**Implementation PR:** #67\n'
+              '**Final implementation head:** `70d601c4fb1c0603b6e757969a3a97b8c77744d8`\n'
+              '**Canonical implementation merge:** `f6925f3e0d8378fedd6ec1d3aed30b725115e07e`\n'
+          )
+          evidence = evidence.replace(anchor, anchor + metadata, 1)
+          provenance = (
+              '\n## Canonical entry provenance\n\n```text\n'
+              'ENTRY_GATE_TASK = B014\n'
+              'ENTRY_GATE_CANONICAL_MAIN = 90cf98f5f87b64f8e6da50a8444b1b598148f945\n'
+              'ENTRY_GATE_RUN = 33164424310\n'
+              'ENTRY_GATE_JOB = 98826328509\n'
+              'ENTRY_GATE_ELIGIBLE = true\n'
+              'ENTRY_GATE_DRIFT = clean\n'
+              '```\n'
+          )
+          evidence += provenance
+          evidence_path.write_text(evidence)
+          PY
+          git diff --check
+          git diff -- configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md evidence/mstr-000b/B014-data-constitution.md
+      - name: Commit simulated closeout and inspect machine frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'MSTR Evidence Bot'
+          git config user.email 'evidence@example.invalid'
+          git add configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md evidence/mstr-000b/B014-data-constitution.md
+          git commit -m 'docs(mstr-000b): simulate B014 canonical closeout'
+          CANDIDATE=$(git rev-parse HEAD)
+          git branch -f main "$CANDIDATE"
+          git update-ref refs/remotes/origin/main "$CANDIDATE"
+          python -m pip install -e '.[dev]'
+          python - <<'PY'
+          import json
+          import subprocess
+
+          def evaluate(task: str):
+              cp = subprocess.run(
+                  ['python', '-m', 'mstr_qualify', 'task', 'eligible', task],
+                  check=False, capture_output=True, text=True,
+              )
+              payload = json.loads(cp.stdout)
+              return cp.returncode, payload
+
+          rc14, b14 = evaluate('B014')
+          assert rc14 == 1
+          assert b14['eligible'] is False
+          assert b14['state_consistency_result']['observed_state'] == 'COMPLETE_CANONICAL'
+          assert 'task.already_terminal' in b14['reasons']
+
+          frontier = {}
+          for task in ['B015', 'B016', 'B018', 'B020', 'B022', 'B025']:
+              rc, payload = evaluate(task)
+              frontier[task] = {
+                  'rc': rc,
+                  'eligible': payload['eligible'],
+                  'state': payload['state_consistency_result']['observed_state'],
+                  'reasons': payload['reasons'],
+                  'prerequisites': payload['prerequisite_results'],
+                  'authority': payload['authority_result'],
+              }
+
+          rc11, b11 = evaluate('B011')
+          assert rc11 == 1
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state'] == 'BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+
+          drift_cp = subprocess.run(
+              ['python', '-m', 'mstr_qualify', 'task', 'drift'],
+              check=True, capture_output=True, text=True,
+          )
+          drift = json.loads(drift_cp.stdout)
+          print('B014_CLOSEOUT_FRONTIER=' + json.dumps(frontier, sort_keys=True))
+          print('B014_CLOSEOUT_DRIFT=' + json.dumps(drift, sort_keys=True))
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B014_CLOSEOUT_DIAGNOSTIC=PASS')
+          PY
