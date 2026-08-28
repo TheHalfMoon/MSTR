@@ -1,0 +1,164 @@
+name: Build refreshed B009 compatibility matrix
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: dd6c7a9b163f1f34e6cc3570da234078d39f4fce
+      TARGET_BRANCH: feat/000b-b009-training-runtime-compatibility-v2
+      DONOR_WORKFLOW_COMMIT: bf68268a5137d38ea3e83341f5b3237e1d9cc238
+      DONOR_WORKFLOW_BLOB: 5f5f0f27298896f2fa02f8f8566420f4a269e1da
+      TRANSFORMERS_SHA: a8e8d144f6b8e71b93678a274b65d3a319f71921
+      UNSLOTH_SHA: 411b40615ac88ac657497e5ca9e9da9b334d841e
+      PEFT_SHA: 13414e66235139fad4102dfd3c9502958dbdc92b
+      TRL_SHA: 89bfc6a54a263bee77fee55aba177a75c8aecf55
+      LLAMA_CPP_SHA: d077b4c21466cfad678b07b05b557599f4db3974
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/000b-b009-training-runtime-compatibility-v2
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Guard exact canonical entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B009 > /tmp/b009-entry.json
+          python -m mstr_qualify task drift > /tmp/b009-drift.json
+          python - <<'PY'
+          import json, os
+          expected = os.environ['EXPECTED_MAIN']
+          entry = json.load(open('/tmp/b009-entry.json'))
+          drift = json.load(open('/tmp/b009-drift.json'))
+          assert entry['canonical_main'] == expected
+          assert entry['eligible'] is True and entry['reasons'] == []
+          assert entry['state_consistency_result']['observed_state'] == 'PENDING'
+          assert entry['prerequisite_results'][0]['task_id'] == 'B008'
+          assert entry['prerequisite_results'][0]['satisfied'] is True
+          assert drift['canonical_main'] == expected
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B009_BUILD3_ENTRY=PASS')
+          PY
+
+      - name: Re-prove refreshed upstream source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/huggingface/transformers/branches/main --jq .commit.sha)" = "$TRANSFORMERS_SHA"
+          test "$(gh api repos/unslothai/unsloth/branches/main --jq .commit.sha)" = "$UNSLOTH_SHA"
+          test "$(gh api repos/huggingface/peft/branches/main --jq .commit.sha)" = "$PEFT_SHA"
+          test "$(gh api repos/huggingface/trl/branches/main --jq .commit.sha)" = "$TRL_SHA"
+          test "$(gh api repos/ggml-org/llama.cpp/branches/master --jq .commit.sha)" = "$LLAMA_CPP_SHA"
+          for path in \
+            src/transformers/models/granite/modeling_granite.py \
+            src/transformers/models/mellum/modeling_mellum.py \
+            src/transformers/models/ministral3/modeling_ministral3.py \
+            src/transformers/models/qwen2/modeling_qwen2.py \
+            src/transformers/models/qwen3/modeling_qwen3.py \
+            src/transformers/models/qwen3_5/modeling_qwen3_5.py \
+            src/transformers/models/smollm3/modeling_smollm3.py \
+            src/transformers/models/llama/modeling_llama.py; do
+            gh api --method GET "repos/huggingface/transformers/contents/$path?ref=$TRANSFORMERS_SHA" >/dev/null
+          done
+          for path in \
+            unsloth/models/granite.py \
+            unsloth/models/qwen2.py \
+            unsloth/models/qwen3.py \
+            unsloth/models/loader.py \
+            unsloth/models/llama.py \
+            unsloth/import_fixes.py; do
+            gh api --method GET "repos/unslothai/unsloth/contents/$path?ref=$UNSLOTH_SHA" >/dev/null
+          done
+          gh api --method GET "repos/huggingface/peft/contents/src/peft/utils/constants.py?ref=$PEFT_SHA" >/dev/null
+          gh api --method GET "repos/huggingface/trl/contents/trl/trainer/sft_trainer.py?ref=$TRL_SHA" >/dev/null
+          gh api --method GET "repos/ggml-org/llama.cpp/contents/conversion/__init__.py?ref=$LLAMA_CPP_SHA" >/dev/null
+          echo 'B009_BUILD3_SOURCE_SNAPSHOT=PASS'
+
+      - name: Reuse immutable materializer and normalize whitespace
+        shell: bash
+        run: |
+          set -euo pipefail
+          donor_json=$(mktemp)
+          gh api --method GET "repos/${GITHUB_REPOSITORY}/contents/.github/workflows/evidence-b009-build-dd6c7a9.yml?ref=$DONOR_WORKFLOW_COMMIT" > "$donor_json"
+          test "$(jq -r .sha "$donor_json")" = "$DONOR_WORKFLOW_BLOB"
+          jq -r .content "$donor_json" | tr -d '\n' | base64 -d > /tmp/donor.yml
+          python - <<'PY'
+          import textwrap
+          from pathlib import Path
+
+          text = Path('/tmp/donor.yml').read_text(encoding='utf-8')
+          marker = '      - name: Materialize B009 decision, evidence, and contract test\n'
+          section = text.split(marker, 1)[1]
+          start_marker = "          python - <<'PY'\n"
+          start = section.index(start_marker) + len(start_marker)
+          end = section.index("\n          PY\n", start)
+          code = textwrap.dedent(section[start:end])
+          exec(compile(code, '<b009-immutable-materializer>', 'exec'), {'__name__': '__main__'})
+
+          evidence = Path('evidence/mstr-000b/B009-compatibility.md')
+          cleaned = '\n'.join(line.rstrip() for line in evidence.read_text(encoding='utf-8').splitlines()) + '\n'
+          evidence.write_text(cleaned, encoding='utf-8')
+          print('B009_BUILD3_MATERIALIZER=PASS')
+          PY
+          git add artifacts/decisions/B009-training-runtime-compatibility.json \
+            evidence/mstr-000b/B009-compatibility.md \
+            tests/contract/test_b009_training_runtime_compatibility.py
+          git diff --cached --check
+          expected=$(printf '%s\n' \
+            artifacts/decisions/B009-training-runtime-compatibility.json \
+            evidence/mstr-000b/B009-compatibility.md \
+            tests/contract/test_b009_training_runtime_compatibility.py | sort)
+          actual=$(git diff --cached --name-only | sort)
+          test "$actual" = "$expected"
+          echo 'B009_BUILD3_SCOPE=PASS'
+
+      - name: Qualify candidate and guarded fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_b009_training_runtime_compatibility.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --cached --check
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git commit -m 'docs(mstr-000b): freeze B009 training/runtime compatibility'
+          candidate=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          expected=$(printf '%s\n' \
+            artifacts/decisions/B009-training-runtime-compatibility.json \
+            evidence/mstr-000b/B009-compatibility.md \
+            tests/contract/test_b009_training_runtime_compatibility.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN"..HEAD | sort)
+          test "$actual" = "$expected"
+          git diff "$EXPECTED_MAIN"..HEAD --check
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin "HEAD:$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$candidate"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo "B009_IMPLEMENTATION_HEAD=$candidate"
+          echo 'B009_BUILD3=PASS'
