@@ -1,0 +1,124 @@
+name: Qualify exact B017 canonical closeout head
+
+on:
+  push:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: 79e1b5ceca4ed39e10f53b0f85f93ffb7b02208c
+  EXPECTED_HEAD: 287da395632bc454ef0abe0e9b322800286711a7
+  TARGET_BRANCH: docs/000b-b017-canonicalize
+  PR_NUMBER: "74"
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: 287da395632bc454ef0abe0e9b322800286711a7, fetch-depth: 0}
+      - name: Bind live main, PR, exact closeout head, and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git merge-base "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "$EXPECTED_MAIN"
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")
+          test "$(jq -r .state <<<"$pr")" = "open"
+          test "$(jq -r .draft <<<"$pr")" = "false"
+          test "$(jq -r .base.sha <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r .head.sha <<<"$pr")" = "$EXPECTED_HEAD"
+          test "$(jq -r .changed_files <<<"$pr")" = "6"
+          expected=$(printf '%s\n' configs/task-gate/mstr-000b.json evidence/mstr-000b/B017-evolution-fixture-pilot.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/unit/test_software_evolution_projection.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+
+  entry_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: python -m pip install -e '.[dev]'
+      - name: Re-prove exact-main B017 closeout eligibility and authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B017 > /tmp/b017.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          b17=json.load(open('/tmp/b017.json')); b11=json.load(open('/tmp/b011.json')); drift=json.load(open('/tmp/drift.json'))
+          assert b17['eligible'] is True and b17['state_consistency_result']['observed_state']=='PENDING'
+          assert b17['authority_result']['required'] is False
+          assert b11['eligible'] is False and b11['state_consistency_result']['observed_state']=='BLOCKED'
+          assert b11['authority_result']['required'] is True and b11['authority_result']['satisfied'] is False
+          assert drift['status']=='clean' and drift['findings']==[]
+          PY
+
+  closeout_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: 287da395632bc454ef0abe0e9b322800286711a7}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: python -m pip install -e '.[dev]'
+      - name: Verify closeout state and focused regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          cfg=json.loads(Path('configs/task-gate/mstr-000b.json').read_text())
+          assert cfg['tasks']['B017']['canonical_state']=='COMPLETE_CANONICAL'
+          assert cfg['tasks']['B011']['canonical_state']=='BLOCKED'
+          evidence=Path('evidence/mstr-000b/B017-evolution-fixture-pilot.md').read_text()
+          tasks=Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text()
+          assert '**State:** COMPLETE_CANONICAL' in evidence
+          assert '**Implementation PR:** #73' in evidence
+          assert '`287da395632bc454ef0abe0e9b322800286711a7`' not in evidence
+          assert '- [x] **B017 Build a tiny fixture-only software-evolution extractor/projection proof.**' in tasks
+          assert '- [ ] **B018 Freeze execution-filtered student self-alignment contract.**' in tasks
+          PY
+          pytest -q tests/unit/test_software_evolution_projection.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: 287da395632bc454ef0abe0e9b322800286711a7}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m mstr_qualify validate
+      - run: pytest -q
+      - run: ruff check src tests
+      - run: mypy
+
+  complete:
+    needs: [identity, entry_gate, closeout_semantics, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Final remote and PR immutability recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")
+          test "$(jq -r .state <<<"$pr")" = "open"
+          test "$(jq -r .base.sha <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r .head.sha <<<"$pr")" = "$EXPECTED_HEAD"
+          echo 'B017_CLOSEOUT_EXACT_HEAD_QUALIFICATION=PASS'
+          echo 'B011_REMAINS_BLOCKED=PASS'
