@@ -1,0 +1,79 @@
+name: Inventory B008 tokenizer files
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 7f2fe43797db4b94103ca07c172de5672806f624
+      TARGET_BRANCH: feat/000b-b008-tokenizer-economics
+      HF_HUB_DISABLE_IMPLICIT_TOKEN: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Guard exact entry state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]' 'huggingface_hub==0.34.4'
+          python -m mstr_qualify task eligible B008 > /tmp/b008.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          e=json.load(open('/tmp/b008.json')); d=json.load(open('/tmp/drift.json')); m=os.environ['EXPECTED_MAIN']
+          assert e['canonical_main']==m and e['eligible'] is True and e['reasons']==[], e
+          assert d['canonical_main']==m and d['status']=='clean' and d['findings']==[], d
+          print('B008_FILE_INVENTORY_ENTRY=PASS')
+          PY
+      - name: Read public repository file inventories only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from huggingface_hub import HfApi
+          api=HfApi(token=False)
+          rows=[]
+          for p in sorted(Path('artifacts/candidates').glob('*.json')):
+              d=json.loads(p.read_text())
+              r=d.get('rights',{})
+              if d.get('status')!='static_qualified':
+                  continue
+              assert r.get('decision')=='pass_permissive'
+              assert r.get('account_gate_required') is False
+              assert r.get('clickthrough_gate_required') is False
+              files=sorted(api.list_repo_files(repo_id=d['upstream_id'], revision=d['upstream_revision'], token=False))
+              tokenizer_related=[f for f in files if any(k in Path(f).name.lower() for k in ('tokenizer','vocab','merges','spiece','sentencepiece','tekken','special_tokens','added_tokens'))]
+              config_related=[f for f in files if Path(f).name in {'config.json'}]
+              rows.append({'candidate_id':d['candidate_id'],'upstream_id':d['upstream_id'],'revision':d['upstream_revision'],'tokenizer_related_files':tokenizer_related,'config_related_files':config_related})
+          assert len(rows)==10, len(rows)
+          print('B008_TOKENIZER_FILE_INVENTORY='+json.dumps(rows,sort_keys=True,separators=(',',':')))
+          print('B008_TOKENIZER_FILE_INVENTORY_COUNT=10')
+          PY
+      - name: Final immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          echo 'B008_FILE_INVENTORY_ONLY=YES'
+          echo 'B008_TOKENIZER_ACQUISITION=NOT_STARTED'
+          echo 'B008_TOKENIZER_MEASUREMENT=NOT_STARTED'
