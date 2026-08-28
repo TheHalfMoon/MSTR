@@ -41,6 +41,27 @@ jobs:
           sed -i 's/[[:space:]]\+$//' \
             /tmp/b019/docs/data/TEACHER_RESCUE_POLICY.md \
             /tmp/b019/evidence/mstr-000b/B019-teacher-policy.md
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('/tmp/b019/tests/integration/test_cli_offline.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''        "mstr-self-alignment-generation-v0",
+        "mstr-teacher-rescue-record-v0",
+        "mstr-software-evolution-record-v0",
+        "mstr-task-eligibility-v0",
+        "mstr-task-node-v0",
+'''
+          new = '''        "mstr-self-alignment-generation-v0",
+        "mstr-software-evolution-record-v0",
+        "mstr-task-eligibility-v0",
+        "mstr-task-node-v0",
+        "mstr-teacher-rescue-record-v0",
+'''
+          if text.count(old) != 1:
+              raise SystemExit('B019 CLI schema-order anchor mismatch')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
           git -C /tmp/b019 add -N .
           git -C /tmp/b019 diff --check
           expected=$(printf '%s\n' \
