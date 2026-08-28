@@ -37,6 +37,8 @@ SCHEMA_FILES: Mapping[str, str] = {
     "mstr-data-constitution-v0": "mstr-data-constitution-v0.schema.json",
     # MSTR-000B B016: software-evolution lineage and future-history boundary.
     "mstr-software-evolution-record-v0": "mstr-software-evolution-record-v0.schema.json",
+    # MSTR-000B B018: execution-filtered student self-alignment contract.
+    "mstr-self-alignment-generation-v0": "mstr-self-alignment-generation-v0.schema.json",
 }
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -127,6 +129,111 @@ def _format_validation_error(error: ValidationError) -> str:
     return f"{path}: {error.message}"
 
 
+def _self_alignment_semantic_errors(instance: Any) -> tuple[str, ...]:
+    """Enforce B018 cross-field evidence bindings that JSON Schema cannot express."""
+
+    if not isinstance(instance, dict):
+        return ()
+
+    errors: list[str] = []
+    artifacts: dict[str, dict[str, Any]] = {}
+
+    def register_artifact(value: Any) -> None:
+        if not isinstance(value, dict):
+            return
+        artifact_id = value.get("artifact_id")
+        if not isinstance(artifact_id, str):
+            return
+        if artifact_id in artifacts:
+            errors.append(f"$.generated_artifacts: duplicate artifact_id {artifact_id!r}")
+            return
+        artifacts[artifact_id] = value
+
+    register_artifact(instance.get("generated_task"))
+    for collection in ("generated_solutions", "generated_tests"):
+        values = instance.get(collection)
+        if isinstance(values, list):
+            for value in values:
+                register_artifact(value)
+
+    def check_artifact_bindings(field: str, nested_field: str) -> None:
+        raw_bindings = instance.get(field)
+        if not isinstance(raw_bindings, list):
+            return
+        bindings: dict[str, dict[str, Any]] = {}
+        for index, binding in enumerate(raw_bindings):
+            if not isinstance(binding, dict):
+                continue
+            artifact_id = binding.get("artifact_id")
+            if not isinstance(artifact_id, str):
+                continue
+            if artifact_id in bindings:
+                errors.append(f"$.{field}[{index}]: duplicate artifact binding {artifact_id!r}")
+                continue
+            bindings[artifact_id] = binding
+        if set(bindings) != set(artifacts):
+            errors.append(f"$.{field}: bindings must exactly cover generated artifact ids")
+        for artifact_id in sorted(set(bindings) & set(artifacts)):
+            if bindings[artifact_id].get(nested_field) != artifacts[artifact_id].get(nested_field):
+                errors.append(
+                    f"$.{field}: binding for {artifact_id!r} does not match artifact {nested_field}"
+                )
+
+    check_artifact_bindings("generated_artifact_provenance", "provenance")
+    check_artifact_bindings("generated_artifact_rights_decisions", "rights_decision")
+
+    raw_execution = instance.get("execution_results")
+    expected_execution = {
+        artifact_id: artifact
+        for artifact_id, artifact in artifacts.items()
+        if artifact.get("artifact_kind") in {"SOLUTION", "TEST"}
+    }
+    if isinstance(raw_execution, list):
+        bindings: dict[str, dict[str, Any]] = {}
+        for index, binding in enumerate(raw_execution):
+            if not isinstance(binding, dict):
+                continue
+            artifact_id = binding.get("artifact_id")
+            if not isinstance(artifact_id, str):
+                continue
+            if artifact_id in bindings:
+                errors.append(f"$.execution_results[{index}]: duplicate binding {artifact_id!r}")
+                continue
+            bindings[artifact_id] = binding
+        if set(bindings) != set(expected_execution):
+            errors.append("$.execution_results: must exactly cover executable artifact ids")
+        environment_identity = instance.get("environment_identity")
+        for artifact_id in sorted(set(bindings) & set(expected_execution)):
+            binding = bindings[artifact_id]
+            artifact = expected_execution[artifact_id]
+            if binding.get("execution_result") != artifact.get("execution_result"):
+                errors.append(
+                    f"$.execution_results: {artifact_id!r} does not match artifact execution_result"
+                )
+            if binding.get("environment_identity") != environment_identity:
+                errors.append(
+                    f"$.execution_results: {artifact_id!r} does not match environment_identity"
+                )
+
+    student = instance.get("student_model_identity")
+    difficulty = instance.get("difficulty_record")
+    if isinstance(student, dict) and isinstance(difficulty, dict):
+        if difficulty.get("student_model_identity") != student:
+            errors.append(
+                "$.difficulty_record.student_model_identity: must match student_model_identity"
+            )
+        if difficulty.get("harness_profile_id") != student.get("harness_profile_id"):
+            errors.append(
+                "$.difficulty_record.harness_profile_id: must match student harness_profile_id"
+            )
+        if difficulty.get("sampling_identity") != student.get("sampling_identity"):
+            errors.append(
+                "$.difficulty_record.sampling_identity: must match exact student sampling_identity"
+            )
+
+    return tuple(sorted(errors))
+
+
 def validation_errors(
     name: str,
     instance: Any,
@@ -145,7 +252,10 @@ def validation_errors(
             error.message,
         ),
     )
-    return tuple(_format_validation_error(error) for error in errors)
+    formatted = [_format_validation_error(error) for error in errors]
+    if name == "mstr-self-alignment-generation-v0":
+        formatted.extend(_self_alignment_semantic_errors(instance))
+    return tuple(sorted(formatted))
 
 
 def validate_instance(
