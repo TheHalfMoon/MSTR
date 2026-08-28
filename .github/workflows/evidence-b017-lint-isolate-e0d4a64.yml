@@ -1,0 +1,58 @@
+name: Diagnose B017 lint isolation
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e0d4a64929376f91a7aef502abedc2bc4645afbc
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e '.[dev]'
+      - name: Combined frozen lint
+        continue-on-error: true
+        run: ruff check src tests
+      - name: B017 source all configured rules
+        continue-on-error: true
+        run: ruff check src/mstr_qualify/software_evolution.py
+      - name: B017 test all configured rules
+        continue-on-error: true
+        run: ruff check tests/unit/test_software_evolution_projection.py
+      - name: B017 source E
+        continue-on-error: true
+        run: ruff check src/mstr_qualify/software_evolution.py --select E
+      - name: B017 source F
+        continue-on-error: true
+        run: ruff check src/mstr_qualify/software_evolution.py --select F
+      - name: B017 source I
+        continue-on-error: true
+        run: ruff check src/mstr_qualify/software_evolution.py --select I
+      - name: B017 source UP
+        continue-on-error: true
+        run: ruff check src/mstr_qualify/software_evolution.py --select UP
+      - name: B017 source B
+        continue-on-error: true
+        run: ruff check src/mstr_qualify/software_evolution.py --select B
+      - name: B017 test E
+        continue-on-error: true
+        run: ruff check tests/unit/test_software_evolution_projection.py --select E
+      - name: B017 test F
+        continue-on-error: true
+        run: ruff check tests/unit/test_software_evolution_projection.py --select F
+      - name: B017 test I
+        continue-on-error: true
+        run: ruff check tests/unit/test_software_evolution_projection.py --select I
+      - name: B017 test UP
+        continue-on-error: true
+        run: ruff check tests/unit/test_software_evolution_projection.py --select UP
+      - name: B017 test B
+        continue-on-error: true
+        run: ruff check tests/unit/test_software_evolution_projection.py --select B
