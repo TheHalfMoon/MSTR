@@ -1,9 +1,9 @@
 # B006 Candidate Reconciliation Evidence
 
-**Workstream:** MSTR-000B  
-**Task:** B006  
-**State:** IMPLEMENTATION_ACTIVE / NOT_COMPLETE_CANONICAL  
-**Canonical main at entry:** `ebd31e7657cb42479b28a4cb1cc8a5ce2ae56b6a`  
+**Workstream:** MSTR-000B
+**Task:** B006
+**State:** IMPLEMENTATION_ACTIVE / NOT_COMPLETE_CANONICAL
+**Canonical main at entry:** `ebd31e7657cb42479b28a4cb1cc8a5ce2ae56b6a`
 **Branch:** `research/000b-b006-candidate-reconciliation`
 
 ## Entry gate
