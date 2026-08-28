@@ -248,3 +248,24 @@ def test_task_eligible_parser_rejects_caller_supplied_main() -> None:
     parser = build_parser()
     with pytest.raises(SystemExit):
         parser.parse_args(["task", "eligible", "B003", "--canonical-main", "a" * 40])
+
+
+def test_task_eligible_b014_terminal_returns_one(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    expected = evaluate_task_snapshot("B014", canonical_main=_CANONICAL_MAIN)
+
+    def fake_evaluate_task_eligibility(task_id: str) -> dict[str, object]:
+        assert task_id == "B014"
+        return expected
+
+    monkeypatch.setattr(
+        "mstr_qualify.cli.evaluate_task_eligibility", fake_evaluate_task_eligibility
+    )
+    exit_code = main(["task", "eligible", "B014"])
+    payload = _stdout_json(capsys)
+    assert exit_code == 1
+    assert payload == expected
+    assert payload["eligible"] is False
+    assert "task.already_terminal" in payload["reasons"]
+    validate_instance("mstr-task-eligibility-v0", payload)

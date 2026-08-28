@@ -112,7 +112,8 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
 
 # Phase D — Data Constitution and Software-Evolution Foundation
 
-- [ ] **B014 Freeze `MSTR-DATA-CONSTITUTION-v0`.**  
+- [x] **B014 Freeze `MSTR-DATA-CONSTITUTION-v0`.**
+  - Canonical implementation: PR #67 / final head `70d601c4fb1c0603b6e757969a3a97b8c77744d8` / merge `f6925f3e0d8378fedd6ec1d3aed30b725115e07e`
   Define allowed/prohibited source classes, software-role taxonomy, provenance/rights, contamination, dedup, benchmark exclusion, synthetic/student/teacher policy, difficulty policy, verifier-health thresholds, stage admission rules, and private-user-data default rejection.  
   Outputs: `docs/data/MSTR_DATA_CONSTITUTION.md`, schema/fixtures, `evidence/mstr-000b/B014-data-constitution.md`.
 
