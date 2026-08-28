@@ -1,0 +1,73 @@
+name: Snapshot B006 revalidation metadata ebd31e7
+
+on:
+  push:
+    branches:
+      - evidence/b006-revalidation-metadata-ebd31e7
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: ebd31e7657cb42479b28a4cb1cc8a5ce2ae56b6a
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify main and fetch metadata-only revalidation records
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          python - <<'PY'
+          import json
+          import urllib.request
+
+          rows = [
+            ('Qwen/Qwen3.5-2B-Base','b1485b2fa6dfa1287294f269f5fb618e03d52d7c'),
+            ('Qwen/Qwen3.5-4B-Base','1001bb4d826a52d1f399e183466143f4da7b741b'),
+            ('01-ai/Yi-Coder-1.5B','00e59e64f47d3c78e4cfbdd345888479797e8109'),
+            ('mistralai/Ministral-3-3B-Base-2512','6f9c4b12a95b139af68670a6713616b757923735'),
+          ]
+          out=[]
+          for repo, rev in rows:
+              url=f'https://huggingface.co/api/models/{repo}/revision/{rev}'
+              req=urllib.request.Request(url, headers={'User-Agent':'MSTR-B006-revalidation/1.0'})
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  data=json.load(r)
+              assert data.get('sha') == rev, (repo, data.get('sha'), rev)
+              out.append({
+                  'repo_id': repo,
+                  'revision': rev,
+                  'gated': data.get('gated'),
+                  'private': data.get('private'),
+                  'disabled': data.get('disabled'),
+                  'license': (data.get('cardData') or {}).get('license'),
+                  'license_name': (data.get('cardData') or {}).get('license_name'),
+                  'license_link': (data.get('cardData') or {}).get('license_link'),
+                  'safetensors_total': (data.get('safetensors') or {}).get('total'),
+                  'pipeline_tag': data.get('pipeline_tag'),
+                  'library_name': data.get('library_name'),
+                  'config': data.get('config'),
+              })
+          print('B006_REVALIDATION_METADATA_JSON_BEGIN')
+          print(json.dumps(out, indent=2, sort_keys=True))
+          print('B006_REVALIDATION_METADATA_JSON_END')
+          print('MODEL_WEIGHT_ACCESS=NONE')
+          print('TOKENIZER_ARTIFACT_DOWNLOAD=NONE')
+          print('GATED_TERMS_ACCEPTANCE=NONE')
+          print('MODEL_EXECUTION=NONE')
+          PY
+          git fetch origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          echo 'B006_REVALIDATION_METADATA_SNAPSHOT=PASS'
