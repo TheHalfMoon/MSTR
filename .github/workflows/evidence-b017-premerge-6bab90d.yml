@@ -51,7 +51,8 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin main
-          git worktree add /tmp/main-check "$EXPECTED_MAIN"
+          git branch -f main "$EXPECTED_MAIN"
+          git worktree add /tmp/main-check main
           (cd /tmp/main-check && python -m mstr_qualify task eligible B017 > /tmp/b017.json)
           if (cd /tmp/main-check && python -m mstr_qualify task eligible B011 > /tmp/b011.json); then exit 1; fi
           (cd /tmp/main-check && python -m mstr_qualify task drift > /tmp/drift.json)
