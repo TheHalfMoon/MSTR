@@ -39,6 +39,48 @@ jobs:
         run: |
           set -euo pipefail
           python /tmp/build_b018.py
+          python - <<'PY'
+          from pathlib import Path
+
+          root = Path.cwd()
+
+          schemas_test = root / "tests/contract/test_schemas.py"
+          schemas_text = schemas_test.read_text(encoding="utf-8")
+          schemas_anchor = '''    "mstr-software-evolution-record-v0": (
+              ROOT
+              / "specs"
+              / "002-code-model-supremacy-foundation"
+              / "contracts"
+              / "mstr-software-evolution-record-v0.schema.json"
+          ),
+          '''
+          if schemas_text.count(schemas_anchor) != 1:
+              raise SystemExit("test_schemas.py B016 override anchor mismatch")
+          schemas_replacement = schemas_anchor + '''    "mstr-self-alignment-generation-v0": (
+              ROOT
+              / "specs"
+              / "002-code-model-supremacy-foundation"
+              / "contracts"
+              / "mstr-self-alignment-generation-v0.schema.json"
+          ),
+          '''
+          schemas_test.write_text(
+              schemas_text.replace(schemas_anchor, schemas_replacement), encoding="utf-8"
+          )
+
+          cli_test = root / "tests/integration/test_cli_offline.py"
+          cli_text = cli_test.read_text(encoding="utf-8")
+          cli_anchor = '''        "mstr-run-event-v0",
+                  "mstr-software-evolution-record-v0",
+          '''
+          if cli_text.count(cli_anchor) != 1:
+              raise SystemExit("test_cli_offline.py schema-list anchor mismatch")
+          cli_replacement = '''        "mstr-run-event-v0",
+                  "mstr-self-alignment-generation-v0",
+                  "mstr-software-evolution-record-v0",
+          '''
+          cli_test.write_text(cli_text.replace(cli_anchor, cli_replacement), encoding="utf-8")
+          PY
           expected=$(printf '%s\n' \
             schemas/mstr-self-alignment-generation-v0.schema.json \
             specs/002-code-model-supremacy-foundation/contracts/mstr-self-alignment-generation-v0.schema.json \
@@ -47,6 +89,8 @@ jobs:
             src/mstr_qualify/schemas.py \
             src/mstr_qualify/cli.py \
             tests/contract/test_self_alignment_contract.py \
+            tests/contract/test_schemas.py \
+            tests/integration/test_cli_offline.py \
             evidence/mstr-000b/B018-self-alignment-contract.md | sort)
           actual=$(git status --porcelain=v1 | sed 's/^...//' | sort)
           test "$actual" = "$expected"
@@ -63,7 +107,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          pytest -q tests/contract/test_self_alignment_contract.py
+          pytest -q \
+            tests/contract/test_self_alignment_contract.py \
+            tests/contract/test_schemas.py \
+            tests/integration/test_cli_offline.py::test_validate_self_checks_schemas_and_fixtures
           python -m mstr_qualify validate
           python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-self-alignment-generation-v0.json
           if python -m mstr_qualify validate tests/fixtures/schemas/invalid/mstr-self-alignment-generation-v0.json; then exit 1; fi
@@ -83,6 +130,8 @@ jobs:
             tests/fixtures/schemas/invalid/mstr-self-alignment-generation-v0.json \
             src/mstr_qualify/schemas.py src/mstr_qualify/cli.py \
             tests/contract/test_self_alignment_contract.py \
+            tests/contract/test_schemas.py \
+            tests/integration/test_cli_offline.py \
             evidence/mstr-000b/B018-self-alignment-contract.md
           git commit -m 'feat(mstr-000b): freeze B018 self-alignment contract'
           candidate=$(git rev-parse HEAD)
