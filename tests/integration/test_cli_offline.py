@@ -135,6 +135,7 @@ def test_validate_self_checks_schemas_and_fixtures(capsys: pytest.CaptureFixture
     assert payload["schemas_checked"] == [
         "candidate-record",
         "interaction-contract",
+        "mstr-data-constitution-v0",
         "mstr-loop-contract-v0",
         "mstr-run-event-v0",
         "mstr-task-eligibility-v0",

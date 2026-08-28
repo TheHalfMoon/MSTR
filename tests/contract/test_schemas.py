@@ -27,6 +27,13 @@ DESIGN_SCHEMA_OVERRIDES = {
         / "contracts"
         / "mstr-task-eligibility-v0.schema.json"
     ),
+    "mstr-data-constitution-v0": (
+        ROOT
+        / "specs"
+        / "002-code-model-supremacy-foundation"
+        / "contracts"
+        / "mstr-data-constitution-v0.schema.json"
+    ),
 }
 
 
