@@ -1,0 +1,147 @@
+name: Mandatory premerge B016 closeout head
+
+on:
+  push:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  premerge:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 5ed34690dbc71db2359c927e96b511c32dffb2c4
+      EXPECTED_HEAD: 6fa15157f8e02ed71be3744b8c276cdc410765bd
+      TARGET_BRANCH: docs/000b-b016-canonicalize
+      PR_NUMBER: '72'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6fa15157f8e02ed71be3744b8c276cdc410765bd
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind live main, exact candidate, and PR identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
+          test "$(jq -r '.state' <<<"$pr")" = 'open'
+          test "$(jq -r '.draft' <<<"$pr")" = 'false'
+          test "$(jq -r '.base.ref' <<<"$pr")" = 'main'
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r '.head.ref' <<<"$pr")" = "$TARGET_BRANCH"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$EXPECTED_HEAD"
+          test "$(jq -r '.commits' <<<"$pr")" = '1'
+          test "$(jq -r '.changed_files' <<<"$pr")" = '6'
+          echo 'B016_CLOSEOUT_PREMERGE_PR_IDENTITY=PASS'
+      - name: Prove live-main entry truth remains unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git checkout --detach "$EXPECTED_MAIN"
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python -m mstr_qualify task eligible B016 > /tmp/main-b016.json
+          if python -m mstr_qualify task eligible B017 > /tmp/main-b017.json; then exit 1; fi
+          if python -m mstr_qualify task eligible B011 > /tmp/main-b011.json; then exit 1; fi
+          python -m mstr_qualify task drift > /tmp/main-drift.json
+          python - <<'PY'
+          import json, os
+          b16=json.load(open('/tmp/main-b016.json')); b17=json.load(open('/tmp/main-b017.json')); b11=json.load(open('/tmp/main-b011.json')); drift=json.load(open('/tmp/main-drift.json'))
+          assert b16['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert b16['eligible'] is True and b16['reasons']==[]
+          assert b16['state_consistency_result']['observed_state']=='PENDING'
+          assert b17['eligible'] is False and 'prerequisite.unsatisfied:B016' in b17['reasons']
+          assert b11['eligible'] is False and b11['state_consistency_result']['observed_state']=='BLOCKED'
+          assert b11['authority_result']['required'] is True and b11['authority_result']['satisfied'] is False
+          assert drift['status']=='clean' and drift['findings']==[]
+          print('B016_CLOSEOUT_PREMERGE_LIVE_MAIN=PASS')
+          PY
+      - name: Prove exact candidate terminal truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach "$EXPECTED_HEAD"
+          git branch -f main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          if python -m mstr_qualify task eligible B016 > /tmp/head-b016.json; then exit 1; fi
+          python -m mstr_qualify task eligible B017 > /tmp/head-b017.json
+          if python -m mstr_qualify task eligible B011 > /tmp/head-b011.json; then exit 1; fi
+          python -m mstr_qualify task drift > /tmp/head-drift.json
+          python - <<'PY'
+          import json, os
+          b16=json.load(open('/tmp/head-b016.json')); b17=json.load(open('/tmp/head-b017.json')); b11=json.load(open('/tmp/head-b011.json')); drift=json.load(open('/tmp/head-drift.json'))
+          assert b16['canonical_main']==os.environ['EXPECTED_HEAD']
+          assert b16['eligible'] is False and 'task.already_terminal' in b16['reasons']
+          assert b16['state_consistency_result']['observed_state']=='COMPLETE_CANONICAL'
+          assert b17['eligible'] is True and b17['reasons']==[]
+          assert b17['state_consistency_result']['observed_state']=='PENDING'
+          assert b17['authority_result']['required'] is False
+          assert b11['eligible'] is False and b11['state_consistency_result']['observed_state']=='BLOCKED'
+          assert b11['authority_result']['required'] is True and b11['authority_result']['satisfied'] is False
+          assert drift['status']=='clean' and drift['findings']==[]
+          print('B016_CLOSEOUT_PREMERGE_CANDIDATE=PASS')
+          PY
+      - name: Verify exact closeout scope and frozen implementation semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B016-software-evolution.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_software_evolution_contract.py \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | wc -l)" -eq 6
+          for path in \
+            schemas/mstr-software-evolution-record-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-software-evolution-record-v0.schema.json \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/fixtures/schemas/valid/mstr-software-evolution-record-v0.json \
+            tests/fixtures/schemas/invalid/mstr-software-evolution-record-v0.json; do
+            git diff --quiet "$EXPECTED_MAIN" "$EXPECTED_HEAD" -- "$path"
+          done
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          echo 'B016_CLOSEOUT_PREMERGE_SCOPE=PASS'
+      - name: Run mandatory frozen premerge gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_software_evolution_contract.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          echo 'B016_CLOSEOUT_PREMERGE_GATES=PASS'
+      - name: Final immutable remote and PR recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
+          test "$(jq -r '.state' <<<"$pr")" = 'open'
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$EXPECTED_HEAD"
+          echo 'B016_CLOSEOUT_PREMERGE=PASS'
+          echo 'B017_NEXT_ELIGIBLE=PASS'
+          echo 'B011_REMAINS_BLOCKED=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
