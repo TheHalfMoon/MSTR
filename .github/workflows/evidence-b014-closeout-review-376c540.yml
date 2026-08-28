@@ -1,0 +1,112 @@
+name: Adversarially review B014 closeout head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: f6925f3e0d8378fedd6ec1d3aed30b725115e07e
+      EXPECTED_HEAD: 376c540d46ea76b7bacd906152afda1260bca17f
+      TARGET_BRANCH: docs/000b-b014-canonicalize
+      IMPLEMENTATION_HEAD: 70d601c4fb1c0603b6e757969a3a97b8c77744d8
+      ENTRY_MAIN: 90cf98f5f87b64f8e6da50a8444b1b598148f945
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 376c540d46ea76b7bacd906152afda1260bca17f
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact reviewed bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          expected=$(printf '%s\n' configs/task-gate/mstr-000b.json evidence/mstr-000b/B014-data-constitution.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          test -z "$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | grep -E '\.(safetensors|bin|gguf|pt|pth|onnx|parquet|arrow)$' || true)"
+          echo 'B014_CLOSEOUT_REVIEW_IDENTITY=PASS'
+      - name: Attack implementation and entry provenance fabrication
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import re, subprocess
+          from pathlib import Path
+          evidence=Path('evidence/mstr-000b/B014-data-constitution.md').read_text()
+          tasks=Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text()
+          assert '**State:** COMPLETE_CANONICAL' in evidence
+          assert '**Implementation PR:** #67' in evidence
+          assert '**Final implementation head:** `70d601c4fb1c0603b6e757969a3a97b8c77744d8`' in evidence
+          assert '**Canonical implementation merge:** `f6925f3e0d8378fedd6ec1d3aed30b725115e07e`' in evidence
+          assert 'ENTRY_GATE_TASK = B014' in evidence
+          assert 'ENTRY_GATE_CANONICAL_MAIN = 90cf98f5f87b64f8e6da50a8444b1b598148f945' in evidence
+          assert 'ENTRY_GATE_RUN = 33164424310' in evidence
+          assert 'ENTRY_GATE_JOB = 98826328509' in evidence
+          assert 'ENTRY_GATE_ELIGIBLE = true' in evidence
+          assert 'ENTRY_GATE_DRIFT = clean' in evidence
+          assert re.search(r'^- \[x\] \*\*B014 .+$', tasks, re.MULTILINE)
+          assert 'Canonical implementation: PR #67 / final head `70d601c4fb1c0603b6e757969a3a97b8c77744d8` / merge `f6925f3e0d8378fedd6ec1d3aed30b725115e07e`' in tasks
+          def ancestor(a,b):
+              return subprocess.run(['git','merge-base','--is-ancestor',a,b]).returncode == 0
+          assert ancestor('90cf98f5f87b64f8e6da50a8444b1b598148f945','70d601c4fb1c0603b6e757969a3a97b8c77744d8')
+          assert ancestor('70d601c4fb1c0603b6e757969a3a97b8c77744d8','f6925f3e0d8378fedd6ec1d3aed30b725115e07e')
+          print('B014_CLOSEOUT_PROVENANCE_REVIEW=PASS')
+          PY
+      - name: Attack capability escalation and implementation mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
+          for task in B015 B016 B018 B020 B022 B025; do python -m mstr_qualify task eligible "$task" > "/tmp/$task.json"; done
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          b11=json.load(open('/tmp/b011.json'))
+          assert not b11['eligible']
+          assert b11['state_consistency_result']['observed_state']=='BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+          for task in ['B015','B016','B018','B020','B022','B025']:
+              p=json.load(open(f'/tmp/{task}.json'))
+              assert p['eligible'] is True
+              assert p['authority_result']['required'] is False
+          drift=json.load(open('/tmp/drift.json'))
+          assert drift['status']=='clean' and drift['findings']==[]
+          print('B014_CLOSEOUT_NO_ESCALATION=PASS')
+          PY
+          for p in docs/data/MSTR_DATA_CONSTITUTION.md schemas/mstr-data-constitution-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-data-constitution-v0.schema.json src/mstr_qualify/cli.py src/mstr_qualify/schemas.py tests/contract/test_data_constitution_contract.py tests/contract/test_schemas.py tests/fixtures/schemas/invalid/mstr-data-constitution-v0.json tests/fixtures/schemas/valid/mstr-data-constitution-v0.json tests/integration/test_cli_offline.py; do
+            test "$(git rev-parse "$EXPECTED_HEAD:$p")" = "$(git rev-parse "$EXPECTED_MAIN:$p")"
+          done
+          echo 'B014_CLOSEOUT_IMPLEMENTATION_IMMUTABLE=PASS'
+      - name: Exercise closeout regression gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          echo 'B014_CLOSEOUT_ADVERSARIAL_REVIEW=PASS'
+      - name: Final immutable remote recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B014_CLOSEOUT_REVIEW_REMOTE_RECHECK=PASS'
