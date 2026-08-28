@@ -1151,3 +1151,43 @@ def test_b007_fails_closed_when_b006_candidate_outputs_are_missing(tmp_path: Pat
     assert "prerequisite.required_artifact_missing" in predecessor["reasons"]
     assert "missing:artifacts/candidates/*.json" in predecessor["reasons"]
     validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b014_is_terminal_after_canonical_closeout() -> None:
+    result = evaluate_task_snapshot("B014", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert "task.already_terminal" in result["reasons"]
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+@pytest.mark.parametrize("task_id", ["B015", "B016", "B018", "B020", "B022", "B025"])
+def test_b014_closeout_opens_direct_nongated_successors(task_id: str) -> None:
+    result = evaluate_task_snapshot(task_id, canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is True
+    assert result["reasons"] == []
+    assert result["state_consistency_result"]["observed_state"] == "PENDING"
+    assert result["authority_result"]["required"] is False
+    assert result["authority_result"]["satisfied"] is True
+    predecessor = next(
+        item for item in result["prerequisite_results"] if item["task_id"] == "B014"
+    )
+    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
+    assert predecessor["evidence_present"] is True
+    assert predecessor["satisfied"] is True
+    assert predecessor["reasons"] == []
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b014_closeout_does_not_authorize_b011_weight_access() -> None:
+    result = evaluate_task_snapshot("B011", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "BLOCKED"
+    assert result["authority_result"]["required"] is True
+    assert result["authority_result"]["satisfied"] is False
+    assert result["authority_result"]["authority_id"] == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"
+    validate_instance("mstr-task-eligibility-v0", result)
