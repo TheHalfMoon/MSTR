@@ -56,7 +56,6 @@ jobs:
           assert pred['observed_state']=='COMPLETE_CANONICAL' and pred['evidence_present'] is True and pred['satisfied'] is True
           assert b17['eligible'] is False
           assert any('B016' in reason or 'prerequisite' in reason for reason in b17['reasons'])
-          assert b011['eligible'] is False if False else True
           assert b11['eligible'] is False and b11['state_consistency_result']['observed_state']=='BLOCKED'
           assert b11['authority_result']['required'] is True and b11['authority_result']['satisfied'] is False
           assert drift['status']=='clean' and drift['findings']==[]
