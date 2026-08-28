@@ -1,0 +1,170 @@
+name: Qualify exact B008 closeout head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 07762204ab126c0fccf9ca55a8b572bd6368d8bc
+      EXPECTED_HEAD: 3e59f721b472a13c220554e5fcba1f7056f4cb51
+      TARGET_BRANCH: docs/000b-b008-canonicalize
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3e59f721b472a13c220554e5fcba1f7056f4cb51
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bind exact immutable closeout identity and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          expected=$(printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B008-tokenizer-economics.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          git diff --exit-code "$EXPECTED_MAIN...$EXPECTED_HEAD" -- artifacts/results/tokenizer/B008 benchmarks/tokenizer_economics/b008_measure.py tests/contract/test_b008_tokenizer_economics_results.py
+          echo 'B008_CLOSEOUT_QUALIFY_IDENTITY_SCOPE=PASS'
+
+      - name: Verify canonical closeout semantics and exact ten required outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          catalog = json.loads(Path('configs/task-gate/mstr-000b.json').read_text())
+          b008 = catalog['tasks']['B008']
+          expected_outputs = [
+              'artifacts/results/tokenizer/B008/granite-4.1-3b.json',
+              'artifacts/results/tokenizer/B008/mellum-4b.json',
+              'artifacts/results/tokenizer/B008/ministral-3-3b.json',
+              'artifacts/results/tokenizer/B008/qwen2.5-coder-1.5b.json',
+              'artifacts/results/tokenizer/B008/qwen3-4b.json',
+              'artifacts/results/tokenizer/B008/qwen3.5-0.8b-control.json',
+              'artifacts/results/tokenizer/B008/qwen3.5-2b.json',
+              'artifacts/results/tokenizer/B008/qwen3.5-4b.json',
+              'artifacts/results/tokenizer/B008/smollm3-3b.json',
+              'artifacts/results/tokenizer/B008/yi-coder-1.5b.json',
+          ]
+          assert b008['canonical_state'] == 'COMPLETE_CANONICAL'
+          assert b008['closeout_rule']['require_all_outputs'] is True
+          assert b008['outputs'] == expected_outputs
+          assert b008['evidence_outputs'] == ['evidence/mstr-000b/B008-tokenizer-economics.md']
+          assert b008['prerequisites'] == ['B007']
+          for output in expected_outputs:
+              assert Path(output).is_file(), output
+          assert len(list(Path('artifacts/results/tokenizer/B008').glob('*.json'))) == 10
+
+          evidence = Path('evidence/mstr-000b/B008-tokenizer-economics.md').read_text()
+          required_evidence = [
+              '**State:** COMPLETE_CANONICAL',
+              '**Implementation PR:** `#61`',
+              '**Final implementation head:** `895983470f72128ad698023b3578553ed1cfe7c4`',
+              '**Canonical implementation merge:** `07762204ab126c0fccf9ca55a8b572bd6368d8bc`',
+              'ENTRY_GATE_TASK = B008',
+              'ENTRY_GATE_CANONICAL_MAIN = 7f2fe43797db4b94103ca07c172de5672806f624',
+              'ENTRY_GATE_ELIGIBLE = true',
+              'IMPLEMENTATION_PR = #61',
+              'FINAL_IMPLEMENTATION_HEAD = 895983470f72128ad698023b3578553ed1cfe7c4',
+              'CANONICAL_IMPLEMENTATION_MERGE = 07762204ab126c0fccf9ca55a8b572bd6368d8bc',
+              'EXACT_HEAD_QUALIFICATION_RUN = 33153394825',
+              'INDEPENDENT_REVIEW_RUN = 33153850333',
+              'POST_IMPLEMENTATION_VERIFY_RUN = 33154074016',
+          ]
+          for token in required_evidence:
+              assert token in evidence, token
+
+          tasks = Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text()
+          assert '- [x] **B008 Measure tokenizer code density for all serious candidates.**' in tasks
+          assert 'Canonical implementation: PR #61 / final head `895983470f72128ad698023b3578553ed1cfe7c4` / merge `07762204ab126c0fccf9ca55a8b572bd6368d8bc`.' in tasks
+          assert '- [ ] **B009 Freeze candidate trainability / conversion / runtime compatibility matrix.**' in tasks
+          print('B008_CLOSEOUT_QUALIFY_SEMANTICS=PASS')
+          PY
+
+      - name: Run production task semantics on local exact-main simulation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          if python -m mstr_qualify task eligible B008 > /tmp/b008.json; then
+            echo 'B008 unexpectedly eligible after closeout' >&2
+            exit 1
+          fi
+          python -m mstr_qualify task eligible B009 > /tmp/b009.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          import os
+
+          head = os.environ['EXPECTED_HEAD']
+          b008 = json.load(open('/tmp/b008.json'))
+          b009 = json.load(open('/tmp/b009.json'))
+          drift = json.load(open('/tmp/drift.json'))
+          assert b008['canonical_main'] == head
+          assert b008['eligible'] is False
+          assert b008['state_consistency_result']['observed_state'] == 'COMPLETE_CANONICAL'
+          assert b008['state_consistency_result']['satisfied'] is True
+          assert 'task.already_terminal' in b008['reasons']
+          assert b009['canonical_main'] == head
+          assert b009['eligible'] is True and b009['reasons'] == []
+          predecessor = b009['prerequisite_results'][0]
+          assert predecessor['task_id'] == 'B008'
+          assert predecessor['observed_state'] == 'COMPLETE_CANONICAL'
+          assert predecessor['evidence_present'] is True
+          assert predecessor['satisfied'] is True
+          assert drift['canonical_main'] == head
+          assert drift['status'] == 'clean' and drift['findings'] == []
+          print('B008_CLOSEOUT_QUALIFY_PRODUCTION_SEMANTICS=PASS')
+          PY
+
+      - name: Re-run closeout regressions and frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B008_CLOSEOUT_QUALIFY_FROZEN_GATES=PASS'
+
+      - name: Restore and recheck immutable remote refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo "B008_EXACT_CLOSEOUT_QUALIFIED_HEAD=$EXPECTED_HEAD"
+          echo 'B008_CLOSEOUT_EXACT_HEAD_QUALIFICATION=PASS'
