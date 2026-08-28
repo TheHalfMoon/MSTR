@@ -36,7 +36,7 @@ Attempt accounting fails closed: `success_count` cannot exceed `attempt_count`, 
 
 `estimated_solve_probability` is a finite value in `[0, 1]`, but B020 deliberately freezes **no probability threshold for any difficulty class**. The canonical plan reserves estimator behavior, frontier thresholds, refresh behavior, and sampling decisions for B021 fixture-only calibration/pilot evidence. This prevents a contract-only task from silently becoming training policy.
 
-`structural_features` is a non-empty flat descriptor map. B020 records evidence shape only; it does not prescribe a learned feature extractor, execute a student model, or calibrate a real checkpoint.
+`structural_features` is a non-empty flat descriptor map. Numeric feature values must be finite; `NaN` and infinities fail closed. B020 records evidence shape only; it does not prescribe a learned feature extractor, execute a student model, or calibrate a real checkpoint.
 
 ## Cross-Contract Binding
 

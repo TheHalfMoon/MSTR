@@ -88,6 +88,13 @@ def test_b020_non_finite_probability_fails_closed() -> None:
     assert any("must be finite" in item for item in errors(value))
 
 
+def test_b020_non_finite_structural_numeric_feature_fails_closed() -> None:
+    for non_finite in (math.nan, math.inf, -math.inf):
+        value = fixture()
+        value["structural_features"]["numeric_probe"] = non_finite
+        assert any("numeric value must be finite" in item for item in errors(value))
+
+
 def test_b020_machine_readable_entry_provenance_and_authority_boundary() -> None:
     evidence = (ROOT / "evidence" / "mstr-000b" / "B020-difficulty-contract.md").read_text(
         encoding="utf-8"

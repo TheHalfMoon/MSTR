@@ -373,6 +373,16 @@ def _difficulty_calibration_semantic_errors(instance: Any) -> tuple[str, ...]:
                 "$.sampling_identity: must match student_model_identity.sampling_identity"
             )
 
+    structural_features = instance.get("structural_features")
+    if isinstance(structural_features, dict):
+        for key, value in structural_features.items():
+            if (
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and not math.isfinite(float(value))
+            ):
+                errors.append(f"$.structural_features[{key!r}]: numeric value must be finite")
+
     failure_distribution = instance.get("failure_distribution")
     if isinstance(failure_distribution, list):
         seen: set[str] = set()
