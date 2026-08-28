@@ -1,0 +1,113 @@
+name: Build B020 difficulty calibration candidate atomically
+
+on:
+  push:
+    branches:
+      - evidence/b020-build-ef90e96
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: ef90e96ba3d4e2c253987d1d104e0de26ce93529
+  TARGET_BRANCH: feat/000b-b020-difficulty-calibration-contract
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b020-build-ef90e96
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Preserve evidence-only builder and verify remote baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp tools/evidence/build_b020.py /tmp/build_b020.py
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+      - name: Prove exact clean-main B020 entry before mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach "$EXPECTED_MAIN"
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          mstr-qualify task eligible B020 > /tmp/b020-entry.json
+          jq -e '.eligible == true and .task_id == "B020" and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b020-entry.json
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+      - name: Materialize exact B020 contract candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tools/evidence
+          cp /tmp/build_b020.py tools/evidence/build_b020.py
+          python tools/evidence/build_b020.py
+          rm tools/evidence/build_b020.py
+          ruff check --fix tests/contract/test_difficulty_calibration_contract.py
+          git diff --check
+          mapfile -t changed < <(git status --short | sed -E 's/^.. //' | sort)
+          expected=(
+            evidence/mstr-000b/B020-difficulty-contract.md
+            schemas/mstr-difficulty-calibration-v0.schema.json
+            specs/002-code-model-supremacy-foundation/contracts/mstr-difficulty-calibration-v0.schema.json
+            src/mstr_qualify/cli.py
+            src/mstr_qualify/schemas.py
+            tests/contract/test_difficulty_calibration_contract.py
+            tests/contract/test_schemas.py
+            tests/fixtures/schemas/invalid/mstr-difficulty-calibration-v0.json
+            tests/fixtures/schemas/valid/mstr-difficulty-calibration-v0.json
+            tests/integration/test_cli_offline.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq "${#expected_sorted[@]}"
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+          cmp schemas/mstr-difficulty-calibration-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-difficulty-calibration-v0.schema.json
+          test "$(git diff --name-only -- configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md specs/002-code-model-supremacy-foundation/plan.md .specify/memory/constitution.md | wc -l)" -eq 0
+      - name: Run focused B020 contract gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_difficulty_calibration_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          python -m mstr_qualify validate
+      - name: Run frozen full quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q
+          ruff check src tests
+          mypy src
+      - name: Commit and fast-forward target branch only after all gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git diff --check
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add \
+            evidence/mstr-000b/B020-difficulty-contract.md \
+            schemas/mstr-difficulty-calibration-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-difficulty-calibration-v0.schema.json \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_difficulty_calibration_contract.py \
+            tests/contract/test_schemas.py \
+            tests/fixtures/schemas/invalid/mstr-difficulty-calibration-v0.json \
+            tests/fixtures/schemas/valid/mstr-difficulty-calibration-v0.json \
+            tests/integration/test_cli_offline.py
+          test "$(git diff --cached --name-only | wc -l)" -eq 10
+          git commit -m "feat(mstr-000b): freeze B020 difficulty calibration contract"
+          candidate=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$candidate"
+          echo "B020_CANDIDATE=$candidate"
