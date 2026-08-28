@@ -1,0 +1,152 @@
+name: Qualify exact B007 closeout head 8410856
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: b9b0a8ca7b9b7528f5da518baa83b23e2348c6f6
+  EXPECTED_HEAD: 8410856e23f130be3f7e61dcf4cced2f9ce9aa53
+  TARGET_BRANCH: docs/000b-b007-canonicalize
+  ENTRY_MAIN: 9b4e885f215fd922ecf79ff9e15bdb1479396668
+  IMPLEMENTATION_HEAD: 965fbdbf152272397ae6ef721260e806be5d251c
+  IMPLEMENTATION_MERGE: b9b0a8ca7b9b7528f5da518baa83b23e2348c6f6
+  PIP_DISABLE_PIP_VERSION_CHECK: '1'
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Exact identity five-file scope and closeout bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git merge-base "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "$EXPECTED_MAIN"
+          expected=$(printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B007-tokenizer-protocol.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN"..."$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          git diff --check "$EXPECTED_MAIN"..."$EXPECTED_HEAD"
+          python - <<'PY'
+          from pathlib import Path
+          import json, os
+          main=os.environ['EXPECTED_MAIN']; entry=os.environ['ENTRY_MAIN']
+          impl=os.environ['IMPLEMENTATION_HEAD']; merge=os.environ['IMPLEMENTATION_MERGE']
+          c=json.loads(Path('configs/task-gate/mstr-000b.json').read_text())
+          b7=c['tasks']['B007']
+          assert b7['canonical_state']=='COMPLETE_CANONICAL', b7
+          assert b7['closeout_rule']['require_all_outputs'] is True, b7
+          assert b7['outputs']==[
+              'benchmarks/manifests/B007-tokenizer-economics.json',
+              'benchmarks/fixtures/tokenizer-economics/B007-corpus.json',
+          ], b7
+          for path in b7['outputs']:
+              assert Path(path).is_file(), path
+          ev=Path('evidence/mstr-000b/B007-tokenizer-protocol.md').read_text()
+          assert '**State:** COMPLETE_CANONICAL' in ev
+          assert '**Implementation PR:** `#59`' in ev
+          assert f'**Final implementation head:** `{impl}`' in ev
+          assert f'**Canonical implementation merge:** `{merge}`' in ev
+          assert 'ENTRY_GATE_TASK = B007' in ev
+          assert f'ENTRY_GATE_CANONICAL_MAIN = {entry}' in ev
+          assert 'ENTRY_GATE_ELIGIBLE = true' in ev
+          assert 'CLOSEOUT_TARGETED_GOVERNANCE = 55 passed' in ev
+          assert 'CLOSEOUT_FULL_PYTEST = 522 passed' in ev
+          tasks=Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text()
+          assert '- [x] **B007 Freeze tokenizer-economics benchmark corpus/protocol.**' in tasks
+          canonical=f'Canonical implementation: PR #59 / final head `{impl}` / merge `{merge}`.'
+          assert canonical in tasks
+          assert 'B008 eligibility after this state transition is only machine scheduling eligibility' in ev
+          print('B007_CLOSEOUT_BINDINGS=PASS')
+          print('B007_REQUIRED_MANIFEST_AND_CORPUS=PASS')
+          print('B007_EXACT_FIVE_FILE_SCOPE=PASS')
+          PY
+      - name: Prospective canonical-state and fail-closed proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          candidate=$(git rev-parse HEAD)
+          git branch -f main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          set +e
+          python -m mstr_qualify task eligible B007 > /tmp/b007.json
+          b7=$?
+          set -e
+          test "$b7" -eq 1
+          python -m mstr_qualify task eligible B008 > /tmp/b008.json
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, subprocess
+          h=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          b7=json.load(open('/tmp/b007.json')); b8=json.load(open('/tmp/b008.json')); d=json.load(open('/tmp/drift.json'))
+          assert b7['canonical_main']==h and b7['task_id']=='B007', b7
+          assert b7['eligible'] is False and b7['reasons']==['task.already_terminal'], b7
+          assert b7['state_consistency_result']['observed_state']=='COMPLETE_CANONICAL', b7
+          assert b8['canonical_main']==h and b8['task_id']=='B008', b8
+          assert b8['eligible'] is True and b8['reasons']==[], b8
+          assert b8['state_consistency_result']['observed_state']=='PENDING', b8
+          assert b8['prerequisite_results'][0]['task_id']=='B007'
+          assert b8['prerequisite_results'][0]['satisfied'] is True
+          assert d['canonical_main']==h and d['status']=='clean' and d['findings']==[], d
+          print('B007_QUALIFY_TERMINAL=PASS')
+          print('B008_QUALIFY_SUCCESSOR=PASS')
+          print('B007_QUALIFY_DRIFT=clean')
+          PY
+          pytest -q tests/contract/test_task_gate.py -k 'b007 or b008_fails_closed_when_b007_corpus_is_missing' | tee /tmp/b007contract.txt
+          pytest -q tests/integration/test_task_gate_cli.py -k 'b007 or b008' | tee /tmp/b007cli.txt
+          grep -q 'passed' /tmp/b007contract.txt
+          grep -q 'passed' /tmp/b007cli.txt
+      - name: Frozen exact-head gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py | tee /tmp/targeted.txt
+          grep -q '^55 passed' /tmp/targeted.txt
+          pytest -q | tee /tmp/full.txt
+          grep -q '^522 passed' /tmp/full.txt
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate | tee /tmp/validate.txt
+          grep -q '"status": "pass"' /tmp/validate.txt
+          echo B007_CLOSEOUT_FROZEN_GATES=PASS
+      - name: Final live-ref immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          expected=$(printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B007-tokenizer-protocol.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort)
+          test "$(git diff --name-only "$EXPECTED_MAIN"..."$EXPECTED_HEAD" | sort)" = "$expected"
+          echo B007_CLOSEOUT_EXACT_HEAD_IMMUTABILITY=PASS
+          echo TOKENIZER_ARTIFACT_DOWNLOAD=NONE
+          echo TOKENIZER_MEASUREMENT=NONE
+          echo MODEL_WEIGHT_ACCESS=NONE
+          echo MODEL_EXECUTION=NONE
+          echo PAID_COMPUTE=NONE
+          echo B008_MATERIAL_EXECUTION=NOT_STARTED
