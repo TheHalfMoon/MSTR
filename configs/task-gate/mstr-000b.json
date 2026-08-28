@@ -103,7 +103,7 @@
       ]
     },
     "B007": {
-      "canonical_state": "PENDING",
+      "canonical_state": "COMPLETE_CANONICAL",
       "closeout_rule": {
         "require_all_outputs": true
       },
@@ -111,7 +111,8 @@
         "evidence/mstr-000b/B007-tokenizer-protocol.md"
       ],
       "outputs": [
-        "benchmarks/manifests/B007-tokenizer-economics.json"
+        "benchmarks/manifests/B007-tokenizer-economics.json",
+        "benchmarks/fixtures/tokenizer-economics/B007-corpus.json"
       ],
       "prerequisites": [
         "B006"

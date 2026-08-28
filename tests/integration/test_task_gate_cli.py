@@ -106,9 +106,8 @@ def test_task_eligible_b006_terminal_returns_one(
     validate_instance("mstr-task-eligibility-v0", payload)
 
 
-def test_task_eligible_b007_successor_returns_zero(
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
+def test_task_eligible_b007_terminal_returns_one(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     expected = evaluate_task_snapshot("B007", canonical_main=_CANONICAL_MAIN)
 
@@ -117,17 +116,35 @@ def test_task_eligible_b007_successor_returns_zero(
         return expected
 
     monkeypatch.setattr(
-        "mstr_qualify.cli.evaluate_task_eligibility",
-        fake_evaluate_task_eligibility,
+        "mstr_qualify.cli.evaluate_task_eligibility", fake_evaluate_task_eligibility
     )
-
     exit_code = main(["task", "eligible", "B007"])
     payload = _stdout_json(capsys)
+    assert exit_code == 1 and payload == expected and payload["eligible"] is False
+    assert "task.already_terminal" in payload["reasons"]
+    validate_instance("mstr-task-eligibility-v0", payload)
 
-    assert exit_code == 0
-    assert payload == expected
-    assert payload["eligible"] is True
-    assert payload["reasons"] == []
+
+def test_task_eligible_b008_successor_returns_zero(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    expected = evaluate_task_snapshot("B008", canonical_main=_CANONICAL_MAIN)
+
+    def fake_evaluate_task_eligibility(task_id: str) -> dict[str, object]:
+        assert task_id == "B008"
+        return expected
+
+    monkeypatch.setattr(
+        "mstr_qualify.cli.evaluate_task_eligibility", fake_evaluate_task_eligibility
+    )
+    exit_code = main(["task", "eligible", "B008"])
+    payload = _stdout_json(capsys)
+    assert (
+        exit_code == 0
+        and payload == expected
+        and payload["eligible"] is True
+        and payload["reasons"] == []
+    )
     validate_instance("mstr-task-eligibility-v0", payload)
 
 
@@ -165,6 +182,7 @@ def test_task_eligible_parser_exposes_no_mutation_surface() -> None:
     assert args.task_command == "eligible"
     assert args.task_id == "B003"
     assert not hasattr(args, "canonical_main")
+
 
 def test_task_eligible_parser_rejects_caller_supplied_main() -> None:
     from mstr_qualify.cli import build_parser

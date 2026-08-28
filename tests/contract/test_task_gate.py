@@ -148,12 +148,22 @@ def test_b006_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b007_is_eligible_after_b006_closeout() -> None:
+def test_b007_is_terminal_after_canonical_closeout() -> None:
     result = evaluate_task_snapshot("B007", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert "task.already_terminal" in result["reasons"]
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b008_is_eligible_after_b007_closeout() -> None:
+    result = evaluate_task_snapshot("B008", canonical_main=_CANONICAL_MAIN)
 
     assert result["eligible"] is True
     assert result["reasons"] == []
-    assert result["prerequisite_results"][0]["task_id"] == "B006"
+    assert result["prerequisite_results"][0]["task_id"] == "B007"
     assert result["prerequisite_results"][0]["satisfied"] is True
     validate_instance("mstr-task-eligibility-v0", result)
 
@@ -194,9 +204,7 @@ def test_b006_fails_closed_when_b005_discovery_manifest_is_missing(
                 "closeout_rule": {"require_all_outputs": True},
                 "prerequisites": [],
                 "outputs": ["artifacts/manifests/B005-code-backbone-discovery.json"],
-                "evidence_outputs": [
-                    "evidence/mstr-000b/B005-code-backbone-rescan.md"
-                ],
+                "evidence_outputs": ["evidence/mstr-000b/B005-code-backbone-rescan.md"],
             },
             "B006": {
                 "canonical_state": "PENDING",
@@ -222,9 +230,73 @@ def test_b006_fails_closed_when_b005_discovery_manifest_is_missing(
     assert predecessor["evidence_present"] is False
     assert predecessor["satisfied"] is False
     assert "prerequisite.required_artifact_missing" in predecessor["reasons"]
+    assert "missing:artifacts/manifests/B005-code-backbone-discovery.json" in predecessor["reasons"]
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b008_fails_closed_when_b007_corpus_is_missing(
+    tmp_path: Path,
+) -> None:
+    tasks_dir = tmp_path / "specs" / "002-code-model-supremacy-foundation"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / "tasks.md").write_text(
+        "- [x] **B007 Root task.**\n- [ ] **B008 Successor task.**\n", encoding="utf-8"
+    )
+    evidence = tmp_path / "evidence" / "mstr-000b" / "B007-tokenizer-protocol.md"
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text("canonical evidence\n", encoding="utf-8")
+    manifest = tmp_path / "benchmarks" / "manifests" / "B007-tokenizer-economics.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text("{}\n", encoding="utf-8")
+    payload = {
+        "catalog_version": "mstr.task-catalog.v0",
+        "workstream_id": "MSTR-000B",
+        "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",
+        "defaults": {
+            "outputs": [],
+            "candidate_dependent": False,
+            "external_effect_class": "NO_EXTERNAL_EFFECT",
+            "parallel_safe": False,
+            "supersedes": [],
+            "superseded_by": [],
+            "closeout_rule": {
+                "terminal_states": ["COMPLETE_CANONICAL"],
+                "require_all_outputs": False,
+                "require_all_evidence_outputs": True,
+                "completion_requires_merge": True,
+            },
+        },
+        "tasks": {
+            "B007": {
+                "canonical_state": "COMPLETE_CANONICAL",
+                "closeout_rule": {"require_all_outputs": True},
+                "prerequisites": [],
+                "outputs": [
+                    "benchmarks/manifests/B007-tokenizer-economics.json",
+                    "benchmarks/fixtures/tokenizer-economics/B007-corpus.json",
+                ],
+                "evidence_outputs": ["evidence/mstr-000b/B007-tokenizer-protocol.md"],
+            },
+            "B008": {
+                "canonical_state": "PENDING",
+                "prerequisites": ["B007"],
+                "evidence_outputs": [],
+            },
+        },
+    }
+    catalog_path = tmp_path / "configs" / "task-gate" / "mstr-000b.json"
+    catalog_path.parent.mkdir(parents=True)
+    catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+    result = evaluate_task_snapshot(
+        "B008", repository_root=tmp_path, catalog_path=catalog_path, canonical_main=_CANONICAL_MAIN
+    )
+    assert result["eligible"] is False
+    assert "prerequisite.unsatisfied:B007" in result["reasons"]
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["evidence_present"] is False and predecessor["satisfied"] is False
+    assert "prerequisite.required_artifact_missing" in predecessor["reasons"]
     assert (
-        "missing:artifacts/manifests/B005-code-backbone-discovery.json"
-        in predecessor["reasons"]
+        "missing:benchmarks/fixtures/tokenizer-economics/B007-corpus.json" in predecessor["reasons"]
     )
     validate_instance("mstr-task-eligibility-v0", result)
 
@@ -356,6 +428,7 @@ def test_catalog_input_is_not_mutated_by_evaluation(tmp_path: Path) -> None:
 
     assert result["eligible"] is True
     assert catalog_path.read_bytes() == before
+
 
 def _git(tmp_path: Path, *args: str) -> None:
     subprocess.run(
@@ -573,6 +646,7 @@ def test_real_evaluation_rejects_main_tracking_ref_drift(tmp_path: Path) -> None
         )
     assert drift.value.code == "task_gate.main_ref_mismatch"
 
+
 def test_undeclared_not_required_state_cannot_satisfy_predecessor(tmp_path: Path) -> None:
     catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
     data = json.loads(catalog_path.read_text(encoding="utf-8"))
@@ -593,14 +667,15 @@ def test_undeclared_not_required_state_cannot_satisfy_predecessor(tmp_path: Path
     assert "prerequisite.not_terminal" in predecessor["reasons"]
     assert "prerequisite.state_checkbox_conflict" in predecessor["reasons"]
 
+
 def test_declared_not_required_state_can_satisfy_predecessor(tmp_path: Path) -> None:
     catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
     data = json.loads(catalog_path.read_text(encoding="utf-8"))
     data["tasks"]["B001"]["canonical_state"] = "NOT_REQUIRED_FIXTURE"
     data["tasks"]["B001"]["closeout_rule"] = {
         "terminal_states": [
-  "COMPLETE_CANONICAL",
-  "NOT_REQUIRED_FIXTURE",
+            "COMPLETE_CANONICAL",
+            "NOT_REQUIRED_FIXTURE",
         ]
     }
     catalog_path.write_text(json.dumps(data), encoding="utf-8")
@@ -618,7 +693,6 @@ def test_declared_not_required_state_can_satisfy_predecessor(tmp_path: Path) -> 
     assert predecessor["satisfied"] is True
     assert predecessor["reasons"] == []
 
-\
 
 def test_unknown_unresolved_binding_key_is_rejected(tmp_path: Path) -> None:
     catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
@@ -673,7 +747,9 @@ def test_external_symlink_cannot_satisfy_required_output(tmp_path: Path) -> None
     link.parent.mkdir(parents=True)
     _symlink_or_skip(link, outside)
     result = evaluate_task_snapshot(
-        "B002", repository_root=tmp_path, catalog_path=catalog_path,
+        "B002",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
         canonical_main=_CANONICAL_MAIN,
     )
     assert result["eligible"] is False
@@ -683,15 +759,19 @@ def test_external_symlink_cannot_satisfy_required_output(tmp_path: Path) -> None
 def test_external_authority_symlink_cannot_authorize(tmp_path: Path) -> None:
     catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
     data = json.loads(catalog_path.read_text(encoding="utf-8"))
-    data["tasks"]["B002"].update({
-        "external_effect_class": "PAID_COMPUTE",
-        "required_authority_id": "AUTH-B002",
-    })
+    data["tasks"]["B002"].update(
+        {
+            "external_effect_class": "PAID_COMPUTE",
+            "required_authority_id": "AUTH-B002",
+        }
+    )
     catalog_path.write_text(json.dumps(data), encoding="utf-8")
     envelope = {
-        "authority_id": "AUTH-B002", "task_id": "B002",
+        "authority_id": "AUTH-B002",
+        "task_id": "B002",
         "external_effect_class": "PAID_COMPUTE",
-        "status": "AUTHORIZED_CANONICAL", "scope": {"executor": "fixture"},
+        "status": "AUTHORIZED_CANONICAL",
+        "scope": {"executor": "fixture"},
         "cost_resource_ceiling": {
             "cost_model": "fixed-cap",
             "limits": [{"resource": "cost", "max": 0, "unit": "USD"}],
@@ -703,7 +783,9 @@ def test_external_authority_symlink_cannot_authorize(tmp_path: Path) -> None:
     link.parent.mkdir(parents=True)
     _symlink_or_skip(link, outside)
     result = evaluate_task_snapshot(
-        "B002", repository_root=tmp_path, catalog_path=catalog_path,
+        "B002",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
         canonical_main=_CANONICAL_MAIN,
     )
     assert result["eligible"] is False
@@ -713,20 +795,30 @@ def test_external_authority_symlink_cannot_authorize(tmp_path: Path) -> None:
 def test_external_candidate_pool_symlink_cannot_satisfy(tmp_path: Path) -> None:
     catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
     data = json.loads(catalog_path.read_text(encoding="utf-8"))
-    data["tasks"]["B002"].update({
-        "candidate_dependent": True,
-        "candidate_pool_requirement_id": "POOL-B002",
-    })
+    data["tasks"]["B002"].update(
+        {
+            "candidate_dependent": True,
+            "candidate_pool_requirement_id": "POOL-B002",
+        }
+    )
     catalog_path.write_text(json.dumps(data), encoding="utf-8")
     outside = tmp_path.parent / f"{tmp_path.name}-outside-pool.json"
-    outside.write_text(json.dumps({
-        "candidate_pool_id": "POOL-B002", "stable_pool": True,
-    }), encoding="utf-8")
+    outside.write_text(
+        json.dumps(
+            {
+                "candidate_pool_id": "POOL-B002",
+                "stable_pool": True,
+            }
+        ),
+        encoding="utf-8",
+    )
     link = tmp_path / "artifacts" / "decisions" / "POOL-B002.json"
     link.parent.mkdir(parents=True)
     _symlink_or_skip(link, outside)
     result = evaluate_task_snapshot(
-        "B002", repository_root=tmp_path, catalog_path=catalog_path,
+        "B002",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
         canonical_main=_CANONICAL_MAIN,
     )
     assert result["eligible"] is False
@@ -736,33 +828,41 @@ def test_external_candidate_pool_symlink_cannot_satisfy(tmp_path: Path) -> None:
 def test_authority_ceiling_requires_model_units_and_nonnegative_limits(tmp_path: Path) -> None:
     catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
     data = json.loads(catalog_path.read_text(encoding="utf-8"))
-    data["tasks"]["B002"].update({
-        "external_effect_class": "PAID_COMPUTE",
-        "required_authority_id": "AUTH-B002",
-    })
+    data["tasks"]["B002"].update(
+        {
+            "external_effect_class": "PAID_COMPUTE",
+            "required_authority_id": "AUTH-B002",
+        }
+    )
     catalog_path.write_text(json.dumps(data), encoding="utf-8")
     authority = tmp_path / "artifacts" / "authorities" / "AUTH-B002.json"
     authority.parent.mkdir(parents=True)
     base = {
-        "authority_id": "AUTH-B002", "task_id": "B002",
+        "authority_id": "AUTH-B002",
+        "task_id": "B002",
         "external_effect_class": "PAID_COMPUTE",
-        "status": "AUTHORIZED_CANONICAL", "scope": {"executor": "fixture"},
+        "status": "AUTHORIZED_CANONICAL",
+        "scope": {"executor": "fixture"},
     }
     for ceiling in [
         {},
         {"cost_model": "fixed-cap", "limits": []},
-        {"cost_model": "fixed-cap", "limits": [
-            {"resource": "cost", "max": -1, "unit": "USD"}
-        ]},
-        {"cost_model": "fixed-cap", "limits": [
-            {"resource": "cost", "max": 1, "unit": ""}
-        ]},
+        {"cost_model": "fixed-cap", "limits": [{"resource": "cost", "max": -1, "unit": "USD"}]},
+        {"cost_model": "fixed-cap", "limits": [{"resource": "cost", "max": 1, "unit": ""}]},
     ]:
-        authority.write_text(json.dumps({
-            **base, "cost_resource_ceiling": ceiling,
-        }), encoding="utf-8")
+        authority.write_text(
+            json.dumps(
+                {
+                    **base,
+                    "cost_resource_ceiling": ceiling,
+                }
+            ),
+            encoding="utf-8",
+        )
         result = evaluate_task_snapshot(
-            "B002", repository_root=tmp_path, catalog_path=catalog_path,
+            "B002",
+            repository_root=tmp_path,
+            catalog_path=catalog_path,
             canonical_main=_CANONICAL_MAIN,
         )
         assert result["eligible"] is False
@@ -837,11 +937,7 @@ def test_b007_fails_closed_when_b006_candidate_outputs_are_missing(tmp_path: Pat
         encoding="utf-8",
     )
     evidence = (
-        tmp_path
-        / "evidence"
-        / "mstr-000b"
-        / "candidates"
-        / "B006-candidate-reconciliation.md"
+        tmp_path / "evidence" / "mstr-000b" / "candidates" / "B006-candidate-reconciliation.md"
     )
     evidence.parent.mkdir(parents=True)
     evidence.write_text("canonical evidence\n", encoding="utf-8")
@@ -853,10 +949,14 @@ def test_b007_fails_closed_when_b006_candidate_outputs_are_missing(tmp_path: Pat
             "outputs": [],
             "candidate_dependent": False,
             "external_effect_class": "NO_EXTERNAL_EFFECT",
-            "parallel_safe": False, "supersedes": [], "superseded_by": [],
+            "parallel_safe": False,
+            "supersedes": [],
+            "superseded_by": [],
             "closeout_rule": {
-                "terminal_states": ["COMPLETE_CANONICAL"], "require_all_outputs": False,
-                "require_all_evidence_outputs": True, "completion_requires_merge": True,
+                "terminal_states": ["COMPLETE_CANONICAL"],
+                "require_all_outputs": False,
+                "require_all_evidence_outputs": True,
+                "completion_requires_merge": True,
             },
         },
         "tasks": {

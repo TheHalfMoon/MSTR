@@ -2,7 +2,10 @@
 
 **Workstream:** MSTR-000B
 **Task:** B007
-**State:** IMPLEMENTATION_ACTIVE / NOT_COMPLETE_CANONICAL
+**State:** COMPLETE_CANONICAL
+**Implementation PR:** `#59`
+**Final implementation head:** `965fbdbf152272397ae6ef721260e806be5d251c`
+**Canonical implementation merge:** `b9b0a8ca7b9b7528f5da518baa83b23e2348c6f6`
 **Canonical main at execution:** `9b4e885f215fd922ecf79ff9e15bdb1479396668`
 **Protocol:** `MSTR-TOKENIZER-ECONOMICS-v0`
 
@@ -170,7 +173,43 @@ MYPY = PASS / 26 source files
 VALIDATE = PASS / 10 valid / 10 invalid rejected
 ```
 
-Final-head identity, exact-head qualification, and independent review remain separate gates before merge.
+Exact-head qualification run `33148508447` (job `98774836633`) and independent adversarial review run `33148717463` (job `98775495939`) both passed on final implementation head `965fbdbf152272397ae6ef721260e806be5d251c` before merge. Post-implementation verification run `33148856216` (job `98775927107`) then passed on canonical main `b9b0a8ca7b9b7528f5da518baa83b23e2348c6f6`.
+
+## Canonical closeout evidence
+
+B007 becomes canonical only after the frozen corpus/protocol package was exact-head qualified, independently reviewed, merged with expected-head protection, and re-verified on canonical main. The task catalog now requires both the protocol manifest and the pinned corpus bytes before B008 can satisfy its B007 prerequisite.
+
+```text
+ENTRY_RUN = 33147997037
+ENTRY_JOB = 98773224654
+IMPLEMENTATION_BUILDER_RUN = 33148397634
+IMPLEMENTATION_BUILDER_JOB = 98774487926
+IMPLEMENTATION_PR = #59
+FINAL_IMPLEMENTATION_HEAD = 965fbdbf152272397ae6ef721260e806be5d251c
+CANONICAL_IMPLEMENTATION_MERGE = b9b0a8ca7b9b7528f5da518baa83b23e2348c6f6
+EXACT_HEAD_QUALIFICATION_RUN = 33148508447
+EXACT_HEAD_QUALIFICATION_JOB = 98774836633
+INDEPENDENT_REVIEW_RUN = 33148717463
+INDEPENDENT_REVIEW_JOB = 98775495939
+POST_IMPLEMENTATION_VERIFY_RUN = 33148856216
+POST_IMPLEMENTATION_VERIFY_JOB = 98775927107
+POST_IMPLEMENTATION_MAIN = b9b0a8ca7b9b7528f5da518baa83b23e2348c6f6
+POST_IMPLEMENTATION_B007_ELIGIBLE = true
+POST_IMPLEMENTATION_B008_ELIGIBLE = false
+POST_IMPLEMENTATION_B008_REASON = prerequisite.unsatisfied:B007
+POST_IMPLEMENTATION_DRIFT = clean
+ENTRY_GATE_TASK = B007
+ENTRY_GATE_CANONICAL_MAIN = 9b4e885f215fd922ecf79ff9e15bdb1479396668
+ENTRY_GATE_ELIGIBLE = true
+CLOSEOUT_BUILDER_RUN = 33150163308
+CLOSEOUT_TARGETED_GOVERNANCE = 55 passed in 14.84s
+CLOSEOUT_FULL_PYTEST = 522 passed in 23.61s
+CLOSEOUT_RUFF = PASS
+CLOSEOUT_MYPY = PASS / 26 source files
+CLOSEOUT_VALIDATE = PASS / 10 valid / 10 invalid rejected
+```
+
+The corpus manifest and exact corpus fixture are both required closeout outputs. Deleting either must fail B008 closed. B008 eligibility after this state transition is only machine scheduling eligibility; it is not tokenizer acquisition or measurement authority.
 
 ## Authority boundary
 
@@ -185,4 +224,4 @@ B008_EXECUTION_AUTHORITY = NOT_CREATED
 FOUNDER_MACHINE_LARGE_ARTIFACTS = ZERO
 ```
 
-B007 remains unchecked and NOT COMPLETE_CANONICAL. B008 must not infer execution or acquisition authority from this protocol.
+This separate closeout canonicalizes B007 only after implementation merge and exact-main post-implementation verification. It does not create tokenizer acquisition/measurement, model access/execution, compute, training, or B008 external authority.
