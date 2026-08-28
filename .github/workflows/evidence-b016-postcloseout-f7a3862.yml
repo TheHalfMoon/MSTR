@@ -1,0 +1,128 @@
+name: Postcloseout verify B016 f7a3862
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: f7a386214a1346b75dd3311390aa1e19bf354bb1
+      EXPECTED_PARENT1: 5ed34690dbc71db2359c927e96b511c32dffb2c4
+      EXPECTED_PARENT2: 6fa15157f8e02ed71be3744b8c276cdc410765bd
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f7a386214a1346b75dd3311390aa1e19bf354bb1
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact canonical closeout merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          parents=$(git show -s --format='%P' "$EXPECTED_MAIN")
+          test "$parents" = "$EXPECTED_PARENT1 $EXPECTED_PARENT2"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B016_POSTCLOSEOUT_IDENTITY=PASS'
+      - name: Prove terminal B016 and eligible B017 machine truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git branch -f main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          if python -m mstr_qualify task eligible B016 > /tmp/b016.json; then exit 1; fi
+          python -m mstr_qualify task eligible B017 > /tmp/b017.json
+          if python -m mstr_qualify task eligible B011 > /tmp/b011.json; then exit 1; fi
+          python -m mstr_qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          b16=json.load(open('/tmp/b016.json'))
+          assert b16['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert b16['eligible'] is False
+          assert b16['state_consistency_result']['observed_state']=='COMPLETE_CANONICAL'
+          assert b16['state_consistency_result']['satisfied'] is True
+          assert 'task.already_terminal' in b16['reasons']
+
+          b17=json.load(open('/tmp/b017.json'))
+          assert b17['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert b17['eligible'] is True and b17['reasons']==[]
+          assert b17['state_consistency_result']['observed_state']=='PENDING'
+          assert b17['authority_result']['required'] is False
+          pred=next(x for x in b17['prerequisite_results'] if x['task_id']=='B016')
+          assert pred['observed_state']=='COMPLETE_CANONICAL'
+          assert pred['evidence_present'] is True and pred['satisfied'] is True
+          assert pred['reasons']==[]
+
+          b11=json.load(open('/tmp/b011.json'))
+          assert b11['eligible'] is False
+          assert b11['state_consistency_result']['observed_state']=='BLOCKED'
+          assert b11['authority_result']['required'] is True
+          assert b11['authority_result']['satisfied'] is False
+
+          drift=json.load(open('/tmp/drift.json'))
+          assert drift['status']=='clean' and drift['findings']==[]
+
+          evidence=Path('evidence/mstr-000b/B016-software-evolution.md').read_text(encoding='utf-8')
+          for marker in [
+              '**State:** COMPLETE_CANONICAL',
+              '**Implementation PR:** #71',
+              '**Final implementation head:** `33eb53b7ae4c2fd43d639af9c6e67512fb883423`',
+              '**Canonical implementation merge:** `5ed34690dbc71db2359c927e96b511c32dffb2c4`',
+              'ENTRY_GATE_TASK = B016',
+              'ENTRY_GATE_CANONICAL_MAIN = 2cd82ba78bcb886962a163013fa2861d5dd2b013',
+              'ENTRY_GATE_RUN = 33171129526',
+              'ENTRY_GATE_JOB = 98848292231',
+              'ENTRY_GATE_ELIGIBLE = true',
+              'ENTRY_GATE_DRIFT = clean',
+              'MODEL_WEIGHT_ACCESS = NONE',
+              'MODEL_EXECUTION = NONE',
+              'LARGE_DATASET_INGESTION = NONE',
+              'PRIVATE_USER_DATA_INGESTION = NONE',
+              'PRODUCTION_TRACE_INGESTION = NONE',
+              'PAID_MODEL_API = NONE',
+              'PAID_COMPUTE = NONE',
+              'WEIGHT_CHANGING_TRAINING = NONE',
+              'LARGE_SCALE_RL = NONE',
+              'PRODUCTION_RELEASE = NONE',
+          ]:
+              assert marker in evidence
+          print('B016_POSTCLOSEOUT_MACHINE_TRUTH=PASS')
+          print('B017_ENTRY_ELIGIBILITY=PASS')
+          print('B011_REMAINS_BLOCKED=PASS')
+          PY
+      - name: Run frozen postcloseout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp schemas/mstr-software-evolution-record-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-software-evolution-record-v0.schema.json
+          pytest -q tests/contract/test_software_evolution_contract.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          git diff --check "$EXPECTED_PARENT1...$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B016_POSTCLOSEOUT_GATES=PASS'
+      - name: Final canonical-main immutability recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo 'B016_POSTCLOSEOUT=PASS'
+          echo 'B017_NEXT_ELIGIBLE=PASS'
+          echo 'B011_REMAINS_BLOCKED=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'LARGE_DATASET_INGESTION=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
