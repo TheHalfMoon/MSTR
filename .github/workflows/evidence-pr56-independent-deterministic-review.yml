@@ -1,0 +1,183 @@
+name: Independent deterministic review PR 56
+
+on:
+  push:
+    branches:
+      - evidence/pr56-independent-deterministic-review
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: bd4ad13f076ba2a44cf9bf6cd7ba95d39119eba5
+      EXPECTED_HEAD: 36b8d531b1615ee9e35eadcd9f094fad875346cb
+      TARGET_BRANCH: docs/000b-b005-drift-repair
+      PR_NUMBER: '56'
+      B005_IMPLEMENTATION_PR: '54'
+      B005_IMPLEMENTATION_HEAD: 0a7ee7e392d827fb08c8cc9f3b2d9ec45c8cca1a
+      B005_IMPLEMENTATION_MERGE: 1e096f4d1f270b2803da6a6306e9e7f0cf8fb81b
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - name: Checkout canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          path: canonical
+          persist-credentials: false
+
+      - name: Checkout exact PR head branch
+        uses: actions/checkout@v4
+        with:
+          ref: docs/000b-b005-drift-repair
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify live exact identities
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C canonical fetch origin main "$TARGET_BRANCH"
+          git -C candidate fetch origin main "$TARGET_BRANCH"
+          test "$(git -C canonical rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git -C canonical rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          pr_head="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+          pr_base="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.sha')"
+          pr_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')"
+          test "$pr_head" = "$EXPECTED_HEAD"
+          test "$pr_base" = "$EXPECTED_MAIN"
+          test "$pr_state" = "open"
+          echo "PR56_EXACT_IDENTITY_REVIEW=PASS"
+
+      - name: Verify exact three-line metadata-only diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C candidate diff --name-only "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "evidence/mstr-000b/B005-code-backbone-rescan.md"
+          test "$(git -C candidate diff --numstat "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = $'3\t0\tevidence/mstr-000b/B005-code-backbone-rescan.md'
+          git -C candidate diff --check "$EXPECTED_MAIN" "$EXPECTED_HEAD"
+          python - <<'PY'
+          import difflib
+          import subprocess
+
+          path = 'evidence/mstr-000b/B005-code-backbone-rescan.md'
+          base = subprocess.check_output(['git','-C','candidate','show',f'{__import__("os").environ["EXPECTED_MAIN"]}:{path}'], text=True).splitlines()
+          head = subprocess.check_output(['git','-C','candidate','show',f'{__import__("os").environ["EXPECTED_HEAD"]}:{path}'], text=True).splitlines()
+          ops = [op for op in difflib.SequenceMatcher(a=base, b=head).get_opcodes() if op[0] != 'equal']
+          assert len(ops) == 1, ops
+          tag, i1, i2, j1, j2 = ops[0]
+          assert tag == 'insert' and i1 == i2 and (j2-j1) == 3, ops
+          inserted = head[j1:j2]
+          assert inserted == [
+              '**Implementation PR:** `#54`',
+              '**Final implementation head:** `0a7ee7e392d827fb08c8cc9f3b2d9ec45c8cca1a`',
+              '**Canonical implementation merge:** `1e096f4d1f270b2803da6a6306e9e7f0cf8fb81b`',
+          ], inserted
+          print('PR56_THREE_LINE_DIFF_REVIEW=PASS')
+          PY
+
+      - name: Verify identity against canonical PR 54 and Git history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_head="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${B005_IMPLEMENTATION_PR}" --jq '.head.sha')"
+          actual_merge="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${B005_IMPLEMENTATION_PR}" --jq '.merge_commit_sha')"
+          actual_merged="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${B005_IMPLEMENTATION_PR}" --jq '.merged_at != null')"
+          test "$actual_head" = "$B005_IMPLEMENTATION_HEAD"
+          test "$actual_merge" = "$B005_IMPLEMENTATION_MERGE"
+          test "$actual_merged" = "true"
+          git -C canonical cat-file -e "$B005_IMPLEMENTATION_HEAD^{commit}"
+          git -C canonical cat-file -e "$B005_IMPLEMENTATION_MERGE^{commit}"
+          git -C canonical merge-base --is-ancestor "$B005_IMPLEMENTATION_HEAD" "$B005_IMPLEMENTATION_MERGE"
+          git -C canonical merge-base --is-ancestor "$B005_IMPLEMENTATION_MERGE" "$EXPECTED_MAIN"
+          echo "B005_CANONICAL_IDENTITY_REVIEW=PASS"
+
+      - name: Install exact candidate tooling
+        run: python -m pip install -e './candidate[dev]'
+
+      - name: Verify parser semantics and prospective drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import sys
+          sys.path.insert(0, str(Path('candidate/src').resolve()))
+          from mstr_qualify.task_gate import DEFAULT_TASK_CATALOG, load_task_catalog
+          from mstr_qualify.task_drift import (
+              _evidence_files,
+              _merge_commits_by_pr,
+              _parse_evidence,
+              _parse_implementation_records,
+              _scan_task,
+          )
+
+          root = Path('candidate').resolve()
+          evidence = root / 'evidence/mstr-000b/B005-code-backbone-rescan.md'
+          parsed = _parse_evidence(evidence, root)
+          assert parsed.state == 'COMPLETE_CANONICAL', parsed
+          assert parsed.implementation_pr == 54, parsed
+          assert parsed.final_head == '0a7ee7e392d827fb08c8cc9f3b2d9ec45c8cca1a', parsed
+          assert parsed.merge_sha == '1e096f4d1f270b2803da6a6306e9e7f0cf8fb81b', parsed
+
+          catalog_path = root / DEFAULT_TASK_CATALOG.relative_to(Path(__import__('mstr_qualify.task_gate', fromlist=['_REPOSITORY_ROOT'])._REPOSITORY_ROOT))
+          catalog = load_task_catalog(catalog_path, repository_root=root)
+          records = _parse_implementation_records(catalog.tasks_file)
+          history = _merge_commits_by_pr(root)
+          findings = []
+          for task_id in sorted(catalog.nodes):
+              findings.extend(_scan_task(root, catalog, task_id, records.get(task_id), history))
+          findings.sort(key=lambda item: (str(item['task_id']), str(item['code']), repr(item['details'])))
+          assert findings == [], findings
+          assert tuple(path.name for path in _evidence_files(root, catalog.nodes['B005']))
+          print('PR56_PARSER_AND_PROSPECTIVE_DRIFT_REVIEW=PASS')
+          PY
+
+      - name: Targeted governance tests
+        working-directory: candidate
+        run: pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/unit/test_task_drift.py tests/integration/test_task_drift_cli.py
+
+      - name: Full test suite
+        working-directory: candidate
+        run: pytest -q
+
+      - name: Ruff
+        working-directory: candidate
+        run: ruff check src tests
+
+      - name: Mypy
+        working-directory: candidate
+        run: mypy
+
+      - name: Validate
+        working-directory: candidate
+        run: python -m mstr_qualify validate
+
+      - name: Re-verify live exact identities after review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C canonical fetch origin main "$TARGET_BRANCH"
+          git -C candidate fetch origin main "$TARGET_BRANCH"
+          test "$(git -C canonical rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git -C candidate rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')" = "$EXPECTED_HEAD"
+          echo "INDEPENDENT_DETERMINISTIC_EXACT_HEAD_REVIEW=PASS"
