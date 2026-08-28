@@ -1,0 +1,58 @@
+name: Request Copilot review for PR 56
+
+on:
+  push:
+    branches: [evidence/pr56-copilot-review-request]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  PR_NUMBER: "56"
+  EXPECTED_HEAD: 36b8d531b1615ee9e35eadcd9f094fad875346cb
+
+jobs:
+  request:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify exact PR head before request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          observed="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+          test "$observed" = "$EXPECTED_HEAD"
+          echo "PR56_EXACT_HEAD=PASS"
+      - name: Request GitHub Copilot code review
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/requested_reviewers" \
+            -f 'reviewers[]=copilot-pull-request-reviewer[bot]' \
+            > /tmp/request.json
+          cat /tmp/request.json
+          echo "COPILOT_REVIEW_REQUEST_POST=PASS"
+      - name: Verify request registration
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/requested_reviewers" \
+            > /tmp/requested.json
+          cat /tmp/requested.json
+          python - <<'PY'
+          import json
+          payload=json.load(open('/tmp/requested.json',encoding='utf-8'))
+          users=[item['login'] for item in payload.get('users',[])]
+          assert 'copilot-pull-request-reviewer[bot]' in users, users
+          print('COPILOT_REVIEW_REQUEST_REGISTERED=PASS')
+          PY
