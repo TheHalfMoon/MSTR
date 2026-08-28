@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "artifacts" / "decisions" / "B015-language-target-policy.json"
 EVIDENCE_PATH = ROOT / "evidence" / "mstr-000b" / "B015-language-mix.md"
