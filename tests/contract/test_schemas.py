@@ -34,6 +34,13 @@ DESIGN_SCHEMA_OVERRIDES = {
         / "contracts"
         / "mstr-data-constitution-v0.schema.json"
     ),
+    "mstr-software-evolution-record-v0": (
+        ROOT
+        / "specs"
+        / "002-code-model-supremacy-foundation"
+        / "contracts"
+        / "mstr-software-evolution-record-v0.schema.json"
+    ),
 }
 
 
