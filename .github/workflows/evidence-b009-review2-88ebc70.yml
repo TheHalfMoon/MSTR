@@ -1,0 +1,111 @@
+name: Verify B009 pin-binding review repair
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: dd6c7a9b163f1f34e6cc3570da234078d39f4fce
+      EXPECTED_HEAD: 88ebc70e12dcc117ba99bb10bb687eed1a220a7b
+      TARGET_BRANCH: feat/000b-b009-training-runtime-compatibility-v2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 88ebc70e12dcc117ba99bb10bb687eed1a220a7b
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bind exact repaired review head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git merge-base HEAD refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_b009_training_runtime_compatibility.py
+          echo 'B009_PIN_REPAIR_BASELINE=PASS'
+      - name: Prove repository substitution fails closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp artifacts/decisions/B009-training-runtime-compatibility.json /tmp/b009.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('artifacts/decisions/B009-training-runtime-compatibility.json'); d=json.loads(p.read_text())
+          d['framework_source_snapshot']['transformers']['repository']='example/transformers'
+          p.write_text(json.dumps(d,indent=2,sort_keys=True)+'\n')
+          PY
+          if pytest -q tests/contract/test_b009_training_runtime_compatibility.py; then echo 'ERROR repository substitution escaped'; exit 1; fi
+          cp /tmp/b009.json artifacts/decisions/B009-training-runtime-compatibility.json
+          pytest -q tests/contract/test_b009_training_runtime_compatibility.py
+          echo 'B009_PIN_REPOSITORY_FAIL_CLOSED=PASS'
+      - name: Prove branch substitution fails closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp artifacts/decisions/B009-training-runtime-compatibility.json /tmp/b009.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('artifacts/decisions/B009-training-runtime-compatibility.json'); d=json.loads(p.read_text())
+          d['framework_source_snapshot']['llama_cpp']['branch']='main'
+          p.write_text(json.dumps(d,indent=2,sort_keys=True)+'\n')
+          PY
+          if pytest -q tests/contract/test_b009_training_runtime_compatibility.py; then echo 'ERROR branch substitution escaped'; exit 1; fi
+          cp /tmp/b009.json artifacts/decisions/B009-training-runtime-compatibility.json
+          pytest -q tests/contract/test_b009_training_runtime_compatibility.py
+          echo 'B009_PIN_BRANCH_FAIL_CLOSED=PASS'
+      - name: Prove valid-shape revision substitution fails closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp artifacts/decisions/B009-training-runtime-compatibility.json /tmp/b009.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('artifacts/decisions/B009-training-runtime-compatibility.json'); d=json.loads(p.read_text())
+          d['framework_source_snapshot']['peft']['revision']='0'*40
+          p.write_text(json.dumps(d,indent=2,sort_keys=True)+'\n')
+          PY
+          if pytest -q tests/contract/test_b009_training_runtime_compatibility.py; then echo 'ERROR revision substitution escaped'; exit 1; fi
+          cp /tmp/b009.json artifacts/decisions/B009-training-runtime-compatibility.json
+          pytest -q tests/contract/test_b009_training_runtime_compatibility.py
+          echo 'B009_PIN_REVISION_FAIL_CLOSED=PASS'
+      - name: Re-prove prior semantic fail-closed boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp artifacts/decisions/B009-training-runtime-compatibility.json /tmp/b009.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('artifacts/decisions/B009-training-runtime-compatibility.json'); d=json.loads(p.read_text())
+          d['serious_candidates'][0]['promotion_from_b009_allowed']=True
+          p.write_text(json.dumps(d,indent=2,sort_keys=True)+'\n')
+          PY
+          if pytest -q tests/contract/test_b009_training_runtime_compatibility.py; then echo 'ERROR promotion escaped'; exit 1; fi
+          cp /tmp/b009.json artifacts/decisions/B009-training-runtime-compatibility.json
+          pytest -q tests/contract/test_b009_training_runtime_compatibility.py
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B009_REVIEW_REPAIR_SEMANTICS=PASS'
+      - name: Final immutable ref recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo 'B009_CODERABBIT_REPAIR_REVIEW=PASS'
