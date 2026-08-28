@@ -1,0 +1,194 @@
+name: Qualify exact B009 implementation head
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: dd6c7a9b163f1f34e6cc3570da234078d39f4fce
+      EXPECTED_HEAD: e9dfac6cd30e451bd2380d4dbc1a455c154f5b05
+      TARGET_BRANCH: feat/000b-b009-training-runtime-compatibility-v2
+      TRANSFORMERS_SHA: a8e8d144f6b8e71b93678a274b65d3a319f71921
+      UNSLOTH_SHA: 411b40615ac88ac657497e5ca9e9da9b334d841e
+      PEFT_SHA: 13414e66235139fad4102dfd3c9502958dbdc92b
+      TRL_SHA: 89bfc6a54a263bee77fee55aba177a75c8aecf55
+      LLAMA_CPP_SHA: d077b4c21466cfad678b07b05b557599f4db3974
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e9dfac6cd30e451bd2380d4dbc1a455c154f5b05
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify immutable identity and exact scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          expected=$(printf '%s\n' \
+            artifacts/decisions/B009-training-runtime-compatibility.json \
+            evidence/mstr-000b/B009-compatibility.md \
+            tests/contract/test_b009_training_runtime_compatibility.py | sort)
+          actual=$(git diff --name-only "$EXPECTED_MAIN".."$EXPECTED_HEAD" | sort)
+          test "$actual" = "$expected"
+          git diff "$EXPECTED_MAIN".."$EXPECTED_HEAD" --check
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B009_QUALIFY_IDENTITY_SCOPE=PASS'
+
+      - name: Verify decision semantics and canonical candidate binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path('.')
+          decision = json.loads((root / 'artifacts/decisions/B009-training-runtime-compatibility.json').read_text())
+          assert decision['task_id'] == 'B009'
+          assert decision['state'] == 'IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT'
+          assert decision['canonical_main_at_execution'] == os.environ['EXPECTED_MAIN']
+          assert decision['entry_gate'] == {
+              'canonical_main': os.environ['EXPECTED_MAIN'],
+              'eligible': True,
+              'job_id': 98799035575,
+              'run_id': 33156075625,
+              'task_id': 'B009',
+          }
+          inventory = decision['candidate_inventory']
+          assert inventory['record_count'] == 19
+          assert inventory['serious_static_qualified_count'] == 10
+          assert inventory['reference_or_non_serious_count'] == 9
+          pins = decision['framework_source_snapshot']
+          assert pins['transformers']['revision'] == os.environ['TRANSFORMERS_SHA']
+          assert pins['unsloth']['revision'] == os.environ['UNSLOTH_SHA']
+          assert pins['peft']['revision'] == os.environ['PEFT_SHA']
+          assert pins['trl']['revision'] == os.environ['TRL_SHA']
+          assert pins['llama_cpp']['revision'] == os.environ['LLAMA_CPP_SHA']
+
+          current = {}
+          for path in sorted((root / 'artifacts/candidates').glob('*.json')):
+              row = json.loads(path.read_text())
+              current[row['candidate_id']] = row
+          serious = decision['serious_candidates']
+          refs = decision['reference_candidates']
+          assert len(current) == 19 and len(serious) == 10 and len(refs) == 9
+          assert set(current) == {row['candidate_id'] for row in serious + refs}
+          for row in serious:
+              source = current[row['candidate_id']]
+              assert source['status'] == 'static_qualified'
+              assert source['rights']['decision'] == 'pass_permissive'
+              assert source['rights']['account_gate_required'] is False
+              assert source['rights']['clickthrough_gate_required'] is False
+              assert row['upstream_id'] == source['upstream_id']
+              assert row['upstream_revision'] == source['upstream_revision']
+              assert row['promotion_from_b009_allowed'] is False
+              assert row['transformers']['exact_candidate_load_status'] == 'UNEXECUTED'
+              assert row['unsloth']['exact_train_save_export_status'] == 'UNEXECUTED'
+              assert row['peft']['exact_target_module_coverage_status'] == 'UNEXECUTED'
+              assert row['trl']['exact_candidate_training_status'] == 'UNEXECUTED'
+              assert row['llama_cpp']['conversion_status'] == 'UNEXECUTED'
+              assert row['llama_cpp']['quantization_status'] == 'UNEXECUTED'
+              assert row['llama_cpp']['runtime_status'] == 'UNVERIFIED'
+          for row in refs:
+              source = current[row['candidate_id']]
+              assert row['upstream_id'] == source['upstream_id']
+              assert row['upstream_revision'] == source['upstream_revision']
+              assert row['compatibility_scope'] == 'INFORMATIONAL_REFERENCE_ONLY'
+              assert row['promotion_from_b009_allowed'] is False
+
+          policy = decision['interpretation_policy']
+          assert not policy['source_registered_is_runtime_pass']
+          assert not policy['generic_path_is_exact_model_pass']
+          assert not policy['converter_source_is_conversion_pass']
+          assert not policy['converter_source_is_quantization_pass']
+          assert not policy['trainer_source_is_trainability_pass']
+          assert not policy['b009_can_promote_candidate']
+          assert policy['b010_owns_qualification_and_new_access_lists'] is True
+          assert decision['b010_handoff']['qualification_candidates'] == 'NOT_DECIDED_BY_B009'
+          assert decision['b010_handoff']['new_weight_access_required_candidates'] == 'NOT_DECIDED_BY_B009'
+          authority = decision['authority_boundary']
+          assert authority['founder_machine_large_artifacts'] == 0
+          assert all(value is False for key, value in authority.items() if key != 'founder_machine_large_artifacts')
+
+          evidence = (root / 'evidence/mstr-000b/B009-compatibility.md').read_text()
+          assert 'ENTRY_GATE_TASK = B009' in evidence
+          assert os.environ['EXPECTED_MAIN'] in evidence
+          assert os.environ['LLAMA_CPP_SHA'] in evidence
+          assert 'MODEL_WEIGHT_ACCESS = NONE' in evidence
+          assert 'TRAINING_EXECUTION = NONE' in evidence
+          assert 'B009_SOURCE_EVIDENCE != CANDIDATE_PROMOTION_AUTHORITY' in evidence
+          print('B009_QUALIFY_SEMANTICS=PASS')
+          PY
+
+      - name: Re-prove cited source files at frozen revisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in \
+            src/transformers/models/granite/modeling_granite.py \
+            src/transformers/models/mellum/modeling_mellum.py \
+            src/transformers/models/ministral3/modeling_ministral3.py \
+            src/transformers/models/qwen2/modeling_qwen2.py \
+            src/transformers/models/qwen3/modeling_qwen3.py \
+            src/transformers/models/qwen3_5/modeling_qwen3_5.py \
+            src/transformers/models/smollm3/modeling_smollm3.py \
+            src/transformers/models/llama/modeling_llama.py; do
+            gh api --method GET "repos/huggingface/transformers/contents/$path?ref=$TRANSFORMERS_SHA" >/dev/null
+          done
+          for path in \
+            unsloth/models/granite.py \
+            unsloth/models/qwen2.py \
+            unsloth/models/qwen3.py \
+            unsloth/models/loader.py \
+            unsloth/models/llama.py \
+            unsloth/import_fixes.py; do
+            gh api --method GET "repos/unslothai/unsloth/contents/$path?ref=$UNSLOTH_SHA" >/dev/null
+          done
+          gh api --method GET "repos/huggingface/peft/contents/src/peft/utils/constants.py?ref=$PEFT_SHA" >/dev/null
+          gh api --method GET "repos/huggingface/trl/contents/trl/trainer/sft_trainer.py?ref=$TRL_SHA" >/dev/null
+          gh api --method GET "repos/ggml-org/llama.cpp/contents/conversion/__init__.py?ref=$LLAMA_CPP_SHA" >/dev/null
+          echo 'B009_QUALIFY_FROZEN_SOURCES=PASS'
+
+      - name: Run exact-head quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_b009_training_runtime_compatibility.py
+          pytest -q
+          ruff check src tests
+          mypy src
+          python -m mstr_qualify validate
+          git diff "$EXPECTED_MAIN".."$EXPECTED_HEAD" --check
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B009_QUALIFY_GATES=PASS'
+
+      - name: Final remote identity recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B009_EXACT_HEAD_QUALIFICATION=PASS'
