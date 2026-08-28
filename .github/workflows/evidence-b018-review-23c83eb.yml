@@ -78,7 +78,13 @@ jobs:
                   encoding='utf-8'
               )
           )
-          assert schema['$id'] == 'mstr.self-alignment-generation.v0'
+          assert schema['$id'] == (
+              'https://mstr.local/schemas/mstr-self-alignment-generation-v0.json'
+          )
+          assert (
+              schema['properties']['schema_version']['const']
+              == 'mstr.self-alignment-generation.v0'
+          )
           required = set(schema['required'])
           assert {
               'student_model_identity',
