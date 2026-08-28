@@ -150,3 +150,31 @@ def test_schema_rejects_unknown_event_fields() -> None:
     assert isinstance(first, dict)
     first["future_patch_contents"] = "leaked patch"
     assert validation_errors(SCHEMA_NAME, mutated)
+
+
+def test_b016_canonical_closeout_provenance_and_authority_boundary() -> None:
+    evidence = (ROOT / "evidence" / "mstr-000b" / "B016-software-evolution.md").read_text(
+        encoding="utf-8"
+    )
+    assert "**State:** COMPLETE_CANONICAL" in evidence
+    assert "**Implementation PR:** #71" in evidence
+    assert (
+        "**Final implementation head:** "
+        "`33eb53b7ae4c2fd43d639af9c6e67512fb883423`" in evidence
+    )
+    assert (
+        "**Canonical implementation merge:** "
+        "`5ed34690dbc71db2359c927e96b511c32dffb2c4`" in evidence
+    )
+    assert "ENTRY_GATE_TASK = B016" in evidence
+    assert (
+        "ENTRY_GATE_CANONICAL_MAIN = "
+        "2cd82ba78bcb886962a163013fa2861d5dd2b013" in evidence
+    )
+    assert "ENTRY_GATE_RUN = 33171129526" in evidence
+    assert "ENTRY_GATE_JOB = 98848292231" in evidence
+    assert "ENTRY_GATE_ELIGIBLE = true" in evidence
+    assert "ENTRY_GATE_DRIFT = clean" in evidence
+    assert "MODEL_WEIGHT_ACCESS = NONE" in evidence
+    assert "LARGE_DATASET_INGESTION = NONE" in evidence
+    assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence

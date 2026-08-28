@@ -122,9 +122,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: `artifacts/decisions/B015-language-target-policy.json`, `evidence/mstr-000b/B015-language-mix.md`.
   Canonical implementation: PR #69 / final head `e6191fefc9b870f3376f6faead6149841fe7dd31` / merge `5104f7ef63ba37caa518868ad89d0f78fe70641f`.
 
-- [ ] **B016 Freeze `SoftwareEvolutionRecord` contract and future-history boundary.**  
+- [x] **B016 Freeze `SoftwareEvolutionRecord` contract and future-history boundary.**
   Bind base revision, direction/issue, visible context, change/test/CI/review/recovery events and final verified revision while explicitly preventing future patches/results from leaking into earlier model-visible steps.  
   Outputs: schema, fixtures, `evidence/mstr-000b/B016-software-evolution.md`.
+  Canonical implementation: PR #71 / final head `33eb53b7ae4c2fd43d639af9c6e67512fb883423` / merge `5ed34690dbc71db2359c927e96b511c32dffb2c4`.
 
 - [ ] **B017 Build a tiny fixture-only software-evolution extractor/projection proof.**  
   No large corpus ingestion. Demonstrate deterministic projection of localization/edit/review-repair examples from synthetic or already-repository-owned fixtures.  

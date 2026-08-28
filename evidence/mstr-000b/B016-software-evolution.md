@@ -1,7 +1,10 @@
 # B016 — Software Evolution Record v0
 
 **Task:** `B016`
-**State:** IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT
+**Implementation PR:** #71
+**Final implementation head:** `33eb53b7ae4c2fd43d639af9c6e67512fb883423`
+**Canonical implementation merge:** `5ed34690dbc71db2359c927e96b511c32dffb2c4`
+**State:** COMPLETE_CANONICAL
 **Canonical main at execution:** `2cd82ba78bcb886962a163013fa2861d5dd2b013`
 **Exact entry evidence:** run `33171129526` / job `98848292231`
 
