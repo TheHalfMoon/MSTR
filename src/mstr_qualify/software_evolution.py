@@ -335,7 +335,7 @@ def project_software_evolution(
             _string_list(manifest["visible_artifact_ids"], "visible_artifact_ids")
         ),
         "visible_events": [
-            {"event_kind": event.event_kind, **copy.deepcopy(event.payload)}
+            {**copy.deepcopy(event.payload), "evolution_event_type": event.event_kind}
             for event in visible_events
         ],
     }
