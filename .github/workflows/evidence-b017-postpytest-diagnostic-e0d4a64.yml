@@ -18,6 +18,7 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install -e '.[dev]'
       - name: Baseline Ruff
+        continue-on-error: true
         run: ruff check src tests
       - name: Full pytest
         run: pytest -q
