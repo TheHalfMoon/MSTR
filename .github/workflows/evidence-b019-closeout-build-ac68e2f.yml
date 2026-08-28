@@ -36,6 +36,8 @@ jobs:
         run: |
           set -euo pipefail
           python tools/evidence/build_b019_closeout.py /tmp/b019-closeout
+          sed -i '${/^$/d;}' /tmp/b019-closeout/tests/contract/test_teacher_rescue_contract.py
+          sed -i '${/^$/d;}' /tmp/b019-closeout/tests/integration/test_task_gate_cli.py
           git -C /tmp/b019-closeout add -N .
           git -C /tmp/b019-closeout diff --check
           expected=$(printf '%s\n' \
