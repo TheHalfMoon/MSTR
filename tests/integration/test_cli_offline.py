@@ -136,6 +136,7 @@ def test_validate_self_checks_schemas_and_fixtures(capsys: pytest.CaptureFixture
         "candidate-record",
         "interaction-contract",
         "mstr-data-constitution-v0",
+        "mstr-difficulty-calibration-v0",
         "mstr-loop-contract-v0",
         "mstr-run-event-v0",
         "mstr-self-alignment-generation-v0",
@@ -150,6 +151,23 @@ def test_validate_self_checks_schemas_and_fixtures(capsys: pytest.CaptureFixture
     ]
     assert payload["valid_fixtures_passed"] >= 5
     assert payload["invalid_fixtures_rejected"] >= 5
+
+
+def test_validate_explicit_b020_difficulty_fixture_passes(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "tests"
+        / "fixtures"
+        / "schemas"
+        / "valid"
+        / "mstr-difficulty-calibration-v0.json"
+    )
+    assert main(["validate", str(path)]) == 0
+    payload = parse_stdout(capsys)
+    assert payload["status"] == "pass"
+    assert payload["files"][0]["schema_version"] == "mstr.difficulty-calibration.v0"
 
 
 def test_validate_is_deterministic_across_runs(capsys: pytest.CaptureFixture[str]) -> None:

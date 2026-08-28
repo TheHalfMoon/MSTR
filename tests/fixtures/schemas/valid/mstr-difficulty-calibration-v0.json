@@ -1,0 +1,38 @@
+{
+  "attempt_count": 8,
+  "calibration_time": "2026-08-28T18:15:43Z",
+  "difficulty_class": "LEARNABLE_FRONTIER",
+  "difficulty_record_identity": "difficulty-fixture-001",
+  "estimated_solve_probability": 0.5,
+  "failure_distribution": [
+    {
+      "count": 2,
+      "failure_class": "IMPLEMENTATION_FAILURE"
+    },
+    {
+      "count": 1,
+      "failure_class": "VERIFIER_FAILURE"
+    },
+    {
+      "count": 1,
+      "failure_class": "TIMEOUT"
+    }
+  ],
+  "harness_profile_id": "h1-fixture",
+  "sampling_identity": "sampling-fixture-v1",
+  "schema_version": "mstr.difficulty-calibration.v0",
+  "structural_features": {
+    "files_touched_hint": 3,
+    "requires_repository_context": true,
+    "task_kind": "fixture",
+    "verification_steps_hint": 2
+  },
+  "student_model_identity": {
+    "checkpoint_id": "checkpoint-0001",
+    "harness_profile_id": "h1-fixture",
+    "model_id": "fixture/student",
+    "sampling_identity": "sampling-fixture-v1"
+  },
+  "success_count": 4,
+  "task_or_family_id": "fixture.task.family"
+}
