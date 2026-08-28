@@ -1,0 +1,176 @@
+name: Rerun B009 closeout adversarial review with clean local mutations
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 4fdb6966c085819e69823136fb5e2cd8c56ba58f
+      CLOSEOUT_HEAD: 1b393c045f0a22853fb4f4835b27bcaa255bb1d6
+      TARGET_BRANCH: docs/000b-b009-canonicalize
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1b393c045f0a22853fb4f4835b27bcaa255bb1d6
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bind exact reviewed head and authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$CLOSEOUT_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$CLOSEOUT_HEAD"
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          base = '4fdb6966c085819e69823136fb5e2cd8c56ba58f'
+          head = '1b393c045f0a22853fb4f4835b27bcaa255bb1d6'
+          expected = sorted([
+              'configs/task-gate/mstr-000b.json',
+              'evidence/mstr-000b/B009-compatibility.md',
+              'specs/002-code-model-supremacy-foundation/tasks.md',
+              'tests/contract/test_task_gate.py',
+              'tests/integration/test_task_gate_cli.py',
+          ])
+          changed = subprocess.check_output(['git','diff','--name-only',f'{base}...{head}'], text=True).splitlines()
+          assert changed == expected
+
+          before = json.loads(subprocess.check_output(['git','show',f'{base}:configs/task-gate/mstr-000b.json'], text=True))
+          after = json.loads(Path('configs/task-gate/mstr-000b.json').read_text())
+          assert before['tasks'].keys() == after['tasks'].keys()
+          for task_id in before['tasks']:
+              if task_id == 'B009':
+                  a = dict(before['tasks'][task_id])
+                  b = dict(after['tasks'][task_id])
+                  assert a.pop('canonical_state') == 'PENDING'
+                  assert b.pop('canonical_state') == 'COMPLETE_CANONICAL'
+                  assert a == b
+              else:
+                  assert before['tasks'][task_id] == after['tasks'][task_id]
+
+          decision_before = subprocess.check_output(['git','show',f'{base}:artifacts/decisions/B009-training-runtime-compatibility.json'], text=True)
+          assert decision_before == Path('artifacts/decisions/B009-training-runtime-compatibility.json').read_text()
+
+          evidence = Path('evidence/mstr-000b/B009-compatibility.md').read_text()
+          for token in [
+              'MODEL_WEIGHT_ACCESS = NONE', 'MODEL_EXECUTION = NONE',
+              'TOKENIZER_ARTIFACT_DOWNLOAD = NONE', 'CONVERSION_EXECUTION = NONE',
+              'QUANTIZATION_EXECUTION = NONE', 'TRAINING_EXECUTION = NONE',
+              'GATED_TERMS_ACCEPTANCE = NONE', 'PAID_MODEL_API = NONE',
+              'PAID_COMPUTE = NONE', 'LARGE_DATASET_INGESTION = NONE',
+              'PRODUCTION_RELEASE = NONE'
+          ]:
+              assert token in evidence
+          print('B009_CLOSEOUT_REVIEW_CONTAINMENT=PASS')
+          PY
+          git diff --check "$EXPECTED_MAIN...$CLOSEOUT_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Install review environment
+        run: python -m pip install -e '.[dev]'
+
+      - name: Adversarial clean mutation missing required B009 artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'B009 adversarial review'
+          git config user.email 'b009-review@invalid.local'
+          git switch --detach "$CLOSEOUT_HEAD"
+          git rm artifacts/decisions/B009-training-runtime-compatibility.json
+          git commit -m 'test(review): remove B009 required artifact locally'
+          mutation=$(git rev-parse HEAD)
+          git branch -f main "$mutation"
+          git update-ref refs/remotes/origin/main "$mutation"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          if python -m mstr_qualify task eligible B010 > /tmp/b010-missing.json; then
+            echo 'B010 unexpectedly eligible with clean committed missing B009 artifact' >&2
+            exit 1
+          fi
+          python - <<'PY'
+          import json
+          payload = json.load(open('/tmp/b010-missing.json'))
+          assert payload['eligible'] is False
+          assert 'prerequisite.unsatisfied:B009' in payload['reasons']
+          predecessor = payload['prerequisite_results'][0]
+          assert predecessor['task_id'] == 'B009'
+          assert predecessor['satisfied'] is False
+          assert 'prerequisite.required_artifact_missing' in predecessor['reasons']
+          assert 'missing:artifacts/decisions/B009-training-runtime-compatibility.json' in predecessor['reasons']
+          print('B009_CLOSEOUT_MISSING_ARTIFACT_FAIL_CLOSED=PASS')
+          PY
+          git reset --hard "$CLOSEOUT_HEAD"
+          git branch -f main "$CLOSEOUT_HEAD"
+          git update-ref refs/remotes/origin/main "$CLOSEOUT_HEAD"
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Adversarial clean mutation terminal state checkbox divergence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('specs/002-code-model-supremacy-foundation/tasks.md')
+          text = p.read_text()
+          old = '- [x] **B009 Freeze candidate trainability / conversion / runtime compatibility matrix.**\n'
+          new = '- [ ] **B009 Freeze candidate trainability / conversion / runtime compatibility matrix.**\n'
+          assert text.count(old) == 1
+          p.write_text(text.replace(old, new, 1))
+          PY
+          git add specs/002-code-model-supremacy-foundation/tasks.md
+          git commit -m 'test(review): diverge B009 terminal checkbox locally'
+          mutation=$(git rev-parse HEAD)
+          git branch -f main "$mutation"
+          git update-ref refs/remotes/origin/main "$mutation"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          if python -m mstr_qualify task eligible B010 > /tmp/b010-diverge.json; then
+            echo 'B010 unexpectedly eligible with clean B009 terminal state/checkbox divergence' >&2
+            exit 1
+          fi
+          python - <<'PY'
+          import json
+          payload = json.load(open('/tmp/b010-diverge.json'))
+          assert payload['eligible'] is False
+          assert 'prerequisite.unsatisfied:B009' in payload['reasons']
+          predecessor = payload['prerequisite_results'][0]
+          assert predecessor['task_id'] == 'B009'
+          assert predecessor['satisfied'] is False
+          assert predecessor['state_consistency_result']['satisfied'] is False
+          print('B009_CLOSEOUT_STATE_DIVERGENCE_FAIL_CLOSED=PASS')
+          PY
+          git reset --hard "$CLOSEOUT_HEAD"
+          git branch -f main "$CLOSEOUT_HEAD"
+          git update-ref refs/remotes/origin/main "$CLOSEOUT_HEAD"
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Focused exact-head review tests and immutable refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          pytest -q tests/contract/test_b009_training_runtime_compatibility.py
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_HEAD"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$CLOSEOUT_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$CLOSEOUT_HEAD"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B009_CLOSEOUT_INDEPENDENT_ADVERSARIAL_REVIEW=PASS'
