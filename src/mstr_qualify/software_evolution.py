@@ -99,7 +99,7 @@ def _collect_events(record: Mapping[str, Any]) -> tuple[_Event, ...]:
 
 
 def _validate_lineage(record: Mapping[str, Any], events: tuple[_Event, ...]) -> None:
-    known_revisions = {_string(record["base_revision"], "base_revision")}
+    current_revision = _string(record["base_revision"], "base_revision")
     by_id = {event.event_id: event for event in events}
 
     for event in events:
@@ -107,16 +107,22 @@ def _validate_lineage(record: Mapping[str, Any], events: tuple[_Event, ...]) -> 
         if event.event_kind == "CHANGE":
             before = _string(payload.get("before_revision"), "change.before_revision")
             after = _string(payload.get("after_revision"), "change.after_revision")
-            if before not in known_revisions:
+            if before != current_revision:
                 raise SoftwareEvolutionProjectionError(
-                    f"change {event.event_id} references unknown before_revision: {before}"
+                    f"change {event.event_id} does not extend current revision: "
+                    f"expected {current_revision}, got {before}"
                 )
-            known_revisions.add(after)
+            if after == before:
+                raise SoftwareEvolutionProjectionError(
+                    f"change {event.event_id} must advance the revision"
+                )
+            current_revision = after
         elif event.event_kind in {"TEST_CI", "REVIEW"}:
             revision = _string(payload.get("revision"), f"{event.event_kind}.revision")
-            if revision not in known_revisions:
+            if revision != current_revision:
                 raise SoftwareEvolutionProjectionError(
-                    f"{event.event_id} references unknown revision: {revision}"
+                    f"{event.event_id} does not reference current revision: "
+                    f"expected {current_revision}, got {revision}"
                 )
         else:
             trigger_id = _string(payload.get("trigger_event_id"), "recovery.trigger_event_id")
@@ -125,16 +131,33 @@ def _validate_lineage(record: Mapping[str, Any], events: tuple[_Event, ...]) -> 
                 raise SoftwareEvolutionProjectionError(
                     f"recovery {event.event_id} requires a prior trigger event"
                 )
-            resulting_revision = _string(
+            current_revision = _string(
                 payload.get("resulting_revision"), "recovery.resulting_revision"
             )
-            known_revisions.add(resulting_revision)
 
     final_revision = _string(record["final_revision"], "final_revision")
-    if final_revision not in known_revisions:
+    if final_revision != current_revision:
         raise SoftwareEvolutionProjectionError(
-            f"final_revision is not reachable from fixture lineage: {final_revision}"
+            "final_revision must equal the terminal fixture revision: "
+            f"expected {current_revision}, got {final_revision}"
         )
+
+
+def _future_artifact_ids(events: tuple[_Event, ...], cutoff: int) -> set[str]:
+    artifact_ids: set[str] = set()
+    for event in events:
+        if event.sequence <= cutoff:
+            continue
+        payload = event.payload
+        if event.event_kind == "CHANGE":
+            artifact_ids.add(
+                _string(payload.get("change_artifact_identity"), "change.change_artifact_identity")
+            )
+        elif event.event_kind == "TEST_CI":
+            artifact_ids.add(_string(payload.get("evidence_identity"), "test_ci.evidence_identity"))
+        elif event.event_kind == "REVIEW":
+            artifact_ids.add(_string(payload.get("feedback_identity"), "review.feedback_identity"))
+    return artifact_ids
 
 
 def _validate_forward_boundary(
@@ -196,6 +219,16 @@ def _validate_forward_boundary(
     if declared_excluded != expected_excluded:
         raise SoftwareEvolutionProjectionError(
             "excluded_future_event_ids do not match the post-cutoff event set"
+        )
+
+    visible_artifacts = set(
+        _string_list(manifest.get("visible_artifact_ids"), "visible_artifact_ids")
+    )
+    leaked_artifacts = visible_artifacts & _future_artifact_ids(events, cutoff)
+    if leaked_artifacts:
+        leaked = ", ".join(sorted(leaked_artifacts))
+        raise SoftwareEvolutionProjectionError(
+            f"visible_artifact_ids expose future event artifacts: {leaked}"
         )
 
     return manifest, boundary, target
