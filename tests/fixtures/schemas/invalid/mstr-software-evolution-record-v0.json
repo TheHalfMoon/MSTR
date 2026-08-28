@@ -1,0 +1,60 @@
+{
+  "schema_version": "mstr.software-evolution-record.v0",
+  "record_id": "B016-FIXTURE-INVALID-FUTURE-LEAK",
+  "repository_identity": {
+    "repository_id": "mstr://repository-owned-fixture/calculator-cli",
+    "source_class": "REPOSITORY_OWNED_FIXTURE",
+    "vcs_type": "GIT"
+  },
+  "base_revision": "fixture-r0",
+  "direction_identity": {
+    "direction_id": "direction-add-safe-divide",
+    "direction_kind": "FEATURE_DIRECTION",
+    "source_identity": "mstr://fixture/directions/add-safe-divide",
+    "content_identity": "sha256:fixture-direction-add-safe-divide-v1"
+  },
+  "visible_context_manifest": {
+    "manifest_id": "context-before-first-change",
+    "target_event_id": "evt-change-1",
+    "cutoff_sequence": 9,
+    "visible_artifact_ids": ["artifact:direction-add-safe-divide"],
+    "visible_event_ids": [],
+    "excluded_future_event_ids": ["evt-change-1"]
+  },
+  "change_events": [
+    {
+      "event_id": "evt-change-1",
+      "sequence": 10,
+      "model_visibility": "FUTURE_HIDDEN",
+      "before_revision": "fixture-r0",
+      "after_revision": "fixture-r1",
+      "change_artifact_identity": "sha256:fixture-change-r0-r1"
+    }
+  ],
+  "test_ci_events": [],
+  "review_events": [],
+  "recovery_events": [],
+  "final_revision": "fixture-r1",
+  "final_verifier_identity": "mstr://fixture/verifier/calculator-cli-v1",
+  "future_history_boundary": {
+    "boundary_id": "boundary-before-first-change",
+    "projection_mode": "FORWARD_STEP",
+    "target_event_id": "evt-change-1",
+    "cutoff_sequence": 9,
+    "final_revision_visibility": "HIDDEN",
+    "future_patch_visibility": "VISIBLE_AS_RETROSPECTIVE_CONTEXT",
+    "future_test_result_visibility": "HIDDEN",
+    "future_review_visibility": "HIDDEN"
+  },
+  "provenance": {
+    "source_identity": "mstr://repository-owned-fixture/calculator-cli",
+    "source_revision": "fixture-lineage-v1",
+    "acquisition_or_fixture_identity": "mstr://fixture/software-evolution/calculator-cli-v1",
+    "lineage_status": "COMPLETE"
+  },
+  "rights": {
+    "license_or_terms_identity": "MSTR_REPOSITORY_OWNED_FIXTURE",
+    "decision": "COMPATIBLE"
+  },
+  "contamination_status": "CLEAR"
+}
