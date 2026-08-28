@@ -155,3 +155,32 @@ def test_b019_difficulty_and_verifier_authority_remain_external() -> None:
         assert "MODEL_EXECUTION = NONE" in text
         assert "PAID_MODEL_API = NONE" in text
         assert "WEIGHT_CHANGING_TRAINING = NONE" in text
+
+
+def test_b019_canonical_closeout_provenance_and_authority_boundary() -> None:
+    evidence = (
+        ROOT / "evidence" / "mstr-000b" / "B019-teacher-policy.md"
+    ).read_text(encoding="utf-8")
+    assert "**State:** COMPLETE_CANONICAL" in evidence
+    assert "**Implementation PR:** #78" in evidence
+    assert (
+        "**Final implementation head:** "
+        "`25907c32fb60e83a6b171192e8c12c8092bc9f5e`" in evidence
+    )
+    assert (
+        "**Canonical implementation merge:** "
+        "`ac68e2ff9de9962807ab32ce983b2e808bf4fab9`" in evidence
+    )
+    assert "run `33193446438` — SUCCESS" in evidence
+    assert "run `33193784736` / job `98925641414` — SUCCESS" in evidence
+    assert "run `33193968205` — SUCCESS" in evidence
+    assert "run `33194149258` — SUCCESS" in evidence
+    assert "MODEL_WEIGHT_ACCESS = NONE" in evidence
+    assert "MODEL_EXECUTION = NONE" in evidence
+    assert "TEACHER_API_EXECUTION = NONE" in evidence
+    assert "PAID_MODEL_API = NONE" in evidence
+    assert "NETWORK_TEACHER_CALL = NONE" in evidence
+    assert "LARGE_DATASET_INGESTION = NONE" in evidence
+    assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
+    assert "B020_DIFFICULTY_CALIBRATION_AUTHORITY = NONE" in evidence
+    assert "B022_VERIFIER_HEALTH_AUTHORITY = NONE" in evidence
