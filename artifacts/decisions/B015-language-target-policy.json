@@ -1,0 +1,290 @@
+{
+  "artifact_version": "mstr.b015.language-target-policy.v1",
+  "authority_boundary": {
+    "large_dataset_ingestion": false,
+    "large_scale_rl": false,
+    "model_execution": false,
+    "model_weight_access": false,
+    "paid_compute": false,
+    "paid_model_api": false,
+    "private_user_data_ingestion": false,
+    "production_release": false,
+    "production_trace_ingestion": false,
+    "weight_changing_training": false
+  },
+  "canonical_main_at_entry": "205df4be5f2e25bd28b697816eac3ea6ce361aed",
+  "decision_basis": {
+    "external_evidence": [
+      {
+        "observations": [
+          "TypeScript became GitHub's most-used language in August 2025, ahead of Python and JavaScript.",
+          "Java and C# were fourth and fifth; PHP, Shell, C++, HCL, and Go were also in GitHub's 2025 top ten.",
+          "The combined JavaScript and TypeScript ecosystem remained larger than Python on GitHub."
+        ],
+        "observed_at": "2026-08-28",
+        "source_id": "github_octoverse_2025",
+        "url": "https://github.blog/news-insights/octoverse/octoverse-a-new-developer-joins-github-every-second-as-ai-leads-typescript-to-1/"
+      },
+      {
+        "observations": [
+          "Python adoption increased by seven percentage points from 2024 to 2025 and spans AI, data science, and backend work.",
+          "Rust was the most admired programming language in the 2025 survey at 72 percent.",
+          "Python developers showed strong interest in Rust and Go for performance-oriented systems work."
+        ],
+        "observed_at": "2026-08-28",
+        "source_id": "stackoverflow_2025_technology",
+        "url": "https://survey.stackoverflow.co/2025/technology"
+      },
+      {
+        "observations": [
+          "The report is based on 24,534 developers across 194 countries.",
+          "TypeScript had the strongest five-year real-world usage rise; Rust, Go, and Kotlin also gained share.",
+          "Top stated next-language adoption included Go 11 percent, Rust 10 percent, Python 7 percent, Kotlin 6 percent, and TypeScript 6 percent."
+        ],
+        "observed_at": "2026-08-28",
+        "source_id": "jetbrains_developer_ecosystem_2025",
+        "url": "https://blog.jetbrains.com/research/2025/10/state-of-developer-ecosystem-2025/"
+      }
+    ],
+    "product_invariants": [
+      "software direction to verified working code",
+      "8 GB RAM / CPU-usable / 8K / Q4<=3 GB universal-laptop product",
+      "Windows + Linux + macOS platform families",
+      "build, config, shell, SQL, tests, diffs, and repository work are first-class software tasks",
+      "long-tail breadth must earn capacity through product/evaluation evidence"
+    ],
+    "repository_evidence": [
+      {
+        "fact": "FR-023 requires an evidence-derived language/tooling mix and rejects marketing breadth as a capacity objective.",
+        "source": "specs/002-code-model-supremacy-foundation/spec.md"
+      },
+      {
+        "fact": "B007/B015 planning explicitly covers Python, TypeScript/JavaScript, Rust, Go, Java, C/C++, SQL, shell, JSON/YAML/TOML, diffs, stack traces, paths, and tool JSON.",
+        "source": "specs/002-code-model-supremacy-foundation/plan.md"
+      },
+      {
+        "fact": "B014 delegates language percentages/tiers to B015 and requires the canonical language target policy before training admission.",
+        "source": "docs/data/MSTR_DATA_CONSTITUTION.md"
+      }
+    ]
+  },
+  "entry_gate": {
+    "canonical_main": "205df4be5f2e25bd28b697816eac3ea6ce361aed",
+    "drift": "clean",
+    "eligible": true,
+    "external_effect_class": "NO_EXTERNAL_EFFECT",
+    "job_id": 98834411321,
+    "run_id": 33166914253,
+    "task_id": "B015"
+  },
+  "policy_id": "MSTR-LANGUAGE-TARGET-POLICY-v0",
+  "refresh_policy": {
+    "annual_external_evidence_refresh": true,
+    "before_each_material_training_stage": true,
+    "tier_change_requires_canonical_amendment": true,
+    "triggers": [
+      "material shift in public repository language distribution",
+      "MSTR evaluation shows repeated product-critical weakness",
+      "platform/toolchain strategy changes",
+      "source availability or rights make a replay floor infeasible"
+    ]
+  },
+  "replay_policy": {
+    "aggregate_minimum_percent": {
+      "core_programming": 55,
+      "secondary_programming": 15,
+      "tooling_config": 15
+    },
+    "core_language_minimum_percent": {
+      "c": 4,
+      "cpp": 4,
+      "csharp": 5,
+      "java": 6,
+      "javascript": 6,
+      "python": 8,
+      "typescript": 8
+    },
+    "denominator": "LANGUAGE_TOOLING_SLICE",
+    "flexible_allocation_rule": "After all minima are satisfied, remaining language/tooling capacity is assigned by stage-specific product/evaluation evidence. Long-tail total may not exceed its cap without a canonical B015 amendment.",
+    "long_tail_maximum_percent": 15,
+    "no_silent_zero_rule": "A core or secondary target with admissible source material may not be silently omitted; any inability to meet its minimum requires a canonical exception with exact reason and impact analysis.",
+    "secondary_language_minimum_percent": {
+      "go": 3,
+      "kotlin": 2,
+      "php": 2,
+      "rust": 3,
+      "swift": 2
+    },
+    "tooling_group_minimum_percent": {
+      "build_ci": 3,
+      "infra_config": 2,
+      "shell": 4,
+      "sql": 3,
+      "structured_config": 3
+    }
+  },
+  "scope": {
+    "applies_to_workstreams": [
+      "MSTR-001",
+      "MSTR-002",
+      "MSTR-003"
+    ],
+    "dimension": "LANGUAGE_AND_TOOLING",
+    "fixed_final_percentages": false,
+    "interpretation": "Replay floors are capacity-preservation guardrails, not market-share estimates or claims of optimal final mixture weights.",
+    "measurement_denominator": "LANGUAGE_TOOLING_SLICE",
+    "software_role_mix_owned_by": "MSTR-DATA-CONSTITUTION-v0 and stage-specific manifests",
+    "stage_specific_manifest_required": true
+  },
+  "stage_manifest_rules": [
+    "Declare the accounting unit and denominator used for language/tooling weights.",
+    "Declare core, secondary, tooling/config, and long-tail totals; all allocated shares must sum to 100 percent of the language/tooling slice.",
+    "Meet every aggregate, per-language, and tooling-group replay floor unless a canonical B015 amendment explicitly changes the policy.",
+    "Do not infer software-role CODE/FIM/TEST/DIFF ratios from B015; those remain stage-specific under the Data Constitution.",
+    "Preserve provenance, rights, contamination, dedup, benchmark exclusion, and verifier-health gates from MSTR-DATA-CONSTITUTION-v0.",
+    "Do not admit private user repositories or production traces by default."
+  ],
+  "state": "IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT",
+  "task_id": "B015",
+  "tiers": {
+    "core": [
+      {
+        "id": "typescript",
+        "reason": "current GitHub leadership, typed web/full-stack ecosystem, and greenfield relevance"
+      },
+      {
+        "id": "python",
+        "reason": "broad backend, automation, AI/data, scripting, and fast-growing adoption"
+      },
+      {
+        "id": "javascript",
+        "reason": "massive installed web/runtime ecosystem and legacy/maintenance complement to TypeScript"
+      },
+      {
+        "id": "java",
+        "reason": "large enterprise/server ecosystem and sustained GitHub usage"
+      },
+      {
+        "id": "csharp",
+        "reason": "large Windows/cloud/game/enterprise ecosystem and top-five GitHub usage"
+      },
+      {
+        "id": "c",
+        "reason": "systems, embedded, native interfaces, build/toolchain maintenance, and portability"
+      },
+      {
+        "id": "cpp",
+        "reason": "systems/performance/native application ecosystem and explicit MSTR tokenizer/evaluation coverage"
+      }
+    ],
+    "long_tail": {
+      "admission_rule": "A long-tail language receives stage allocation only when product tasks, evaluation failures, customer/developer demand, repository distribution, or strategic platform evidence justifies the capacity. Marketing completeness is not evidence.",
+      "initial_targets": [
+        "ruby",
+        "dart",
+        "scala",
+        "elixir",
+        "zig",
+        "lua",
+        "r",
+        "objective-c"
+      ],
+      "per_language_minimum_percent": 0
+    },
+    "secondary": [
+      {
+        "id": "go",
+        "reason": "cloud/infrastructure/backend usage and high stated adoption intent"
+      },
+      {
+        "id": "rust",
+        "reason": "systems/safety growth, high developer admiration, and increasing adoption"
+      },
+      {
+        "id": "php",
+        "reason": "large deployed web ecosystem despite lower growth momentum"
+      },
+      {
+        "id": "kotlin",
+        "reason": "JVM/Android relevance and sustained ecosystem growth"
+      },
+      {
+        "id": "swift",
+        "reason": "Apple-platform software relevance within the required macOS platform family"
+      }
+    ]
+  },
+  "tooling_channels": [
+    {
+      "examples": [
+        "sh",
+        "bash",
+        "zsh"
+      ],
+      "group": "shell",
+      "id": "shell_posix"
+    },
+    {
+      "examples": [
+        "PowerShell"
+      ],
+      "group": "shell",
+      "id": "powershell"
+    },
+    {
+      "examples": [
+        "SQL"
+      ],
+      "group": "sql",
+      "id": "sql"
+    },
+    {
+      "examples": [
+        "JSON",
+        "YAML",
+        "TOML"
+      ],
+      "group": "structured_config",
+      "id": "structured_config"
+    },
+    {
+      "examples": [
+        "package.json",
+        "pyproject.toml",
+        "Cargo.toml",
+        "go.mod",
+        "pom.xml",
+        "build.gradle",
+        "*.csproj"
+      ],
+      "group": "build_ci",
+      "id": "package_build_manifests"
+    },
+    {
+      "examples": [
+        "Makefile",
+        "CMake",
+        "Ninja",
+        "Dockerfile"
+      ],
+      "group": "build_ci",
+      "id": "build_systems"
+    },
+    {
+      "examples": [
+        "GitHub Actions",
+        "generic CI YAML"
+      ],
+      "group": "build_ci",
+      "id": "ci_workflows"
+    },
+    {
+      "examples": [
+        "HCL",
+        "Terraform"
+      ],
+      "group": "infra_config",
+      "id": "infra_config"
+    }
+  ]
+}
