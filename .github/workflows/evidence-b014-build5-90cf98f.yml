@@ -1,0 +1,124 @@
+name: Fix B014 extracted-script matcher and qualify
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 90cf98f5f87b64f8e6da50a8444b1b598148f945
+      TARGET_BRANCH: feat/000b-b014-data-constitution-v2
+      SOURCE_HEAD: 14ddc497f12d92ebe67f9f87072af60b383c1253
+      SOURCE_WORKFLOW: .github/workflows/evidence-b014-build-90cf98f.yml
+      DONOR_HEAD: 2ad16ed19c159897ce0f31730e016fac1c06afa9
+      ENTRY_RUN: '33164424310'
+      ENTRY_JOB: '98826328509'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/000b-b014-data-constitution-v2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Bind exact unchanged target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH" evidence/b014-build-90cf98f
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/evidence/b014-build-90cf98f)" = "$SOURCE_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'B014_BUILD5_BINDING=PASS'
+
+      - name: Extract and patch original builder with extracted indentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$SOURCE_HEAD:$SOURCE_WORKFLOW" > /tmp/source.yml
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path('/tmp/source.yml').read_text(encoding='utf-8')
+
+          def extract(step_name: str, destination: str) -> None:
+              marker = f'      - name: {step_name}\n'
+              start = source.index(marker)
+              run_marker = '        run: |\n'
+              body_start = source.index(run_marker, start) + len(run_marker)
+              next_step = source.find('\n      - name: ', body_start)
+              raw = source[body_start:] if next_step == -1 else source[body_start:next_step]
+              lines = raw.splitlines()
+              body = [line[10:] if line.startswith('          ') else line for line in lines]
+              Path(destination).write_text('\n'.join(body) + '\n', encoding='utf-8')
+
+          extract('Bind exact B014 entry and stale donor only', '/tmp/guard.sh')
+          extract('Recover reviewed B014 contract and integrate canonical runtime surfaces', '/tmp/materialize.sh')
+          extract('Qualify exact local B014 implementation candidate', '/tmp/qualify.sh')
+          extract('Restore live refs and push target only', '/tmp/push.sh')
+
+          materialize = Path('/tmp/materialize.sh').read_text(encoding='utf-8')
+          marker = "expected=$(printf '%s\\n' \\\n"
+          assert materialize.count(marker) == 1
+          repair = """python - <<'PY_REPAIR'\nfrom pathlib import Path\n\ndoc = Path('docs/data/MSTR_DATA_CONSTITUTION.md')\nlines = doc.read_text(encoding='utf-8').splitlines()\ndoc.write_text('\\n'.join(line.rstrip() for line in lines) + '\\n', encoding='utf-8')\n\npath = Path('tests/integration/test_cli_offline.py')\ntext = path.read_text(encoding='utf-8')\nold = '        \"interaction-contract\",\\n        \"mstr-loop-contract-v0\",\\n'\nnew = '        \"interaction-contract\",\\n        \"mstr-data-constitution-v0\",\\n        \"mstr-loop-contract-v0\",\\n'\nassert text.count(old) == 1\nassert '        \"mstr-data-constitution-v0\",' not in text\npath.write_text(text.replace(old, new, 1), encoding='utf-8')\nPY_REPAIR\n\n"""
+          materialize = materialize.replace(marker, repair + marker, 1)
+
+          fixture_line = '  tests/fixtures/schemas/invalid/mstr-data-constitution-v0.json \\\n'
+          assert materialize.count(fixture_line) == 2
+          materialize = materialize.replace(
+              fixture_line,
+              '  tests/integration/test_cli_offline.py \\\n' + fixture_line,
+          )
+          assert materialize.count('" -eq 10') == 1
+          materialize = materialize.replace('" -eq 10', '" -eq 11', 1)
+          Path('/tmp/materialize.sh').write_text(materialize, encoding='utf-8')
+
+          qualify = Path('/tmp/qualify.sh').read_text(encoding='utf-8')
+          targeted = 'pytest -q tests/contract/test_data_constitution_contract.py tests/contract/test_schemas.py\n'
+          assert qualify.count(targeted) == 1
+          qualify = qualify.replace(
+              targeted,
+              'pytest -q tests/contract/test_data_constitution_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py\n',
+              1,
+          )
+          Path('/tmp/qualify.sh').write_text(qualify, encoding='utf-8')
+          PY
+          bash -n /tmp/guard.sh
+          bash -n /tmp/materialize.sh
+          bash -n /tmp/qualify.sh
+          bash -n /tmp/push.sh
+          echo 'B014_BUILD5_EXTRACTION=PASS'
+
+      - name: Re-prove exact B014 entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash /tmp/guard.sh
+
+      - name: Materialize exact eleven-file candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash /tmp/materialize.sh
+
+      - name: Run complete frozen gate set
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash /tmp/qualify.sh
+
+      - name: Restore live refs and push target only after PASS
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash /tmp/push.sh
+          echo "B014_BUILD5_RUN=$GITHUB_RUN_ID"
