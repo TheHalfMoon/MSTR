@@ -26,9 +26,18 @@ def update_catalog() -> None:
 def update_tasks() -> None:
     text = TASKS.read_text(encoding="utf-8")
     marker = "- [ ] **B028 Freeze Q4-in-the-loop promotion contract and training-method tournament preflight.**"
+    checked_marker = marker.replace("[ ]", "[x]")
     if text.count(marker) != 1:
         raise SystemExit("expected exactly one pending B028 marker")
-    text = text.replace(marker, marker.replace("[ ]", "[x]"), 1)
+    text = text.replace(marker, checked_marker, 1)
+    text, cleaned = re.subn(
+        rf"({re.escape(checked_marker)})[ \t]+(?=\n)",
+        r"\1",
+        text,
+        count=1,
+    )
+    if cleaned != 1:
+        raise SystemExit("expected to normalize B028 task-line trailing whitespace")
 
     pattern = re.compile(
         r"(- \[x\] \*\*B028 Freeze Q4-in-the-loop promotion contract and training-method tournament preflight\.\*\*.*?)(?=\n- \[[ x]\] \*\*B029)",
