@@ -1,0 +1,91 @@
+name: Verify A005 implementation post-merge
+
+on:
+  push:
+    branches:
+      - evidence/a005-postmerge-3c8d817
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  MERGE_SHA: 3c8d817d27948bffefaacc589eb10ec2733ecbd4
+  BASE_SHA: 8c3faa1d66409cd44cd39040380ed326175b6b34
+  IMPLEMENTATION_HEAD: a157c2f359a2c9eb600fed787cd7d1f23fa10eff
+  EXPECTED_TREE: bdd34595531384422b92d90be95978dd4b5406e0
+  PR_NUMBER: '92'
+
+jobs:
+  merge_identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3c8d817d27948bffefaacc589eb10ec2733ecbd4
+          fetch-depth: 0
+      - name: Prove exact A005 merge identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^1)" = "$BASE_SHA"
+          test "$(git rev-parse HEAD^2)" = "$IMPLEMENTATION_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" | jq -e --arg merge "$MERGE_SHA" --arg head "$IMPLEMENTATION_HEAD" '.state == "closed" and .merged == true and .merge_commit_sha == $merge and .head.sha == $head'
+          mapfile -t actual < <(git diff --name-only "$BASE_SHA" "$MERGE_SHA" | sort)
+          expected=(
+            evidence/mstr-000a/A005-build-loop.md
+            src/mstr_qualify/harness/build_loop.py
+            tests/unit/test_build_loop.py
+          )
+          diff -u <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${actual[@]}" | sort)
+
+  canonical_quality_state:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3c8d817d27948bffefaacc589eb10ec2733ecbd4
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove canonical quality and implementation-only state
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/test_build_loop.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          grep -Fq -- '- [ ] **A005 Implement `MSTR-BUILD-LOOP-v0` bounded state graph.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -Fq '**State:** `IMPLEMENTATION_ACTIVE`' evidence/mstr-000a/A005-build-loop.md
+          grep -Fq -- '- [ ] **A006 Implement protected finalizer / verifier boundary.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          echo "A005_IMPLEMENTATION_MERGED=YES"
+          echo "A005_COMPLETE_CANONICAL=NO"
+          echo "EXTERNAL_EFFECT=NONE"
+
+  complete:
+    needs: [merge_identity, canonical_quality_state]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3c8d817d27948bffefaacc589eb10ec2733ecbd4
+          fetch-depth: 0
+      - name: Final immutable canonical-main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^1)" = "$BASE_SHA"
+          test "$(git rev-parse HEAD^2)" = "$IMPLEMENTATION_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
