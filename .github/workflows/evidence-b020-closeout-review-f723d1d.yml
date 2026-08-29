@@ -1,0 +1,85 @@
+name: Independently review exact B020 closeout candidate
+
+on:
+  push:
+    branches:
+      - evidence/b020-closeout-review-f723d1d
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: f5a4892bff6bc20e376efcaa8f554c15ac88bca8
+  EXPECTED_HEAD: f723d1d1753cbdf603e9b2fd770f54059c6c63e5
+  PR_NUMBER: '82'
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f723d1d1753cbdf603e9b2fd770f54059c6c63e5
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Independent closeout semantics and adversarial verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_MAIN"
+          pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
+          test "$(jq -r '.state' <<<"$pr")" = "open"
+          test "$(jq -r '.draft' <<<"$pr")" = "false"
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$EXPECTED_HEAD"
+          test "$(jq -r '.changed_files' <<<"$pr")" -eq 6
+          git diff --check "$EXPECTED_MAIN"..."$EXPECTED_HEAD"
+          git show "$EXPECTED_MAIN:configs/task-gate/mstr-000b.json" > /tmp/base.json
+          python - <<'PY'
+          import copy
+          import json
+          from pathlib import Path
+          base = json.loads(Path('/tmp/base.json').read_text())
+          head = json.loads(Path('configs/task-gate/mstr-000b.json').read_text())
+          for task_id, before in base['tasks'].items():
+              after = head['tasks'][task_id]
+              if task_id == 'B020':
+                  assert before['canonical_state'] == 'PENDING'
+                  assert after['canonical_state'] == 'COMPLETE_CANONICAL'
+                  normalized = copy.deepcopy(after)
+                  normalized['canonical_state'] = 'PENDING'
+                  assert normalized == before
+              else:
+                  assert after == before, task_id
+          PY
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          if mstr-qualify task eligible B020 > /tmp/b020.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal") != null)' /tmp/b020.json
+          mstr-qualify task eligible B021 > /tmp/b021.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and (.reasons | length) == 0' /tmp/b021.json
+          evidence=evidence/mstr-000b/B020-difficulty-contract.md
+          grep -Fx 'ENTRY_GATE_TASK = B020' "$evidence"
+          grep -Fx 'ENTRY_GATE_CANONICAL_MAIN = ef90e96ba3d4e2c253987d1d104e0de26ce93529' "$evidence"
+          grep -F '**State:** COMPLETE_CANONICAL' "$evidence"
+          grep -F '**Implementation PR:** #81' "$evidence"
+          grep -F '**Final implementation head:** `189509470eae10f1080938b0b2b873f375842f35`' "$evidence"
+          grep -F '**Canonical implementation merge:** `f5a4892bff6bc20e376efcaa8f554c15ac88bca8`' "$evidence"
+          grep -F 'B021_FRONTIER_SAMPLER_EXECUTION = NONE' "$evidence"
+          pytest -q tests/contract/test_difficulty_calibration_contract.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/docs/000b-b020-canonicalize-v2 | cut -f1)" = "$EXPECTED_HEAD"
