@@ -1,0 +1,179 @@
+name: Requalify repaired B025 exact head
+
+on:
+  push:
+    branches:
+      - evidence/b025-qualify-5d569ac
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_BASE: cd3e3ba39c0e83548748275d08b7a3d0d2e6b15b
+  EXPECTED_HEAD: 5d569acd15fdd20a2aea7f0c37e63917e73aa54c
+  EXPECTED_TREE: 29c7c1db5c813c935fd8fab3f150b1e85bbf5d64
+  PR_NUMBER: '87'
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5d569acd15fdd20a2aea7f0c37e63917e73aa54c
+          fetch-depth: 0
+      - name: Verify exact PR identity and eleven-file scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git merge-base "$EXPECTED_BASE" "$EXPECTED_HEAD")" = "$EXPECTED_BASE"
+          test "$(git rev-list --count "$EXPECTED_BASE".."$EXPECTED_HEAD")" -eq 2
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/feat/000b-b025-greenfield-curriculum | cut -f1)" = "$EXPECTED_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .commits == 2 and .changed_files == 11' /tmp/pr.json
+          mapfile -t actual < <(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" | sort)
+          expected=(
+            docs/data/GREENFIELD_FEATURE_CURRICULUM.md
+            evidence/mstr-000b/B025-greenfield-curriculum.md
+            schemas/mstr-greenfield-task-v0.schema.json
+            specs/002-code-model-supremacy-foundation/contracts/mstr-greenfield-task-v0.schema.json
+            src/mstr_qualify/cli.py
+            src/mstr_qualify/schemas.py
+            tests/contract/test_greenfield_task_contract.py
+            tests/contract/test_schemas.py
+            tests/fixtures/schemas/invalid/mstr-greenfield-task-v0.json
+            tests/fixtures/schemas/valid/mstr-greenfield-task-v0.json
+            tests/integration/test_cli_offline.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 11
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          test -z "$(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" -- configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md AGENTS.md .specify/memory/constitution.md docs/canonical)"
+
+  contract_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5d569acd15fdd20a2aea7f0c37e63917e73aa54c
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove repaired fail-closed synthesis contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          cmp schemas/mstr-greenfield-task-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-greenfield-task-v0.schema.json
+          pytest -q tests/contract/test_greenfield_task_contract.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from mstr_qualify.schemas import validate_instance, validation_errors
+
+          root = Path.cwd()
+          fixture = json.loads((root / "tests/fixtures/schemas/valid/mstr-greenfield-task-v0.json").read_text())
+          cases = [
+              ("FEATURE_TREE_SYNTHESIS", "FEATURE_TREE", "SEMANTIC_COMPLEXITY"),
+              ("SEMANTIC_SYNTHESIS", "SEMANTIC_COMPLEXITY", "FEATURE_TREE"),
+          ]
+          for method, valid_kind, invalid_kind in cases:
+              value = json.loads(json.dumps(fixture))
+              value["generation_method"] = method
+              value["provenance"]["source_class"] = "SYNTHETIC_VERIFIED"
+              value["provenance"]["generator_identity"] = "generator:v1"
+              value["synthesis_evidence"] = {
+                  "generator_kind": valid_kind,
+                  "generator_identity": "generator:v1",
+                  "generator_revision": "revision:1",
+                  "proposal_only": True,
+                  "independent_verification_status": "VERIFIED",
+                  "independent_verifier_identity": "verifier:independent-v1",
+                  "verification_evidence_identity": "evidence:verification-v1",
+              }
+              validate_instance("mstr-greenfield-task-v0", value)
+              value["synthesis_evidence"]["generator_kind"] = invalid_kind
+              assert validation_errors("mstr-greenfield-task-v0", value)
+          PY
+          grep -F 'SYNTHESIS_EXECUTION = NONE' evidence/mstr-000b/B025-greenfield-curriculum.md
+          grep -F 'MODEL_EXECUTION = NONE' evidence/mstr-000b/B025-greenfield-curriculum.md
+          grep -F 'WEIGHT_CHANGING_TRAINING = NONE' evidence/mstr-000b/B025-greenfield-curriculum.md
+
+  exact_main_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cd3e3ba39c0e83548748275d08b7a3d0d2e6b15b
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-prove exact-main task authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_BASE"
+          git update-ref refs/remotes/origin/main "$EXPECTED_BASE"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          mstr-qualify task eligible B025 > /tmp/b025.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .reasons == []' /tmp/b025.json
+          mstr-qualify task eligible B028 > /tmp/b028.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .reasons == []' /tmp/b028.json
+          if mstr-qualify task eligible B023 > /tmp/b023.json; then exit 1; else test "$?" -eq 1; fi
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+
+  full_quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5d569acd15fdd20a2aea7f0c37e63917e73aa54c
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run exact-head canonical quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_greenfield_task_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/feat/000b-b025-greenfield-curriculum | cut -f1)" = "$EXPECTED_HEAD"
+
+  complete:
+    needs: [identity_scope, contract_semantics, exact_main_gate, full_quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5d569acd15fdd20a2aea7f0c37e63917e73aa54c
+          fetch-depth: 0
+      - name: Final immutable recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/feat/000b-b025-greenfield-curriculum | cut -f1)" = "$EXPECTED_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" | jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .commits == 2 and .changed_files == 11'
+          echo "B025_REQUALIFIED_HEAD=$EXPECTED_HEAD"
+          echo "MODEL_EXECUTION=NONE"
+          echo "WEIGHT_CHANGING_TRAINING=NONE"
