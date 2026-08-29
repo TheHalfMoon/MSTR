@@ -69,6 +69,20 @@ DESIGN_SCHEMA_OVERRIDES = {
         / "contracts"
         / "mstr-greenfield-task-v0.schema.json"
     ),
+    "mstr-training-method-cell-v0": (
+        ROOT
+        / "specs"
+        / "002-code-model-supremacy-foundation"
+        / "contracts"
+        / "mstr-training-method-cell-v0.schema.json"
+    ),
+    "mstr-q4-promotion-v0": (
+        ROOT
+        / "specs"
+        / "002-code-model-supremacy-foundation"
+        / "contracts"
+        / "mstr-q4-promotion-v0.schema.json"
+    ),
     "mstr-software-evolution-record-v0": (
         ROOT
         / "specs"

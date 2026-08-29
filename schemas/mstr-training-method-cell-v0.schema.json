@@ -1,0 +1,369 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mstr.local/schemas/mstr-training-method-cell-v0.json",
+  "title": "MSTR Training Method Cell v0",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "backbone_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "model_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "immutable_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "candidate_id",
+        "model_id",
+        "immutable_revision"
+      ]
+    },
+    "quantization": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "base_bits": {
+          "const": 4
+        },
+        "scheme": {
+          "enum": [
+            "NF4",
+            "FP4",
+            "OTHER"
+          ]
+        },
+        "tool_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "tool_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "base_bits",
+        "scheme",
+        "tool_id",
+        "tool_revision"
+      ]
+    },
+    "token_update_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "enum": [
+            "TOKENS",
+            "UPDATES"
+          ]
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "unit",
+        "value"
+      ]
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "mstr.training-method-cell.v0"
+    },
+    "cell_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "backbone_identity": {
+      "$ref": "#/$defs/backbone_identity"
+    },
+    "method": {
+      "enum": [
+        "LORA_16BIT",
+        "LORA_16BIT_RSLORA",
+        "QLORA_4BIT",
+        "QLORA_4BIT_RSLORA"
+      ]
+    },
+    "precision": {
+      "enum": [
+        "SIXTEEN_BIT",
+        "FOUR_BIT_BASE"
+      ]
+    },
+    "lora_rank": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4096
+    },
+    "rslora": {
+      "type": "boolean"
+    },
+    "quantization": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/quantization"
+        }
+      ]
+    },
+    "dataset_manifest_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "token_update_budget": {
+      "$ref": "#/$defs/token_update_budget"
+    },
+    "seed_policy": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "environment_identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "eval_identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "export_recipe": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "q4_recipe": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "support_status": {
+      "enum": [
+        "SUPPORTED",
+        "UNSUPPORTED",
+        "REVALIDATION_REQUIRED"
+      ]
+    },
+    "support_evidence_identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "unsupported_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "status": {
+      "enum": [
+        "PREFLIGHT_ONLY",
+        "READY_FOR_AUTHORIZED_EXECUTION",
+        "EXECUTED",
+        "UNSUPPORTED",
+        "INVALID"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "cell_id",
+    "backbone_identity",
+    "method",
+    "precision",
+    "lora_rank",
+    "rslora",
+    "quantization",
+    "dataset_manifest_id",
+    "token_update_budget",
+    "seed_policy",
+    "environment_identity",
+    "eval_identity",
+    "export_recipe",
+    "q4_recipe",
+    "support_status",
+    "support_evidence_identity",
+    "unsupported_reason",
+    "status"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "method": {
+            "const": "LORA_16BIT"
+          }
+        },
+        "required": [
+          "method"
+        ]
+      },
+      "then": {
+        "properties": {
+          "precision": {
+            "const": "SIXTEEN_BIT"
+          },
+          "rslora": {
+            "const": false
+          },
+          "quantization": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "method": {
+            "const": "LORA_16BIT_RSLORA"
+          }
+        },
+        "required": [
+          "method"
+        ]
+      },
+      "then": {
+        "properties": {
+          "precision": {
+            "const": "SIXTEEN_BIT"
+          },
+          "rslora": {
+            "const": true
+          },
+          "quantization": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "method": {
+            "const": "QLORA_4BIT"
+          }
+        },
+        "required": [
+          "method"
+        ]
+      },
+      "then": {
+        "properties": {
+          "precision": {
+            "const": "FOUR_BIT_BASE"
+          },
+          "rslora": {
+            "const": false
+          },
+          "quantization": {
+            "$ref": "#/$defs/quantization"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "method": {
+            "const": "QLORA_4BIT_RSLORA"
+          }
+        },
+        "required": [
+          "method"
+        ]
+      },
+      "then": {
+        "properties": {
+          "precision": {
+            "const": "FOUR_BIT_BASE"
+          },
+          "rslora": {
+            "const": true
+          },
+          "quantization": {
+            "$ref": "#/$defs/quantization"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "support_status": {
+            "const": "UNSUPPORTED"
+          }
+        },
+        "required": [
+          "support_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "unsupported_reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "const": "UNSUPPORTED"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "unsupported_reason": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "READY_FOR_AUTHORIZED_EXECUTION",
+              "EXECUTED"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "support_status": {
+            "const": "SUPPORTED"
+          }
+        }
+      }
+    }
+  ]
+}

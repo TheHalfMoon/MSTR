@@ -1,0 +1,33 @@
+{
+  "schema_version": "mstr.training-method-cell.v0",
+  "cell_id": "fixture-q4-rslora",
+  "backbone_identity": {
+    "candidate_id": "fixture-backbone",
+    "model_id": "example/fixture-backbone",
+    "immutable_revision": "0123456789abcdef"
+  },
+  "method": "QLORA_4BIT_RSLORA",
+  "precision": "FOUR_BIT_BASE",
+  "lora_rank": 16,
+  "rslora": true,
+  "quantization": {
+    "base_bits": 4,
+    "scheme": "NF4",
+    "tool_id": "bitsandbytes",
+    "tool_revision": "fixture-revision"
+  },
+  "dataset_manifest_id": "fixture-dataset-v1",
+  "token_update_budget": {
+    "unit": "UPDATES",
+    "value": 32
+  },
+  "seed_policy": "fixture-seed-policy-v1",
+  "environment_identity": "fixture-environment-v1",
+  "eval_identity": "fixture-eval-v1",
+  "export_recipe": "fixture-export-v1",
+  "q4_recipe": "fixture-q4-v1",
+  "support_status": "REVALIDATION_REQUIRED",
+  "support_evidence_identity": "fixture-generic-framework-guidance-only",
+  "unsupported_reason": null,
+  "status": "PREFLIGHT_ONLY"
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": "mstr.q4-promotion.v0",
+  "source_training_run_id": "fixture-training-run",
+  "source_checkpoint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "merged_master_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "export_tool_id": "fixture-exporter",
+  "export_tool_revision": "fixture-exporter-rev",
+  "export_recipe_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "quantizer_tool_id": "fixture-quantizer",
+  "quantizer_tool_revision": "fixture-quantizer-rev",
+  "quantization_recipe_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "canonical_q4_artifact_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "artifact_integrity_status": "PASS",
+  "q4_regression_manifest_id": "fixture-q4-regression-v1",
+  "q4_regression_result": "PASS",
+  "universal_laptop_gate_result": "PASS",
+  "universal_laptop_gate_evidence_identity": "fixture-u1-evidence",
+  "universal_laptop_gate_not_required_reason": null,
+  "promotion_status": "PROMOTED",
+  "rejection_reasons": [],
+  "promotion_decision_evidence_identity": "fixture-promotion-evidence"
+}

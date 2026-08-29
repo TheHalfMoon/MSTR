@@ -1,0 +1,116 @@
+{
+  "artifact_version": "mstr.b028.method-tournament-preflight.v1",
+  "task_id": "B028",
+  "canonical_main_at_entry": "9d5908016b2b8775eaf86dbcebb89683f52e1f90",
+  "entry_gate": {
+    "run_id": 33250934988,
+    "job_id": 99096373017,
+    "eligible": true,
+    "authority_required": false,
+    "reasons": []
+  },
+  "b009_compatibility_source": {
+    "artifact": "artifacts/decisions/B009-training-runtime-compatibility.json",
+    "artifact_version": "mstr.b009.training-runtime-compatibility.v1",
+    "interpretation": "GENERIC_OR_SOURCE_LEVEL_COMPATIBILITY_IS_NOT_CANDIDATE_SPECIFIC_TRAINING_SUPPORT"
+  },
+  "guidance_revalidation": {
+    "retrieved_date": "2026-08-29",
+    "peft": {
+      "repository": "huggingface/peft",
+      "main_revision": "9c16ee66cd4c58bd9cdf2d8b4e06c1cf8e8f8efe",
+      "documentation": "https://huggingface.co/docs/peft/main/package_reference/lora",
+      "observations": [
+        "LoraConfig exposes use_rslora.",
+        "QLoRA-style PEFT guidance uses target_modules=all-linear."
+      ]
+    },
+    "transformers": {
+      "repository": "huggingface/transformers",
+      "main_revision": "42ca97014c85d71a88ad60d55f08cb9fb4d26e2c",
+      "documentation": "https://huggingface.co/docs/transformers/main/quantization/bitsandbytes",
+      "observations": [
+        "Current bitsandbytes integration describes QLoRA as 4-bit quantization with trainable LoRA weights.",
+        "Current guidance recommends explicit 4-bit quantization configuration; generic availability does not prove one MSTR finalist is supported."
+      ]
+    },
+    "unsloth": {
+      "repository": "unslothai/unsloth",
+      "main_revision": "e1653bcd1da874466da48ee5360ff60fc10d7973",
+      "documentation": "https://www.unsloth.ai/pricing",
+      "observations": [
+        "Current public product guidance advertises 4-bit and 16-bit LoRA support.",
+        "This generic statement is not exact-backbone support evidence."
+      ]
+    }
+  },
+  "required_method_arms": [
+    {
+      "method": "LORA_16BIT",
+      "precision": "SIXTEEN_BIT",
+      "rslora": false,
+      "base_quantization_bits": null,
+      "preflight_status": "REVALIDATION_REQUIRED"
+    },
+    {
+      "method": "LORA_16BIT_RSLORA",
+      "precision": "SIXTEEN_BIT",
+      "rslora": true,
+      "base_quantization_bits": null,
+      "preflight_status": "REVALIDATION_REQUIRED"
+    },
+    {
+      "method": "QLORA_4BIT",
+      "precision": "FOUR_BIT_BASE",
+      "rslora": false,
+      "base_quantization_bits": 4,
+      "preflight_status": "REVALIDATION_REQUIRED"
+    },
+    {
+      "method": "QLORA_4BIT_RSLORA",
+      "precision": "FOUR_BIT_BASE",
+      "rslora": true,
+      "base_quantization_bits": 4,
+      "preflight_status": "REVALIDATION_REQUIRED"
+    }
+  ],
+  "candidate_support_rule": {
+    "default": "REVALIDATION_REQUIRED",
+    "supported_requires": [
+      "exact finalist immutable backbone revision",
+      "exact adapter target-module compatibility",
+      "exact PEFT/Transformers/Unsloth revisions used for the cell",
+      "exact quantization/backend compatibility for 4-bit arms",
+      "exact execution environment and hardware compatibility"
+    ],
+    "unsupported_requires": [
+      "exact unsupported reason",
+      "support evidence identity",
+      "framework/backbone revision identity"
+    ]
+  },
+  "comparability_requirements": [
+    "same immutable base revision",
+    "same admitted dataset manifest",
+    "same token/update budget",
+    "same seed policy",
+    "same context and environment identity",
+    "same evaluation identity and checkpoints",
+    "same export and canonical-Q4 regression path",
+    "DVCR and TTVC reported together where applicable",
+    "direct coding/FIM, Q4 regression, stability, cost, and reproducibility retained"
+  ],
+  "method_selection": "UNSELECTED",
+  "execution_status": "NOT_EXECUTED",
+  "authority_boundary": {
+    "model_weight_access": false,
+    "model_execution": false,
+    "training_execution": false,
+    "weight_changing_training": false,
+    "paid_compute": false,
+    "paid_model_api": false,
+    "large_dataset_ingestion": false,
+    "quantization_execution": false,
+    "production_release": false
+  }
+}
