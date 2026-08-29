@@ -1,0 +1,95 @@
+name: Build B021 canonical closeout atomically
+
+on:
+  push:
+    branches:
+      - evidence/b021-closeout-build-613449e
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: 613449e0f1b23eaef7dcb702ba2636a157816d26
+  TARGET_BRANCH: docs/000b-b021-canonicalize
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b021-closeout-build-613449e
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Preserve builder and prove immutable clean target
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp tools/evidence/build_b021_closeout.py /tmp/build_b021_closeout.py
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+      - name: Materialize exact six-file closeout candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/build_b021_closeout.py
+          git diff --check
+          mapfile -t actual < <(git diff --name-only | sort)
+          expected=(
+            configs/task-gate/mstr-000b.json
+            evidence/mstr-000b/B021-frontier-sampler.md
+            specs/002-code-model-supremacy-foundation/tasks.md
+            tests/contract/test_task_gate.py
+            tests/integration/test_task_gate_cli.py
+            tests/unit/test_frontier_curriculum.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 6
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          git diff -- src/mstr_qualify/curriculum/ tests/fixtures/curriculum/ | test "$(wc -c)" -eq 0
+      - name: Run closeout and canonical quality gates before push
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/test_frontier_curriculum.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+      - name: Commit, prove prospective terminal semantics, and fast-forward target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B021-frontier-sampler.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py \
+            tests/unit/test_frontier_curriculum.py
+          git commit -m 'docs(mstr-000b): canonicalize B021 closeout'
+          candidate=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          git update-ref refs/heads/main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          if mstr-qualify task eligible B021 > /tmp/b021.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b021.json
+          mstr-qualify task eligible B022 > /tmp/b022.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING"' /tmp/b022.json
+          mstr-qualify task eligible B025 > /tmp/b025.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING"' /tmp/b025.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "BLOCKED" and .authority_result.satisfied == false' /tmp/b011.json
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "B021_CLOSEOUT_HEAD=$candidate"
