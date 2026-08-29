@@ -10,13 +10,14 @@
       "runtime_id": "llama.cpp-llama-bench-cpu",
       "upstream_repository": "https://github.com/ggml-org/llama.cpp",
       "upstream_revision": "3173a56471c1753650cd806694145ffd6dcace67",
-      "interface_evidence": "tools/llama-bench/README.md at the pinned revision",
+      "interface_evidence": "tools/llama-bench/README.md and tools/llama-bench/llama-bench.cpp at the pinned revision",
       "interface": {
         "model": "-m",
         "prompt_tokens": "-p",
         "generation_tokens": "-n",
         "threads": "-t",
         "gpu_layers": "-ngl",
+        "device": ["--device", "none"],
         "repetitions": "-r",
         "json_output": ["-o", "json"]
       },
@@ -27,11 +28,12 @@
         "n_gen",
         "n_threads",
         "n_gpu_layers",
+        "devices",
         "avg_ns",
         "avg_ts"
       ],
-      "cpu_only_policy": "Adapter always supplies -ngl 0 and rejects any result that does not report n_gpu_layers=0.",
-      "network_policy": "Local artifact path only; provider repository/token acquisition flags are prohibited by profile validation.",
+      "cpu_only_policy": "Adapter always supplies -ngl 0 and --device none, then rejects any result that does not report n_gpu_layers=0 and devices=none.",
+      "network_policy": "Local artifact path only; provider acquisition flags and llama.cpp RPC flags are prohibited by profile validation.",
       "adapter_state": "IMPLEMENTED_UNEXECUTED"
     },
     {
@@ -44,5 +46,5 @@
       "reason": "The pinned 0.10.5 source tree and current code search did not expose a current llamafile-bench entry point. Older benchmark-interface claims are not reused as current T030 authority."
     }
   ],
-  "decision": "Implement the profile-driven portable CPU benchmark adapter with the proven llama-bench interface. Do not manufacture a llamafile adapter until a current stable interface is evidenced."
+  "decision": "Implement the profile-driven portable CPU benchmark adapter with the proven llama-bench interface. Force device=none, prohibit provider/RPC network paths, and do not manufacture a llamafile adapter until a current stable interface is evidenced."
 }
