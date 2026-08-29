@@ -169,6 +169,15 @@ def _merge_b003_implementation(
     elif merge_style == "squash":
         _git(root, "merge", "--squash", "impl-b003")
         _git(root, "commit", "-m", "implement B003 fixture (#3)")
+    elif merge_style == "custom_merge":
+        _git(
+            root,
+            "merge",
+            "--no-ff",
+            "impl-b003",
+            "-m",
+            "custom guarded merge without PR suffix",
+        )
     elif merge_style == "rebase":
         _git(root, "cherry-pick", final_head)
     else:
@@ -267,9 +276,7 @@ def _run_case(name: str, tmp_path: Path) -> set[str]:
         _close_b003(root, gate_main=gate_main, final_head=final_head, merge_sha=merge_sha)
         catalog = root / "configs" / "task-gate" / "mstr-000b.json"
         payload = json.loads(catalog.read_text(encoding="utf-8"))
-        payload["tasks"]["B003"]["evidence_outputs"].append(
-            "evidence/mstr-000b/B003-secondary.md"
-        )
+        payload["tasks"]["B003"]["evidence_outputs"].append("evidence/mstr-000b/B003-secondary.md")
         catalog.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         _commit_main(root, "declare missing required B003 evidence")
     elif name == "terminal_secondary_missing_state":
@@ -277,9 +284,7 @@ def _run_case(name: str, tmp_path: Path) -> set[str]:
         _close_b003(root, gate_main=gate_main, final_head=final_head, merge_sha=merge_sha)
         catalog = root / "configs" / "task-gate" / "mstr-000b.json"
         payload = json.loads(catalog.read_text(encoding="utf-8"))
-        payload["tasks"]["B003"]["evidence_outputs"].append(
-            "evidence/mstr-000b/B003-secondary.md"
-        )
+        payload["tasks"]["B003"]["evidence_outputs"].append("evidence/mstr-000b/B003-secondary.md")
         catalog.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         secondary = root / "evidence" / "mstr-000b" / "B003-secondary.md"
         secondary.write_text("# Secondary B003 evidence\n", encoding="utf-8")
@@ -288,6 +293,16 @@ def _run_case(name: str, tmp_path: Path) -> set[str]:
         _merge_b003_implementation(root, include_gate=True, merge_style="squash")
     elif name == "rebase_implementation_merge_unverifiable":
         _merge_b003_implementation(root, include_gate=True, merge_style="rebase")
+    elif name in {"valid_terminal_custom_subject", "custom_subject_wrong_recorded_head"}:
+        gate_main, final_head, merge_sha = _merge_b003_implementation(
+            root, include_gate=True, merge_style="custom_merge"
+        )
+        _close_b003(
+            root,
+            gate_main=gate_main,
+            final_head=(final_head if name == "valid_terminal_custom_subject" else gate_main),
+            merge_sha=merge_sha,
+        )
     elif name == "terminal_missing_identity_field":
         gate_main, final_head, merge_sha = _merge_b003_implementation(root, include_gate=True)
         _close_b003(
