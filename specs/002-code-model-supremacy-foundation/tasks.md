@@ -190,9 +190,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Use a bounded harness/config experiment. Demonstrate early discard, promotion, immutable evaluator authority, complete `MaterialResultIdentity` records and full ledger.  
   Outputs: `artifacts/results/research/B027/`, `evidence/mstr-000b/B027-ladder-pilot.md`.
 
-- [ ] **B028 Freeze Q4-in-the-loop promotion contract and training-method tournament preflight.**  
+- [x] **B028 Freeze Q4-in-the-loop promotion contract and training-method tournament preflight.**
   Require release-relevant Q4 regression after every material weight-changing stage and a fail-closed `Q4PromotionRecord` before a checkpoint may become the parent of another material stage. Supported comparisons MUST include 16-bit LoRA, 16-bit LoRA+rsLoRA, 4-bit QLoRA, and 4-bit QLoRA+rsLoRA where current backbone/framework support permits; every unsupported arm requires an exact recorded reason. Revalidate backbone/Unsloth/Transformers guidance immediately before execution.  
   Outputs: `artifacts/manifests/B028-method-tournament-preflight.json`, `docs/training/Q4_PROMOTION_CONTRACT.md`, `evidence/mstr-000b/B028-training-methods.md`.
+  Canonical implementation: PR #90 / final head `3c9d8624745ad34e1e96d7f150afaccd2f02bc8f` / merge `01a070e27098fc3798a87ad57dd62b63fdf8fdee`.
 
 - [ ] **B029 Freeze adaptive test-time compute + selective-context policy.**  
   One attempt by default; targeted repair/limited branching only when verifier/uncertainty evidence justifies cost. Define context intents including `NO_RETRIEVAL`, `NEED_FILE`, `NEED_SYMBOL`, `NEED_HISTORY`, `NEED_TEST`, `NEED_CONFIG`, `NO_MORE_CONTEXT`.  
