@@ -23,6 +23,15 @@ schemas/mstr-task-eligibility-v0.schema.json
 
 For authority-gated external effects, `required_authority_id` is a foreign-key identity for an **already-canonical authority record/envelope**. The referenced authority—not the TaskNode—owns the exact authorized effect scope and any applicable cost/resource ceilings required by the constitution and canonical task. Task schema validation and B002 eligibility verification never create, widen, or replace that authority. Duplicating mutable scope/cost limits into TaskNode would create a second authority surface and is therefore intentionally avoided.
 
+## Frozen by B028
+
+```text
+mstr.training-method-cell.v0
+mstr.q4-promotion.v0
+```
+
+B028 freezes the equivalent-method tournament cell and fail-closed Q4 checkpoint-promotion contracts. Generic framework documentation is never candidate-specific arm support evidence: every concrete finalist/method cell must bind exact backbone/framework support evidence or an exact unsupported reason before execution. A later material checkpoint may parent another material weight-changing stage only when its `mstr.q4-promotion.v0` record is `PROMOTED`. B028 itself grants no training, model-weight access, paid compute, or model-execution authority.
+
 Remaining planned contracts:
 
 ```text
@@ -38,8 +47,6 @@ mstr.test-generation-example.v0
 mstr.greenfield-task.v0
 mstr.material-result-identity.v0
 mstr.research-experiment.v2
-mstr.training-method-cell.v0
-mstr.q4-promotion.v0
 mstr.repository-health.v0
 mstr.candidate-pool-decision.v0
 ```

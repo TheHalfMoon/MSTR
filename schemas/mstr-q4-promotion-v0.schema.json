@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mstr.local/schemas/mstr-q4-promotion-v0.json",
+  "title": "MSTR Q4 Promotion Record v0",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "mstr.q4-promotion.v0"
+    },
+    "source_training_run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "source_checkpoint_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "merged_master_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "export_tool_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "export_tool_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "export_recipe_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "quantizer_tool_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "quantizer_tool_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "quantization_recipe_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "canonical_q4_artifact_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "artifact_integrity_status": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "q4_regression_manifest_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "q4_regression_result": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "universal_laptop_gate_result": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "NOT_REQUIRED"
+      ]
+    },
+    "universal_laptop_gate_evidence_identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "universal_laptop_gate_not_required_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "promotion_status": {
+      "enum": [
+        "PROMOTED",
+        "REJECTED"
+      ]
+    },
+    "rejection_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "uniqueItems": true
+    },
+    "promotion_decision_evidence_identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    }
+  },
+  "required": [
+    "schema_version",
+    "source_training_run_id",
+    "source_checkpoint_sha256",
+    "merged_master_sha256",
+    "export_tool_id",
+    "export_tool_revision",
+    "export_recipe_hash",
+    "quantizer_tool_id",
+    "quantizer_tool_revision",
+    "quantization_recipe_hash",
+    "canonical_q4_artifact_sha256",
+    "artifact_integrity_status",
+    "q4_regression_manifest_id",
+    "q4_regression_result",
+    "universal_laptop_gate_result",
+    "universal_laptop_gate_evidence_identity",
+    "universal_laptop_gate_not_required_reason",
+    "promotion_status",
+    "rejection_reasons",
+    "promotion_decision_evidence_identity"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "promotion_status": {
+            "const": "PROMOTED"
+          }
+        },
+        "required": [
+          "promotion_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "artifact_integrity_status": {
+            "const": "PASS"
+          },
+          "q4_regression_result": {
+            "const": "PASS"
+          },
+          "universal_laptop_gate_result": {
+            "enum": [
+              "PASS",
+              "NOT_REQUIRED"
+            ]
+          },
+          "rejection_reasons": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "rejection_reasons": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "universal_laptop_gate_result": {
+            "const": "NOT_REQUIRED"
+          }
+        },
+        "required": [
+          "universal_laptop_gate_result"
+        ]
+      },
+      "then": {
+        "properties": {
+          "universal_laptop_gate_not_required_reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "universal_laptop_gate_not_required_reason": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

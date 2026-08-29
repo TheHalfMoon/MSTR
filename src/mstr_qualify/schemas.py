@@ -48,6 +48,9 @@ SCHEMA_FILES: Mapping[str, str] = {
     "mstr-verifier-health-v0": "mstr-verifier-health-v0.schema.json",
     # MSTR-000B B025: greenfield/feature/synthesis task manifest contract.
     "mstr-greenfield-task-v0": "mstr-greenfield-task-v0.schema.json",
+    # MSTR-000B B028: training-method preflight and fail-closed Q4 promotion.
+    "mstr-training-method-cell-v0": "mstr-training-method-cell-v0.schema.json",
+    "mstr-q4-promotion-v0": "mstr-q4-promotion-v0.schema.json",
 }
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
