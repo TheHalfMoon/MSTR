@@ -86,7 +86,7 @@ def _observation(event: dict[str, Any]) -> _VerifierObservation:
             code="finalizer.verifier_id_missing",
         )
     status = payload.get("status")
-    if status not in _VALID_STATUSES:
+    if not isinstance(status, str) or status not in _VALID_STATUSES:
         raise FinalizerError(
             "verifier.result status must be PASS, FAIL, ERROR, or UNKNOWN",
             code="finalizer.verifier_status_invalid",
