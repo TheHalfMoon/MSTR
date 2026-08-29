@@ -1,0 +1,90 @@
+name: Verify B020 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/b020-postcloseout-641e130
+
+permissions:
+  contents: read
+
+jobs:
+  merge_identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 641e13033b00451ea4b81063640e4066a8c7389d
+          fetch-depth: 0
+      - name: Verify canonical merge identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "641e13033b00451ea4b81063640e4066a8c7389d"
+          test "$(git rev-parse HEAD^1)" = "f5a4892bff6bc20e376efcaa8f554c15ac88bca8"
+          test "$(git rev-parse HEAD^2)" = "f723d1d1753cbdf603e9b2fd770f54059c6c63e5"
+          test "$(git rev-parse HEAD^{tree})" = "392c2f9ab051c7b5ff263d0fa919bd36c494c287"
+
+  task_frontier:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 641e13033b00451ea4b81063640e4066a8c7389d
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify canonical drift and task frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main 641e13033b00451ea4b81063640e4066a8c7389d
+          git update-ref refs/remotes/origin/main 641e13033b00451ea4b81063640e4066a8c7389d
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          mstr-qualify task eligible B020 > /tmp/b020.json || test $? -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b020.json
+          mstr-qualify task eligible B021 > /tmp/b021.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true' /tmp/b021.json
+          mstr-qualify task eligible B011 > /tmp/b011.json || test $? -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+          for task in B022 B025; do
+            mstr-qualify task eligible "$task" > "/tmp/${task}.json"
+            jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' "/tmp/${task}.json"
+          done
+
+  full_quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 641e13033b00451ea4b81063640e4066a8c7389d
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run frozen full quality suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          mstr-qualify validate
+          pytest -q
+          ruff check .
+          mypy src tests
+
+  complete:
+    needs: [merge_identity, task_frontier, full_quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 641e13033b00451ea4b81063640e4066a8c7389d
+      - name: Reverify immutable canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "641e13033b00451ea4b81063640e4066a8c7389d"
+          echo "B020_POSTCLOSEOUT_CANONICAL_MAIN=641e13033b00451ea4b81063640e4066a8c7389d"
+          echo "B020_STATE=COMPLETE_CANONICAL"
+          echo "B021_ENTRY_ELIGIBLE=true"
