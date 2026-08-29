@@ -1,20 +1,20 @@
 """T030 portable CPU benchmark-CLI runtime adapter.
 
-The adapter binds the T023 RuntimeAdapter lifecycle to an already-installed,
-local benchmark executable. It never downloads a runtime or model artifact,
-never uses provider repository flags, and forces CPU-only execution through
-the configured GPU-layer argument.
+This module binds the canonical T023 RuntimeAdapter lifecycle to an
+already-installed local benchmark executable. It performs no artifact/runtime
+acquisition and accepts only identity-checked local model bytes.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import re
 import subprocess
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ..ids import sha256_file, validate_sha256
 from .base import (
@@ -32,8 +32,14 @@ from .base import (
 )
 
 _SHA1_RE = re.compile(r"^[0-9a-f]{40}$")
-_FORBIDDEN_NETWORK_FLAGS = frozenset(
-    {"-hf", "-hfr", "--hf-repo", "-hff", "--hf-file", "-hft", "--hf-token"}
+_FORBIDDEN_NETWORK_FLAGS = (
+    "-hf",
+    "-hfr",
+    "--hf-repo",
+    "-hff",
+    "--hf-file",
+    "-hft",
+    "--hf-token",
 )
 
 
@@ -55,7 +61,7 @@ CommandRunner = Callable[[tuple[str, ...], float], CommandResult]
 
 @dataclass(frozen=True, slots=True)
 class BenchmarkObservation:
-    """Verified benchmark observation retained for T031+ measurement plumbing."""
+    """One verified benchmark observation retained for T031+ plumbing."""
 
     operation: str
     prompt_tokens: int
@@ -89,9 +95,17 @@ class BenchmarkObservation:
                 code="runtime.benchmark_observation_gpu",
                 details={"gpu_layers": self.gpu_layers},
             )
-        if self.average_nanoseconds <= 0 or self.average_tokens_per_second <= 0:
+        if self.average_nanoseconds <= 0:
             raise BenchmarkCliError(
-                "benchmark timing measurements must be positive",
+                "average benchmark nanoseconds must be positive",
+                code="runtime.benchmark_observation_measurement",
+            )
+        if (
+            not math.isfinite(self.average_tokens_per_second)
+            or self.average_tokens_per_second <= 0
+        ):
+            raise BenchmarkCliError(
+                "average tokens per second must be finite and positive",
                 code="runtime.benchmark_observation_measurement",
             )
         if not self.runtime_build_commit:
@@ -99,6 +113,13 @@ class BenchmarkObservation:
                 "runtime build commit must be reported",
                 code="runtime.benchmark_observation_build",
             )
+
+
+def _contains_forbidden_network_flag(token: str) -> bool:
+    return any(
+        token == flag or token.startswith(f"{flag}=")
+        for flag in _FORBIDDEN_NETWORK_FLAGS
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,43 +140,38 @@ class BenchmarkCliProfile:
     output_args: tuple[str, ...] = ("-o", "json")
 
     def __post_init__(self) -> None:
-        string_fields = {
-            "runtime_id": self.runtime_id,
-            "executable": self.executable,
-            "upstream_repository": self.upstream_repository,
-            "upstream_revision": self.upstream_revision,
-            "model_arg": self.model_arg,
-            "prompt_arg": self.prompt_arg,
-            "generation_arg": self.generation_arg,
-            "threads_arg": self.threads_arg,
-            "gpu_layers_arg": self.gpu_layers_arg,
-            "repetitions_arg": self.repetitions_arg,
-        }
-        for name, value in string_fields.items():
-            if not value or value.strip() != value:
-                raise BenchmarkCliError(
-                    "benchmark profile strings must be non-empty and canonical",
-                    code="runtime.benchmark_profile_string",
-                    details={"field": name},
-                )
+        strings = (
+            self.runtime_id,
+            self.executable,
+            self.upstream_repository,
+            self.upstream_revision,
+            self.model_arg,
+            self.prompt_arg,
+            self.generation_arg,
+            self.threads_arg,
+            self.gpu_layers_arg,
+            self.repetitions_arg,
+        )
+        if any(not value or value.strip() != value for value in strings):
+            raise BenchmarkCliError(
+                "benchmark profile strings must be non-empty and canonical",
+                code="runtime.benchmark_profile_string",
+            )
         if not _SHA1_RE.fullmatch(self.upstream_revision):
             raise BenchmarkCliError(
                 "upstream_revision must be an exact 40-character Git commit",
                 code="runtime.benchmark_profile_revision",
             )
-        if not self.supported_formats or len(set(self.supported_formats)) != len(
-            self.supported_formats
+        if (
+            not self.supported_formats
+            or len(set(self.supported_formats)) != len(self.supported_formats)
+            or any(not value or value.strip() != value for value in self.supported_formats)
         ):
             raise BenchmarkCliError(
-                "benchmark profile needs unique supported formats",
+                "benchmark profile needs unique canonical supported formats",
                 code="runtime.benchmark_profile_formats",
             )
-        if any(not item or item.strip() != item for item in self.supported_formats):
-            raise BenchmarkCliError(
-                "supported formats must be canonical non-empty strings",
-                code="runtime.benchmark_profile_format_value",
-            )
-        if not self.output_args or any(not item for item in self.output_args):
+        if not self.output_args or any(not value for value in self.output_args):
             raise BenchmarkCliError(
                 "benchmark profile output arguments are required",
                 code="runtime.benchmark_profile_output",
@@ -165,7 +181,7 @@ class BenchmarkCliProfile:
                 "benchmark profile must request JSON output",
                 code="runtime.benchmark_profile_output_json",
             )
-        command_flags = {
+        command_tokens = (
             self.model_arg,
             self.prompt_arg,
             self.generation_arg,
@@ -173,8 +189,10 @@ class BenchmarkCliProfile:
             self.gpu_layers_arg,
             self.repetitions_arg,
             *self.output_args,
-        }
-        forbidden = sorted(command_flags & _FORBIDDEN_NETWORK_FLAGS)
+        )
+        forbidden = sorted(
+            token for token in command_tokens if _contains_forbidden_network_flag(token)
+        )
         if forbidden:
             raise BenchmarkCliError(
                 "benchmark profile must not contain provider acquisition flags",
@@ -183,9 +201,7 @@ class BenchmarkCliProfile:
             )
 
 
-def load_benchmark_profile(path: Path) -> BenchmarkCliProfile:
-    """Load a strict profile from repository-owned JSON without side effects."""
-
+def _read_json_object(path: Path) -> dict[str, object]:
     try:
         decoded: Any = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -199,86 +215,106 @@ def load_benchmark_profile(path: Path) -> BenchmarkCliProfile:
             "benchmark runtime profile root must be an object",
             code="runtime.benchmark_profile_root",
         )
+    return cast(dict[str, object], decoded)
 
-    required = {
-        "runtime_id",
-        "executable",
-        "upstream_repository",
-        "upstream_revision",
-        "supported_formats",
-        "arguments",
-    }
-    if set(decoded) != required:
+
+def _require_exact_keys(
+    value: Mapping[str, object],
+    expected: set[str],
+    *,
+    code: str,
+) -> None:
+    if set(value) != expected:
         raise BenchmarkCliError(
             "benchmark runtime profile fields do not match the frozen contract",
-            code="runtime.benchmark_profile_fields",
-            details={"fields": ",".join(sorted(decoded))},
+            code=code,
+            details={"fields": ",".join(sorted(value))},
         )
-    arguments = decoded["arguments"]
-    if not isinstance(arguments, dict):
+
+
+def _require_string(value: object, *, field: str) -> str:
+    if not isinstance(value, str):
+        raise BenchmarkCliError(
+            "benchmark runtime profile field must be a string",
+            code="runtime.benchmark_profile_scalar_type",
+            details={"field": field},
+        )
+    return value
+
+
+def _require_string_tuple(value: object, *, field: str) -> tuple[str, ...]:
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise BenchmarkCliError(
+            "benchmark runtime profile field must be a string array",
+            code="runtime.benchmark_profile_array_type",
+            details={"field": field},
+        )
+    return tuple(cast(list[str], value))
+
+
+def load_benchmark_profile(path: Path) -> BenchmarkCliProfile:
+    """Load a strict repository-owned profile without side effects."""
+
+    decoded = _read_json_object(path)
+    _require_exact_keys(
+        decoded,
+        {
+            "runtime_id",
+            "executable",
+            "upstream_repository",
+            "upstream_revision",
+            "supported_formats",
+            "arguments",
+        },
+        code="runtime.benchmark_profile_fields",
+    )
+    raw_arguments = decoded["arguments"]
+    if not isinstance(raw_arguments, dict):
         raise BenchmarkCliError(
             "benchmark runtime profile arguments must be an object",
             code="runtime.benchmark_profile_arguments",
         )
-    expected_argument_fields = {
-        "model",
-        "prompt_tokens",
-        "generation_tokens",
-        "threads",
-        "gpu_layers",
-        "repetitions",
-        "output",
-    }
-    if set(arguments) != expected_argument_fields:
-        raise BenchmarkCliError(
-            "benchmark runtime argument fields do not match the frozen contract",
-            code="runtime.benchmark_profile_argument_fields",
-        )
-
-    formats = decoded["supported_formats"]
-    output = arguments["output"]
-    if not isinstance(formats, list) or not all(isinstance(item, str) for item in formats):
-        raise BenchmarkCliError(
-            "supported_formats must be a string array",
-            code="runtime.benchmark_profile_format_type",
-        )
-    if not isinstance(output, list) or not all(isinstance(item, str) for item in output):
-        raise BenchmarkCliError(
-            "output arguments must be a string array",
-            code="runtime.benchmark_profile_output_type",
-        )
-
-    scalar_values = (
-        decoded["runtime_id"],
-        decoded["executable"],
-        decoded["upstream_repository"],
-        decoded["upstream_revision"],
-        arguments["model"],
-        arguments["prompt_tokens"],
-        arguments["generation_tokens"],
-        arguments["threads"],
-        arguments["gpu_layers"],
-        arguments["repetitions"],
+    arguments = cast(dict[str, object], raw_arguments)
+    _require_exact_keys(
+        arguments,
+        {
+            "model",
+            "prompt_tokens",
+            "generation_tokens",
+            "threads",
+            "gpu_layers",
+            "repetitions",
+            "output",
+        },
+        code="runtime.benchmark_profile_argument_fields",
     )
-    if not all(isinstance(value, str) for value in scalar_values):
-        raise BenchmarkCliError(
-            "benchmark runtime profile scalar fields must be strings",
-            code="runtime.benchmark_profile_scalar_type",
-        )
-
     return BenchmarkCliProfile(
-        runtime_id=decoded["runtime_id"],
-        executable=decoded["executable"],
-        upstream_repository=decoded["upstream_repository"],
-        upstream_revision=decoded["upstream_revision"],
-        supported_formats=tuple(formats),
-        model_arg=arguments["model"],
-        prompt_arg=arguments["prompt_tokens"],
-        generation_arg=arguments["generation_tokens"],
-        threads_arg=arguments["threads"],
-        gpu_layers_arg=arguments["gpu_layers"],
-        repetitions_arg=arguments["repetitions"],
-        output_args=tuple(output),
+        runtime_id=_require_string(decoded["runtime_id"], field="runtime_id"),
+        executable=_require_string(decoded["executable"], field="executable"),
+        upstream_repository=_require_string(
+            decoded["upstream_repository"], field="upstream_repository"
+        ),
+        upstream_revision=_require_string(
+            decoded["upstream_revision"], field="upstream_revision"
+        ),
+        supported_formats=_require_string_tuple(
+            decoded["supported_formats"], field="supported_formats"
+        ),
+        model_arg=_require_string(arguments["model"], field="arguments.model"),
+        prompt_arg=_require_string(
+            arguments["prompt_tokens"], field="arguments.prompt_tokens"
+        ),
+        generation_arg=_require_string(
+            arguments["generation_tokens"], field="arguments.generation_tokens"
+        ),
+        threads_arg=_require_string(arguments["threads"], field="arguments.threads"),
+        gpu_layers_arg=_require_string(
+            arguments["gpu_layers"], field="arguments.gpu_layers"
+        ),
+        repetitions_arg=_require_string(
+            arguments["repetitions"], field="arguments.repetitions"
+        ),
+        output_args=_require_string_tuple(arguments["output"], field="arguments.output"),
     )
 
 
@@ -327,18 +363,18 @@ def _require_number(row: Mapping[str, object], field: str) -> float:
             code="runtime.output_field_type",
             details={"field": field},
         )
-    return float(value)
+    number = float(value)
+    if not math.isfinite(number):
+        raise BenchmarkCliError(
+            "runtime benchmark numeric result must be finite",
+            code="runtime.output_nonfinite",
+            details={"field": field},
+        )
+    return number
 
 
 class BenchmarkCliRuntimeAdapter:
-    """Portable CPU adapter for local benchmark CLIs such as llama-bench.
-
-    The artifact path and executable are supplied by the caller/environment.
-    The T023 LoadRequest remains identity-only. Before READY, this adapter
-    verifies the local artifact bytes against the exact requested SHA-256.
-    Each benchmark call is an isolated process, so prefix cache state is
-    explicitly EMPTY and never represented as reusable state.
-    """
+    """Portable CPU adapter for local benchmark CLIs such as llama-bench."""
 
     def __init__(
         self,
@@ -480,18 +516,12 @@ class BenchmarkCliRuntimeAdapter:
                 "runtime benchmark stdout is not valid JSON",
                 code="runtime.output_json",
             ) from exc
-        if not isinstance(payload, list) or len(payload) != 1:
+        if not isinstance(payload, list) or len(payload) != 1 or not isinstance(payload[0], dict):
             raise BenchmarkCliError(
                 "runtime benchmark JSON must contain exactly one result object",
                 code="runtime.output_shape",
             )
-        raw_row = payload[0]
-        if not isinstance(raw_row, dict):
-            raise BenchmarkCliError(
-                "runtime benchmark result must be an object",
-                code="runtime.output_shape",
-            )
-        row: Mapping[str, object] = raw_row
+        row = cast(dict[str, object], payload[0])
 
         reported_prompt = _require_integer(row, "n_prompt")
         reported_generation = _require_integer(row, "n_gen")
