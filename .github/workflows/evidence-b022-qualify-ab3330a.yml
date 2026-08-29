@@ -1,0 +1,177 @@
+name: Qualify exact B022 verifier-health contract
+
+on:
+  push:
+    branches:
+      - evidence/b022-qualify-ab3330a
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_BASE: 127fd5fd1a5a6f1843f207a0272664ae8cb129f4
+  EXPECTED_HEAD: ab3330afdef9c9329b1d2bb2a7e5aab09064f62b
+  EXPECTED_TREE: d46c86e21a7bfd8726c9cf1b71970e62e50e1da7
+  PR_NUMBER: '85'
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ab3330afdef9c9329b1d2bb2a7e5aab09064f62b
+          fetch-depth: 0
+      - name: Verify exact PR, ancestry, tree, and ten-file scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_BASE"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/feat/000b-b022-verifier-health-contract | cut -f1)" = "$EXPECTED_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '
+            .state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .commits == 1 and .changed_files == 10
+          ' /tmp/pr.json
+          mapfile -t actual < <(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" | sort)
+          expected=(
+            evidence/mstr-000b/B022-verifier-health.md
+            schemas/mstr-verifier-health-v0.schema.json
+            specs/002-code-model-supremacy-foundation/contracts/mstr-verifier-health-v0.schema.json
+            src/mstr_qualify/cli.py
+            src/mstr_qualify/schemas.py
+            tests/contract/test_schemas.py
+            tests/contract/test_verifier_health_contract.py
+            tests/fixtures/schemas/invalid/mstr-verifier-health-v0.json
+            tests/fixtures/schemas/valid/mstr-verifier-health-v0.json
+            tests/integration/test_cli_offline.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 10
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          test -z "$(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" -- configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md AGENTS.md .specify/memory/constitution.md docs/canonical)"
+
+  contract_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ab3330afdef9c9329b1d2bb2a7e5aab09064f62b
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove frozen contract and fail-closed authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          cmp schemas/mstr-verifier-health-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-verifier-health-v0.schema.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from mstr_qualify.schemas import validate_instance, validation_errors
+
+          root = Path.cwd()
+          schema = json.loads((root / "schemas/mstr-verifier-health-v0.schema.json").read_text())
+          assert schema["properties"]["health_class"]["enum"] == [
+              "HEALTHY", "PARTIAL", "DISAGREEMENT", "BROKEN", "LEAKED", "TAMPERED"
+          ]
+          required = set(schema["required"])
+          assert {
+              "evaluator_hashes", "protected_paths", "protected_path_integrity",
+              "reference_oracle_status", "noop_fail_status", "known_bad_fail_status",
+              "mutation_results", "generated_test_independence", "leakage_checks",
+              "disagreement_signals", "health_class", "training_stage_eligibility"
+          } <= required
+          valid = json.loads((root / "tests/fixtures/schemas/valid/mstr-verifier-health-v0.json").read_text())
+          invalid = json.loads((root / "tests/fixtures/schemas/invalid/mstr-verifier-health-v0.json").read_text())
+          validate_instance("mstr-verifier-health-v0", valid)
+          assert validation_errors("mstr-verifier-health-v0", invalid)
+          assert valid["health_class"] == "HEALTHY"
+          assert invalid["health_class"] == "BROKEN"
+          PY
+          pytest -q tests/contract/test_verifier_health_contract.py
+          grep -F 'VERIFIER_EVALUATOR_EXECUTION = NONE' evidence/mstr-000b/B022-verifier-health.md
+          grep -F 'B023_VERIFIER_HEALTH_EVALUATOR_AUTHORITY = NONE' evidence/mstr-000b/B022-verifier-health.md
+          grep -F 'B024_TEST_GENERATION_CURRICULUM_AUTHORITY = NONE' evidence/mstr-000b/B022-verifier-health.md
+          grep -F 'WEIGHT_CHANGING_TRAINING = NONE' evidence/mstr-000b/B022-verifier-health.md
+          test -z "$(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" -- src/mstr_qualify/curriculum configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md)"
+
+  exact_main_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 127fd5fd1a5a6f1843f207a0272664ae8cb129f4
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-prove canonical drift, B022 eligibility, and B011 block
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_BASE"
+          git update-ref refs/remotes/origin/main "$EXPECTED_BASE"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          mstr-qualify task eligible B022 > /tmp/b022.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true' /tmp/b022.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+
+  full_quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ab3330afdef9c9329b1d2bb2a7e5aab09064f62b
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run exact-head canonical quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_verifier_health_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/feat/000b-b022-verifier-health-contract | cut -f1)" = "$EXPECTED_HEAD"
+
+  complete:
+    needs: [identity_scope, contract_semantics, exact_main_gate, full_quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ab3330afdef9c9329b1d2bb2a7e5aab09064f62b
+          fetch-depth: 0
+      - name: Final immutable main, head, tree, and PR recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_BASE"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/feat/000b-b022-verifier-health-contract | cut -f1)" = "$EXPECTED_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" | jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .commits == 1 and .changed_files == 10'
+          echo "B022_QUALIFIED_HEAD=$EXPECTED_HEAD"
+          echo "MODEL_EXECUTION=NONE"
+          echo "WEIGHT_CHANGING_TRAINING=NONE"
