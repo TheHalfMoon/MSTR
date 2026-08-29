@@ -1,0 +1,87 @@
+name: Enumerate exact MSTR-000B task frontier
+
+on:
+  push:
+    branches:
+      - evidence/000b-frontier-cd3e3ba
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: cd3e3ba39c0e83548748275d08b7a3d0d2e6b15b
+
+jobs:
+  frontier:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cd3e3ba39c0e83548748275d08b7a3d0d2e6b15b
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Enumerate all B001-B034 eligibility from exact canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          python - <<'PY'
+          import json
+          import subprocess
+
+          rows = []
+          for number in range(1, 35):
+              task_id = f"B{number:03d}"
+              proc = subprocess.run(
+                  ["mstr-qualify", "task", "eligible", task_id],
+                  text=True,
+                  capture_output=True,
+                  check=False,
+              )
+              if proc.returncode not in (0, 1):
+                  raise SystemExit(
+                      f"validator error for {task_id}: rc={proc.returncode}\n"
+                      f"stdout={proc.stdout}\nstderr={proc.stderr}"
+                  )
+              payload = json.loads(proc.stdout)
+              rows.append(
+                  {
+                      "task_id": task_id,
+                      "canonical_state": payload["state_consistency_result"]["observed_state"],
+                      "eligible": payload["eligible"],
+                      "reasons": payload["reasons"],
+                      "authority_required": payload["authority_result"]["required"],
+                      "authority_satisfied": payload["authority_result"]["satisfied"],
+                      "candidate_pool_required": payload["candidate_pool_result"]["required"],
+                      "candidate_pool_satisfied": payload["candidate_pool_result"]["satisfied"],
+                  }
+              )
+          print("FRONTIER_ALL=" + json.dumps(rows, sort_keys=True, separators=(",", ":")))
+          eligible = [row["task_id"] for row in rows if row["eligible"]]
+          pending_eligible = [
+              row["task_id"]
+              for row in rows
+              if row["eligible"] and row["canonical_state"] == "PENDING"
+          ]
+          blocked = [
+              {"task_id": row["task_id"], "reasons": row["reasons"]}
+              for row in rows
+              if row["canonical_state"] in {"PENDING", "BLOCKED"} and not row["eligible"]
+          ]
+          print("FRONTIER_ELIGIBLE=" + json.dumps(eligible, separators=(",", ":")))
+          print("FRONTIER_PENDING_ELIGIBLE=" + json.dumps(pending_eligible, separators=(",", ":")))
+          print("FRONTIER_BLOCKED=" + json.dumps(blocked, sort_keys=True, separators=(",", ":")))
+          PY
+      - name: Final immutable canonical main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
