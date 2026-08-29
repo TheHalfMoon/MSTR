@@ -1,0 +1,105 @@
+name: Verify B028 post-merge implementation v2
+
+on:
+  push:
+    branches:
+      - evidence/b028-postmerge-01a070e-v2
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  merge_identity:
+    runs-on: ubuntu-24.04
+    env:
+      MERGE_SHA: 01a070e27098fc3798a87ad57dd62b63fdf8fdee
+      BASE_SHA: 9d5908016b2b8775eaf86dbcebb89683f52e1f90
+      FINAL_HEAD: 3c9d8624745ad34e1e96d7f150afaccd2f02bc8f
+      EXPECTED_TREE: fa47786065ca0416823fdbdabd87d54d0c425793
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prove exact guarded merge identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main feat/000b-b028-q4-promotion-preflight
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          test "$(git rev-parse "$MERGE_SHA^1")" = "$BASE_SHA"
+          test "$(git rev-parse "$MERGE_SHA^2")" = "$FINAL_HEAD"
+          test "$(git rev-parse "$MERGE_SHA^{tree}")" = "$EXPECTED_TREE"
+          python - <<'PY'
+          import json, os, urllib.request
+          req = urllib.request.Request(
+              "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/90",
+              headers={"Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}", "Accept": "application/vnd.github+json"},
+          )
+          with urllib.request.urlopen(req) as response:
+              pr = json.load(response)
+          assert pr["merged"] is True
+          assert pr["merge_commit_sha"] == os.environ["MERGE_SHA"]
+          assert pr["head"]["sha"] == os.environ["FINAL_HEAD"]
+          assert pr["base"]["sha"] == os.environ["BASE_SHA"]
+          PY
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  quality_frontier:
+    runs-on: ubuntu-24.04
+    env:
+      MERGE_SHA: 01a070e27098fc3798a87ad57dd62b63fdf8fdee
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 01a070e27098fc3798a87ad57dd62b63fdf8fdee
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove canonical post-merge quality and frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_training_promotion_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          git update-ref refs/heads/main "$MERGE_SHA"
+          git update-ref refs/remotes/origin/main "$MERGE_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          mstr-qualify task eligible B028 > /tmp/b028.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .reasons == []' /tmp/b028.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("artifacts/manifests/B028-method-tournament-preflight.json").read_text())
+          assert manifest["task_id"] == "B028"
+          assert manifest["method_selection"] == "UNSELECTED"
+          assert manifest["execution_status"] == "NOT_EXECUTED"
+          assert all(v is False for v in manifest["authority_boundary"].values())
+          assert [arm["preflight_status"] for arm in manifest["required_method_arms"]] == ["REVALIDATION_REQUIRED"] * 4
+          PY
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+
+  complete:
+    needs: [merge_identity, quality_frontier]
+    runs-on: ubuntu-24.04
+    env:
+      MERGE_SHA: 01a070e27098fc3798a87ad57dd62b63fdf8fdee
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 01a070e27098fc3798a87ad57dd62b63fdf8fdee
+          fetch-depth: 0
+      - name: Final immutable canonical-main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
