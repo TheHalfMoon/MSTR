@@ -44,6 +44,8 @@ SCHEMA_FILES: Mapping[str, str] = {
     "mstr-teacher-rescue-record-v0": "mstr-teacher-rescue-record-v0.schema.json",
     # MSTR-000B B020: checkpoint-relative difficulty calibration contract.
     "mstr-difficulty-calibration-v0": "mstr-difficulty-calibration-v0.schema.json",
+    # MSTR-000B B022: verifier-health evidence contract.
+    "mstr-verifier-health-v0": "mstr-verifier-health-v0.schema.json",
 }
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
