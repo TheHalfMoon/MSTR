@@ -6,11 +6,15 @@
     },
     {
       "name": "checkbox_state_conflict",
-      "expected_codes": ["state.checkbox_conflict"]
+      "expected_codes": [
+        "state.checkbox_conflict"
+      ]
     },
     {
       "name": "active_evidence_claims_completion",
-      "expected_codes": ["evidence.completion_claim_active_task"]
+      "expected_codes": [
+        "evidence.completion_claim_active_task"
+      ]
     },
     {
       "name": "implementation_merged_while_active",
@@ -21,19 +25,27 @@
     },
     {
       "name": "terminal_all_identity_missing",
-      "expected_codes": ["evidence.implementation_identity_missing"]
+      "expected_codes": [
+        "evidence.implementation_identity_missing"
+      ]
     },
     {
       "name": "terminal_missing_state",
-      "expected_codes": ["evidence.terminal_state_mismatch"]
+      "expected_codes": [
+        "evidence.terminal_state_mismatch"
+      ]
     },
     {
       "name": "terminal_missing_required_evidence",
-      "expected_codes": ["evidence.required_missing"]
+      "expected_codes": [
+        "evidence.required_missing"
+      ]
     },
     {
       "name": "terminal_secondary_missing_state",
-      "expected_codes": ["evidence.terminal_state_mismatch"]
+      "expected_codes": [
+        "evidence.terminal_state_mismatch"
+      ]
     },
     {
       "name": "squash_implementation_merged_while_active",
@@ -50,8 +62,20 @@
       ]
     },
     {
+      "name": "valid_terminal_custom_subject",
+      "expected_codes": []
+    },
+    {
+      "name": "custom_subject_wrong_recorded_head",
+      "expected_codes": [
+        "git.pr_merge_unverifiable"
+      ]
+    },
+    {
       "name": "terminal_missing_identity_field",
-      "expected_codes": ["evidence.implementation_identity_missing"]
+      "expected_codes": [
+        "evidence.implementation_identity_missing"
+      ]
     },
     {
       "name": "valid_terminal_b003",
@@ -59,7 +83,9 @@
     },
     {
       "name": "entry_gate_after_implementation",
-      "expected_codes": ["entry_gate.after_implementation"]
+      "expected_codes": [
+        "entry_gate.after_implementation"
+      ]
     }
   ]
 }

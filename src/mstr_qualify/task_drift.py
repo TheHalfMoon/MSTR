@@ -314,6 +314,24 @@ def _is_ancestor(root: Path, ancestor: str, descendant: str) -> bool:
     return completed.returncode == 0
 
 
+def _merge_has_exact_second_parent(root: Path, merge_sha: str, final_head: str) -> bool:
+    """Return whether a recorded merge is a two-parent merge with exact head as parent two."""
+
+    completed = _git(
+        root,
+        "rev-list",
+        "--parents",
+        "-n",
+        "1",
+        merge_sha,
+        code="task_drift.merge_parents",
+    )
+    if completed.returncode != 0:
+        return False
+    parts = completed.stdout.strip().lower().split()
+    return len(parts) == 3 and parts[0] == merge_sha and parts[2] == final_head
+
+
 def _unique_value(
     task_id: str,
     field: str,
@@ -426,10 +444,22 @@ def _scan_task(
             )
         )
 
+    recorded_topology_merge = False
+    if evidence_pr is not None and implementation is not None:
+        recorded_identity_matches = (
+            int(evidence_pr) == implementation.pr_number
+            and evidence_head == implementation.final_head
+            and evidence_merge == implementation.merge_sha
+        )
+        if recorded_identity_matches:
+            recorded_topology_merge = _merge_has_exact_second_parent(
+                root, implementation.merge_sha, implementation.final_head
+            )
+
     history_merges: tuple[str, ...] = ()
     if evidence_pr is not None:
         history_merges = merge_history.get(int(evidence_pr), ())
-        if not history_merges:
+        if not history_merges and not recorded_topology_merge:
             findings.append(
                 _finding(
                     task_id,
@@ -446,13 +476,20 @@ def _scan_task(
                     merges=list(history_merges),
                 )
             )
-        if history_merges and not terminal:
+        if (history_merges or recorded_topology_merge) and not terminal:
+            observed_merge = (
+                history_merges[0]
+                if history_merges
+                else implementation.merge_sha
+                if implementation is not None
+                else None
+            )
             findings.append(
                 _finding(
                     task_id,
                     "implementation.merged_while_active",
                     pr_number=evidence_pr,
-                    merge_sha=history_merges[0],
+                    merge_sha=observed_merge,
                     canonical_state=node["canonical_state"],
                 )
             )
