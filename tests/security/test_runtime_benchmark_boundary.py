@@ -57,6 +57,32 @@ def test_profile_rejects_provider_acquisition_flags() -> None:
     assert exc_info.value.code == "runtime.benchmark_profile_network_flag"
 
 
+@pytest.mark.parametrize(
+    "network_flag",
+    [
+        "--hf-repo=owner/model",
+        "--hf-file=model.gguf",
+        "--hf-token=secret",
+        "-hfr=owner/model",
+        "-hff=model.gguf",
+        "-hft=secret",
+    ],
+)
+def test_profile_rejects_provider_acquisition_flags_with_equals_syntax(
+    network_flag: str,
+) -> None:
+    with pytest.raises(BenchmarkCliError) as exc_info:
+        BenchmarkCliProfile(
+            runtime_id="unsafe",
+            executable="llama-bench",
+            upstream_repository="https://github.com/ggml-org/llama.cpp",
+            upstream_revision="3173a56471c1753650cd806694145ffd6dcace67",
+            output_args=("-o", "json", network_flag),
+        )
+
+    assert exc_info.value.code == "runtime.benchmark_profile_network_flag"
+
+
 def test_runtime_build_commit_mismatch_is_rejected(tmp_path: Path) -> None:
     artifact = tmp_path / "model.gguf"
     artifact.write_bytes(b"fixture")
@@ -97,6 +123,52 @@ def test_runtime_model_filename_mismatch_is_rejected(tmp_path: Path) -> None:
     with pytest.raises(BenchmarkCliError) as exc_info:
         adapter.decode(4)
     assert exc_info.value.code == "runtime.output_model_identity"
+
+
+@pytest.mark.parametrize("nonfinite", [float("nan"), float("inf"), float("-inf")])
+def test_nonfinite_benchmark_rate_fails_closed(
+    tmp_path: Path,
+    nonfinite: float,
+) -> None:
+    artifact = tmp_path / "model.gguf"
+    artifact.write_bytes(b"fixture")
+    profile = load_benchmark_profile(PROFILE_PATH)
+
+    def runner(argv: tuple[str, ...], _: float) -> CommandResult:
+        return CommandResult(0, json.dumps([_row(argv, avg_ts=nonfinite)]), "")
+
+    adapter = BenchmarkCliRuntimeAdapter(
+        profile=profile,
+        artifact_path=artifact,
+        threads=1,
+        command_runner=runner,
+    )
+    adapter.load(_request(artifact))
+
+    with pytest.raises(BenchmarkCliError) as exc_info:
+        adapter.prefill(4)
+    assert exc_info.value.code == "runtime.output_nonfinite"
+
+
+def test_zero_or_negative_measurements_fail_closed(tmp_path: Path) -> None:
+    artifact = tmp_path / "model.gguf"
+    artifact.write_bytes(b"fixture")
+    profile = load_benchmark_profile(PROFILE_PATH)
+
+    def zero_time(argv: tuple[str, ...], _: float) -> CommandResult:
+        return CommandResult(0, json.dumps([_row(argv, avg_ns=0)]), "")
+
+    adapter = BenchmarkCliRuntimeAdapter(
+        profile=profile,
+        artifact_path=artifact,
+        threads=1,
+        command_runner=zero_time,
+    )
+    adapter.load(_request(artifact))
+
+    with pytest.raises(BenchmarkCliError) as exc_info:
+        adapter.decode(4)
+    assert exc_info.value.code == "runtime.benchmark_observation_measurement"
 
 
 def test_zero_token_prefill_is_explicit_noop_with_empty_cache(tmp_path: Path) -> None:
