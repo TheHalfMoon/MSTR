@@ -1,0 +1,21 @@
+{
+  "runtime_id": "llama.cpp-llama-bench-cpu",
+  "executable": "llama-bench",
+  "upstream_repository": "https://github.com/ggml-org/llama.cpp",
+  "upstream_revision": "3173a56471c1753650cd806694145ffd6dcace67",
+  "supported_formats": [
+    "gguf"
+  ],
+  "arguments": {
+    "model": "-m",
+    "prompt_tokens": "-p",
+    "generation_tokens": "-n",
+    "threads": "-t",
+    "gpu_layers": "-ngl",
+    "repetitions": "-r",
+    "output": [
+      "-o",
+      "json"
+    ]
+  }
+}
