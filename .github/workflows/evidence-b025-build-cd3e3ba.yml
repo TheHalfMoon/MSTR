@@ -1,0 +1,108 @@
+name: Build B025 greenfield curriculum atomically
+
+on:
+  push:
+    branches:
+      - evidence/b025-build-cd3e3ba
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: cd3e3ba39c0e83548748275d08b7a3d0d2e6b15b
+  TARGET_BRANCH: feat/000b-b025-greenfield-curriculum
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b025-build-cd3e3ba
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Preserve builder and prove exact eligible entry state
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp tools/evidence/build_b025_greenfield_curriculum.py /tmp/build_b025_greenfield_curriculum.py
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          mstr-qualify task eligible B025 > /tmp/b025-entry.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .reasons == []' /tmp/b025-entry.json
+      - name: Materialize exact B025 implementation candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/build_b025_greenfield_curriculum.py
+          git diff --check
+          mapfile -t actual < <(git diff --name-only | sort)
+          expected=(
+            docs/data/GREENFIELD_FEATURE_CURRICULUM.md
+            evidence/mstr-000b/B025-greenfield-curriculum.md
+            schemas/mstr-greenfield-task-v0.schema.json
+            specs/002-code-model-supremacy-foundation/contracts/mstr-greenfield-task-v0.schema.json
+            src/mstr_qualify/cli.py
+            src/mstr_qualify/schemas.py
+            tests/contract/test_greenfield_task_contract.py
+            tests/contract/test_schemas.py
+            tests/fixtures/schemas/invalid/mstr-greenfield-task-v0.json
+            tests/fixtures/schemas/valid/mstr-greenfield-task-v0.json
+            tests/integration/test_cli_offline.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 11
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          test -z "$(git diff --name-only -- configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md .specify/memory/constitution.md specs/002-code-model-supremacy-foundation/plan.md)"
+          cmp schemas/mstr-greenfield-task-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-greenfield-task-v0.schema.json
+      - name: Run focused and canonical quality gates before push
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_greenfield_task_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          grep -F 'SYNTHESIS_EXECUTION = NONE' evidence/mstr-000b/B025-greenfield-curriculum.md
+          grep -F 'WEIGHT_CHANGING_TRAINING = NONE' evidence/mstr-000b/B025-greenfield-curriculum.md
+          grep -F 'B025_AUTHORITY = GREENFIELD_FEATURE_CURRICULUM_CONTRACT_AND_FIXTURES_ONLY' evidence/mstr-000b/B025-greenfield-curriculum.md
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+      - name: Commit exact candidate and fast-forward feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add \
+            docs/data/GREENFIELD_FEATURE_CURRICULUM.md \
+            evidence/mstr-000b/B025-greenfield-curriculum.md \
+            schemas/mstr-greenfield-task-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-greenfield-task-v0.schema.json \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_greenfield_task_contract.py \
+            tests/contract/test_schemas.py \
+            tests/fixtures/schemas/invalid/mstr-greenfield-task-v0.json \
+            tests/fixtures/schemas/valid/mstr-greenfield-task-v0.json \
+            tests/integration/test_cli_offline.py
+          git commit -m "feat(mstr-000b): freeze B025 greenfield curriculum"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-list --count "$EXPECTED_MAIN"..HEAD)" -eq 1
+          test "$(git diff --name-only "$EXPECTED_MAIN"...HEAD | wc -l)" -eq 11
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "B025_IMPLEMENTATION_HEAD=$(git rev-parse HEAD)"
+          echo "B025_IMPLEMENTATION_TREE=$(git rev-parse HEAD^{tree})"
+          echo "B025_IMPLEMENTATION_FILES=11"
