@@ -54,7 +54,7 @@ jobs:
             tools/evidence/build_b028_q4_preflight_v3.py
           ruff format tests/contract/test_training_promotion_contract.py
           git diff --check
-          mapfile -t actual < <(git diff --name-only | sort)
+          mapfile -t actual < <(git status --porcelain=v1 --untracked-files=all | sed -E 's/^.. //' | sort)
           expected=(
             artifacts/manifests/B028-method-tournament-preflight.json
             docs/training/Q4_PROMOTION_CONTRACT.md
@@ -74,6 +74,8 @@ jobs:
             tests/integration/test_cli_offline.py
           )
           mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          printf 'B028_SCOPE_COUNT=%s\n' "${#actual[@]}"
+          printf '%s\n' "${actual[@]}"
           test "${#actual[@]}" -eq 16
           diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
           cmp schemas/mstr-training-method-cell-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-training-method-cell-v0.schema.json
