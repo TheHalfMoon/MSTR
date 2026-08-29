@@ -1,0 +1,88 @@
+name: Build B021 fixture frontier sampler atomically
+
+on:
+  push:
+    branches:
+      - evidence/b021-build-641e130
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: 641e13033b00451ea4b81063640e4066a8c7389d
+  TARGET_BRANCH: feat/000b-b021-frontier-sampler
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b021-build-641e130
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Preserve builder and prove immutable eligible baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp tools/evidence/build_b021.py /tmp/build_b021.py
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git checkout --detach "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          mstr-qualify task eligible B021 > /tmp/b021.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b021.json
+      - name: Materialize exact B021 fixture-only candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/build_b021.py
+          git diff --check
+          mapfile -t changed < <(git status --short | awk '{print $2}' | sort)
+          expected=(
+            evidence/mstr-000b/B021-frontier-sampler.md
+            src/mstr_qualify/curriculum/__init__.py
+            src/mstr_qualify/curriculum/frontier.py
+            tests/fixtures/curriculum/b021-frontier-refresh.json
+            tests/unit/test_frontier_curriculum.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 5
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+          test ! -e .github/workflows/t028-acquire.yml.lock
+      - name: Run focused and canonical full quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/unit/test_frontier_curriculum.py tests/contract/test_difficulty_calibration_contract.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+      - name: Commit and fast-forward exact feature branch after all gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add \
+            evidence/mstr-000b/B021-frontier-sampler.md \
+            src/mstr_qualify/curriculum/__init__.py \
+            src/mstr_qualify/curriculum/frontier.py \
+            tests/fixtures/curriculum/b021-frontier-refresh.json \
+            tests/unit/test_frontier_curriculum.py
+          git commit -m "feat(mstr-000b): add B021 fixture frontier sampler"
+          candidate=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_MAIN"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$candidate"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo "B021_CANDIDATE_HEAD=$candidate"
