@@ -171,9 +171,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Prerequisite: B023 `COMPLETE_CANONICAL`. Include per-example provenance/rights/contamination requirements, reproduce-before-fix, targeted regression, boundary/error, property/metamorphic where appropriate, pre-fix fail/post-fix pass, and rejection of answer-encoding/test weakening.  
   Outputs: `docs/data/TEST_GENERATION_CURRICULUM.md`, fixtures, `evidence/mstr-000b/B024-test-curriculum.md`.
 
-- [ ] **B025 Freeze greenfield/feature/synthesis curriculum.**  
+- [x] **B025 Freeze greenfield/feature/synthesis curriculum.**
   Define G0 function, G1 module+tests, G2 component/file, G3 multi-file feature, G4 bounded program, G5 multi-round evolution. Include feature-tree/semantic synthesis as experimental generator with independent verification.  
   Outputs: `docs/data/GREENFIELD_FEATURE_CURRICULUM.md`, task manifest schema/fixtures, `evidence/mstr-000b/B025-greenfield-curriculum.md`.
+  Canonical implementation: PR #87 / final head `5d569acd15fdd20a2aea7f0c37e63917e73aa54c` / merge `7da90d2d9cb16a8ebd6c5ede390139831370e861`.
 
 **Checkpoint V:** clean positive training signal requires healthy verification; building and testing are both explicit learned skills.
 

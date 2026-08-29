@@ -206,6 +206,7 @@ def test_task_eligible_b011_blocked_returns_one(
     assert "task.blocked" in payload["reasons"]
     validate_instance("mstr-task-eligibility-v0", payload)
 
+
 def test_task_eligible_configuration_error_returns_two(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -304,7 +305,7 @@ def test_task_eligible_b016_terminal_returns_one(
     monkeypatch.setattr(
         "mstr_qualify.cli.evaluate_task_eligibility", fake_evaluate_task_eligibility
     )
-    exit_code = main(["task", "eligible", "B016"] )
+    exit_code = main(["task", "eligible", "B016"])
     payload = _stdout_json(capsys)
     assert exit_code == 1
     assert payload == expected
@@ -431,6 +432,27 @@ def test_task_eligible_b022_terminal_returns_one(
         "mstr_qualify.cli.evaluate_task_eligibility", fake_evaluate_task_eligibility
     )
     exit_code = main(["task", "eligible", "B022"])
+    payload = _stdout_json(capsys)
+    assert exit_code == 1
+    assert payload == expected
+    assert payload["eligible"] is False
+    assert "task.already_terminal" in payload["reasons"]
+    validate_instance("mstr-task-eligibility-v0", payload)
+
+
+def test_task_eligible_b025_terminal_returns_one(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    expected = evaluate_task_snapshot("B025", canonical_main=_CANONICAL_MAIN)
+
+    def fake_evaluate_task_eligibility(task_id: str) -> dict[str, object]:
+        assert task_id == "B025"
+        return expected
+
+    monkeypatch.setattr(
+        "mstr_qualify.cli.evaluate_task_eligibility", fake_evaluate_task_eligibility
+    )
+    exit_code = main(["task", "eligible", "B025"])
     payload = _stdout_json(capsys)
     assert exit_code == 1
     assert payload == expected

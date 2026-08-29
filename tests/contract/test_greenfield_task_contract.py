@@ -162,3 +162,28 @@ def test_b025_fixture_is_not_mutated_by_validation() -> None:
     before = copy.deepcopy(value)
     validate_instance("mstr-greenfield-task-v0", value)
     assert value == before
+
+
+def test_b025_canonical_closeout_provenance_and_authority_boundary() -> None:
+    evidence = (ROOT / "evidence" / "mstr-000b" / "B025-greenfield-curriculum.md").read_text(
+        encoding="utf-8"
+    )
+    assert "**State:** COMPLETE_CANONICAL" in evidence
+    assert "**Implementation PR:** #87" in evidence
+    assert "`5d569acd15fdd20a2aea7f0c37e63917e73aa54c`" in evidence
+    assert "`7da90d2d9cb16a8ebd6c5ede390139831370e861`" in evidence
+    for run_id in (
+        "33247628800",
+        "33247746466",
+        "33247929504",
+        "33248051276",
+        "33248243627",
+        "33248331741",
+    ):
+        assert f"run `{run_id}` — SUCCESS" in evidence
+    assert "review `5057715205` — BLOCKING FINDING RECORDED" in evidence
+    assert "review `5057744406` — NO BLOCKING FINDINGS" in evidence
+    assert "SYNTHESIS_EXECUTION = NONE" in evidence
+    assert "MODEL_EXECUTION = NONE" in evidence
+    assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
+    assert "B025_AUTHORITY = GREENFIELD_FEATURE_CURRICULUM_CONTRACT_AND_FIXTURES_ONLY" in evidence
