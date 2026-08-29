@@ -43,6 +43,19 @@ jobs:
         run: |
           set -euo pipefail
           python /tmp/build_b021.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("src/mstr_qualify/curriculum/frontier.py")
+          text = path.read_text(encoding="utf-8")
+          old = '                "one frontier snapshot must bind one exact student/checkpoint/harness/sampling identity"\n'
+          new = (
+              '                "one frontier snapshot must bind one exact "\n'
+              '                "student/checkpoint/harness/sampling identity"\n'
+          )
+          if text.count(old) != 1:
+              raise SystemExit("expected one B021 E501 literal anchor")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
           ruff format \
             src/mstr_qualify/curriculum/__init__.py \
             src/mstr_qualify/curriculum/frontier.py \
