@@ -1,7 +1,10 @@
 # B020 — Checkpoint-Relative Difficulty Calibration Contract Evidence
 
 **Task:** `B020`
-**State:** `IMPLEMENTATION_ACTIVE`
+**Implementation PR:** #81
+**Final implementation head:** `189509470eae10f1080938b0b2b873f375842f35`
+**Canonical implementation merge:** `f5a4892bff6bc20e376efcaa8f554c15ac88bca8`
+**State:** COMPLETE_CANONICAL
 **Contract:** `mstr.difficulty-calibration.v0`
 **Canonical entry main:** `ef90e96ba3d4e2c253987d1d104e0de26ce93529`
 
@@ -72,3 +75,19 @@ B020_CONTRACT_AUTHORITY = DIFFICULTY_CALIBRATION_RECORD_SHAPE_ONLY
 B020_CALIBRATION_EXECUTION = NONE
 B021_FRONTIER_SAMPLER_EXECUTION = NONE
 ```
+
+## Canonical Implementation Closeout
+
+The checkpoint-relative difficulty calibration contract was merged and verified on canonical main without executing a model, calibrating a real checkpoint, or widening any external-effect authority.
+
+- implementation PR: `#81`
+- final implementation head: `189509470eae10f1080938b0b2b873f375842f35`
+- canonical implementation merge: `f5a4892bff6bc20e376efcaa8f554c15ac88bca8`
+- atomic implementation build: run `33199352285` — SUCCESS
+- finite-structural-feature hardening: run `33200021831` — SUCCESS
+- exact hardened-head qualification: run `33234320679` — SUCCESS
+- independent adversarial review: run `33234412303` — SUCCESS
+- mandatory pre-merge verification: run `33234492918` — SUCCESS
+- post-merge implementation verification: run `33234636531` — SUCCESS
+
+This closeout changes only canonical task/provenance state and terminal-behavior regression assertions. It grants no model-weight access, model execution, real calibration execution, teacher/API use, paid compute, network model calls, large/private/production data ingestion, weight-changing training, B021 frontier-sampler execution, large-scale RL, or production release authority. B011 remains blocked.
