@@ -59,9 +59,10 @@ This reconciliation does not infer completion for A005+ and grants no external-e
 
 ## Phase B — Build Loop + Harness Arms
 
-- [ ] **A005 Implement `MSTR-BUILD-LOOP-v0` bounded state graph.**  
-  Conceptual states: ORIENT, GOAL, LOCALIZE, PLAN, ACT, OBSERVE, VERIFY, RECOVER, STOP. The graph MUST support a trivial-task fast path and MUST NOT force every task through every conceptual state. Builder cannot directly emit canonical success.  
+- [x] **A005 Implement `MSTR-BUILD-LOOP-v0` bounded state graph.**
+  Conceptual states: ORIENT, GOAL, LOCALIZE, PLAN, ACT, OBSERVE, VERIFY, RECOVER, STOP. The graph MUST support a trivial-task fast path and MUST NOT force every task through every conceptual state. Builder cannot directly emit canonical success.
   Outputs: loop implementation, state-machine tests, `evidence/mstr-000a/A005-build-loop.md`.
+  Canonical implementation: PR #92 / final head `a157c2f359a2c9eb600fed787cd7d1f23fa10eff` / merge `3c8d817d27948bffefaacc589eb10ec2733ecbd4`.
 
 - [ ] **A006 Implement protected finalizer / verifier boundary.**  
   Success must be mechanically derived from required verifier results; fake model completion must fail.  
