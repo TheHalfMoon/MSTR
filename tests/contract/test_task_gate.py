@@ -201,6 +201,7 @@ def test_b011_remains_blocked_after_b010_closeout() -> None:
     assert result["authority_result"]["satisfied"] is False
     validate_instance("mstr-task-eligibility-v0", result)
 
+
 def test_b006_fails_closed_when_b005_discovery_manifest_is_missing(
     tmp_path: Path,
 ) -> None:
@@ -420,32 +421,32 @@ def test_b010_fails_closed_when_b009_decision_artifact_is_missing(tmp_path: Path
         "workstream_id": "MSTR-000B",
         "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",
         "defaults": {
-  "outputs": [],
-  "candidate_dependent": False,
-  "external_effect_class": "NO_EXTERNAL_EFFECT",
-  "parallel_safe": False,
-  "supersedes": [],
-  "superseded_by": [],
-  "closeout_rule": {
-      "terminal_states": ["COMPLETE_CANONICAL"],
-      "require_all_outputs": False,
-      "require_all_evidence_outputs": True,
-      "completion_requires_merge": True,
-  },
+            "outputs": [],
+            "candidate_dependent": False,
+            "external_effect_class": "NO_EXTERNAL_EFFECT",
+            "parallel_safe": False,
+            "supersedes": [],
+            "superseded_by": [],
+            "closeout_rule": {
+                "terminal_states": ["COMPLETE_CANONICAL"],
+                "require_all_outputs": False,
+                "require_all_evidence_outputs": True,
+                "completion_requires_merge": True,
+            },
         },
         "tasks": {
-  "B009": {
-      "canonical_state": "COMPLETE_CANONICAL",
-      "closeout_rule": {"require_all_outputs": True},
-      "prerequisites": [],
-      "outputs": [decision_path],
-      "evidence_outputs": ["evidence/mstr-000b/B009-compatibility.md"],
-  },
-  "B010": {
-      "canonical_state": "PENDING",
-      "prerequisites": ["B009"],
-      "evidence_outputs": [],
-  },
+            "B009": {
+                "canonical_state": "COMPLETE_CANONICAL",
+                "closeout_rule": {"require_all_outputs": True},
+                "prerequisites": [],
+                "outputs": [decision_path],
+                "evidence_outputs": ["evidence/mstr-000b/B009-compatibility.md"],
+            },
+            "B010": {
+                "canonical_state": "PENDING",
+                "prerequisites": ["B009"],
+                "evidence_outputs": [],
+            },
         },
     }
     catalog_path = tmp_path / "configs" / "task-gate" / "mstr-000b.json"
@@ -462,6 +463,7 @@ def test_b010_fails_closed_when_b009_decision_artifact_is_missing(tmp_path: Path
     assert "prerequisite.required_artifact_missing" in predecessor["reasons"]
     assert f"missing:{decision_path}" in predecessor["reasons"]
     validate_instance("mstr-task-eligibility-v0", result)
+
 
 def test_explicitly_blocked_task_never_becomes_eligible() -> None:
     result = evaluate_task_snapshot("B011", canonical_main=_CANONICAL_MAIN)
@@ -1213,9 +1215,7 @@ def test_b019_is_terminal_after_canonical_closeout() -> None:
     assert result["state_consistency_result"]["satisfied"] is True
     assert result["authority_result"]["required"] is False
     assert "task.already_terminal" in result["reasons"]
-    predecessor = next(
-        item for item in result["prerequisite_results"] if item["task_id"] == "B018"
-    )
+    predecessor = next(item for item in result["prerequisite_results"] if item["task_id"] == "B018")
     assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
     assert predecessor["evidence_present"] is True
     assert predecessor["satisfied"] is True
@@ -1223,7 +1223,33 @@ def test_b019_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-@pytest.mark.parametrize("task_id", ["B020", "B022", "B025"])
+def test_b020_is_terminal_after_canonical_closeout() -> None:
+    result = evaluate_task_snapshot("B020", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert result["authority_result"]["required"] is False
+    assert "task.already_terminal" in result["reasons"]
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b020_closeout_opens_b021_frontier_sampler() -> None:
+    result = evaluate_task_snapshot("B021", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is True
+    assert result["reasons"] == []
+    assert result["state_consistency_result"]["observed_state"] == "PENDING"
+    assert result["authority_result"]["required"] is False
+    predecessor = next(item for item in result["prerequisite_results"] if item["task_id"] == "B020")
+    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
+    assert predecessor["evidence_present"] is True
+    assert predecessor["satisfied"] is True
+    assert predecessor["reasons"] == []
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+@pytest.mark.parametrize("task_id", ["B022", "B025"])
 def test_b014_closeout_opens_direct_nongated_successors(task_id: str) -> None:
     result = evaluate_task_snapshot(task_id, canonical_main=_CANONICAL_MAIN)
 
@@ -1232,9 +1258,7 @@ def test_b014_closeout_opens_direct_nongated_successors(task_id: str) -> None:
     assert result["state_consistency_result"]["observed_state"] == "PENDING"
     assert result["authority_result"]["required"] is False
     assert result["authority_result"]["satisfied"] is True
-    predecessor = next(
-        item for item in result["prerequisite_results"] if item["task_id"] == "B014"
-    )
+    predecessor = next(item for item in result["prerequisite_results"] if item["task_id"] == "B014")
     assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
     assert predecessor["evidence_present"] is True
     assert predecessor["satisfied"] is True

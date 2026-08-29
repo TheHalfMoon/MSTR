@@ -142,9 +142,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: `docs/data/TEACHER_RESCUE_POLICY.md`, schema/fixtures, `evidence/mstr-000b/B019-teacher-policy.md`.
   Canonical implementation: PR #78 / final head `25907c32fb60e83a6b171192e8c12c8092bc9f5e` / merge `ac68e2ff9de9962807ab32ce983b2e808bf4fab9`.
 
-- [ ] **B020 Freeze checkpoint-relative difficulty calibration contract.**  
+- [x] **B020 Freeze checkpoint-relative difficulty calibration contract.**
   Define exact student/harness/sampling identity and classes `TOO_EASY`, `LEARNABLE_FRONTIER`, `HARD_FRONTIER`, `CURRENTLY_UNPRODUCTIVE`, `INVALID`.  
   Outputs: schema/fixtures, `evidence/mstr-000b/B020-difficulty-contract.md`.
+  Canonical implementation: PR #81 / final head `189509470eae10f1080938b0b2b873f375842f35` / merge `f5a4892bff6bc20e376efcaa8f554c15ac88bca8`.
 
 - [ ] **B021 Implement fixture-only frontier sampler/calibrator.**  
   Demonstrate refreshable task difficulty and sampling decisions without training or large data. Preserve easier replay/regression anchors and harder frontier cells.  

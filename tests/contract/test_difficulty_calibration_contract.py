@@ -110,3 +110,27 @@ def test_b020_machine_readable_entry_provenance_and_authority_boundary() -> None
     assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
     assert "B020_CALIBRATION_EXECUTION = NONE" in evidence
     assert "B021_FRONTIER_SAMPLER_EXECUTION = NONE" in evidence
+
+
+def test_b020_canonical_closeout_provenance_and_authority_boundary() -> None:
+    evidence = (ROOT / "evidence" / "mstr-000b" / "B020-difficulty-contract.md").read_text(
+        encoding="utf-8"
+    )
+    assert "**State:** COMPLETE_CANONICAL" in evidence
+    assert "**Implementation PR:** #81" in evidence
+    assert "`189509470eae10f1080938b0b2b873f375842f35`" in evidence
+    assert "`f5a4892bff6bc20e376efcaa8f554c15ac88bca8`" in evidence
+    for run_id in (
+        "33199352285",
+        "33200021831",
+        "33234320679",
+        "33234412303",
+        "33234492918",
+        "33234636531",
+    ):
+        assert f"run `{run_id}` — SUCCESS" in evidence
+    assert "MODEL_WEIGHT_ACCESS = NONE" in evidence
+    assert "MODEL_EXECUTION = NONE" in evidence
+    assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
+    assert "B020_CALIBRATION_EXECUTION = NONE" in evidence
+    assert "B021_FRONTIER_SAMPLER_EXECUTION = NONE" in evidence
