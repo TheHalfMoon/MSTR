@@ -1,0 +1,48 @@
+{
+  "format_version": "mstr.t030-runtime-interface-scan.v1",
+  "task_id": "T030",
+  "canonical_base": "97904ac5ad17e7142e88944ee83dbb304ecb197f",
+  "observed_on": "2026-08-29",
+  "execution_performed": false,
+  "model_weight_access_performed": false,
+  "runtime_candidates": [
+    {
+      "runtime_id": "llama.cpp-llama-bench-cpu",
+      "upstream_repository": "https://github.com/ggml-org/llama.cpp",
+      "upstream_revision": "3173a56471c1753650cd806694145ffd6dcace67",
+      "interface_evidence": "tools/llama-bench/README.md at the pinned revision",
+      "interface": {
+        "model": "-m",
+        "prompt_tokens": "-p",
+        "generation_tokens": "-n",
+        "threads": "-t",
+        "gpu_layers": "-ngl",
+        "repetitions": "-r",
+        "json_output": ["-o", "json"]
+      },
+      "required_json_identity_fields": [
+        "build_commit",
+        "model_filename",
+        "n_prompt",
+        "n_gen",
+        "n_threads",
+        "n_gpu_layers",
+        "avg_ns",
+        "avg_ts"
+      ],
+      "cpu_only_policy": "Adapter always supplies -ngl 0 and rejects any result that does not report n_gpu_layers=0.",
+      "network_policy": "Local artifact path only; provider repository/token acquisition flags are prohibited by profile validation.",
+      "adapter_state": "IMPLEMENTED_UNEXECUTED"
+    },
+    {
+      "runtime_id": "llamafile",
+      "upstream_repository": "https://github.com/mozilla-ai/llamafile",
+      "release": "0.10.5",
+      "release_commit": "486e6c5f9356eae50b851b07517bfae1f2420193",
+      "source_tree": "088f5d67a6459c47d58f098f33dc0906f8b3f0d4",
+      "adapter_state": "DEFERRED_INTERFACE_NOT_PROVEN",
+      "reason": "The pinned 0.10.5 source tree and current code search did not expose a current llamafile-bench entry point. Older benchmark-interface claims are not reused as current T030 authority."
+    }
+  ],
+  "decision": "Implement the profile-driven portable CPU benchmark adapter with the proven llama-bench interface. Do not manufacture a llamafile adapter until a current stable interface is evidenced."
+}
