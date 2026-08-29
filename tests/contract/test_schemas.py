@@ -62,6 +62,13 @@ DESIGN_SCHEMA_OVERRIDES = {
         / "contracts"
         / "mstr-verifier-health-v0.schema.json"
     ),
+    "mstr-greenfield-task-v0": (
+        ROOT
+        / "specs"
+        / "002-code-model-supremacy-foundation"
+        / "contracts"
+        / "mstr-greenfield-task-v0.schema.json"
+    ),
     "mstr-software-evolution-record-v0": (
         ROOT
         / "specs"

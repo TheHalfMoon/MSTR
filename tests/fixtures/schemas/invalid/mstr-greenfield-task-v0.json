@@ -1,0 +1,65 @@
+{
+  "admission_class": "CURRICULUM_ELIGIBLE",
+  "admission_reasons": [],
+  "allowed_languages": [
+    "Python"
+  ],
+  "complexity_band": "G3_MULTI_FILE_FEATURE",
+  "contamination_boundary": {
+    "benchmark_overlap": "CLEAR",
+    "cross_split_duplicate": "CLEAR",
+    "evidence_identity": "fixture-contamination-check-v1",
+    "future_history_exposure": "CLEAR",
+    "hidden_answer_exposure": "CLEAR"
+  },
+  "direction": "Add a deterministic local configuration export feature with tests.",
+  "environment_identity": "fixture-env:python-3.11-offline",
+  "evolution_steps": [],
+  "generation_method": "FEATURE_TREE_SYNTHESIS",
+  "hidden_behavior_manifest": {
+    "behavior_classes": [
+      "FUNCTIONAL",
+      "BOUNDARY",
+      "ERROR_PATH"
+    ],
+    "hidden_from_model": true,
+    "manifest_id": "fixture-hidden-behavior-v1",
+    "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "provenance": {
+    "generator_identity": "fixture-feature-tree-generator",
+    "lineage_identity": "fixture-lineage-v1",
+    "source_class": "SYNTHETIC_VERIFIED",
+    "source_identity": "TheHalfMoon/MSTR:fixture",
+    "source_revision": "cd3e3ba39c0e83548748275d08b7a3d0d2e6b15b"
+  },
+  "resource_budget": {
+    "max_output_bytes": 1048576,
+    "max_tool_calls": 40,
+    "max_wall_time_seconds": 300,
+    "network_policy": "DISABLED"
+  },
+  "rights_decision": {
+    "decision": "COMPATIBLE",
+    "intended_use": "MSTR_TRAINING_OR_EVALUATION",
+    "reason_codes": [],
+    "terms_identity": "repository-owned-fixture-policy-v1"
+  },
+  "schema_version": "mstr.greenfield-task.v0",
+  "synthesis_evidence": {
+    "generator_identity": "fixture-feature-tree-generator",
+    "generator_kind": "FEATURE_TREE",
+    "generator_revision": "fixture-revision-1",
+    "independent_verification_status": "NOT_RUN",
+    "independent_verifier_identity": null,
+    "proposal_only": true,
+    "verification_evidence_identity": null
+  },
+  "task_archetypes": [
+    "FEATURE_IMPLEMENTATION",
+    "TEST_AUTHORING"
+  ],
+  "task_id": "b025-invalid-unverified-synthesis",
+  "verifier_health_requirement": "HEALTHY",
+  "verifier_manifest_id": "fixture-verifier-manifest-v1"
+}

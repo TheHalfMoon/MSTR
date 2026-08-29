@@ -137,6 +137,7 @@ def test_validate_self_checks_schemas_and_fixtures(capsys: pytest.CaptureFixture
         "interaction-contract",
         "mstr-data-constitution-v0",
         "mstr-difficulty-calibration-v0",
+        "mstr-greenfield-task-v0",
         "mstr-loop-contract-v0",
         "mstr-run-event-v0",
         "mstr-self-alignment-generation-v0",
@@ -394,3 +395,20 @@ def test_output_is_deterministic_sorted_json(tmp_path: Path, capsys: Any) -> Non
     assert second_out == first_out
     rendered = json.loads(first_out)
     assert list(rendered) == sorted(rendered)
+
+
+def test_validate_explicit_b025_greenfield_fixture_passes(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "tests"
+        / "fixtures"
+        / "schemas"
+        / "valid"
+        / "mstr-greenfield-task-v0.json"
+    )
+    assert main(["validate", str(path)]) == 0
+    payload = parse_stdout(capsys)
+    assert payload["status"] == "pass"
+    assert payload["files"][0]["schema_version"] == "mstr.greenfield-task.v0"
