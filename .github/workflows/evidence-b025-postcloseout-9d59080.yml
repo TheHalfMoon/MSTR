@@ -1,0 +1,94 @@
+name: Verify B025 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/b025-postcloseout-9d59080
+
+permissions:
+  contents: read
+
+jobs:
+  merge_identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 9d5908016b2b8775eaf86dbcebb89683f52e1f90
+          fetch-depth: 0
+      - name: Verify exact B025 closeout merge identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_MERGE=9d5908016b2b8775eaf86dbcebb89683f52e1f90
+          EXPECTED_BASE=07d3a0fa2208efbb7e3a6356523ea540261a2c81
+          EXPECTED_HEAD=48d19bdfa1b94ffc789ecb105302fefb318a4a45
+          EXPECTED_TREE=ee333e468c4320fafdcda4522f52d2a2d6fbbdef
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MERGE"
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_BASE"
+          test "$(git rev-parse HEAD^2)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MERGE"
+          mapfile -t actual < <(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_MERGE" | sort)
+          expected=(
+            configs/task-gate/mstr-000b.json
+            evidence/mstr-000b/B025-greenfield-curriculum.md
+            specs/002-code-model-supremacy-foundation/tasks.md
+            tests/contract/test_greenfield_task_contract.py
+            tests/contract/test_task_gate.py
+            tests/integration/test_task_gate_cli.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 6
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+
+  canonical_state_frontier:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 9d5908016b2b8775eaf86dbcebb89683f52e1f90
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove clean canonical state and exact downstream frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_MERGE=9d5908016b2b8775eaf86dbcebb89683f52e1f90
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MERGE"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MERGE"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          if mstr-qualify task eligible B025 > /tmp/b025.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b025.json
+          if mstr-qualify task eligible B026 > /tmp/b026.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and (.reasons | index("prerequisite.unsatisfied:B025")) == null and (.reasons | index("prerequisite.unsatisfied:B024")) != null' /tmp/b026.json
+          mstr-qualify task eligible B028 > /tmp/b028.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .reasons == []' /tmp/b028.json
+          if mstr-qualify task eligible B023 > /tmp/b023.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '(.reasons | index("prerequisite.unsatisfied:A006")) != null and (.reasons | index("prerequisite.unsatisfied:A014")) != null' /tmp/b023.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+          pytest -q
+          mstr-qualify validate
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MERGE"
+
+  complete:
+    needs: [merge_identity, canonical_state_frontier]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 9d5908016b2b8775eaf86dbcebb89683f52e1f90
+          fetch-depth: 0
+      - name: Final immutable canonical-main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "9d5908016b2b8775eaf86dbcebb89683f52e1f90"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "9d5908016b2b8775eaf86dbcebb89683f52e1f90"
