@@ -36,6 +36,7 @@ def _successful_runner(calls: list[tuple[str, ...]]):
         generation = int(argv[argv.index("-n") + 1])
         threads = int(argv[argv.index("-t") + 1])
         gpu_layers = int(argv[argv.index("-ngl") + 1])
+        devices = argv[argv.index("--device") + 1]
         payload = [
             {
                 "build_commit": "3173a564",
@@ -44,6 +45,7 @@ def _successful_runner(calls: list[tuple[str, ...]]):
                 "n_gen": generation,
                 "n_threads": threads,
                 "n_gpu_layers": gpu_layers,
+                "devices": devices,
                 "avg_ns": 1000,
                 "avg_ts": 42.5,
             }
@@ -67,6 +69,7 @@ def test_llama_cpp_profile_is_pinned_and_cpu_only_command_is_deterministic(tmp_p
     )
 
     assert profile.upstream_revision == "3173a56471c1753650cd806694145ffd6dcace67"
+    assert profile.output_args == ("--device", "none", "-o", "json")
     assert adapter.platform_family() == "llama.cpp-llama-bench-cpu"
     assert adapter.capabilities().supports_cpu_only is True
     assert adapter.capabilities().supports_prefix_cache is False
@@ -92,7 +95,10 @@ def test_llama_cpp_profile_is_pinned_and_cpu_only_command_is_deterministic(tmp_p
         assert command[command.index("-t") + 1] == "4"
         assert command[command.index("-ngl") + 1] == "0"
         assert command[command.index("-r") + 1] == "1"
+        assert command[command.index("--device") + 1] == "none"
         assert command[-2:] == ("-o", "json")
+        assert "-rpc" not in command
+        assert "--rpc" not in command
         assert "-hf" not in command
         assert "--hf-repo" not in command
         assert "--hf-token" not in command
@@ -189,6 +195,7 @@ def test_reported_gpu_or_build_identity_mismatch_fails_closed(tmp_path: Path) ->
                 "n_gen": int(argv[argv.index("-n") + 1]),
                 "n_threads": int(argv[argv.index("-t") + 1]),
                 "n_gpu_layers": 1,
+                "devices": "CUDA0",
                 "avg_ns": 1000,
                 "avg_ts": 1.0,
             }
@@ -205,4 +212,8 @@ def test_reported_gpu_or_build_identity_mismatch_fails_closed(tmp_path: Path) ->
 
     with pytest.raises(BenchmarkCliError) as exc_info:
         adapter.prefill(4)
-    assert exc_info.value.code in {"runtime.output_identity", "runtime.build_identity"}
+    assert exc_info.value.code in {
+        "runtime.output_identity",
+        "runtime.output_device_identity",
+        "runtime.build_identity",
+    }
