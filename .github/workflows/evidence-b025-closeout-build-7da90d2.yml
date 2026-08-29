@@ -1,0 +1,110 @@
+name: Build B025 canonical closeout atomically
+
+on:
+  push:
+    branches:
+      - evidence/b025-closeout-build-7da90d2
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: 7da90d2d9cb16a8ebd6c5ede390139831370e861
+  TARGET_BRANCH: docs/000b-b025-canonicalize
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b025-closeout-build-7da90d2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Preserve builder and prove immutable clean target
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp tools/evidence/build_b025_closeout.py /tmp/build_b025_closeout.py
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          mstr-qualify task eligible B025 > /tmp/b025-entry.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .reasons == []' /tmp/b025-entry.json
+      - name: Materialize exact six-file closeout candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/build_b025_closeout.py
+          ruff format tests/contract/test_task_gate.py tests/contract/test_greenfield_task_contract.py tests/integration/test_task_gate_cli.py
+          git diff --check
+          mapfile -t actual < <(git diff --name-only | sort)
+          expected=(
+            configs/task-gate/mstr-000b.json
+            evidence/mstr-000b/B025-greenfield-curriculum.md
+            specs/002-code-model-supremacy-foundation/tasks.md
+            tests/contract/test_greenfield_task_contract.py
+            tests/contract/test_task_gate.py
+            tests/integration/test_task_gate_cli.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          printf 'B025_CLOSEOUT_MATERIALIZED_FILES=%s\n' "${#actual[@]}"
+          printf '%s\n' "${actual[@]}"
+          test "${#actual[@]}" -eq 6
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          test -z "$(git diff --name-only -- schemas/mstr-greenfield-task-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-greenfield-task-v0.schema.json tests/fixtures/schemas src/mstr_qualify/schemas.py src/mstr_qualify/cli.py .specify/memory/constitution.md AGENTS.md)"
+      - name: Run closeout and canonical quality gates before push
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_greenfield_task_contract.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+      - name: Commit, prove prospective terminal semantics, and fast-forward target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B025-greenfield-curriculum.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_greenfield_task_contract.py \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py
+          git commit -m "docs(mstr-000b): canonicalize B025 closeout"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-list --count "$EXPECTED_MAIN"..HEAD)" -eq 1
+          git update-ref refs/heads/main HEAD
+          git update-ref refs/remotes/origin/main HEAD
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          if mstr-qualify task eligible B025 > /tmp/b025.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b025.json
+          if mstr-qualify task eligible B026 > /tmp/b026.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '(.reasons | index("prerequisite.unsatisfied:B025")) == null and (.reasons | index("prerequisite.unsatisfied:B024")) != null' /tmp/b026.json
+          mstr-qualify task eligible B028 > /tmp/b028.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .reasons == []' /tmp/b028.json
+          if mstr-qualify task eligible B023 > /tmp/b023.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '(.reasons | index("prerequisite.unsatisfied:A006")) != null and (.reasons | index("prerequisite.unsatisfied:A014")) != null' /tmp/b023.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "B025_CLOSEOUT_HEAD=$(git rev-parse HEAD)"
+          echo "B025_CLOSEOUT_TREE=$(git rev-parse HEAD^{tree})"
+          echo "B025_CLOSEOUT_FILES=6"
