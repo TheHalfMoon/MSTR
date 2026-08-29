@@ -1,0 +1,356 @@
+{
+  "after_records": [
+    {
+      "attempt_count": 10,
+      "calibration_time": "2026-08-29T01:00:00Z",
+      "difficulty_class": "TOO_EASY",
+      "difficulty_record_identity": "fixture-difficulty-b-regression",
+      "estimated_solve_probability": 1.0,
+      "failure_distribution": [],
+      "harness_profile_id": "fixture-harness-v1",
+      "sampling_identity": "fixture-sampling-v1",
+      "schema_version": "mstr.difficulty-calibration.v0",
+      "structural_features": {
+        "complexity_band": "fixture-band",
+        "curriculum_role": "REGRESSION_ANCHOR",
+        "source_class": "REPOSITORY_OWNED_FIXTURE"
+      },
+      "student_model_identity": {
+        "checkpoint_id": "fixture-checkpoint-b",
+        "harness_profile_id": "fixture-harness-v1",
+        "model_id": "fixture/student-model",
+        "sampling_identity": "fixture-sampling-v1"
+      },
+      "success_count": 10,
+      "task_or_family_id": "task-regression"
+    },
+    {
+      "attempt_count": 10,
+      "calibration_time": "2026-08-29T01:00:00Z",
+      "difficulty_class": "TOO_EASY",
+      "difficulty_record_identity": "fixture-difficulty-b-fim",
+      "estimated_solve_probability": 0.9,
+      "failure_distribution": [
+        {
+          "count": 1,
+          "failure_class": "FIXTURE_FAILURE"
+        }
+      ],
+      "harness_profile_id": "fixture-harness-v1",
+      "sampling_identity": "fixture-sampling-v1",
+      "schema_version": "mstr.difficulty-calibration.v0",
+      "structural_features": {
+        "complexity_band": "fixture-band",
+        "curriculum_role": "CORE_FIM_REPLAY",
+        "source_class": "REPOSITORY_OWNED_FIXTURE"
+      },
+      "student_model_identity": {
+        "checkpoint_id": "fixture-checkpoint-b",
+        "harness_profile_id": "fixture-harness-v1",
+        "model_id": "fixture/student-model",
+        "sampling_identity": "fixture-sampling-v1"
+      },
+      "success_count": 9,
+      "task_or_family_id": "task-fim"
+    },
+    {
+      "attempt_count": 10,
+      "calibration_time": "2026-08-29T01:00:00Z",
+      "difficulty_class": "TOO_EASY",
+      "difficulty_record_identity": "fixture-difficulty-b-learnable",
+      "estimated_solve_probability": 0.9,
+      "failure_distribution": [
+        {
+          "count": 1,
+          "failure_class": "FIXTURE_FAILURE"
+        }
+      ],
+      "harness_profile_id": "fixture-harness-v1",
+      "sampling_identity": "fixture-sampling-v1",
+      "schema_version": "mstr.difficulty-calibration.v0",
+      "structural_features": {
+        "complexity_band": "fixture-band",
+        "curriculum_role": "STANDARD",
+        "source_class": "REPOSITORY_OWNED_FIXTURE"
+      },
+      "student_model_identity": {
+        "checkpoint_id": "fixture-checkpoint-b",
+        "harness_profile_id": "fixture-harness-v1",
+        "model_id": "fixture/student-model",
+        "sampling_identity": "fixture-sampling-v1"
+      },
+      "success_count": 9,
+      "task_or_family_id": "task-learnable"
+    },
+    {
+      "attempt_count": 10,
+      "calibration_time": "2026-08-29T01:00:00Z",
+      "difficulty_class": "LEARNABLE_FRONTIER",
+      "difficulty_record_identity": "fixture-difficulty-b-hard",
+      "estimated_solve_probability": 0.5,
+      "failure_distribution": [
+        {
+          "count": 5,
+          "failure_class": "FIXTURE_FAILURE"
+        }
+      ],
+      "harness_profile_id": "fixture-harness-v1",
+      "sampling_identity": "fixture-sampling-v1",
+      "schema_version": "mstr.difficulty-calibration.v0",
+      "structural_features": {
+        "complexity_band": "fixture-band",
+        "curriculum_role": "STANDARD",
+        "source_class": "REPOSITORY_OWNED_FIXTURE"
+      },
+      "student_model_identity": {
+        "checkpoint_id": "fixture-checkpoint-b",
+        "harness_profile_id": "fixture-harness-v1",
+        "model_id": "fixture/student-model",
+        "sampling_identity": "fixture-sampling-v1"
+      },
+      "success_count": 5,
+      "task_or_family_id": "task-hard"
+    },
+    {
+      "attempt_count": 10,
+      "calibration_time": "2026-08-29T01:00:00Z",
+      "difficulty_class": "HARD_FRONTIER",
+      "difficulty_record_identity": "fixture-difficulty-b-unproductive",
+      "estimated_solve_probability": 0.2,
+      "failure_distribution": [
+        {
+          "count": 8,
+          "failure_class": "FIXTURE_FAILURE"
+        }
+      ],
+      "harness_profile_id": "fixture-harness-v1",
+      "sampling_identity": "fixture-sampling-v1",
+      "schema_version": "mstr.difficulty-calibration.v0",
+      "structural_features": {
+        "complexity_band": "fixture-band",
+        "curriculum_role": "STANDARD",
+        "source_class": "REPOSITORY_OWNED_FIXTURE"
+      },
+      "student_model_identity": {
+        "checkpoint_id": "fixture-checkpoint-b",
+        "harness_profile_id": "fixture-harness-v1",
+        "model_id": "fixture/student-model",
+        "sampling_identity": "fixture-sampling-v1"
+      },
+      "success_count": 2,
+      "task_or_family_id": "task-unproductive"
+    },
+    {
+      "attempt_count": 10,
+      "calibration_time": "2026-08-29T01:00:00Z",
+      "difficulty_class": "INVALID",
+      "difficulty_record_identity": "fixture-difficulty-b-invalid",
+      "estimated_solve_probability": 0.5,
+      "failure_distribution": [
+        {
+          "count": 5,
+          "failure_class": "FIXTURE_FAILURE"
+        }
+      ],
+      "harness_profile_id": "fixture-harness-v1",
+      "sampling_identity": "fixture-sampling-v1",
+      "schema_version": "mstr.difficulty-calibration.v0",
+      "structural_features": {
+        "complexity_band": "fixture-band",
+        "curriculum_role": "STANDARD",
+        "source_class": "REPOSITORY_OWNED_FIXTURE"
+      },
+      "student_model_identity": {
+        "checkpoint_id": "fixture-checkpoint-b",
+        "harness_profile_id": "fixture-harness-v1",
+        "model_id": "fixture/student-model",
+        "sampling_identity": "fixture-sampling-v1"
+      },
+      "success_count": 5,
+      "task_or_family_id": "task-invalid"
+    }
+  ],
+  "before_records": [
+    {
+      "attempt_count": 10,
+      "calibration_time": "2026-08-29T00:00:00Z",
+      "difficulty_class": "TOO_EASY",
+      "difficulty_record_identity": "fixture-difficulty-a-regression",
+      "estimated_solve_probability": 0.9,
+      "failure_distribution": [
+        {
+          "count": 1,
+          "failure_class": "FIXTURE_FAILURE"
+        }
+      ],
+      "harness_profile_id": "fixture-harness-v1",
+      "sampling_identity": "fixture-sampling-v1",
+      "schema_version": "mstr.difficulty-calibration.v0",
+      "structural_features": {
+        "complexity_band": "fixture-band",
+        "curriculum_role": "REGRESSION_ANCHOR",
+        "source_class": "REPOSITORY_OWNED_FIXTURE"
+      },
+      "student_model_identity": {
+        "checkpoint_id": "fixture-checkpoint-a",
+        "harness_profile_id": "fixture-harness-v1",
+        "model_id": "fixture/student-model",
+        "sampling_identity": "fixture-sampling-v1"
+      },
+      "success_count": 9,
+      "task_or_family_id": "task-regression"
+    },
+    {
+      "attempt_count": 10,
+      "calibration_time": "2026-08-29T00:00:00Z",
+      "difficulty_class": "TOO_EASY",
+      "difficulty_record_identity": "fixture-difficulty-a-fim",
+      "estimated_solve_probability": 0.8,
+      "failure_distribution": [
+        {
+          "count": 2,
+          "failure_class": "FIXTURE_FAILURE"
+        }
+      ],
+      "harness_profile_id": "fixture-harness-v1",
+      "sampling_identity": "fixture-sampling-v1",
+      "schema_version": "mstr.difficulty-calibration.v0",
+      "structural_features": {
+        "complexity_band": "fixture-band",
+        "curriculum_role": "CORE_FIM_REPLAY",
+        "source_class": "REPOSITORY_OWNED_FIXTURE"
+      },
+      "student_model_identity": {
+        "checkpoint_id": "fixture-checkpoint-a",
+        "harness_profile_id": "fixture-harness-v1",
+        "model_id": "fixture/student-model",
+        "sampling_identity": "fixture-sampling-v1"
+      },
+      "success_count": 8,
+      "task_or_family_id": "task-fim"
+    },
+    {
+      "attempt_count": 10,
+      "calibration_time": "2026-08-29T00:00:00Z",
+      "difficulty_class": "LEARNABLE_FRONTIER",
+      "difficulty_record_identity": "fixture-difficulty-a-learnable",
+      "estimated_solve_probability": 0.5,
+      "failure_distribution": [
+        {
+          "count": 5,
+          "failure_class": "FIXTURE_FAILURE"
+        }
+      ],
+      "harness_profile_id": "fixture-harness-v1",
+      "sampling_identity": "fixture-sampling-v1",
+      "schema_version": "mstr.difficulty-calibration.v0",
+      "structural_features": {
+        "complexity_band": "fixture-band",
+        "curriculum_role": "STANDARD",
+        "source_class": "REPOSITORY_OWNED_FIXTURE"
+      },
+      "student_model_identity": {
+        "checkpoint_id": "fixture-checkpoint-a",
+        "harness_profile_id": "fixture-harness-v1",
+        "model_id": "fixture/student-model",
+        "sampling_identity": "fixture-sampling-v1"
+      },
+      "success_count": 5,
+      "task_or_family_id": "task-learnable"
+    },
+    {
+      "attempt_count": 10,
+      "calibration_time": "2026-08-29T00:00:00Z",
+      "difficulty_class": "HARD_FRONTIER",
+      "difficulty_record_identity": "fixture-difficulty-a-hard",
+      "estimated_solve_probability": 0.2,
+      "failure_distribution": [
+        {
+          "count": 8,
+          "failure_class": "FIXTURE_FAILURE"
+        }
+      ],
+      "harness_profile_id": "fixture-harness-v1",
+      "sampling_identity": "fixture-sampling-v1",
+      "schema_version": "mstr.difficulty-calibration.v0",
+      "structural_features": {
+        "complexity_band": "fixture-band",
+        "curriculum_role": "STANDARD",
+        "source_class": "REPOSITORY_OWNED_FIXTURE"
+      },
+      "student_model_identity": {
+        "checkpoint_id": "fixture-checkpoint-a",
+        "harness_profile_id": "fixture-harness-v1",
+        "model_id": "fixture/student-model",
+        "sampling_identity": "fixture-sampling-v1"
+      },
+      "success_count": 2,
+      "task_or_family_id": "task-hard"
+    },
+    {
+      "attempt_count": 10,
+      "calibration_time": "2026-08-29T00:00:00Z",
+      "difficulty_class": "CURRENTLY_UNPRODUCTIVE",
+      "difficulty_record_identity": "fixture-difficulty-a-unproductive",
+      "estimated_solve_probability": 0.0,
+      "failure_distribution": [
+        {
+          "count": 10,
+          "failure_class": "FIXTURE_FAILURE"
+        }
+      ],
+      "harness_profile_id": "fixture-harness-v1",
+      "sampling_identity": "fixture-sampling-v1",
+      "schema_version": "mstr.difficulty-calibration.v0",
+      "structural_features": {
+        "complexity_band": "fixture-band",
+        "curriculum_role": "STANDARD",
+        "source_class": "REPOSITORY_OWNED_FIXTURE"
+      },
+      "student_model_identity": {
+        "checkpoint_id": "fixture-checkpoint-a",
+        "harness_profile_id": "fixture-harness-v1",
+        "model_id": "fixture/student-model",
+        "sampling_identity": "fixture-sampling-v1"
+      },
+      "success_count": 0,
+      "task_or_family_id": "task-unproductive"
+    },
+    {
+      "attempt_count": 10,
+      "calibration_time": "2026-08-29T00:00:00Z",
+      "difficulty_class": "INVALID",
+      "difficulty_record_identity": "fixture-difficulty-a-invalid",
+      "estimated_solve_probability": 0.5,
+      "failure_distribution": [
+        {
+          "count": 5,
+          "failure_class": "FIXTURE_FAILURE"
+        }
+      ],
+      "harness_profile_id": "fixture-harness-v1",
+      "sampling_identity": "fixture-sampling-v1",
+      "schema_version": "mstr.difficulty-calibration.v0",
+      "structural_features": {
+        "complexity_band": "fixture-band",
+        "curriculum_role": "STANDARD",
+        "source_class": "REPOSITORY_OWNED_FIXTURE"
+      },
+      "student_model_identity": {
+        "checkpoint_id": "fixture-checkpoint-a",
+        "harness_profile_id": "fixture-harness-v1",
+        "model_id": "fixture/student-model",
+        "sampling_identity": "fixture-sampling-v1"
+      },
+      "success_count": 5,
+      "task_or_family_id": "task-invalid"
+    }
+  ],
+  "policy": {
+    "anchor_weight": 2,
+    "hard_frontier_weight": 3,
+    "policy_id": "fixture-frontier-policy-v1",
+    "primary_frontier_weight": 5,
+    "stability_replay_weight": 1
+  }
+}
