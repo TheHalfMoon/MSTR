@@ -44,7 +44,9 @@ jobs:
           set -euo pipefail
           python /tmp/build_b021.py
           git diff --check
-          mapfile -t changed < <(git status --short | awk '{print $2}' | sort)
+          mapfile -t changed < <(
+            { git diff --name-only; git ls-files --others --exclude-standard; } | sort -u
+          )
           expected=(
             evidence/mstr-000b/B021-frontier-sampler.md
             src/mstr_qualify/curriculum/__init__.py
