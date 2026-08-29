@@ -1,0 +1,99 @@
+name: Post-closeout verification for B022
+
+on:
+  push:
+    branches:
+      - evidence/b022-postcloseout-cd3e3ba
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: cd3e3ba39c0e83548748275d08b7a3d0d2e6b15b
+  EXPECTED_PARENT1: 97bf66a98bad51ff0d574d90a04fa47b802708ee
+  EXPECTED_PARENT2: 158d44320db53afeac6ff907cd4e836183b0c987
+  EXPECTED_TREE: 122feaf68fd807fce1e1f2e85707643ed4fd075f
+
+jobs:
+  merge_identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cd3e3ba39c0e83548748275d08b7a3d0d2e6b15b
+          fetch-depth: 0
+      - name: Verify exact closeout merge identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          mapfile -t parents < <(git show -s --format='%P' HEAD | tr ' ' '\n')
+          test "${#parents[@]}" -eq 2
+          test "${parents[0]}" = "$EXPECTED_PARENT1"
+          test "${parents[1]}" = "$EXPECTED_PARENT2"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+
+  task_frontier:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cd3e3ba39c0e83548748275d08b7a3d0d2e6b15b
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove canonical drift and terminal/downstream frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          if mstr-qualify task eligible B022 > /tmp/b022.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and .authority_result.required == false and (.reasons | index("task.already_terminal")) != null' /tmp/b022.json
+          if mstr-qualify task eligible B023 > /tmp/b023.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "PENDING" and (.reasons | index("prerequisite.unsatisfied:B022")) == null and (.reasons | index("prerequisite.unsatisfied:A006")) != null and (.reasons | index("prerequisite.unsatisfied:A014")) != null' /tmp/b023.json
+          mstr-qualify task eligible B025 > /tmp/b025.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .reasons == []' /tmp/b025.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cd3e3ba39c0e83548748275d08b7a3d0d2e6b15b
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run canonical closeout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_task_gate.py tests/contract/test_verifier_health_contract.py tests/integration/test_task_gate_cli.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [merge_identity, task_frontier, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b022-postcloseout-cd3e3ba
+          fetch-depth: 0
+      - name: Final immutable canonical main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/docs/000b-b022-canonicalize | cut -f1)" = "$EXPECTED_PARENT2"
