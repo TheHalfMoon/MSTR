@@ -1,7 +1,11 @@
 # B028 — Q4 Promotion and Training-Method Preflight Evidence
 
 **Task:** `B028`
-**State:** `IMPLEMENTATION_ACTIVE`
+**Implementation PR:** #90
+**Initial implementation head:** `93f923fecc07b08f4d5f198bfb09209e169957a7`
+**Final implementation head:** `3c9d8624745ad34e1e96d7f150afaccd2f02bc8f`
+**Canonical implementation merge:** `01a070e27098fc3798a87ad57dd62b63fdf8fdee`
+**State:** COMPLETE_CANONICAL
 **Canonical entry main:** `9d5908016b2b8775eaf86dbcebb89683f52e1f90`
 **Entry gate run:** `33250934988`
 **Entry gate job:** `99096373017`
@@ -56,4 +60,24 @@ PRODUCTION_RELEASE = NONE
 B028_AUTHORITY = CONTRACT_AND_PREFLIGHT_ONLY
 ```
 
-B028 is not `COMPLETE_CANONICAL` at implementation time. Canonical completion requires the normal exact-head review/merge and separate closeout lifecycle.
+## Canonical Implementation Closeout
+
+B028's Q4 promotion and training-method tournament preflight is canonically implemented by PR #90. The implementation remained contract/preflight-only throughout the lifecycle and did not execute training, inference, quantization, model-weight access, paid compute, dataset ingestion, or production release.
+
+- implementation PR: `#90`
+- initial implementation head: `93f923fecc07b08f4d5f198bfb09209e169957a7`
+- final implementation head: `3c9d8624745ad34e1e96d7f150afaccd2f02bc8f`
+- canonical implementation merge: `01a070e27098fc3798a87ad57dd62b63fdf8fdee`
+- atomic implementation builder: run `33251352118` — SUCCESS
+- initial exact-head qualification: run `33251458699` — FAILED evidence assertion; not merge-admissible
+- initial exact-head review: review `5058031414` — BLOCKING FINDING RECORDED
+- fail-closed unsupported-status repair: run `33251566205` — SUCCESS
+- repaired exact-head qualification: run `33251670229` — SUCCESS
+- repaired exact-head review: review `5058039887` — NO BLOCKING FINDINGS
+- mandatory pre-merge verification: run `33251763802` — SUCCESS
+- post-merge verification v1: run `33254316346` — FAILED evidence checkout/ref setup after focused/full quality passed; not canonical proof
+- post-merge verification v2: run `33254415417` — SUCCESS
+
+The repaired contract requires `status=UNSUPPORTED` to bind `support_status=UNSUPPORTED`, which in turn requires an exact unsupported reason and support-evidence identity. Generic framework guidance remains insufficient candidate-specific support evidence. All four frozen tournament arms remain `REVALIDATION_REQUIRED` in the preflight manifest, `method_selection=UNSELECTED`, and `execution_status=NOT_EXECUTED`.
+
+This closeout changes only canonical task/provenance state plus terminal-behavior regression assertions. It does not modify the B028 schemas, fixtures, registry wiring, Q4 promotion contract, method-tournament preflight manifest, or runtime semantics, and it grants no external-effect authority.

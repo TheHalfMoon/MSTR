@@ -1234,22 +1234,6 @@ def test_b020_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b014_closeout_preserves_b028_direct_nongated_successor() -> None:
-    result = evaluate_task_snapshot("B028", canonical_main=_CANONICAL_MAIN)
-
-    assert result["eligible"] is True
-    assert result["reasons"] == []
-    assert result["state_consistency_result"]["observed_state"] == "PENDING"
-    assert result["authority_result"]["required"] is False
-    assert result["authority_result"]["satisfied"] is True
-    predecessor = next(item for item in result["prerequisite_results"] if item["task_id"] == "B014")
-    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
-    assert predecessor["evidence_present"] is True
-    assert predecessor["satisfied"] is True
-    assert predecessor["reasons"] == []
-    validate_instance("mstr-task-eligibility-v0", result)
-
-
 def test_b014_closeout_does_not_authorize_b011_weight_access() -> None:
     result = evaluate_task_snapshot("B011", canonical_main=_CANONICAL_MAIN)
 
@@ -1269,15 +1253,6 @@ def test_b021_is_terminal_after_canonical_closeout() -> None:
     assert result["state_consistency_result"]["satisfied"] is True
     assert result["authority_result"]["required"] is False
     assert "task.already_terminal" in result["reasons"]
-    validate_instance("mstr-task-eligibility-v0", result)
-
-
-def test_b021_closeout_preserves_b028_independent_successor() -> None:
-    result = evaluate_task_snapshot("B028", canonical_main=_CANONICAL_MAIN)
-
-    assert result["eligible"] is True
-    assert result["state_consistency_result"]["observed_state"] == "PENDING"
-    assert result["authority_result"]["required"] is False
     validate_instance("mstr-task-eligibility-v0", result)
 
 
@@ -1303,18 +1278,6 @@ def test_b022_closeout_satisfies_only_its_b023_prerequisite() -> None:
     predecessor = next(item for item in result["prerequisite_results"] if item["task_id"] == "B022")
     assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
     assert predecessor["evidence_present"] is True
-    assert predecessor["satisfied"] is True
-    validate_instance("mstr-task-eligibility-v0", result)
-
-
-def test_b022_closeout_preserves_b028_as_machine_eligible_task() -> None:
-    result = evaluate_task_snapshot("B028", canonical_main=_CANONICAL_MAIN)
-
-    assert result["eligible"] is True
-    assert result["reasons"] == []
-    assert result["state_consistency_result"]["observed_state"] == "PENDING"
-    predecessor = next(item for item in result["prerequisite_results"] if item["task_id"] == "B022")
-    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
     assert predecessor["satisfied"] is True
     validate_instance("mstr-task-eligibility-v0", result)
 
@@ -1347,10 +1310,22 @@ def test_b025_closeout_satisfies_only_its_b026_prerequisite() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b025_closeout_preserves_b028_machine_eligibility() -> None:
+def test_b028_is_terminal_after_canonical_closeout() -> None:
     result = evaluate_task_snapshot("B028", canonical_main=_CANONICAL_MAIN)
 
-    assert result["eligible"] is True
-    assert result["reasons"] == []
-    assert result["state_consistency_result"]["observed_state"] == "PENDING"
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert result["authority_result"]["required"] is False
+    assert "task.already_terminal" in result["reasons"]
+    assert {item["task_id"] for item in result["prerequisite_results"]} == {
+        "B009",
+        "B014",
+        "B022",
+    }
+    assert all(
+        item["observed_state"] == "COMPLETE_CANONICAL" for item in result["prerequisite_results"]
+    )
+    assert all(item["evidence_present"] is True for item in result["prerequisite_results"])
+    assert all(item["satisfied"] is True for item in result["prerequisite_results"])
     validate_instance("mstr-task-eligibility-v0", result)
