@@ -109,6 +109,25 @@ def test_latest_required_non_pass_fails_closed(status: str) -> None:
     assert excinfo.value.code == "finalizer.required_verifier_not_pass"
 
 
+def test_malformed_unhashable_verifier_status_fails_closed() -> None:
+    events = _base()
+    _event(
+        events,
+        "verifier.result",
+        {
+            "verifier_id": "tests",
+            "status": {},
+            "result_identity": "malformed-status",
+        },
+        source="verifier",
+    )
+
+    with pytest.raises(FinalizerError) as excinfo:
+        finalize_run(events, required_verifier_ids=["tests"])
+
+    assert excinfo.value.code == "finalizer.verifier_status_invalid"
+
+
 def test_missing_required_verifier_fails_closed() -> None:
     events = _base()
     _verifier(events, "lint", "PASS", "lint-pass")
