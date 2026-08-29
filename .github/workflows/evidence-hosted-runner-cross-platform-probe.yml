@@ -1,0 +1,29 @@
+name: Hosted runner cross-platform probe
+
+on:
+  push:
+    branches:
+      - evidence/hosted-runner-cross-platform-probe
+
+permissions:
+  contents: read
+
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prove Ubuntu runner started
+        run: echo ubuntu-runner-started
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Prove Windows runner started
+        shell: pwsh
+        run: Write-Output 'windows-runner-started'
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - name: Prove macOS runner started
+        run: echo macos-runner-started
