@@ -119,6 +119,34 @@ def test_b025_rejected_or_experimental_records_require_reasons() -> None:
         validate_instance("mstr-greenfield-task-v0", value)
 
 
+@pytest.mark.parametrize(
+    ("method", "valid_kind", "invalid_kind"),
+    [
+        ("FEATURE_TREE_SYNTHESIS", "FEATURE_TREE", "SEMANTIC_COMPLEXITY"),
+        ("SEMANTIC_SYNTHESIS", "SEMANTIC_COMPLEXITY", "FEATURE_TREE"),
+    ],
+)
+def test_b025_synthesis_method_binds_generator_kind(
+    method: str, valid_kind: str, invalid_kind: str
+) -> None:
+    value = fixture()
+    value["generation_method"] = method
+    value["provenance"]["source_class"] = "SYNTHETIC_VERIFIED"
+    value["provenance"]["generator_identity"] = "generator:v1"
+    value["synthesis_evidence"] = {
+        "generator_kind": valid_kind,
+        "generator_identity": "generator:v1",
+        "generator_revision": "revision:1",
+        "proposal_only": True,
+        "independent_verification_status": "VERIFIED",
+        "independent_verifier_identity": "verifier:independent-v1",
+        "verification_evidence_identity": "evidence:verification-v1",
+    }
+    validate_instance("mstr-greenfield-task-v0", value)
+    value["synthesis_evidence"]["generator_kind"] = invalid_kind
+    assert validation_errors("mstr-greenfield-task-v0", value)
+
+
 def test_b025_schema_has_no_remote_reference() -> None:
     schema = json.loads(
         (ROOT / "schemas/mstr-greenfield-task-v0.schema.json").read_text(encoding="utf-8")

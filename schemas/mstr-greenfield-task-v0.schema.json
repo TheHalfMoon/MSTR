@@ -377,6 +377,58 @@
       }
     },
     {
+      "if": {
+        "properties": {
+          "generation_method": {
+            "const": "FEATURE_TREE_SYNTHESIS"
+          }
+        },
+        "required": [
+          "generation_method"
+        ]
+      },
+      "then": {
+        "properties": {
+          "synthesis_evidence": {
+            "properties": {
+              "generator_kind": {
+                "const": "FEATURE_TREE"
+              }
+            },
+            "required": [
+              "generator_kind"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "generation_method": {
+            "const": "SEMANTIC_SYNTHESIS"
+          }
+        },
+        "required": [
+          "generation_method"
+        ]
+      },
+      "then": {
+        "properties": {
+          "synthesis_evidence": {
+            "properties": {
+              "generator_kind": {
+                "const": "SEMANTIC_COMPLEXITY"
+              }
+            },
+            "required": [
+              "generator_kind"
+            ]
+          }
+        }
+      }
+    },
+    {
       "else": {
         "properties": {
           "admission_reasons": {
