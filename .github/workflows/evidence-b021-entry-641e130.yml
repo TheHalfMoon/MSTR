@@ -1,0 +1,53 @@
+name: Prove B021 entry gate
+
+on:
+  push:
+    branches:
+      - evidence/b021-entry-641e130
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: 641e13033b00451ea4b81063640e4066a8c7389d
+
+jobs:
+  entry_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 641e13033b00451ea4b81063640e4066a8c7389d
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove exact B021 eligibility and clean baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          mstr-qualify task eligible B021 > /tmp/b021.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true' /tmp/b021.json
+          jq -e '[.prerequisite_results[] | select(.task_id == "B020" and .observed_state == "COMPLETE_CANONICAL" and .evidence_present == true and .satisfied == true)] | length == 1' /tmp/b021.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo "ENTRY_GATE_TASK=B021"
+          echo "ENTRY_GATE_CANONICAL_MAIN=$EXPECTED_MAIN"
+          echo "ENTRY_GATE_ELIGIBLE=true"
+          echo "ENTRY_GATE_DRIFT=clean"
+          echo "B021_EXTERNAL_AUTHORITY_REQUIRED=false"
+          echo "B021_FIXTURE_ONLY=true"
+          echo "MODEL_EXECUTION=NONE"
+          echo "WEIGHT_CHANGING_TRAINING=NONE"
