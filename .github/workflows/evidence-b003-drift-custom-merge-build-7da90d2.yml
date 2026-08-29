@@ -1,0 +1,143 @@
+name: Build B003 custom merge proof repair atomically
+
+on:
+  push:
+    branches:
+      - evidence/b003-drift-custom-merge-build-7da90d2
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: 7da90d2d9cb16a8ebd6c5ede390139831370e861
+  TARGET_BRANCH: fix/b003-drift-custom-merge-proof
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b003-drift-custom-merge-build-7da90d2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove immutable maintenance-repair entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/pre-repair-drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/pre-repair-drift.json
+          if mstr-qualify task eligible B003 > /tmp/b003.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b003.json
+          echo 'MAINTENANCE_REPAIR=true'
+          echo 'TASK_STATE_MUTATION=NONE'
+          echo 'EXTERNAL_EFFECT=NONE'
+      - name: Materialize exact four-file repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          drift = Path('src/mstr_qualify/task_drift.py')
+          text = drift.read_text(encoding='utf-8')
+          old = '''def _unique_value(\n'''
+          helper = '''def _merge_has_exact_second_parent(root: Path, merge_sha: str, final_head: str) -> bool:\n    """Return whether a recorded merge is a two-parent merge with exact head as parent two."""\n\n    completed = _git(\n        root,\n        "rev-list",\n        "--parents",\n        "-n",\n        "1",\n        merge_sha,\n        code="task_drift.merge_parents",\n    )\n    if completed.returncode != 0:\n        return False\n    parts = completed.stdout.strip().lower().split()\n    return len(parts) == 3 and parts[0] == merge_sha and parts[2] == final_head\n\n\n'''
+          if text.count(old) != 1:
+              raise SystemExit('task_drift helper insertion anchor mismatch')
+          text = text.replace(old, helper + old, 1)
+
+          old = '''    history_merges: tuple[str, ...] = ()\n    if evidence_pr is not None:\n        history_merges = merge_history.get(int(evidence_pr), ())\n        if not history_merges:\n            findings.append(\n                _finding(\n                    task_id,\n                    "git.pr_merge_unverifiable",\n                    pr_number=evidence_pr,\n                )\n            )\n        if len(history_merges) > 1:\n            findings.append(\n                _finding(\n                    task_id,\n                    "git.pr_merge_ambiguous",\n                    pr_number=evidence_pr,\n                    merges=list(history_merges),\n                )\n            )\n        if history_merges and not terminal:\n            findings.append(\n                _finding(\n                    task_id,\n                    "implementation.merged_while_active",\n                    pr_number=evidence_pr,\n                    merge_sha=history_merges[0],\n                    canonical_state=node["canonical_state"],\n                )\n            )\n'''
+          new = '''    recorded_topology_merge = False\n    if evidence_pr is not None and implementation is not None:\n        recorded_identity_matches = (\n            int(evidence_pr) == implementation.pr_number\n            and evidence_head == implementation.final_head\n            and evidence_merge == implementation.merge_sha\n        )\n        if recorded_identity_matches:\n            recorded_topology_merge = _merge_has_exact_second_parent(\n                root, implementation.merge_sha, implementation.final_head\n            )\n\n    history_merges: tuple[str, ...] = ()\n    if evidence_pr is not None:\n        history_merges = merge_history.get(int(evidence_pr), ())\n        if not history_merges and not recorded_topology_merge:\n            findings.append(\n                _finding(\n                    task_id,\n                    "git.pr_merge_unverifiable",\n                    pr_number=evidence_pr,\n                )\n            )\n        if len(history_merges) > 1:\n            findings.append(\n                _finding(\n                    task_id,\n                    "git.pr_merge_ambiguous",\n                    pr_number=evidence_pr,\n                    merges=list(history_merges),\n                )\n            )\n        if (history_merges or recorded_topology_merge) and not terminal:\n            observed_merge = (\n                history_merges[0]\n                if history_merges\n                else implementation.merge_sha if implementation is not None else None\n            )\n            findings.append(\n                _finding(\n                    task_id,\n                    "implementation.merged_while_active",\n                    pr_number=evidence_pr,\n                    merge_sha=observed_merge,\n                    canonical_state=node["canonical_state"],\n                )\n            )\n'''
+          if text.count(old) != 1:
+              raise SystemExit('task_drift history block anchor mismatch')
+          drift.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          test_file = Path('tests/unit/test_task_drift.py')
+          text = test_file.read_text(encoding='utf-8')
+          old = '''    elif merge_style == "squash":\n        _git(root, "merge", "--squash", "impl-b003")\n        _git(root, "commit", "-m", "implement B003 fixture (#3)")\n    elif merge_style == "rebase":\n'''
+          new = '''    elif merge_style == "squash":\n        _git(root, "merge", "--squash", "impl-b003")\n        _git(root, "commit", "-m", "implement B003 fixture (#3)")\n    elif merge_style == "custom_merge":\n        _git(\n            root,\n            "merge",\n            "--no-ff",\n            "impl-b003",\n            "-m",\n            "custom guarded merge without PR suffix",\n        )\n    elif merge_style == "rebase":\n'''
+          if text.count(old) != 1:
+              raise SystemExit('test merge_style anchor mismatch')
+          text = text.replace(old, new, 1)
+          old = '''    elif name == "rebase_implementation_merge_unverifiable":\n        _merge_b003_implementation(root, include_gate=True, merge_style="rebase")\n    elif name == "terminal_missing_identity_field":\n'''
+          new = '''    elif name == "rebase_implementation_merge_unverifiable":\n        _merge_b003_implementation(root, include_gate=True, merge_style="rebase")\n    elif name in {"valid_terminal_custom_subject", "custom_subject_wrong_recorded_head"}:\n        gate_main, final_head, merge_sha = _merge_b003_implementation(\n            root, include_gate=True, merge_style="custom_merge"\n        )\n        _close_b003(\n            root,\n            gate_main=gate_main,\n            final_head=(\n                final_head if name == "valid_terminal_custom_subject" else gate_main\n            ),\n            merge_sha=merge_sha,\n        )\n    elif name == "terminal_missing_identity_field":\n'''
+          if text.count(old) != 1:
+              raise SystemExit('test case insertion anchor mismatch')
+          test_file.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          fixture = Path('tests/fixtures/task_drift_cases.json')
+          data = json.loads(fixture.read_text(encoding='utf-8'))
+          names = [case['name'] for case in data['cases']]
+          if 'valid_terminal_custom_subject' in names or 'custom_subject_wrong_recorded_head' in names:
+              raise SystemExit('repair fixture cases already present')
+          insert_at = names.index('rebase_implementation_merge_unverifiable') + 1
+          data['cases'][insert_at:insert_at] = [
+              {'name': 'valid_terminal_custom_subject', 'expected_codes': []},
+              {
+                  'name': 'custom_subject_wrong_recorded_head',
+                  'expected_codes': ['git.pr_merge_unverifiable'],
+              },
+          ]
+          fixture.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+
+          evidence = Path('evidence/mstr-000b/B003-drift-custom-merge-proof-repair.md')
+          evidence.write_text('''# B003 Drift Detector Custom-Merge Proof Repair\n\n**State:** MAINTENANCE_REPAIR_CANDIDATE\n**Canonical base:** `7da90d2d9cb16a8ebd6c5ede390139831370e861`\n\n## Defect evidence\n\nB025 closeout diagnostic run `33249421768` proved that a genuine GitHub two-parent guarded merge can be rejected as `git.pr_merge_unverifiable` when the merge commit subject omits the pull-request number, even though canonical task/evidence identities bind the exact PR, final head, and merge SHA.\n\nThe detector already verifies commit existence, final-head ancestry, recorded identity equality, and merge presence on canonical main. The missing local proof was exact merge topology for custom-subject merge commits.\n\n## Repair boundary\n\nThe fallback is fail-closed and applies only when all recorded task/evidence identities agree and the recorded merge is exactly a two-parent merge whose second parent equals the recorded final implementation head. Subject-based PR discovery remains authoritative when present. Squash subjects containing `(#PR)` continue through the existing path. Rebase/cherry-pick history without PR-bearing subject or exact second-parent merge topology remains unverifiable.\n\nRegression coverage proves both a valid custom-subject two-parent merge and a falsified recorded final head that is merely an ancestor rather than exact parent two.\n\n```text\nTASK_STATE_MUTATION = NONE\nMODEL_EXECUTION = NONE\nMODEL_WEIGHT_ACCESS = NONE\nWEIGHT_CHANGING_TRAINING = NONE\nPAID_COMPUTE = NONE\nNETWORK_MODEL_OR_TEACHER_CALL = NONE\nPRODUCTION_RELEASE = NONE\n```\n''', encoding='utf-8')
+          PY
+          ruff format src/mstr_qualify/task_drift.py tests/unit/test_task_drift.py
+          git add -N evidence/mstr-000b/B003-drift-custom-merge-proof-repair.md
+          git diff --check
+          mapfile -t actual < <(git diff --name-only | sort)
+          expected=(
+            evidence/mstr-000b/B003-drift-custom-merge-proof-repair.md
+            src/mstr_qualify/task_drift.py
+            tests/fixtures/task_drift_cases.json
+            tests/unit/test_task_drift.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 4
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          test -z "$(git diff --name-only -- configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md .specify/memory/constitution.md AGENTS.md)"
+      - name: Run repair qualification before push
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/unit/test_task_drift.py tests/integration/test_task_drift_cli.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+      - name: Commit repair, prove canonical drift clean, and fast-forward target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add evidence/mstr-000b/B003-drift-custom-merge-proof-repair.md src/mstr_qualify/task_drift.py tests/fixtures/task_drift_cases.json tests/unit/test_task_drift.py
+          git commit -m "fix(mstr-000b): verify custom merge topology"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-list --count "$EXPECTED_MAIN"..HEAD)" -eq 1
+          git update-ref refs/heads/main HEAD
+          git update-ref refs/remotes/origin/main HEAD
+          mstr-qualify task drift > /tmp/post-repair-drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/post-repair-drift.json
+          if mstr-qualify task eligible B003 > /tmp/b003.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b003.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "B003_REPAIR_HEAD=$(git rev-parse HEAD)"
+          echo "B003_REPAIR_TREE=$(git rev-parse HEAD^{tree})"
+          echo "B003_REPAIR_FILES=4"
