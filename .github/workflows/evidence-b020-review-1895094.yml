@@ -1,0 +1,96 @@
+name: Independently review exact hardened B020 candidate
+
+on:
+  push:
+    branches:
+      - evidence/b020-review-1895094
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: ef90e96ba3d4e2c253987d1d104e0de26ce93529
+  EXPECTED_HEAD: 189509470eae10f1080938b0b2b873f375842f35
+  PR_NUMBER: '81'
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 189509470eae10f1080938b0b2b873f375842f35
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Independent deterministic and adversarial review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
+          test "$(jq -r '.state' <<<"$pr")" = "open"
+          test "$(jq -r '.draft' <<<"$pr")" = "false"
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$EXPECTED_HEAD"
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_difficulty_calibration_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          python - <<'PY'
+          import copy
+          import json
+          import math
+          from pathlib import Path
+          from mstr_qualify.schemas import validation_errors
+
+          root = Path('.')
+          valid = json.loads((root / 'tests/fixtures/schemas/valid/mstr-difficulty-calibration-v0.json').read_text())
+          def errs(value):
+              return validation_errors('mstr-difficulty-calibration-v0', value)
+
+          for cls in ('TOO_EASY','LEARNABLE_FRONTIER','HARD_FRONTIER','CURRENTLY_UNPRODUCTIVE','INVALID'):
+              value = copy.deepcopy(valid)
+              value['difficulty_class'] = cls
+              value['estimated_solve_probability'] = 0.5
+              assert not errs(value), (cls, errs(value))
+
+          for non_finite in (math.nan, math.inf, -math.inf):
+              value = copy.deepcopy(valid)
+              value['estimated_solve_probability'] = non_finite
+              assert any('must be finite' in e for e in errs(value))
+              value = copy.deepcopy(valid)
+              value['structural_features']['numeric_probe'] = non_finite
+              assert any('numeric value must be finite' in e for e in errs(value))
+
+          value = copy.deepcopy(valid)
+          value['harness_profile_id'] = 'mismatch'
+          assert any('harness_profile_id' in e and 'must match' in e for e in errs(value))
+          value = copy.deepcopy(valid)
+          value['sampling_identity'] = 'mismatch'
+          assert any('sampling_identity' in e and 'must match' in e for e in errs(value))
+          value = copy.deepcopy(valid)
+          value['success_count'] = value['attempt_count'] + 1
+          assert any('cannot exceed attempt_count' in e for e in errs(value))
+          PY
+          evidence=evidence/mstr-000b/B020-difficulty-contract.md
+          grep -Fx 'ENTRY_GATE_TASK = B020' "$evidence"
+          grep -Fx 'ENTRY_GATE_CANONICAL_MAIN = ef90e96ba3d4e2c253987d1d104e0de26ce93529' "$evidence"
+          grep -Fx 'ENTRY_GATE_RUN = 33198484632' "$evidence"
+          grep -Fx 'ENTRY_GATE_JOB = 98941644785' "$evidence"
+          grep -Fx 'ENTRY_GATE_ELIGIBLE = true' "$evidence"
+          grep -Fx 'ENTRY_GATE_DRIFT = clean' "$evidence"
+          grep -Fx 'MODEL_EXECUTION = NONE' "$evidence"
+          grep -Fx 'WEIGHT_CHANGING_TRAINING = NONE' "$evidence"
+          grep -Fx 'B020_CALIBRATION_EXECUTION = NONE' "$evidence"
+          grep -Fx 'B021_FRONTIER_SAMPLER_EXECUTION = NONE' "$evidence"
+          cmp schemas/mstr-difficulty-calibration-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-difficulty-calibration-v0.schema.json
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/feat/000b-b020-difficulty-calibration-contract | cut -f1)" = "$EXPECTED_HEAD"
