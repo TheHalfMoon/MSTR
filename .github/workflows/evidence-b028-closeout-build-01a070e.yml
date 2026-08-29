@@ -1,0 +1,213 @@
+name: Build B028 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/b028-closeout-build-01a070e
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: 01a070e27098fc3798a87ad57dd62b63fdf8fdee
+  TARGET_BRANCH: docs/000b-b028-canonicalize
+  FINAL_HEAD: 3c9d8624745ad34e1e96d7f150afaccd2f02bc8f
+  IMPLEMENTATION_MERGE: 01a070e27098fc3798a87ad57dd62b63fdf8fdee
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b028-closeout-build-01a070e
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove immutable B028 closeout entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/entry-drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/entry-drift.json
+          mstr-qualify task eligible B028 > /tmp/b028-entry.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .reasons == []' /tmp/b028-entry.json
+      - name: Materialize exact four-file B028 closeout candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          config_path = Path("configs/task-gate/mstr-000b.json")
+          config = json.loads(config_path.read_text(encoding="utf-8"))
+          node = config["tasks"]["B028"]
+          if node["canonical_state"] != "PENDING":
+              raise SystemExit(f"unexpected B028 state: {node['canonical_state']}")
+          node["canonical_state"] = "COMPLETE_CANONICAL"
+          config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+
+          tasks_path = Path("specs/002-code-model-supremacy-foundation/tasks.md")
+          tasks = tasks_path.read_text(encoding="utf-8")
+          marker = "- [ ] **B028 Freeze Q4-in-the-loop promotion contract and training-method tournament preflight.**"
+          if tasks.count(marker) != 1:
+              raise SystemExit("expected one pending B028 task marker")
+          tasks = tasks.replace(marker, marker.replace("[ ]", "[x]"), 1)
+          pattern = re.compile(r"(- \[x\] \*\*B028 Freeze Q4-in-the-loop promotion contract and training-method tournament preflight\.\*\*.*?)(?=\n- \[[ x]\] \*\*B029)", re.S)
+          match = pattern.search(tasks)
+          if not match:
+              raise SystemExit("B028 task block not found")
+          block = match.group(1).rstrip()
+          if "Canonical implementation: PR #90" in block:
+              raise SystemExit("B028 canonical implementation already recorded")
+          block += "\n  Canonical implementation: PR #90 / final head `3c9d8624745ad34e1e96d7f150afaccd2f02bc8f` / merge `01a070e27098fc3798a87ad57dd62b63fdf8fdee`.\n"
+          tasks = tasks[:match.start()] + block + tasks[match.end():]
+          tasks_path.write_text(tasks, encoding="utf-8")
+
+          evidence_path = Path("evidence/mstr-000b/B028-training-methods.md")
+          evidence = evidence_path.read_text(encoding="utf-8")
+          if "**State:** `IMPLEMENTATION_ACTIVE`" not in evidence:
+              raise SystemExit("unexpected B028 evidence state")
+          evidence = evidence.replace("**State:** `IMPLEMENTATION_ACTIVE`", "**State:** COMPLETE_CANONICAL", 1)
+          task_line = "**Task:** `B028`\n"
+          metadata = (
+              "**Task:** `B028`\n"
+              "**Implementation PR:** #90\n"
+              "**Initial implementation head:** `93f923fecc07b08f4d5f198bfb09209e169957a7`\n"
+              "**Final implementation head:** `3c9d8624745ad34e1e96d7f150afaccd2f02bc8f`\n"
+              "**Canonical implementation merge:** `01a070e27098fc3798a87ad57dd62b63fdf8fdee`\n"
+          )
+          if evidence.count(task_line) != 1:
+              raise SystemExit("unexpected B028 task metadata marker")
+          evidence = evidence.replace(task_line, metadata, 1)
+          old_tail = "B028 is not `COMPLETE_CANONICAL` at implementation time. Canonical completion requires the normal exact-head review/merge and separate closeout lifecycle."
+          if old_tail not in evidence:
+              raise SystemExit("B028 implementation-active tail not found")
+          closeout = '''## Canonical Implementation Closeout
+
+B028's Q4 promotion and training-method tournament preflight is now canonically implemented by PR #90. The implementation remained contract/preflight-only throughout the lifecycle and did not execute training, inference, quantization, model-weight access, paid compute, dataset ingestion, or production release.
+
+- implementation PR: `#90`
+- initial implementation head: `93f923fecc07b08f4d5f198bfb09209e169957a7`
+- final implementation head: `3c9d8624745ad34e1e96d7f150afaccd2f02bc8f`
+- canonical implementation merge: `01a070e27098fc3798a87ad57dd62b63fdf8fdee`
+- atomic implementation builder: run `33251352118` — SUCCESS
+- initial exact-head qualification: run `33251458699` — FAILED evidence assertion; not merge-admissible
+- initial exact-head review: review `5058031414` — BLOCKING FINDING RECORDED
+- fail-closed unsupported-status repair: run `33251566205` — SUCCESS
+- repaired exact-head qualification: run `33251670229` — SUCCESS
+- repaired exact-head review: review `5058039887` — NO BLOCKING FINDINGS
+- mandatory pre-merge verification: run `33251763802` — SUCCESS
+- post-merge verification v1: run `33254316346` — FAILED evidence checkout/ref setup after focused/full quality passed; not canonical proof
+- post-merge verification v2: run `33254415417` — SUCCESS
+
+The repaired contract requires `status=UNSUPPORTED` to bind `support_status=UNSUPPORTED`, which in turn requires an exact unsupported reason and support-evidence identity. Generic framework guidance remains insufficient candidate-specific support evidence. All four frozen tournament arms remain `REVALIDATION_REQUIRED` in the preflight manifest, `method_selection=UNSELECTED`, and `execution_status=NOT_EXECUTED`.
+
+This closeout changes only canonical task/provenance state plus terminal-behavior regression assertions. It does not modify the B028 schemas, fixtures, registry wiring, Q4 promotion contract, method-tournament preflight manifest, or runtime semantics, and it grants no external-effect authority.
+'''
+          evidence = evidence.replace(old_tail, closeout.rstrip(), 1)
+          evidence_path.write_text(evidence.rstrip() + "\n", encoding="utf-8")
+
+          tests_path = Path("tests/contract/test_task_gate.py")
+          tests = tests_path.read_text(encoding="utf-8")
+          delete_specs = [
+              ("test_b014_closeout_preserves_b028_direct_nongated_successor", "test_b014_closeout_does_not_authorize_b011_weight_access"),
+              ("test_b021_closeout_preserves_b028_independent_successor", "test_b022_is_terminal_after_canonical_closeout"),
+              ("test_b022_closeout_preserves_b028_as_machine_eligible_task", "test_b025_is_terminal_after_canonical_closeout"),
+          ]
+          for current, following in delete_specs:
+              pattern = re.compile(rf"\n\ndef {current}\(\) -> None:.*?(?=\n\ndef {following}\(\) -> None:)", re.S)
+              tests, count = pattern.subn("", tests, count=1)
+              if count != 1:
+                  raise SystemExit(f"failed to remove obsolete B028 eligibility test: {current}")
+          pattern = re.compile(r"\n\ndef test_b025_closeout_preserves_b028_machine_eligibility\(\) -> None:.*\Z", re.S)
+          replacement = '''
+
+
+def test_b028_is_terminal_after_canonical_closeout() -> None:
+    result = evaluate_task_snapshot("B028", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert result["authority_result"]["required"] is False
+    assert "task.already_terminal" in result["reasons"]
+    assert {item["task_id"] for item in result["prerequisite_results"]} == {"B009", "B014", "B022"}
+    assert all(item["observed_state"] == "COMPLETE_CANONICAL" for item in result["prerequisite_results"])
+    assert all(item["evidence_present"] is True for item in result["prerequisite_results"])
+    assert all(item["satisfied"] is True for item in result["prerequisite_results"])
+    validate_instance("mstr-task-eligibility-v0", result)
+'''
+          tests, count = pattern.subn(replacement.rstrip() + "\n", tests, count=1)
+          if count != 1:
+              raise SystemExit("failed to replace final B028 eligibility test")
+          tests_path.write_text(tests, encoding="utf-8")
+          PY
+          ruff format tests/contract/test_task_gate.py
+          git diff --check
+          mapfile -t actual < <(git diff --name-only | sort)
+          expected=(
+            configs/task-gate/mstr-000b.json
+            evidence/mstr-000b/B028-training-methods.md
+            specs/002-code-model-supremacy-foundation/tasks.md
+            tests/contract/test_task_gate.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 4
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          test -z "$(git diff --name-only -- schemas specs/002-code-model-supremacy-foundation/contracts tests/fixtures src artifacts/manifests/B028-method-tournament-preflight.json docs/training/Q4_PROMOTION_CONTRACT.md)"
+          grep -F '**State:** COMPLETE_CANONICAL' evidence/mstr-000b/B028-training-methods.md
+          grep -F '**Implementation PR:** #90' evidence/mstr-000b/B028-training-methods.md
+          grep -F '**Final implementation head:** `3c9d8624745ad34e1e96d7f150afaccd2f02bc8f`' evidence/mstr-000b/B028-training-methods.md
+          grep -F '**Canonical implementation merge:** `01a070e27098fc3798a87ad57dd62b63fdf8fdee`' evidence/mstr-000b/B028-training-methods.md
+          test "$(grep -c 'evaluate_task_snapshot("B028"' tests/contract/test_task_gate.py)" -eq 1
+      - name: Run B028 closeout and canonical quality gates before push
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_task_gate.py tests/contract/test_training_promotion_contract.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+      - name: Commit, prove clean prospective semantics, and fast-forward target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add configs/task-gate/mstr-000b.json evidence/mstr-000b/B028-training-methods.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_task_gate.py
+          git commit -m "docs(mstr-000b): canonicalize B028 closeout"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-list --count "$EXPECTED_MAIN"..HEAD)" -eq 1
+          git update-ref refs/heads/main HEAD
+          git update-ref refs/remotes/origin/main HEAD
+          mstr-qualify task drift > /tmp/prospective-drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/prospective-drift.json
+          if mstr-qualify task eligible B028 > /tmp/b028.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b028.json
+          if mstr-qualify task eligible B023 > /tmp/b023.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '(.reasons | index("prerequisite.unsatisfied:A006")) != null and (.reasons | index("prerequisite.unsatisfied:A014")) != null' /tmp/b023.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.satisfied == false' /tmp/b011.json
+          if mstr-qualify task eligible B029 > /tmp/b029.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED"' /tmp/b029.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "B028_CLOSEOUT_HEAD=$(git rev-parse HEAD)"
+          echo "B028_CLOSEOUT_TREE=$(git rev-parse HEAD^{tree})"
+          echo "B028_CLOSEOUT_FILES=4"
+          echo "B028_RUNTIME_CONTRACT_MUTATION=NONE"
