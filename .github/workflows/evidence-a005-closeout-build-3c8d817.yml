@@ -1,0 +1,88 @@
+name: Build A005 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/a005-closeout-build-3c8d817
+
+permissions:
+  contents: write
+
+env:
+  CANONICAL_MAIN: 3c8d817d27948bffefaacc589eb10ec2733ecbd4
+  TARGET_BRANCH: docs/000a-a005-canonicalize
+  EXPECTED_TARGET_BEFORE: d15927ad56dbf2e201b080542a6f8da016d5d6ba
+
+jobs:
+  build_closeout:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/000a-a005-canonicalize
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify entry refs and materialize exact two-file closeout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_BEFORE"
+          test "$(git rev-parse HEAD^)" = "$CANONICAL_MAIN"
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("specs/001-agent-harness-verified-loop-foundation/tasks.md")
+          text = path.read_text()
+          old = """- [ ] **A005 Implement `MSTR-BUILD-LOOP-v0` bounded state graph.**  \n  Conceptual states: ORIENT, GOAL, LOCALIZE, PLAN, ACT, OBSERVE, VERIFY, RECOVER, STOP. The graph MUST support a trivial-task fast path and MUST NOT force every task through every conceptual state. Builder cannot directly emit canonical success.  \n  Outputs: loop implementation, state-machine tests, `evidence/mstr-000a/A005-build-loop.md`.\n"""
+          new = """- [x] **A005 Implement `MSTR-BUILD-LOOP-v0` bounded state graph.**\n  Conceptual states: ORIENT, GOAL, LOCALIZE, PLAN, ACT, OBSERVE, VERIFY, RECOVER, STOP. The graph MUST support a trivial-task fast path and MUST NOT force every task through every conceptual state. Builder cannot directly emit canonical success.\n  Outputs: loop implementation, state-machine tests, `evidence/mstr-000a/A005-build-loop.md`.\n  Canonical implementation: PR #92 / final head `a157c2f359a2c9eb600fed787cd7d1f23fa10eff` / merge `3c8d817d27948bffefaacc589eb10ec2733ecbd4`.\n"""
+          if text.count(old) != 1:
+              raise SystemExit("exact A005 task stanza not found exactly once")
+          path.write_text(text.replace(old, new))
+          PY
+          git diff --check
+          mapfile -t actual < <(git diff --name-only "$CANONICAL_MAIN" HEAD | sort)
+          test "${#actual[@]}" -eq 1
+          test "${actual[0]}" = "evidence/mstr-000a/A005-build-loop.md"
+          mapfile -t working < <(git status --porcelain=v1 --untracked-files=all | sed -E 's/^...//' | sort)
+          test "${#working[@]}" -eq 1
+          test "${working[0]}" = "specs/001-agent-harness-verified-loop-foundation/tasks.md"
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add specs/001-agent-harness-verified-loop-foundation/tasks.md
+          git commit -m "docs(mstr-000a): mark A005 canonical"
+      - name: Run prospective closeout quality and state proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/test_build_loop.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          mapfile -t actual < <(git diff --name-only "$CANONICAL_MAIN" HEAD | sort)
+          expected=(
+            evidence/mstr-000a/A005-build-loop.md
+            specs/001-agent-harness-verified-loop-foundation/tasks.md
+          )
+          diff -u <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${actual[@]}" | sort)
+          grep -Fq -- '- [x] **A005 Implement `MSTR-BUILD-LOOP-v0` bounded state graph.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -Fq '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A005-build-loop.md
+          grep -Fq -- '- [ ] **A006 Implement protected finalizer / verifier boundary.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          test -z "$(git diff --name-only "$CANONICAL_MAIN" HEAD -- src schemas tests AGENTS.md .specify/memory/constitution.md configs/task-gate)"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+      - name: Push exact closeout candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:$TARGET_BRANCH
+          head="$(git rev-parse HEAD)"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$head"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          echo "A005_CLOSEOUT_HEAD=$head"
+          echo "A005_CLOSEOUT_TREE=$(git rev-parse HEAD^{tree})"
+          echo "A005_CLOSEOUT_FILES=2"
+          echo "EXTERNAL_EFFECT=NONE"
