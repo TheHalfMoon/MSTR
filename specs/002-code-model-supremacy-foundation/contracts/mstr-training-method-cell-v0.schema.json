@@ -364,6 +364,25 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "UNSUPPORTED"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "support_status": {
+            "const": "UNSUPPORTED"
+          }
+        }
+      }
     }
   ]
 }

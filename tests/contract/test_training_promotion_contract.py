@@ -60,6 +60,16 @@ def test_unsupported_method_requires_exact_reason_and_terminal_status() -> None:
     assert validation_errors("mstr-training-method-cell-v0", value)
 
 
+def test_unsupported_status_requires_unsupported_support_and_exact_reason() -> None:
+    value = _fixture("valid", "mstr-training-method-cell-v0")
+    value["status"] = "UNSUPPORTED"
+    assert validation_errors("mstr-training-method-cell-v0", value)
+
+    value["support_status"] = "UNSUPPORTED"
+    value["unsupported_reason"] = "exact fixture incompatibility"
+    validate_instance("mstr-training-method-cell-v0", value)
+
+
 def test_execution_ready_requires_candidate_specific_support() -> None:
     value = _fixture("valid", "mstr-training-method-cell-v0")
     value["status"] = "READY_FOR_AUTHORIZED_EXECUTION"
