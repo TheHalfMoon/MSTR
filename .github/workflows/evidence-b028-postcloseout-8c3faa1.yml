@@ -1,0 +1,117 @@
+name: Verify B028 canonical post-closeout
+
+on:
+  push:
+    branches:
+      - evidence/b028-postcloseout-8c3faa1
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  MERGE_SHA: 8c3faa1d66409cd44cd39040380ed326175b6b34
+  BASE_SHA: 01a070e27098fc3798a87ad57dd62b63fdf8fdee
+  CLOSEOUT_HEAD: a5084cb2b5109751b33fa3c1c8f49f2354954b40
+  EXPECTED_TREE: cbb70ddbe93db7350f310ecd7e4035fce4830ba6
+
+jobs:
+  merge_identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prove exact closeout merge identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main docs/000b-b028-canonicalize
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          test "$(git rev-parse "$MERGE_SHA^1")" = "$BASE_SHA"
+          test "$(git rev-parse "$MERGE_SHA^2")" = "$CLOSEOUT_HEAD"
+          test "$(git rev-parse "$MERGE_SHA^{tree}")" = "$EXPECTED_TREE"
+          gh api repos/${GITHUB_REPOSITORY}/pulls/91 | jq -e --arg merge "$MERGE_SHA" --arg head "$CLOSEOUT_HEAD" --arg base "$BASE_SHA" '.merged == true and .merge_commit_sha == $merge and .head.sha == $head and .base.sha == $base'
+
+  canonical_quality_frontier:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8c3faa1d66409cd44cd39040380ed326175b6b34
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove canonical quality, clean drift, terminal B028, and frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_task_gate.py tests/contract/test_training_promotion_contract.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          git update-ref refs/heads/main "$MERGE_SHA"
+          git update-ref refs/remotes/origin/main "$MERGE_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          if mstr-qualify task eligible B028 > /tmp/b028.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null and .authority_result.required == false' /tmp/b028.json
+          if mstr-qualify task eligible B023 > /tmp/b023.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '(.reasons | index("prerequisite.unsatisfied:A006")) != null and (.reasons | index("prerequisite.unsatisfied:A014")) != null' /tmp/b023.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false and .authority_result.authority_id == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"' /tmp/b011.json
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          payload = json.loads(Path("configs/task-gate/mstr-000b.json").read_text())
+          rows = []
+          for task_id in sorted(payload["tasks"]):
+              proc = subprocess.run(
+                  ["mstr-qualify", "task", "eligible", task_id],
+                  text=True,
+                  capture_output=True,
+                  check=False,
+              )
+              if proc.returncode not in (0, 1):
+                  raise SystemExit(f"unexpected eligibility exit for {task_id}: {proc.returncode}: {proc.stderr}")
+              result = json.loads(proc.stdout)
+              rows.append({
+                  "task_id": task_id,
+                  "catalog_state": payload["tasks"][task_id]["canonical_state"],
+                  "eligible": result["eligible"],
+                  "observed_state": result["state_consistency_result"]["observed_state"],
+                  "authority_required": result["authority_result"]["required"],
+                  "authority_satisfied": result["authority_result"]["satisfied"],
+                  "reasons": result["reasons"],
+              })
+          print("MSTR_000B_FRONTIER=" + json.dumps(rows, sort_keys=True))
+          eligible = [row["task_id"] for row in rows if row["eligible"]]
+          print("MSTR_000B_ELIGIBLE=" + json.dumps(eligible))
+          PY
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+
+  complete:
+    needs: [merge_identity, canonical_quality_frontier]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8c3faa1d66409cd44cd39040380ed326175b6b34
+          fetch-depth: 0
+      - name: Final immutable canonical-main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          echo "B028_POSTCLOSEOUT=SUCCESS"
+          echo "B028_CANONICAL_STATE=COMPLETE_CANONICAL"
+          echo "EXTERNAL_EFFECT=NONE"
