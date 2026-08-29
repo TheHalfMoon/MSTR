@@ -32,7 +32,7 @@ replace_once(
     "- [ ] **B021 Implement fixture-only frontier sampler/calibrator.**  \n"
     "  Demonstrate refreshable task difficulty and sampling decisions without training or large data. Preserve easier replay/regression anchors and harder frontier cells.  \n"
     "  Outputs: `src/mstr_qualify/curriculum/`, tests, `evidence/mstr-000b/B021-frontier-sampler.md`.\n",
-    "- [x] **B021 Implement fixture-only frontier sampler/calibrator.**  \n"
+    "- [x] **B021 Implement fixture-only frontier sampler/calibrator.**\n"
     "  Demonstrate refreshable task difficulty and sampling decisions without training or large data. Preserve easier replay/regression anchors and harder frontier cells.  \n"
     "  Outputs: `src/mstr_qualify/curriculum/`, tests, `evidence/mstr-000b/B021-frontier-sampler.md`.\n"
     "  Canonical implementation: PR #83 / final head `6211a8f2ccf2613f2e988ce230c7d432877b1aff` / merge `613449e0f1b23eaef7dcb702ba2636a157816d26`.\n",
