@@ -1,0 +1,125 @@
+name: Mandatory premerge verification for repaired B025
+
+on:
+  push:
+    branches:
+      - evidence/b025-premerge-5d569ac
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_BASE: cd3e3ba39c0e83548748275d08b7a3d0d2e6b15b
+  EXPECTED_HEAD: 5d569acd15fdd20a2aea7f0c37e63917e73aa54c
+  EXPECTED_TREE: 29c7c1db5c813c935fd8fab3f150b1e85bbf5d64
+  PR_NUMBER: '87'
+  REVIEW_ID: '5057744406'
+  QUALIFICATION_RUN: '33248051276'
+
+jobs:
+  pr_scope_review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5d569acd15fdd20a2aea7f0c37e63917e73aa54c
+          fetch-depth: 0
+      - name: Verify exact PR, fresh qualification, exact-head review, and zero unresolved threads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git merge-base "$EXPECTED_BASE" "$EXPECTED_HEAD")" = "$EXPECTED_BASE"
+          test "$(git rev-list --count "$EXPECTED_BASE".."$EXPECTED_HEAD")" -eq 2
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/feat/000b-b025-greenfield-curriculum | cut -f1)" = "$EXPECTED_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .commits == 2 and .changed_files == 11 and .mergeable == true' /tmp/pr.json
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN}" | jq -e --arg head "dac3f451d7ca8bc6d54f663ef1fe60fa6d505a85" '.status == "completed" and .conclusion == "success" and .head_sha == $head'
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" > /tmp/reviews.json
+          jq -e --argjson rid "$REVIEW_ID" --arg head "$EXPECTED_HEAD" '[.[] | select(.id == $rid and .commit_id == $head and .state == "COMMENTED")] | length == 1' /tmp/reviews.json
+          gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' -f owner='TheHalfMoon' -f name='MSTR' -F number=87 > /tmp/threads.json
+          jq -e '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length == 0' /tmp/threads.json
+          mapfile -t actual < <(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" | sort)
+          test "${#actual[@]}" -eq 11
+          test -z "$(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" -- configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md AGENTS.md .specify/memory/constitution.md docs/canonical)"
+
+  contract_and_quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5d569acd15fdd20a2aea7f0c37e63917e73aa54c
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-prove repaired exact-head contract and canonical quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          cmp schemas/mstr-greenfield-task-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-greenfield-task-v0.schema.json
+          pytest -q tests/contract/test_greenfield_task_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          grep -F 'SYNTHESIS_EXECUTION = NONE' evidence/mstr-000b/B025-greenfield-curriculum.md
+          grep -F 'MODEL_EXECUTION = NONE' evidence/mstr-000b/B025-greenfield-curriculum.md
+          grep -F 'WEIGHT_CHANGING_TRAINING = NONE' evidence/mstr-000b/B025-greenfield-curriculum.md
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/feat/000b-b025-greenfield-curriculum | cut -f1)" = "$EXPECTED_HEAD"
+
+  canonical_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cd3e3ba39c0e83548748275d08b7a3d0d2e6b15b
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-prove clean B025 task gate immediately before merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_BASE"
+          git update-ref refs/remotes/origin/main "$EXPECTED_BASE"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          mstr-qualify task eligible B025 > /tmp/b025.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .reasons == []' /tmp/b025.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+
+  complete:
+    needs: [pr_scope_review, contract_and_quality, canonical_gate]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5d569acd15fdd20a2aea7f0c37e63917e73aa54c
+          fetch-depth: 0
+      - name: Final immutable main, head, tree, PR, qualification, and review recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/feat/000b-b025-greenfield-curriculum | cut -f1)" = "$EXPECTED_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" | jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .commits == 2 and .changed_files == 11 and .mergeable == true'
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN}" | jq -e '.status == "completed" and .conclusion == "success"'
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" | jq -e --argjson rid "$REVIEW_ID" --arg head "$EXPECTED_HEAD" '[.[] | select(.id == $rid and .commit_id == $head and .state == "COMMENTED")] | length == 1'
+          echo "B025_PREMERGE_HEAD=$EXPECTED_HEAD"
+          echo "MODEL_EXECUTION=NONE"
+          echo "WEIGHT_CHANGING_TRAINING=NONE"
