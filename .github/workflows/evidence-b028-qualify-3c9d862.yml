@@ -1,0 +1,123 @@
+name: Qualify repaired B028 exact head
+
+on:
+  push:
+    branches:
+      - evidence/b028-qualify-3c9d862
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: 9d5908016b2b8775eaf86dbcebb89683f52e1f90
+  EXPECTED_HEAD: 3c9d8624745ad34e1e96d7f150afaccd2f02bc8f
+  EXPECTED_TREE: fa47786065ca0416823fdbdabd87d54d0c425793
+  TARGET_BRANCH: feat/000b-b028-q4-promotion-preflight
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3c9d8624745ad34e1e96d7f150afaccd2f02bc8f
+          fetch-depth: 0
+      - name: Verify exact repaired candidate identity and 16-file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git rev-list --count "$EXPECTED_MAIN".."$EXPECTED_HEAD")" -eq 2
+          mapfile -t actual < <(git diff --name-only "$EXPECTED_MAIN" "$EXPECTED_HEAD" | sort)
+          expected=(
+            artifacts/manifests/B028-method-tournament-preflight.json
+            docs/training/Q4_PROMOTION_CONTRACT.md
+            evidence/mstr-000b/B028-training-methods.md
+            schemas/mstr-q4-promotion-v0.schema.json
+            schemas/mstr-training-method-cell-v0.schema.json
+            specs/002-code-model-supremacy-foundation/contracts/README.md
+            specs/002-code-model-supremacy-foundation/contracts/mstr-q4-promotion-v0.schema.json
+            specs/002-code-model-supremacy-foundation/contracts/mstr-training-method-cell-v0.schema.json
+            src/mstr_qualify/schemas.py
+            tests/contract/test_schemas.py
+            tests/contract/test_training_promotion_contract.py
+            tests/fixtures/schemas/invalid/mstr-q4-promotion-v0.json
+            tests/fixtures/schemas/invalid/mstr-training-method-cell-v0.json
+            tests/fixtures/schemas/valid/mstr-q4-promotion-v0.json
+            tests/fixtures/schemas/valid/mstr-training-method-cell-v0.json
+            tests/integration/test_cli_offline.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 16
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          test -z "$(git diff --name-only "$EXPECTED_MAIN" "$EXPECTED_HEAD" -- configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md AGENTS.md .specify/memory/constitution.md)"
+          cmp schemas/mstr-training-method-cell-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-training-method-cell-v0.schema.json
+          cmp schemas/mstr-q4-promotion-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-q4-promotion-v0.schema.json
+
+  contract_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3c9d8624745ad34e1e96d7f150afaccd2f02bc8f
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove repaired fail-closed B028 contract semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_training_promotion_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          jq -e '.method_selection == "UNSELECTED" and .execution_status == "NOT_EXECUTED" and (.required_method_arms | length) == 4' artifacts/manifests/B028-method-tournament-preflight.json
+          jq -e '([.required_method_arms[].method] | sort) == (["LORA_16BIT","LORA_16BIT_RSLORA","QLORA_4BIT","QLORA_4BIT_RSLORA"] | sort)' artifacts/manifests/B028-method-tournament-preflight.json
+          jq -e '[.required_method_arms[].preflight_status] | all(. == "REVALIDATION_REQUIRED")' artifacts/manifests/B028-method-tournament-preflight.json
+          jq -e '.candidate_support_rule.default == "REVALIDATION_REQUIRED"' artifacts/manifests/B028-method-tournament-preflight.json
+          jq -e '.authority_boundary.model_weight_access == false and .authority_boundary.model_execution == false and .authority_boundary.quantization_execution == false and .authority_boundary.training_execution == false and .authority_boundary.weight_changing_training == false and .authority_boundary.paid_compute == false and .authority_boundary.production_release == false' artifacts/manifests/B028-method-tournament-preflight.json
+          grep -F 'B028_AUTHORITY = CONTRACT_AND_PREFLIGHT_ONLY' evidence/mstr-000b/B028-training-methods.md
+          grep -F 'ENTRY_GATE_ELIGIBLE = true' evidence/mstr-000b/B028-training-methods.md
+          grep -F 'test_unsupported_status_requires_unsupported_support_and_exact_reason' tests/contract/test_training_promotion_contract.py
+
+  quality_drift:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3c9d8624745ad34e1e96d7f150afaccd2f02bc8f
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run canonical quality and candidate task-gate proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          git update-ref refs/heads/main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          mstr-qualify task eligible B028 > /tmp/b028.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .reasons == []' /tmp/b028.json
+
+  complete:
+    needs: [identity_scope, contract_semantics, quality_drift]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3c9d8624745ad34e1e96d7f150afaccd2f02bc8f
+          fetch-depth: 0
+      - name: Final immutable exact-head recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
