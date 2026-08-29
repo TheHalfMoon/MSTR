@@ -1234,23 +1234,6 @@ def test_b020_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b020_closeout_opens_b021_frontier_sampler() -> None:
-    result = evaluate_task_snapshot("B021", canonical_main=_CANONICAL_MAIN)
-
-    assert result["eligible"] is True
-    assert result["reasons"] == []
-    assert result["state_consistency_result"]["observed_state"] == "PENDING"
-    assert result["authority_result"]["required"] is False
-    predecessor = next(
-        item for item in result["prerequisite_results"] if item["task_id"] == "B020"
-    )
-    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
-    assert predecessor["evidence_present"] is True
-    assert predecessor["satisfied"] is True
-    assert predecessor["reasons"] == []
-    validate_instance("mstr-task-eligibility-v0", result)
-
-
 @pytest.mark.parametrize("task_id", ["B022", "B025"])
 def test_b014_closeout_opens_direct_nongated_successors(task_id: str) -> None:
     result = evaluate_task_snapshot(task_id, canonical_main=_CANONICAL_MAIN)
@@ -1278,4 +1261,25 @@ def test_b014_closeout_does_not_authorize_b011_weight_access() -> None:
     assert result["authority_result"]["required"] is True
     assert result["authority_result"]["satisfied"] is False
     assert result["authority_result"]["authority_id"] == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b021_is_terminal_after_canonical_closeout() -> None:
+    result = evaluate_task_snapshot("B021", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert result["authority_result"]["required"] is False
+    assert "task.already_terminal" in result["reasons"]
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+@pytest.mark.parametrize("task_id", ["B022", "B025"])
+def test_b021_closeout_preserves_independent_phase_v_successors(task_id: str) -> None:
+    result = evaluate_task_snapshot(task_id, canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is True
+    assert result["state_consistency_result"]["observed_state"] == "PENDING"
+    assert result["authority_result"]["required"] is False
     validate_instance("mstr-task-eligibility-v0", result)

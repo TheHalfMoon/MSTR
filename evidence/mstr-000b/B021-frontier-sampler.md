@@ -1,7 +1,10 @@
 # B021 — Fixture-Only Frontier Sampler/Calibrator Evidence
 
 **Task:** `B021`
-**State:** `IMPLEMENTATION_ACTIVE`
+**Implementation PR:** #83
+**Final implementation head:** `6211a8f2ccf2613f2e988ce230c7d432877b1aff`
+**Canonical implementation merge:** `613449e0f1b23eaef7dcb702ba2636a157816d26`
+**State:** COMPLETE_CANONICAL
 **Canonical entry main:** `641e13033b00451ea4b81063640e4066a8c7389d`
 
 ## Canonical Entry Provenance
@@ -77,3 +80,18 @@ LARGE_SCALE_RL = NONE
 PRODUCTION_RELEASE = NONE
 B021_AUTHORITY = REPOSITORY_OWNED_FIXTURE_FRONTIER_CALIBRATION_AND_SAMPLING_ONLY
 ```
+
+## Canonical Implementation Closeout
+
+The fixture-only frontier sampler/calibrator was merged and verified on canonical main without executing a model, calibrating a real checkpoint, accessing weights, or widening any external-effect authority.
+
+- implementation PR: `#83`
+- final implementation head: `6211a8f2ccf2613f2e988ce230c7d432877b1aff`
+- canonical implementation merge: `613449e0f1b23eaef7dcb702ba2636a157816d26`
+- atomic implementation build: run `33235980087` — SUCCESS
+- exact-head qualification: run `33236137441` — SUCCESS
+- exact-head formal review: review `5057065431` — NO BLOCKING FINDINGS
+- mandatory pre-merge verification: run `33236949430` — SUCCESS
+- post-merge implementation verification: run `33237180697` — SUCCESS
+
+This closeout changes only canonical task/provenance state and terminal-behavior regression assertions. It grants no model-weight access, model execution, real checkpoint calibration, teacher/API use, paid compute, network model calls, large/private/production data ingestion, weight-changing training, large-scale RL, or production release authority. B011 remains blocked.

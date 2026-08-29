@@ -147,9 +147,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: schema/fixtures, `evidence/mstr-000b/B020-difficulty-contract.md`.
   Canonical implementation: PR #81 / final head `189509470eae10f1080938b0b2b873f375842f35` / merge `f5a4892bff6bc20e376efcaa8f554c15ac88bca8`.
 
-- [ ] **B021 Implement fixture-only frontier sampler/calibrator.**  
+- [x] **B021 Implement fixture-only frontier sampler/calibrator.**
   Demonstrate refreshable task difficulty and sampling decisions without training or large data. Preserve easier replay/regression anchors and harder frontier cells.  
   Outputs: `src/mstr_qualify/curriculum/`, tests, `evidence/mstr-000b/B021-frontier-sampler.md`.
+  Canonical implementation: PR #83 / final head `6211a8f2ccf2613f2e988ce230c7d432877b1aff` / merge `613449e0f1b23eaef7dcb702ba2636a157816d26`.
 
 **Checkpoint D:** downstream MSTR-001 can build a legally traceable software-evolution/data curriculum rather than an undifferentiated code corpus.
 

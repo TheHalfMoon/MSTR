@@ -204,3 +204,20 @@ def test_b021_entry_provenance_and_authority_boundary() -> None:
     assert "MODEL_EXECUTION = NONE" in evidence
     assert "LARGE_DATASET_INGESTION = NONE" in evidence
     assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
+
+
+def test_b021_canonical_closeout_provenance_and_authority_boundary() -> None:
+    evidence = (ROOT / "evidence" / "mstr-000b" / "B021-frontier-sampler.md").read_text(
+        encoding="utf-8"
+    )
+    assert "**State:** COMPLETE_CANONICAL" in evidence
+    assert "**Implementation PR:** #83" in evidence
+    assert "`6211a8f2ccf2613f2e988ce230c7d432877b1aff`" in evidence
+    assert "`613449e0f1b23eaef7dcb702ba2636a157816d26`" in evidence
+    for run_id in ("33235980087", "33236137441", "33236949430", "33237180697"):
+        assert f"run `{run_id}` — SUCCESS" in evidence
+    assert "review `5057065431` — NO BLOCKING FINDINGS" in evidence
+    assert "MODEL_WEIGHT_ACCESS = NONE" in evidence
+    assert "MODEL_EXECUTION = NONE" in evidence
+    assert "REAL_CHECKPOINT_CALIBRATION = NONE" in evidence
+    assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
