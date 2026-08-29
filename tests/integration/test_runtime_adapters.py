@@ -9,6 +9,7 @@ import pytest
 
 from mstr_qualify.ids import sha256_file
 from mstr_qualify.runtimes import (
+    BenchmarkCliError,
     BenchmarkCliRuntimeAdapter,
     CommandResult,
     LifecycleState,
@@ -127,9 +128,9 @@ def test_repository_profile_rejects_artifact_identity_drift_before_process_execu
         context_length=8192,
     )
 
-    with pytest.raises(Exception) as exc_info:
+    with pytest.raises(BenchmarkCliError) as exc_info:
         adapter.load(request)
 
-    assert getattr(exc_info.value, "code", None) == "runtime.artifact_hash_mismatch"
+    assert exc_info.value.code == "runtime.artifact_hash_mismatch"
     assert called is False
     assert adapter.state is LifecycleState.UNINITIALIZED
