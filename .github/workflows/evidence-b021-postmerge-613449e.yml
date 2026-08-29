@@ -1,0 +1,101 @@
+name: Post-merge verification for B021 implementation
+
+on:
+  push:
+    branches:
+      - evidence/b021-postmerge-613449e
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: 613449e0f1b23eaef7dcb702ba2636a157816d26
+  EXPECTED_PARENT1: 641e13033b00451ea4b81063640e4066a8c7389d
+  EXPECTED_PARENT2: 6211a8f2ccf2613f2e988ce230c7d432877b1aff
+  EXPECTED_TREE: e7f07643c423f773f105558b99659834495008af
+
+jobs:
+  merge_identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 613449e0f1b23eaef7dcb702ba2636a157816d26
+          fetch-depth: 0
+      - name: Verify exact canonical merge identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          mapfile -t parents < <(git show -s --format='%P' HEAD | tr ' ' '\n')
+          test "${#parents[@]}" -eq 2
+          test "${parents[0]}" = "$EXPECTED_PARENT1"
+          test "${parents[1]}" = "$EXPECTED_PARENT2"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+
+  task_frontier:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 613449e0f1b23eaef7dcb702ba2636a157816d26
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify canonical drift and post-merge frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          mstr-qualify task eligible B021 > /tmp/b021.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b021.json
+          if mstr-qualify task eligible B020 > /tmp/b020.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "COMPLETE_CANONICAL" and .eligible == false' /tmp/b020.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+          mstr-qualify task eligible B022 > /tmp/b022.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b022.json
+          mstr-qualify task eligible B025 > /tmp/b025.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b025.json
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 613449e0f1b23eaef7dcb702ba2636a157816d26
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run merged B021 and canonical quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/test_frontier_curriculum.py tests/contract/test_difficulty_calibration_contract.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [merge_identity, task_frontier, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b021-postmerge-613449e
+          fetch-depth: 0
+      - name: Final immutable canonical main check
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/feat/000b-b021-frontier-sampler | cut -f1)" = "$EXPECTED_PARENT2"
