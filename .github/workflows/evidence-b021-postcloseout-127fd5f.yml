@@ -1,0 +1,99 @@
+name: Post-closeout verification for B021
+
+on:
+  push:
+    branches:
+      - evidence/b021-postcloseout-127fd5f
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: 127fd5fd1a5a6f1843f207a0272664ae8cb129f4
+  EXPECTED_PARENT1: 613449e0f1b23eaef7dcb702ba2636a157816d26
+  EXPECTED_PARENT2: 0c9bb7b2d3b17267361830b5e5589f3765b53d52
+  EXPECTED_TREE: d6431a9ff02554ae40a06b11d52dc0ace16f780c
+
+jobs:
+  merge_identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 127fd5fd1a5a6f1843f207a0272664ae8cb129f4
+          fetch-depth: 0
+      - name: Verify exact closeout merge identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          mapfile -t parents < <(git show -s --format='%P' HEAD | tr ' ' '\n')
+          test "${#parents[@]}" -eq 2
+          test "${parents[0]}" = "$EXPECTED_PARENT1"
+          test "${parents[1]}" = "$EXPECTED_PARENT2"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+
+  task_frontier:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 127fd5fd1a5a6f1843f207a0272664ae8cb129f4
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove canonical drift and terminal/downstream frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          if mstr-qualify task eligible B021 > /tmp/b021.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and .authority_result.required == false and (.reasons | index("task.already_terminal")) != null' /tmp/b021.json
+          mstr-qualify task eligible B022 > /tmp/b022.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b022.json
+          mstr-qualify task eligible B025 > /tmp/b025.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b025.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 127fd5fd1a5a6f1843f207a0272664ae8cb129f4
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run canonical closeout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/test_frontier_curriculum.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [merge_identity, task_frontier, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b021-postcloseout-127fd5f
+          fetch-depth: 0
+      - name: Final immutable canonical main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/docs/000b-b021-canonicalize | cut -f1)" = "$EXPECTED_PARENT2"
