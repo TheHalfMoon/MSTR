@@ -44,6 +44,7 @@ def _deterministic_llama_bench(calls: list[tuple[str, ...]]):
                 "n_gen": int(argv[argv.index("-n") + 1]),
                 "n_threads": int(argv[argv.index("-t") + 1]),
                 "n_gpu_layers": int(argv[argv.index("-ngl") + 1]),
+                "devices": argv[argv.index("--device") + 1],
                 "avg_ns": 1_000_000,
                 "avg_ts": 25.0,
             }
@@ -89,9 +90,12 @@ def test_repository_profile_drives_full_t023_lifecycle_without_network_or_weight
         assert command[command.index("-t") + 1] == "2"
         assert command[command.index("-ngl") + 1] == "0"
         assert command[command.index("-r") + 1] == "1"
+        assert command[command.index("--device") + 1] == "none"
         assert command[-2:] == ("-o", "json")
         assert not any(token.startswith("--hf-") for token in command)
         assert not any(token.startswith("-hf") for token in command)
+        assert "--rpc" not in command
+        assert "-rpc" not in command
 
     assert adapter.last_observation is not None
     assert adapter.last_observation.operation == "decode"
