@@ -1,0 +1,134 @@
+name: Build B028 Q4 promotion preflight
+
+on:
+  push:
+    branches:
+      - evidence/b028-build-9d59080
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: 9d5908016b2b8775eaf86dbcebb89683f52e1f90
+  TARGET_BRANCH: feat/000b-b028-q4-promotion-preflight
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b028-build-9d59080
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove immutable B028 entry gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/entry-drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/entry-drift.json
+          mstr-qualify task eligible B028 > /tmp/b028-entry.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .reasons == []' /tmp/b028-entry.json
+          jq -e '[.prerequisite_results[] | select(.task_id == "B009" or .task_id == "B014" or .task_id == "B022") | .satisfied] == [true, true, true]' /tmp/b028-entry.json
+      - name: Materialize exact B028 contract and preflight candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tools/evidence
+          for script in build_b028_q4_preflight.py build_b028_q4_preflight_v2.py build_b028_q4_preflight_v3.py; do
+            git show "origin/evidence/b028-build-9d59080:tools/evidence/$script" > "tools/evidence/$script"
+          done
+          python tools/evidence/build_b028_q4_preflight_v3.py
+          rm -f \
+            tools/evidence/build_b028_q4_preflight.py \
+            tools/evidence/build_b028_q4_preflight_v2.py \
+            tools/evidence/build_b028_q4_preflight_v3.py
+          ruff format tests/contract/test_training_promotion_contract.py
+          git diff --check
+          mapfile -t actual < <(git diff --name-only | sort)
+          expected=(
+            artifacts/manifests/B028-method-tournament-preflight.json
+            docs/training/Q4_PROMOTION_CONTRACT.md
+            evidence/mstr-000b/B028-training-methods.md
+            schemas/mstr-q4-promotion-v0.schema.json
+            schemas/mstr-training-method-cell-v0.schema.json
+            specs/002-code-model-supremacy-foundation/contracts/README.md
+            specs/002-code-model-supremacy-foundation/contracts/mstr-q4-promotion-v0.schema.json
+            specs/002-code-model-supremacy-foundation/contracts/mstr-training-method-cell-v0.schema.json
+            src/mstr_qualify/schemas.py
+            tests/contract/test_schemas.py
+            tests/contract/test_training_promotion_contract.py
+            tests/fixtures/schemas/invalid/mstr-q4-promotion-v0.json
+            tests/fixtures/schemas/invalid/mstr-training-method-cell-v0.json
+            tests/fixtures/schemas/valid/mstr-q4-promotion-v0.json
+            tests/fixtures/schemas/valid/mstr-training-method-cell-v0.json
+            tests/integration/test_cli_offline.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 16
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          cmp schemas/mstr-training-method-cell-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-training-method-cell-v0.schema.json
+          cmp schemas/mstr-q4-promotion-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-q4-promotion-v0.schema.json
+          test -z "$(git diff --name-only -- configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md)"
+          jq -e '.method_selection == "UNSELECTED" and .execution_status == "NOT_EXECUTED" and (.required_method_arms | length) == 4 and ([.required_method_arms[].preflight_status] | all(. == "REVALIDATION_REQUIRED"))' artifacts/manifests/B028-method-tournament-preflight.json
+          jq -e '.authority_boundary.model_weight_access == false and .authority_boundary.model_execution == false and .authority_boundary.training_execution == false and .authority_boundary.weight_changing_training == false and .authority_boundary.paid_compute == false' artifacts/manifests/B028-method-tournament-preflight.json
+      - name: Run B028 focused and canonical quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_training_promotion_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+      - name: Commit, prove prospective clean semantics, and fast-forward target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add \
+            artifacts/manifests/B028-method-tournament-preflight.json \
+            docs/training/Q4_PROMOTION_CONTRACT.md \
+            evidence/mstr-000b/B028-training-methods.md \
+            schemas/mstr-q4-promotion-v0.schema.json \
+            schemas/mstr-training-method-cell-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/README.md \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-q4-promotion-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-training-method-cell-v0.schema.json \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_schemas.py \
+            tests/contract/test_training_promotion_contract.py \
+            tests/fixtures/schemas/invalid/mstr-q4-promotion-v0.json \
+            tests/fixtures/schemas/invalid/mstr-training-method-cell-v0.json \
+            tests/fixtures/schemas/valid/mstr-q4-promotion-v0.json \
+            tests/fixtures/schemas/valid/mstr-training-method-cell-v0.json \
+            tests/integration/test_cli_offline.py
+          git commit -m "feat(mstr-000b): freeze B028 Q4 promotion preflight"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-list --count "$EXPECTED_MAIN"..HEAD)" -eq 1
+          CANDIDATE_HEAD=$(git rev-parse HEAD)
+          git update-ref refs/heads/main "$CANDIDATE_HEAD"
+          git update-ref refs/remotes/origin/main "$CANDIDATE_HEAD"
+          mstr-qualify task drift > /tmp/candidate-drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/candidate-drift.json
+          mstr-qualify task eligible B028 > /tmp/b028-candidate.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .reasons == []' /tmp/b028-candidate.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "B028_IMPLEMENTATION_HEAD=$CANDIDATE_HEAD"
+          echo "B028_IMPLEMENTATION_TREE=$(git rev-parse HEAD^{tree})"
+          echo "B028_IMPLEMENTATION_FILES=16"
+          echo "B028_EXTERNAL_EFFECTS=NONE"
