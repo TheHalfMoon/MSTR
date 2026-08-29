@@ -1,0 +1,85 @@
+name: Qualify A005 canonical closeout exact head
+
+on:
+  push:
+    branches:
+      - evidence/a005-closeout-qualify-6ddffbe
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_BASE: 3c8d817d27948bffefaacc589eb10ec2733ecbd4
+  EXPECTED_HEAD: 6ddffbeb500558da95492c4fbc02af6b467f7a8d
+  EXPECTED_TREE: 23eabeaf1c5231f04af01c6ba90dac3b43b413f4
+  TARGET_BRANCH: docs/000a-a005-canonicalize
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6ddffbeb500558da95492c4fbc02af6b467f7a8d
+          fetch-depth: 0
+      - name: Verify exact closeout identity and two-file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          mapfile -t actual < <(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" | sort)
+          expected=(
+            evidence/mstr-000a/A005-build-loop.md
+            specs/001-agent-harness-verified-loop-foundation/tasks.md
+          )
+          diff -u <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${actual[@]}" | sort)
+          test -z "$(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" -- src schemas tests AGENTS.md .specify/memory/constitution.md configs/task-gate)"
+
+  quality_terminal:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6ddffbeb500558da95492c4fbc02af6b467f7a8d
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove quality and A005 terminal ledger semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/test_build_loop.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          grep -Fq -- '- [x] **A005 Implement `MSTR-BUILD-LOOP-v0` bounded state graph.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -Fq 'Canonical implementation: PR #92 / final head `a157c2f359a2c9eb600fed787cd7d1f23fa10eff` / merge `3c8d817d27948bffefaacc589eb10ec2733ecbd4`.' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -Fq '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A005-build-loop.md
+          grep -Fq 'POST_MERGE_VERIFICATION_RUN = 33255866019 / SUCCESS' evidence/mstr-000a/A005-build-loop.md
+          grep -Fq -- '- [ ] **A006 Implement protected finalizer / verifier boundary.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+
+  complete:
+    needs: [identity_scope, quality_terminal]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6ddffbeb500558da95492c4fbc02af6b467f7a8d
+          fetch-depth: 0
+      - name: Final immutable exact-head recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo "A005_CLOSEOUT_HEAD=$EXPECTED_HEAD"
+          echo "EXTERNAL_EFFECT=NONE"
