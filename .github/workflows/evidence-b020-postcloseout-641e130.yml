@@ -34,24 +34,78 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Verify canonical drift and task frontier
+      - name: Verify canonical drift and task frontier with diagnostics
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install -e '.[dev]'
           git update-ref refs/heads/main 641e13033b00451ea4b81063640e4066a8c7389d
           git update-ref refs/remotes/origin/main 641e13033b00451ea4b81063640e4066a8c7389d
-          mstr-qualify task drift > /tmp/drift.json
-          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
-          mstr-qualify task eligible B020 > /tmp/b020.json || test $? -eq 1
-          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b020.json
-          mstr-qualify task eligible B021 > /tmp/b021.json
-          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true' /tmp/b021.json
-          mstr-qualify task eligible B011 > /tmp/b011.json || test $? -eq 1
-          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+
+          mstr-qualify task drift | tee /tmp/drift.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          payload = json.loads(Path('/tmp/drift.json').read_text())
+          assert payload['status'] == 'clean', payload
+          assert payload['findings'] == [], payload
+          assert payload.get('tasks_checked') == 34, payload
+          PY
+
+          set +e
+          mstr-qualify task eligible B020 > /tmp/b020.json
+          b020_rc=$?
+          set -e
+          cat /tmp/b020.json
+          test "$b020_rc" -eq 1
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          payload = json.loads(Path('/tmp/b020.json').read_text())
+          assert payload['eligible'] is False, payload
+          assert payload['state_consistency_result']['observed_state'] == 'COMPLETE_CANONICAL', payload
+          assert 'task.already_terminal' in payload['reasons'], payload
+          PY
+
+          mstr-qualify task eligible B021 | tee /tmp/b021.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          payload = json.loads(Path('/tmp/b021.json').read_text())
+          assert payload['eligible'] is True, payload
+          assert payload['state_consistency_result']['observed_state'] == 'PENDING', payload
+          assert payload['authority_result']['required'] is False, payload
+          assert payload['authority_result']['satisfied'] is True, payload
+          PY
+
+          set +e
+          mstr-qualify task eligible B011 > /tmp/b011.json
+          b011_rc=$?
+          set -e
+          cat /tmp/b011.json
+          test "$b011_rc" -eq 1
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          payload = json.loads(Path('/tmp/b011.json').read_text())
+          assert payload['eligible'] is False, payload
+          assert payload['state_consistency_result']['observed_state'] == 'BLOCKED', payload
+          assert payload['authority_result']['required'] is True, payload
+          assert payload['authority_result']['satisfied'] is False, payload
+          PY
+
           for task in B022 B025; do
-            mstr-qualify task eligible "$task" > "/tmp/${task}.json"
-            jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' "/tmp/${task}.json"
+            mstr-qualify task eligible "$task" | tee "/tmp/${task}.json"
+            python - "$task" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          task = sys.argv[1]
+          payload = json.loads(Path(f'/tmp/{task}.json').read_text())
+          assert payload['eligible'] is True, payload
+          assert payload['state_consistency_result']['observed_state'] == 'PENDING', payload
+          assert payload['authority_result']['required'] is False, payload
+          PY
           done
 
   full_quality:
