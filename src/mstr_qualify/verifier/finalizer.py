@@ -2,7 +2,7 @@
 
 Canonical success is derived only from integrity-checked, verifier-authored
 results that satisfy the required verifier set *after* the latest builder stop
-proposal.  Model/harness/system completion text is never success authority.
+proposal. Model/harness/system completion text is never success authority.
 """
 
 from __future__ import annotations
@@ -11,13 +11,14 @@ import hashlib
 import json
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from mstr_qualify.harness.event_log import EventLogError, create_event, replay
 
 VerifierStatus = Literal["PASS", "FAIL", "ERROR", "UNKNOWN"]
 TerminalClass = Literal["VERIFIED_SUCCESS", "RECOVERED_SUCCESS"]
 _VALID_STATUSES = frozenset({"PASS", "FAIL", "ERROR", "UNKNOWN"})
+_TRUSTED_STOP_SOURCES = frozenset({"model", "harness"})
 
 
 class FinalizerError(ValueError):
@@ -90,6 +91,7 @@ def _observation(event: dict[str, Any]) -> _VerifierObservation:
             "verifier.result status must be PASS, FAIL, ERROR, or UNKNOWN",
             code="finalizer.verifier_status_invalid",
         )
+    typed_status = cast(VerifierStatus, status)
     result_identity = payload.get("result_identity")
     if not isinstance(result_identity, str) or not result_identity.strip():
         raise FinalizerError(
@@ -98,7 +100,7 @@ def _observation(event: dict[str, Any]) -> _VerifierObservation:
         )
     return _VerifierObservation(
         verifier_id=verifier_id.strip(),
-        status=status,
+        status=typed_status,
         result_identity=result_identity.strip(),
         seq=int(event["seq"]),
     )
@@ -125,11 +127,11 @@ def finalize_run(
 ) -> FinalizationDecision:
     """Derive one successful terminal event from protected verifier evidence.
 
-    The function intentionally has no path for a caller to pass a desired
-    terminal class.  It replays the complete event hash chain, rejects any
-    pre-existing completion event, requires a stop proposal, requires fresh
-    post-proposal results from every required verifier, and derives success
-    solely from the latest verifier-authored results.
+    There is deliberately no caller-selected success class. The complete event
+    chain is replayed first; pre-existing terminal events are rejected; a
+    trusted builder stop proposal must precede fresh results from every required
+    verifier; and only the latest verifier-authored PASS results can produce a
+    success decision.
     """
 
     required_ids = _required_ids(required_verifier_ids)
@@ -149,36 +151,44 @@ def finalize_run(
 
     raw_events = [entry.raw for entry in log]
     run_ids = {event.get("run_id") for event in raw_events}
-    if len(run_ids) != 1 or not isinstance(next(iter(run_ids)), str):
+    if len(run_ids) != 1:
         raise FinalizerError(
             "all events must belong to one non-empty run_id",
             code="finalizer.run_identity_mismatch",
         )
     run_id = next(iter(run_ids))
-    assert isinstance(run_id, str)
-    if not run_id.strip():
+    if not isinstance(run_id, str) or not run_id.strip():
         raise FinalizerError(
-            "run_id must be non-empty",
+            "all events must belong to one non-empty run_id",
             code="finalizer.run_identity_mismatch",
         )
 
-    if any(event["event_type"] == "run.completed" for event in raw_events):
+    terminal_events = {
+        "run.completed",
+        "run.failed",
+        "run.escalated",
+    }
+    if any(event["event_type"] in terminal_events for event in raw_events):
         raise FinalizerError(
-            "pre-existing run.completed is not trusted as finalizer input",
-            code="finalizer.preexisting_completion",
+            "pre-existing terminal run event is not trusted as finalizer input",
+            code="finalizer.preexisting_terminal",
         )
 
-    stop_sequences = [
-        int(event["seq"])
-        for event in raw_events
-        if event["event_type"] == "run.stop_proposed"
+    stop_events = [
+        event for event in raw_events if event["event_type"] == "run.stop_proposed"
     ]
-    if not stop_sequences:
+    if not stop_events:
         raise FinalizerError(
             "builder must propose stop before protected finalization",
             code="finalizer.stop_proposal_missing",
         )
-    latest_stop_seq = max(stop_sequences)
+    latest_stop = max(stop_events, key=lambda event: int(event["seq"]))
+    if latest_stop.get("source") not in _TRUSTED_STOP_SOURCES:
+        raise FinalizerError(
+            "run.stop_proposed must be authored by model or harness",
+            code="finalizer.untrusted_stop_source",
+        )
+    latest_stop_seq = int(latest_stop["seq"])
 
     observations: list[_VerifierObservation] = []
     for event in raw_events:
