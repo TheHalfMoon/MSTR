@@ -1,0 +1,114 @@
+name: Post-merge verification for B022
+
+on:
+  push:
+    branches:
+      - evidence/b022-postmerge-97bf66a
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: 97bf66a98bad51ff0d574d90a04fa47b802708ee
+  EXPECTED_PARENT1: 127fd5fd1a5a6f1843f207a0272664ae8cb129f4
+  EXPECTED_PARENT2: ab3330afdef9c9329b1d2bb2a7e5aab09064f62b
+  EXPECTED_TREE: d46c86e21a7bfd8726c9cf1b71970e62e50e1da7
+  PR_NUMBER: '85'
+
+jobs:
+  merge_identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 97bf66a98bad51ff0d574d90a04fa47b802708ee
+          fetch-depth: 0
+      - name: Verify exact implementation merge identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_PARENT1"
+          test "$(git rev-parse HEAD^2)" = "$EXPECTED_PARENT2"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg merge "$EXPECTED_MAIN" --arg head "$EXPECTED_PARENT2" '.state == "closed" and .merged == true and .merge_commit_sha == $merge and .head.sha == $head' /tmp/pr.json
+
+  task_frontier:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 97bf66a98bad51ff0d574d90a04fa47b802708ee
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove canonical drift and pre-closeout task frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          mstr-qualify task eligible B022 > /tmp/b022.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true' /tmp/b022.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+          if mstr-qualify task eligible B023 > /tmp/b023.json; then b023_exit=0; else b023_exit=$?; fi
+          test "$b023_exit" -eq 0 -o "$b023_exit" -eq 1
+          mstr-qualify task eligible B025 > /tmp/b025.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING"' /tmp/b025.json
+          echo "B023_SNAPSHOT=$(jq -c '{eligible,state:.state_consistency_result.observed_state,reasons}' /tmp/b023.json)"
+          echo "B025_SNAPSHOT=$(jq -c '{eligible,state:.state_consistency_result.observed_state,reasons}' /tmp/b025.json)"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 97bf66a98bad51ff0d574d90a04fa47b802708ee
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run canonical B022 quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          cmp schemas/mstr-verifier-health-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-verifier-health-v0.schema.json
+          pytest -q tests/contract/test_verifier_health_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+
+  complete:
+    needs: [merge_identity, task_frontier, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 97bf66a98bad51ff0d574d90a04fa47b802708ee
+          fetch-depth: 0
+      - name: Final immutable canonical-main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_PARENT1"
+          test "$(git rev-parse HEAD^2)" = "$EXPECTED_PARENT2"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo "B022_POSTMERGE_MAIN=$EXPECTED_MAIN"
+          echo "MODEL_EXECUTION=NONE"
+          echo "WEIGHT_CHANGING_TRAINING=NONE"
