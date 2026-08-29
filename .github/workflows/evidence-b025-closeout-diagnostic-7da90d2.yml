@@ -1,0 +1,64 @@
+name: Diagnose B025 closeout prospective frontier
+
+on:
+  push:
+    branches:
+      - evidence/b025-closeout-build-7da90d2
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: 7da90d2d9cb16a8ebd6c5ede390139831370e861
+  TARGET_BRANCH: docs/000b-b025-canonicalize
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b025-closeout-build-7da90d2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Reproduce candidate without push
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp tools/evidence/build_b025_closeout.py /tmp/build_b025_closeout.py
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          python -m pip install -e '.[dev]'
+          python /tmp/build_b025_closeout.py
+          ruff format tests/contract/test_task_gate.py tests/contract/test_greenfield_task_contract.py tests/integration/test_task_gate_cli.py
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add configs/task-gate/mstr-000b.json evidence/mstr-000b/B025-greenfield-curriculum.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_greenfield_task_contract.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          git commit -m "docs(mstr-000b): canonicalize B025 closeout diagnostic"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          git update-ref refs/heads/main HEAD
+          git update-ref refs/remotes/origin/main HEAD
+          echo "DIAGNOSTIC_HEAD=$(git rev-parse HEAD)"
+          echo "DIAGNOSTIC_TREE=$(git rev-parse HEAD^{tree})"
+      - name: Print every prospective gate result
+        shell: bash
+        run: |
+          set +e
+          for item in drift B025 B026 B028 B023 B011; do
+            echo "===== ${item} ====="
+            if [ "$item" = drift ]; then
+              mstr-qualify task drift > "/tmp/${item}.json" 2> "/tmp/${item}.err"
+            else
+              mstr-qualify task eligible "$item" > "/tmp/${item}.json" 2> "/tmp/${item}.err"
+            fi
+            code=$?
+            echo "EXIT_CODE=${code}"
+            cat "/tmp/${item}.json" || true
+            cat "/tmp/${item}.err" || true
+          done
+          echo "REMOTE_MAIN=$(git ls-remote origin refs/heads/main | cut -f1)"
+          echo "REMOTE_TARGET=$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)"
+          exit 0
