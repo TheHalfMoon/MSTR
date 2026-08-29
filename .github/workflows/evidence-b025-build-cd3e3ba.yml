@@ -47,6 +47,7 @@ jobs:
           sed -i 's/[[:space:]]*$//' \
             docs/data/GREENFIELD_FEATURE_CURRICULUM.md \
             evidence/mstr-000b/B025-greenfield-curriculum.md
+          ruff format tests/contract/test_greenfield_task_contract.py
           expected=(
             docs/data/GREENFIELD_FEATURE_CURRICULUM.md
             evidence/mstr-000b/B025-greenfield-curriculum.md
