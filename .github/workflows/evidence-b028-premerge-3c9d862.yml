@@ -1,0 +1,104 @@
+name: Mandatory premerge verification for B028
+
+on:
+  push:
+    branches:
+      - evidence/b028-premerge-3c9d862
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: 9d5908016b2b8775eaf86dbcebb89683f52e1f90
+  EXPECTED_HEAD: 3c9d8624745ad34e1e96d7f150afaccd2f02bc8f
+  EXPECTED_TREE: fa47786065ca0416823fdbdabd87d54d0c425793
+  QUALIFICATION_RUN: '33251670229'
+  CLEAN_REVIEW_ID: '5058039887'
+  PR_NUMBER: '90'
+  TARGET_BRANCH: feat/000b-b028-q4-promotion-preflight
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  pr_review_admission:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3c9d8624745ad34e1e96d7f150afaccd2f02bc8f
+          fetch-depth: 0
+      - name: Verify exact PR, qualification, review, threads, and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+
+          gh api "repos/TheHalfMoon/MSTR/actions/runs/$QUALIFICATION_RUN" > /tmp/qualification.json
+          jq -e --arg head "$EXPECTED_HEAD" '.status == "completed" and .conclusion == "success"' /tmp/qualification.json
+
+          gh api "repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER" > /tmp/pr.json
+          jq -e --arg base "$EXPECTED_MAIN" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .commits == 2 and .changed_files == 16' /tmp/pr.json
+
+          gh api "repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER/reviews" > /tmp/reviews.json
+          jq -e --argjson id "$CLEAN_REVIEW_ID" --arg head "$EXPECTED_HEAD" 'any(.[]; .id == $id and .commit_id == $head and .state == "COMMENTED")' /tmp/reviews.json
+          jq -e 'any(.[]; .id == 5058031414 and .commit_id == "93f923fecc07b08f4d5f198bfb09209e169957a7" and .state == "COMMENTED")' /tmp/reviews.json
+
+          gh api graphql -f query='query { repository(owner:"TheHalfMoon", name:"MSTR") { pullRequest(number:90) { reviewThreads(first:100) { nodes { isResolved } } } } }' > /tmp/threads.json
+          jq -e '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length == 0' /tmp/threads.json
+
+          mapfile -t actual < <(git diff --name-only "$EXPECTED_MAIN" "$EXPECTED_HEAD" | sort)
+          test "${#actual[@]}" -eq 16
+          test -z "$(git diff --name-only "$EXPECTED_MAIN" "$EXPECTED_HEAD" -- configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md AGENTS.md .specify/memory/constitution.md)"
+          cmp schemas/mstr-training-method-cell-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-training-method-cell-v0.schema.json
+          cmp schemas/mstr-q4-promotion-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-q4-promotion-v0.schema.json
+
+  quality_drift:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3c9d8624745ad34e1e96d7f150afaccd2f02bc8f
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-prove B028 fail-closed semantics, full quality, and candidate drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_training_promotion_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          git update-ref refs/heads/main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          mstr-qualify task eligible B028 > /tmp/b028.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .reasons == []' /tmp/b028.json
+          jq -e '.method_selection == "UNSELECTED" and .execution_status == "NOT_EXECUTED"' artifacts/manifests/B028-method-tournament-preflight.json
+          jq -e '.authority_boundary.model_weight_access == false and .authority_boundary.model_execution == false and .authority_boundary.quantization_execution == false and .authority_boundary.training_execution == false and .authority_boundary.weight_changing_training == false and .authority_boundary.paid_compute == false and .authority_boundary.production_release == false' artifacts/manifests/B028-method-tournament-preflight.json
+
+  complete:
+    needs: [pr_review_admission, quality_drift]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3c9d8624745ad34e1e96d7f150afaccd2f02bc8f
+          fetch-depth: 0
+      - name: Final immutable merge-admission recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          gh api "repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER" > /tmp/pr.json
+          jq -e --arg base "$EXPECTED_MAIN" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head' /tmp/pr.json
