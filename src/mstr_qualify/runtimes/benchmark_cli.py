@@ -32,6 +32,7 @@ from .base import (
 )
 
 _SHA1_RE = re.compile(r"^[0-9a-f]{40}$")
+_SHORT_GIT_RE = re.compile(r"^[0-9a-f]{7,40}$")
 _FORBIDDEN_NETWORK_FLAGS = (
     "-hf",
     "-hfr",
@@ -40,7 +41,10 @@ _FORBIDDEN_NETWORK_FLAGS = (
     "--hf-file",
     "-hft",
     "--hf-token",
+    "-rpc",
+    "--rpc",
 )
+_DEVICE_FLAGS = frozenset({"-dev", "--device"})
 
 
 class BenchmarkCliError(AdapterError):
@@ -108,9 +112,9 @@ class BenchmarkObservation:
                 "average tokens per second must be finite and positive",
                 code="runtime.benchmark_observation_measurement",
             )
-        if not self.runtime_build_commit:
+        if not _SHORT_GIT_RE.fullmatch(self.runtime_build_commit):
             raise BenchmarkCliError(
-                "runtime build commit must be reported",
+                "runtime build commit must be a lowercase Git commit prefix",
                 code="runtime.benchmark_observation_build",
             )
 
@@ -120,6 +124,21 @@ def _contains_forbidden_network_flag(token: str) -> bool:
         token == flag or token.startswith(f"{flag}=")
         for flag in _FORBIDDEN_NETWORK_FLAGS
     )
+
+
+def _validate_cpu_device_args(tokens: tuple[str, ...]) -> None:
+    positions = [index for index, token in enumerate(tokens) if token in _DEVICE_FLAGS]
+    if len(positions) != 1:
+        raise BenchmarkCliError(
+            "portable CPU profile must contain exactly one device selector",
+            code="runtime.benchmark_profile_cpu_device",
+        )
+    position = positions[0]
+    if position + 1 >= len(tokens) or tokens[position + 1] != "none":
+        raise BenchmarkCliError(
+            "portable CPU profile must select device=none",
+            code="runtime.benchmark_profile_cpu_device",
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,7 +156,7 @@ class BenchmarkCliProfile:
     threads_arg: str = "-t"
     gpu_layers_arg: str = "-ngl"
     repetitions_arg: str = "-r"
-    output_args: tuple[str, ...] = ("-o", "json")
+    output_args: tuple[str, ...] = ("--device", "none", "-o", "json")
 
     def __post_init__(self) -> None:
         strings = (
@@ -171,9 +190,11 @@ class BenchmarkCliProfile:
                 "benchmark profile needs unique canonical supported formats",
                 code="runtime.benchmark_profile_formats",
             )
-        if not self.output_args or any(not value for value in self.output_args):
+        if not self.output_args or any(
+            not value or value.strip() != value for value in self.output_args
+        ):
             raise BenchmarkCliError(
-                "benchmark profile output arguments are required",
+                "benchmark profile output arguments are required and canonical",
                 code="runtime.benchmark_profile_output",
             )
         if "json" not in self.output_args:
@@ -195,10 +216,11 @@ class BenchmarkCliProfile:
         )
         if forbidden:
             raise BenchmarkCliError(
-                "benchmark profile must not contain provider acquisition flags",
+                "benchmark profile must not contain network acquisition or RPC flags",
                 code="runtime.benchmark_profile_network_flag",
                 details={"flags": ",".join(forbidden)},
             )
+        _validate_cpu_device_args(self.output_args)
 
 
 def _read_json_object(path: Path) -> dict[str, object]:
@@ -373,6 +395,17 @@ def _require_number(row: Mapping[str, object], field: str) -> float:
     return number
 
 
+def _require_string_field(row: Mapping[str, object], field: str) -> str:
+    value = row.get(field)
+    if not isinstance(value, str) or not value:
+        raise BenchmarkCliError(
+            "runtime benchmark result field must be a non-empty string",
+            code="runtime.output_field_type",
+            details={"field": field},
+        )
+    return value
+
+
 class BenchmarkCliRuntimeAdapter:
     """Portable CPU adapter for local benchmark CLIs such as llama-bench."""
 
@@ -425,6 +458,8 @@ class BenchmarkCliRuntimeAdapter:
             notes=(
                 "local_artifact_only",
                 "network_acquisition_prohibited",
+                "rpc_prohibited",
+                "device_none_required",
                 "isolated_benchmark_process_no_reusable_prefix_cache",
             ),
         )
@@ -529,6 +564,7 @@ class BenchmarkCliRuntimeAdapter:
         reported_gpu_layers = _require_integer(row, "n_gpu_layers")
         average_nanoseconds = _require_integer(row, "avg_ns")
         average_tokens_per_second = _require_number(row, "avg_ts")
+        reported_devices = _require_string_field(row, "devices")
 
         identities = {
             "n_prompt": (reported_prompt, prompt_tokens),
@@ -543,17 +579,22 @@ class BenchmarkCliRuntimeAdapter:
                     code="runtime.output_identity",
                     details={"field": field, "expected": expected, "actual": actual},
                 )
+        if reported_devices != "none":
+            raise BenchmarkCliError(
+                "runtime benchmark result does not prove CPU-only device selection",
+                code="runtime.output_device_identity",
+                details={"devices": reported_devices},
+            )
 
-        model_filename = row.get("model_filename")
-        if not isinstance(model_filename, str) or model_filename != str(self._artifact_path):
+        model_filename = _require_string_field(row, "model_filename")
+        if model_filename != str(self._artifact_path):
             raise BenchmarkCliError(
                 "runtime benchmark result does not match the loaded artifact path",
                 code="runtime.output_model_identity",
             )
-        build_commit = row.get("build_commit")
+        build_commit = _require_string_field(row, "build_commit")
         if (
-            not isinstance(build_commit, str)
-            or len(build_commit) < 7
+            not _SHORT_GIT_RE.fullmatch(build_commit)
             or not self._profile.upstream_revision.startswith(build_commit)
         ):
             raise BenchmarkCliError(
