@@ -1,0 +1,111 @@
+name: Qualify A005 exact head
+
+on:
+  push:
+    branches:
+      - evidence/a005-build-8c3faa1
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_BASE: 8c3faa1d66409cd44cd39040380ed326175b6b34
+  EXPECTED_HEAD: a157c2f359a2c9eb600fed787cd7d1f23fa10eff
+  TARGET_BRANCH: feat/000a-a005-build-loop
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a157c2f359a2c9eb600fed787cd7d1f23fa10eff
+          fetch-depth: 0
+      - name: Verify exact identity, entry main, and A005 scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          mapfile -t actual < <(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" | sort)
+          expected=(
+            evidence/mstr-000a/A005-build-loop.md
+            src/mstr_qualify/harness/build_loop.py
+            tests/unit/test_build_loop.py
+          )
+          test "${#actual[@]}" -eq "${#expected[@]}"
+          diff -u <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${actual[@]}" | sort)
+          grep -Fq 'A001 = COMPLETE_CANONICAL' evidence/mstr-000a/A005-build-loop.md
+          grep -Fq 'A004 = COMPLETE_CANONICAL' evidence/mstr-000a/A005-build-loop.md
+          test -z "$(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" -- schemas configs/task-gate specs/001-agent-harness-verified-loop-foundation/tasks.md AGENTS.md .specify/memory/constitution.md)"
+
+  quality_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a157c2f359a2c9eb600fed787cd7d1f23fa10eff
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run A005 focused and full quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/test_build_loop.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          python - <<'PY'
+          from mstr_qualify.harness.build_loop import BuildLoop, LoopState
+
+          contract = {
+              "schema_version": "mstr.loop-contract.v0",
+              "loop_id": "qualification",
+              "interaction_contract_id": "interaction.qualification",
+              "goal_policy": {"ambiguity_behavior": "bounded_inference", "require_acceptance_criteria": True},
+              "tool_surface_id": "tools.qualification",
+              "context_policy_id": "context.qualification",
+              "edit_policy_id": "edit.qualification",
+              "verifier_policy_id": "verifier.qualification",
+              "stop_policy": {"success_requires_independent_verifier": True, "success_terminal_classes": ["VERIFIED_SUCCESS", "RECOVERED_SUCCESS"], "allow_escalation": True},
+              "recovery_policy": {"retry_same_failed_action_without_new_evidence": False, "require_failure_classification": True},
+              "max_steps": 8,
+              "max_tool_calls": 2,
+              "max_repairs": 1,
+              "timeout_seconds": 30,
+              "effect_envelope_id": "effects.none",
+              "trivial_task_fast_path": {"enabled": True},
+          }
+          loop = BuildLoop(contract)
+          loop.transition(LoopState.GOAL)
+          loop.transition(LoopState.ACT)
+          loop.transition(LoopState.VERIFY)
+          proposal = loop.propose_stop("verifier observation exists", verifier_observed=True)
+          assert proposal.canonical_success is False
+          assert loop.state is LoopState.STOP
+          PY
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+
+  complete:
+    needs: [identity_scope, quality_semantics]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a157c2f359a2c9eb600fed787cd7d1f23fa10eff
+          fetch-depth: 0
+      - name: Final immutable exact-head recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo "A005_HEAD=$EXPECTED_HEAD"
+          echo "EXTERNAL_EFFECT=NONE"
