@@ -115,18 +115,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: 641e13033b00451ea4b81063640e4066a8c7389d
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Run frozen full quality suite
+      - name: Run canonical full quality suite
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install -e '.[dev]'
           mstr-qualify validate
           pytest -q
-          ruff check .
-          mypy src tests
+          ruff check src tests
+          mypy src
 
   complete:
     needs: [merge_identity, task_frontier, full_quality]
@@ -135,6 +136,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: 641e13033b00451ea4b81063640e4066a8c7389d
+          fetch-depth: 0
       - name: Reverify immutable canonical main
         shell: bash
         run: |
