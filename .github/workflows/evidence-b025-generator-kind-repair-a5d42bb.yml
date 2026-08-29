@@ -1,0 +1,159 @@
+name: Repair B025 synthesis generator-kind binding atomically
+
+on:
+  push:
+    branches:
+      - evidence/b025-generator-kind-repair-a5d42bb
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: cd3e3ba39c0e83548748275d08b7a3d0d2e6b15b
+  EXPECTED_HEAD: a5d42bb51957c478e9f525c8d0ac0dccc50d32da
+  TARGET_BRANCH: feat/000b-b025-greenfield-curriculum
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b025-generator-kind-repair-a5d42bb
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove immutable repair entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python -m pip install -e '.[dev]'
+      - name: Materialize fail-closed generator-kind binding repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          paths = [
+              Path("schemas/mstr-greenfield-task-v0.schema.json"),
+              Path("specs/002-code-model-supremacy-foundation/contracts/mstr-greenfield-task-v0.schema.json"),
+          ]
+          feature_binding = {
+              "if": {
+                  "properties": {"generation_method": {"const": "FEATURE_TREE_SYNTHESIS"}},
+                  "required": ["generation_method"],
+              },
+              "then": {
+                  "properties": {
+                      "synthesis_evidence": {
+                          "properties": {"generator_kind": {"const": "FEATURE_TREE"}},
+                          "required": ["generator_kind"],
+                      }
+                  }
+              },
+          }
+          semantic_binding = {
+              "if": {
+                  "properties": {"generation_method": {"const": "SEMANTIC_SYNTHESIS"}},
+                  "required": ["generation_method"],
+              },
+              "then": {
+                  "properties": {
+                      "synthesis_evidence": {
+                          "properties": {"generator_kind": {"const": "SEMANTIC_COMPLEXITY"}},
+                          "required": ["generator_kind"],
+                      }
+                  }
+              },
+          }
+          for path in paths:
+              schema = json.loads(path.read_text(encoding="utf-8"))
+              assert len(schema["allOf"]) == 3
+              assert feature_binding not in schema["allOf"]
+              assert semantic_binding not in schema["allOf"]
+              schema["allOf"].insert(2, feature_binding)
+              schema["allOf"].insert(3, semantic_binding)
+              path.write_text(json.dumps(schema, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+          test_path = Path("tests/contract/test_greenfield_task_contract.py")
+          text = test_path.read_text(encoding="utf-8")
+          marker = "def test_b025_schema_has_no_remote_reference() -> None:\n"
+          assert marker in text
+          addition = '''@pytest.mark.parametrize(
+              ("method", "valid_kind", "invalid_kind"),
+              [
+                  ("FEATURE_TREE_SYNTHESIS", "FEATURE_TREE", "SEMANTIC_COMPLEXITY"),
+                  ("SEMANTIC_SYNTHESIS", "SEMANTIC_COMPLEXITY", "FEATURE_TREE"),
+              ],
+          )
+          def test_b025_synthesis_method_binds_generator_kind(
+              method: str, valid_kind: str, invalid_kind: str
+          ) -> None:
+              value = fixture()
+              value["generation_method"] = method
+              value["provenance"]["source_class"] = "SYNTHETIC_VERIFIED"
+              value["provenance"]["generator_identity"] = "generator:v1"
+              value["synthesis_evidence"] = {
+                  "generator_kind": valid_kind,
+                  "generator_identity": "generator:v1",
+                  "generator_revision": "revision:1",
+                  "proposal_only": True,
+                  "independent_verification_status": "VERIFIED",
+                  "independent_verifier_identity": "verifier:independent-v1",
+                  "verification_evidence_identity": "evidence:verification-v1",
+              }
+              validate_instance("mstr-greenfield-task-v0", value)
+              value["synthesis_evidence"]["generator_kind"] = invalid_kind
+              assert validation_errors("mstr-greenfield-task-v0", value)
+
+
+          '''
+          test_path.write_text(text.replace(marker, addition + marker, 1), encoding="utf-8")
+          PY
+          ruff format tests/contract/test_greenfield_task_contract.py
+          git diff --check
+          cmp schemas/mstr-greenfield-task-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-greenfield-task-v0.schema.json
+          mapfile -t actual < <(git diff --name-only | sort)
+          expected=(
+            schemas/mstr-greenfield-task-v0.schema.json
+            specs/002-code-model-supremacy-foundation/contracts/mstr-greenfield-task-v0.schema.json
+            tests/contract/test_greenfield_task_contract.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 3
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+      - name: Run repair qualification gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_greenfield_task_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+      - name: Commit repair and fast-forward feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add \
+            schemas/mstr-greenfield-task-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-greenfield-task-v0.schema.json \
+            tests/contract/test_greenfield_task_contract.py
+          git commit -m "fix(mstr-000b): bind B025 synthesis generator kind"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "B025_REPAIRED_HEAD=$(git rev-parse HEAD)"
+          echo "B025_REPAIRED_TREE=$(git rev-parse HEAD^{tree})"
