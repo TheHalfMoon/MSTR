@@ -66,7 +66,15 @@ def download_pinned(repo: str, revision: str, filename: str, dest: Path) -> dict
 def run(cmd: list[str], **kw) -> tuple[int, str]:
     timeout = kw.pop("timeout", 7200)
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, **kw)
+        r = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            **kw,
+        )
         return r.returncode, (r.stdout + r.stderr)[-2000:]
     except subprocess.TimeoutExpired:
         return 124, f"TIMEOUT after {timeout}s: {' '.join(str(c) for c in cmd)}"
