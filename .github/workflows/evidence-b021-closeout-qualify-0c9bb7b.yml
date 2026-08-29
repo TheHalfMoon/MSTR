@@ -1,0 +1,175 @@
+name: Qualify exact B021 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/b021-closeout-qualify-0c9bb7b
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: 613449e0f1b23eaef7dcb702ba2636a157816d26
+  EXPECTED_HEAD: 0c9bb7b2d3b17267361830b5e5589f3765b53d52
+  EXPECTED_TREE: d6431a9ff02554ae40a06b11d52dc0ace16f780c
+  PR_NUMBER: '84'
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0c9bb7b2d3b17267361830b5e5589f3765b53d52
+          fetch-depth: 0
+      - name: Verify exact PR identity, ancestry, tree, and six-file scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
+          test "$(jq -r '.state' <<<"$pr")" = "open"
+          test "$(jq -r '.draft' <<<"$pr")" = "false"
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$EXPECTED_HEAD"
+          test "$(jq -r '.commits' <<<"$pr")" -eq 1
+          test "$(jq -r '.changed_files' <<<"$pr")" -eq 6
+          mapfile -t actual < <(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" --jq '.[].filename' | sort)
+          expected=(
+            configs/task-gate/mstr-000b.json
+            evidence/mstr-000b/B021-frontier-sampler.md
+            specs/002-code-model-supremacy-foundation/tasks.md
+            tests/contract/test_task_gate.py
+            tests/integration/test_task_gate_cli.py
+            tests/unit/test_frontier_curriculum.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 6
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          test "$(git diff --name-only "$EXPECTED_MAIN"..."$EXPECTED_HEAD" -- src/mstr_qualify/curriculum tests/fixtures/curriculum schemas specs/002-code-model-supremacy-foundation/contracts specs/002-code-model-supremacy-foundation/plan.md .specify/memory/constitution.md | wc -l)" -eq 0
+          git diff --check "$EXPECTED_MAIN"..."$EXPECTED_HEAD"
+
+  catalog_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0c9bb7b2d3b17267361830b5e5589f3765b53d52
+          fetch-depth: 0
+      - name: Prove only B021 machine state changes and closeout provenance is exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$EXPECTED_MAIN:configs/task-gate/mstr-000b.json" > /tmp/base.json
+          cp configs/task-gate/mstr-000b.json /tmp/head.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          base = json.loads(Path('/tmp/base.json').read_text())
+          head = json.loads(Path('/tmp/head.json').read_text())
+          assert base.keys() == head.keys()
+          assert base['tasks'].keys() == head['tasks'].keys()
+          for task_id in base['tasks']:
+              before = base['tasks'][task_id]
+              after = head['tasks'][task_id]
+              if task_id == 'B021':
+                  expected = dict(before)
+                  expected['canonical_state'] = 'COMPLETE_CANONICAL'
+                  assert before['canonical_state'] == 'PENDING'
+                  assert after == expected
+              else:
+                  assert after == before, task_id
+          PY
+          grep -F '**State:** COMPLETE_CANONICAL' evidence/mstr-000b/B021-frontier-sampler.md
+          grep -F '**Implementation PR:** #83' evidence/mstr-000b/B021-frontier-sampler.md
+          grep -F '6211a8f2ccf2613f2e988ce230c7d432877b1aff' evidence/mstr-000b/B021-frontier-sampler.md
+          grep -F '613449e0f1b23eaef7dcb702ba2636a157816d26' evidence/mstr-000b/B021-frontier-sampler.md
+          grep -F 'run `33235980087` — SUCCESS' evidence/mstr-000b/B021-frontier-sampler.md
+          grep -F 'run `33236137441` — SUCCESS' evidence/mstr-000b/B021-frontier-sampler.md
+          grep -F 'review `5057065431` — NO BLOCKING FINDINGS' evidence/mstr-000b/B021-frontier-sampler.md
+          grep -F 'run `33236949430` — SUCCESS' evidence/mstr-000b/B021-frontier-sampler.md
+          grep -F 'run `33237180697` — SUCCESS' evidence/mstr-000b/B021-frontier-sampler.md
+          grep -F 'MODEL_WEIGHT_ACCESS = NONE' evidence/mstr-000b/B021-frontier-sampler.md
+          grep -F 'MODEL_EXECUTION = NONE' evidence/mstr-000b/B021-frontier-sampler.md
+          grep -F 'REAL_CHECKPOINT_CALIBRATION = NONE' evidence/mstr-000b/B021-frontier-sampler.md
+          grep -F 'WEIGHT_CHANGING_TRAINING = NONE' evidence/mstr-000b/B021-frontier-sampler.md
+
+  prospective_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0c9bb7b2d3b17267361830b5e5589f3765b53d52
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove prospective terminal semantics and downstream frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          if mstr-qualify task eligible B021 > /tmp/b021.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and .authority_result.required == false and (.reasons | index("task.already_terminal")) != null' /tmp/b021.json
+          mstr-qualify task eligible B022 > /tmp/b022.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b022.json
+          mstr-qualify task eligible B025 > /tmp/b025.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b025.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+
+  full_quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0c9bb7b2d3b17267361830b5e5589f3765b53d52
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run exact-head closeout and canonical quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/test_frontier_curriculum.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [identity_scope, catalog_semantics, prospective_gate, full_quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b021-closeout-qualify-0c9bb7b
+          fetch-depth: 0
+      - name: Final immutable main, closeout head, tree, and PR recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/docs/000b-b021-canonicalize | cut -f1)" = "$EXPECTED_HEAD"
+          pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
+          test "$(jq -r '.state' <<<"$pr")" = "open"
+          test "$(jq -r '.draft' <<<"$pr")" = "false"
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$EXPECTED_HEAD"
+          tree=$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${EXPECTED_HEAD}" --jq '.tree.sha')
+          test "$tree" = "$EXPECTED_TREE"
