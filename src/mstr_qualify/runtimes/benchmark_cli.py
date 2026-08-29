@@ -9,8 +9,9 @@ the configured GPU-layer argument.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,11 @@ from .base import (
     UnsupportedOperationError,
     require_ready,
     validate_decode_count,
+)
+
+_SHA1_RE = re.compile(r"^[0-9a-f]{40}$")
+_FORBIDDEN_NETWORK_FLAGS = frozenset(
+    {"-hf", "-hfr", "--hf-repo", "-hff", "--hf-file", "-hft", "--hf-token"}
 )
 
 
@@ -49,7 +55,7 @@ CommandRunner = Callable[[tuple[str, ...], float], CommandResult]
 
 @dataclass(frozen=True, slots=True)
 class BenchmarkObservation:
-    """Last verified benchmark observation retained for T031+ measurement plumbing."""
+    """Verified benchmark observation retained for T031+ measurement plumbing."""
 
     operation: str
     prompt_tokens: int
@@ -58,7 +64,7 @@ class BenchmarkObservation:
     gpu_layers: int
     average_nanoseconds: int
     average_tokens_per_second: float
-    runtime_build_commit: str | None
+    runtime_build_commit: str
 
     def __post_init__(self) -> None:
         if self.operation not in {"prefill", "decode"}:
@@ -67,9 +73,9 @@ class BenchmarkObservation:
                 code="runtime.benchmark_observation_operation",
                 details={"operation": self.operation},
             )
-        if min(self.prompt_tokens, self.generated_tokens, self.average_nanoseconds) < 0:
+        if min(self.prompt_tokens, self.generated_tokens) < 0:
             raise BenchmarkCliError(
-                "benchmark observation contains a negative measurement",
+                "benchmark observation contains a negative token count",
                 code="runtime.benchmark_observation_negative",
             )
         if self.threads < 1:
@@ -83,10 +89,15 @@ class BenchmarkObservation:
                 code="runtime.benchmark_observation_gpu",
                 details={"gpu_layers": self.gpu_layers},
             )
-        if self.average_tokens_per_second < 0:
+        if self.average_nanoseconds <= 0 or self.average_tokens_per_second <= 0:
             raise BenchmarkCliError(
-                "average tokens per second must be non-negative",
-                code="runtime.benchmark_observation_rate",
+                "benchmark timing measurements must be positive",
+                code="runtime.benchmark_observation_measurement",
+            )
+        if not self.runtime_build_commit:
+            raise BenchmarkCliError(
+                "runtime build commit must be reported",
+                code="runtime.benchmark_observation_build",
             )
 
 
@@ -127,6 +138,11 @@ class BenchmarkCliProfile:
                     code="runtime.benchmark_profile_string",
                     details={"field": name},
                 )
+        if not _SHA1_RE.fullmatch(self.upstream_revision):
+            raise BenchmarkCliError(
+                "upstream_revision must be an exact 40-character Git commit",
+                code="runtime.benchmark_profile_revision",
+            )
         if not self.supported_formats or len(set(self.supported_formats)) != len(
             self.supported_formats
         ):
@@ -134,10 +150,36 @@ class BenchmarkCliProfile:
                 "benchmark profile needs unique supported formats",
                 code="runtime.benchmark_profile_formats",
             )
+        if any(not item or item.strip() != item for item in self.supported_formats):
+            raise BenchmarkCliError(
+                "supported formats must be canonical non-empty strings",
+                code="runtime.benchmark_profile_format_value",
+            )
         if not self.output_args or any(not item for item in self.output_args):
             raise BenchmarkCliError(
                 "benchmark profile output arguments are required",
                 code="runtime.benchmark_profile_output",
+            )
+        if "json" not in self.output_args:
+            raise BenchmarkCliError(
+                "benchmark profile must request JSON output",
+                code="runtime.benchmark_profile_output_json",
+            )
+        command_flags = {
+            self.model_arg,
+            self.prompt_arg,
+            self.generation_arg,
+            self.threads_arg,
+            self.gpu_layers_arg,
+            self.repetitions_arg,
+            *self.output_args,
+        }
+        forbidden = sorted(command_flags & _FORBIDDEN_NETWORK_FLAGS)
+        if forbidden:
+            raise BenchmarkCliError(
+                "benchmark profile must not contain provider acquisition flags",
+                code="runtime.benchmark_profile_network_flag",
+                details={"flags": ",".join(forbidden)},
             )
 
 
@@ -192,6 +234,7 @@ def load_benchmark_profile(path: Path) -> BenchmarkCliProfile:
             "benchmark runtime argument fields do not match the frozen contract",
             code="runtime.benchmark_profile_argument_fields",
         )
+
     formats = decoded["supported_formats"]
     output = arguments["output"]
     if not isinstance(formats, list) or not all(isinstance(item, str) for item in formats):
@@ -205,36 +248,36 @@ def load_benchmark_profile(path: Path) -> BenchmarkCliProfile:
             code="runtime.benchmark_profile_output_type",
         )
 
-    scalar_values = {
-        "runtime_id": decoded["runtime_id"],
-        "executable": decoded["executable"],
-        "upstream_repository": decoded["upstream_repository"],
-        "upstream_revision": decoded["upstream_revision"],
-        "model": arguments["model"],
-        "prompt_tokens": arguments["prompt_tokens"],
-        "generation_tokens": arguments["generation_tokens"],
-        "threads": arguments["threads"],
-        "gpu_layers": arguments["gpu_layers"],
-        "repetitions": arguments["repetitions"],
-    }
-    if not all(isinstance(value, str) for value in scalar_values.values()):
+    scalar_values = (
+        decoded["runtime_id"],
+        decoded["executable"],
+        decoded["upstream_repository"],
+        decoded["upstream_revision"],
+        arguments["model"],
+        arguments["prompt_tokens"],
+        arguments["generation_tokens"],
+        arguments["threads"],
+        arguments["gpu_layers"],
+        arguments["repetitions"],
+    )
+    if not all(isinstance(value, str) for value in scalar_values):
         raise BenchmarkCliError(
             "benchmark runtime profile scalar fields must be strings",
             code="runtime.benchmark_profile_scalar_type",
         )
 
     return BenchmarkCliProfile(
-        runtime_id=str(decoded["runtime_id"]),
-        executable=str(decoded["executable"]),
-        upstream_repository=str(decoded["upstream_repository"]),
-        upstream_revision=str(decoded["upstream_revision"]),
+        runtime_id=decoded["runtime_id"],
+        executable=decoded["executable"],
+        upstream_repository=decoded["upstream_repository"],
+        upstream_revision=decoded["upstream_revision"],
         supported_formats=tuple(formats),
-        model_arg=str(arguments["model"]),
-        prompt_arg=str(arguments["prompt_tokens"]),
-        generation_arg=str(arguments["generation_tokens"]),
-        threads_arg=str(arguments["threads"]),
-        gpu_layers_arg=str(arguments["gpu_layers"]),
-        repetitions_arg=str(arguments["repetitions"]),
+        model_arg=arguments["model"],
+        prompt_arg=arguments["prompt_tokens"],
+        generation_arg=arguments["generation_tokens"],
+        threads_arg=arguments["threads"],
+        gpu_layers_arg=arguments["gpu_layers"],
+        repetitions_arg=arguments["repetitions"],
         output_args=tuple(output),
     )
 
@@ -263,6 +306,28 @@ def _subprocess_runner(argv: tuple[str, ...], timeout_seconds: float) -> Command
             details={"timeout_seconds": timeout_seconds},
         ) from exc
     return CommandResult(completed.returncode, completed.stdout, completed.stderr)
+
+
+def _require_integer(row: Mapping[str, object], field: str) -> int:
+    value = row.get(field)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise BenchmarkCliError(
+            "runtime benchmark result field must be an integer",
+            code="runtime.output_field_type",
+            details={"field": field},
+        )
+    return value
+
+
+def _require_number(row: Mapping[str, object], field: str) -> float:
+    value = row.get(field)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise BenchmarkCliError(
+            "runtime benchmark result field must be numeric",
+            code="runtime.output_field_type",
+            details={"field": field},
+        )
+    return float(value)
 
 
 class BenchmarkCliRuntimeAdapter:
@@ -415,33 +480,31 @@ class BenchmarkCliRuntimeAdapter:
                 "runtime benchmark stdout is not valid JSON",
                 code="runtime.output_json",
             ) from exc
-        if not isinstance(payload, list) or len(payload) != 1 or not isinstance(payload[0], Mapping):
+        if not isinstance(payload, list) or len(payload) != 1:
             raise BenchmarkCliError(
                 "runtime benchmark JSON must contain exactly one result object",
                 code="runtime.output_shape",
             )
-        row = payload[0]
-        required_types: dict[str, type] = {
-            "n_prompt": int,
-            "n_gen": int,
-            "n_threads": int,
-            "n_gpu_layers": int,
-            "avg_ns": int,
-            "avg_ts": (int, float),  # type: ignore[dict-item]
-        }
-        for field, expected_type in required_types.items():
-            value = row.get(field)
-            if isinstance(value, bool) or not isinstance(value, expected_type):
-                raise BenchmarkCliError(
-                    "runtime benchmark result field has invalid type",
-                    code="runtime.output_field_type",
-                    details={"field": field},
-                )
+        raw_row = payload[0]
+        if not isinstance(raw_row, dict):
+            raise BenchmarkCliError(
+                "runtime benchmark result must be an object",
+                code="runtime.output_shape",
+            )
+        row: Mapping[str, object] = raw_row
+
+        reported_prompt = _require_integer(row, "n_prompt")
+        reported_generation = _require_integer(row, "n_gen")
+        reported_threads = _require_integer(row, "n_threads")
+        reported_gpu_layers = _require_integer(row, "n_gpu_layers")
+        average_nanoseconds = _require_integer(row, "avg_ns")
+        average_tokens_per_second = _require_number(row, "avg_ts")
+
         identities = {
-            "n_prompt": (int(row["n_prompt"]), prompt_tokens),
-            "n_gen": (int(row["n_gen"]), generation_tokens),
-            "n_threads": (int(row["n_threads"]), self._threads),
-            "n_gpu_layers": (int(row["n_gpu_layers"]), 0),
+            "n_prompt": (reported_prompt, prompt_tokens),
+            "n_gen": (reported_generation, generation_tokens),
+            "n_threads": (reported_threads, self._threads),
+            "n_gpu_layers": (reported_gpu_layers, 0),
         }
         for field, (actual, expected) in identities.items():
             if actual != expected:
@@ -450,19 +513,34 @@ class BenchmarkCliRuntimeAdapter:
                     code="runtime.output_identity",
                     details={"field": field, "expected": expected, "actual": actual},
                 )
+
+        model_filename = row.get("model_filename")
+        if not isinstance(model_filename, str) or model_filename != str(self._artifact_path):
+            raise BenchmarkCliError(
+                "runtime benchmark result does not match the loaded artifact path",
+                code="runtime.output_model_identity",
+            )
+        build_commit = row.get("build_commit")
+        if (
+            not isinstance(build_commit, str)
+            or len(build_commit) < 7
+            or not self._profile.upstream_revision.startswith(build_commit)
+        ):
+            raise BenchmarkCliError(
+                "runtime benchmark build commit does not match the pinned profile revision",
+                code="runtime.build_identity",
+                details={"reported": build_commit, "pinned": self._profile.upstream_revision},
+            )
+
         observation = BenchmarkObservation(
             operation=operation,
             prompt_tokens=prompt_tokens,
             generated_tokens=generation_tokens,
             threads=self._threads,
-            gpu_layers=0,
-            average_nanoseconds=int(row["avg_ns"]),
-            average_tokens_per_second=float(row["avg_ts"]),
-            runtime_build_commit=(
-                str(row["build_commit"])
-                if isinstance(row.get("build_commit"), str) and row["build_commit"]
-                else None
-            ),
+            gpu_layers=reported_gpu_layers,
+            average_nanoseconds=average_nanoseconds,
+            average_tokens_per_second=average_tokens_per_second,
+            runtime_build_commit=build_commit,
         )
         self._last_observation = observation
         return observation
@@ -479,13 +557,19 @@ class BenchmarkCliRuntimeAdapter:
             raise UnsupportedOperationError(
                 "prefill exceeds the declared context length",
                 code="runtime.context_unsupported",
-                details={"requested": prompt_tokens, "context_length": request.context_length},
+                details={
+                    "requested": prompt_tokens,
+                    "context_length": request.context_length,
+                },
             )
-        self._run_benchmark(
-            operation="prefill",
-            prompt_tokens=prompt_tokens,
-            generation_tokens=0,
-        )
+        if prompt_tokens > 0:
+            self._run_benchmark(
+                operation="prefill",
+                prompt_tokens=prompt_tokens,
+                generation_tokens=0,
+            )
+        else:
+            self._last_observation = None
         return PrefillResult(
             prompt_tokens=prompt_tokens,
             cache_state_after=PrefixCacheState.EMPTY,
