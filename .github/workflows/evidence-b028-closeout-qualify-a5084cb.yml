@@ -1,0 +1,127 @@
+name: Qualify B028 canonical closeout exact head
+
+on:
+  push:
+    branches:
+      - evidence/b028-closeout-qualify-a5084cb
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  BASE_SHA: 01a070e27098fc3798a87ad57dd62b63fdf8fdee
+  HEAD_SHA: a5084cb2b5109751b33fa3c1c8f49f2354954b40
+  EXPECTED_TREE: cbb70ddbe93db7350f310ecd7e4035fce4830ba6
+  TARGET_BRANCH: docs/000b-b028-canonicalize
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact closeout identity and four-file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          test "$(git rev-parse "$HEAD_SHA^{tree}")" = "$EXPECTED_TREE"
+          test "$(git rev-parse "$HEAD_SHA^")" = "$BASE_SHA"
+          mapfile -t actual < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort)
+          expected=(
+            configs/task-gate/mstr-000b.json
+            evidence/mstr-000b/B028-training-methods.md
+            specs/002-code-model-supremacy-foundation/tasks.md
+            tests/contract/test_task_gate.py
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 4
+          diff -u <(printf '%s\n' "${wanted[@]}") <(printf '%s\n' "${actual[@]}")
+          test -z "$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- schemas specs/002-code-model-supremacy-foundation/contracts tests/fixtures src artifacts/manifests/B028-method-tournament-preflight.json docs/training/Q4_PROMOTION_CONTRACT.md)"
+
+  terminal_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a5084cb2b5109751b33fa3c1c8f49f2354954b40
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove B028 terminal state and preserved authority boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$HEAD_SHA"
+          git update-ref refs/remotes/origin/main "$HEAD_SHA"
+          if mstr-qualify task eligible B028 > /tmp/b028.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null and .authority_result.required == false' /tmp/b028.json
+          if mstr-qualify task eligible B023 > /tmp/b023.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '(.reasons | index("prerequisite.unsatisfied:A006")) != null and (.reasons | index("prerequisite.unsatisfied:A014")) != null' /tmp/b023.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false and .authority_result.authority_id == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"' /tmp/b011.json
+          if mstr-qualify task eligible B029 > /tmp/b029.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "BLOCKED"' /tmp/b029.json
+          grep -F '**State:** COMPLETE_CANONICAL' evidence/mstr-000b/B028-training-methods.md
+          grep -F '**Implementation PR:** #90' evidence/mstr-000b/B028-training-methods.md
+          grep -F '**Final implementation head:** `3c9d8624745ad34e1e96d7f150afaccd2f02bc8f`' evidence/mstr-000b/B028-training-methods.md
+          grep -F '**Canonical implementation merge:** `01a070e27098fc3798a87ad57dd62b63fdf8fdee`' evidence/mstr-000b/B028-training-methods.md
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("artifacts/manifests/B028-method-tournament-preflight.json").read_text())
+          assert manifest["method_selection"] == "UNSELECTED"
+          assert manifest["execution_status"] == "NOT_EXECUTED"
+          assert all(value is False for value in manifest["authority_boundary"].values())
+          assert [item["preflight_status"] for item in manifest["required_method_arms"]] == ["REVALIDATION_REQUIRED"] * 4
+          PY
+
+  quality_drift:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a5084cb2b5109751b33fa3c1c8f49f2354954b40
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run exact-head canonical quality and drift proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_task_gate.py tests/contract/test_training_promotion_contract.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          git update-ref refs/heads/main "$HEAD_SHA"
+          git update-ref refs/remotes/origin/main "$HEAD_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+
+  complete:
+    needs: [identity_scope, terminal_semantics, quality_drift]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a5084cb2b5109751b33fa3c1c8f49f2354954b40
+          fetch-depth: 0
+      - name: Final immutable exact-head recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
