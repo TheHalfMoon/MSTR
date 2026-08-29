@@ -140,7 +140,10 @@ def test_b020_canonical_closeout_provenance_and_authority_boundary() -> None:
 '''
 if "def test_b020_canonical_closeout_provenance_and_authority_boundary()" in text:
     raise SystemExit("B020 closeout contract test already exists")
-contract_test.write_text(text.rstrip() + closeout_test + "\n", encoding="utf-8")
+contract_test.write_text(
+    (text.rstrip() + closeout_test).rstrip() + "\n",
+    encoding="utf-8",
+)
 
 cli_test = Path("tests/integration/test_task_gate_cli.py")
 text = cli_test.read_text(encoding="utf-8")
@@ -169,4 +172,7 @@ def test_task_eligible_b020_terminal_returns_one(
 '''
 if "def test_task_eligible_b020_terminal_returns_one(" in text:
     raise SystemExit("B020 terminal CLI test already exists")
-cli_test.write_text(text.rstrip() + cli_closeout + "\n", encoding="utf-8")
+cli_test.write_text(
+    (text.rstrip() + cli_closeout).rstrip() + "\n",
+    encoding="utf-8",
+)
