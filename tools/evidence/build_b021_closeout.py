@@ -39,6 +39,25 @@ replace_once(
 )
 
 replace_once(
+    TASK_GATE_TEST,
+    "def test_b020_closeout_opens_b021_frontier_sampler() -> None:\n"
+    "    result = evaluate_task_snapshot(\"B021\", canonical_main=_CANONICAL_MAIN)\n\n"
+    "    assert result[\"eligible\"] is True\n"
+    "    assert result[\"reasons\"] == []\n"
+    "    assert result[\"state_consistency_result\"][\"observed_state\"] == \"PENDING\"\n"
+    "    assert result[\"authority_result\"][\"required\"] is False\n"
+    "    predecessor = next(\n"
+    "        item for item in result[\"prerequisite_results\"] if item[\"task_id\"] == \"B020\"\n"
+    "    )\n"
+    "    assert predecessor[\"observed_state\"] == \"COMPLETE_CANONICAL\"\n"
+    "    assert predecessor[\"evidence_present\"] is True\n"
+    "    assert predecessor[\"satisfied\"] is True\n"
+    "    assert predecessor[\"reasons\"] == []\n"
+    "    validate_instance(\"mstr-task-eligibility-v0\", result)\n\n\n",
+    "",
+)
+
+replace_once(
     EVIDENCE,
     "**Task:** `B021`\n**State:** `IMPLEMENTATION_ACTIVE`\n**Canonical entry main:** `641e13033b00451ea4b81063640e4066a8c7389d`\n",
     "**Task:** `B021`\n"
