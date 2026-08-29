@@ -132,21 +132,21 @@ VALID_PINNED_RESULT -> ACCEPT
 
 ## Qualification Boundary
 
-The earlier hosted qualification run `33264129717` targeted stale head `f87f421745c1aafd9cfff1615fc843114b4135c8` and failed before exposing any steps. It is infrastructure evidence only and cannot qualify the current implementation.
+Historical exact-head hosted qualification attempts are immutable GitHub execution evidence and are recorded on the PR/run timeline rather than by mutating this candidate after every attempt. A qualification attempt is valid for a candidate only when its workflow pins that exact candidate SHA and the frozen gates actually execute.
 
-No repository quality gate is claimed on the current final candidate head until exact-head qualification executes.
+No repository quality gate is claimed merely because a workflow exists or because a job reaches a terminal GitHub state. Jobs that fail before exposing any step are infrastructure evidence only.
 
 ```text
-T030_FOCUSED_TESTS = PENDING_FINAL_HEAD_EXECUTION
-MSTR_QUALIFY_VALIDATE = PENDING_FINAL_HEAD_EXECUTION
-FULL_PYTEST = PENDING_FINAL_HEAD_EXECUTION
-RUFF = PENDING_FINAL_HEAD_EXECUTION
-MYPY = PENDING_FINAL_HEAD_EXECUTION
-CI_PASS = NOT_CLAIMED
-T030_COMPLETE_CANONICAL = NO
+T030_FOCUSED_TESTS = REQUIRE_EXACT_HEAD_EXECUTION
+MSTR_QUALIFY_VALIDATE = REQUIRE_EXACT_HEAD_EXECUTION
+FULL_PYTEST = REQUIRE_EXACT_HEAD_EXECUTION
+RUFF = REQUIRE_EXACT_HEAD_EXECUTION
+MYPY = REQUIRE_EXACT_HEAD_EXECUTION
+CI_PASS = NOT_CLAIMED_WITHOUT_EXECUTED_GATES
+T030_COMPLETE_CANONICAL = NO_UNTIL_GOVERNED_CLOSEOUT
 ```
 
-The repository has separately proven hosted-runner failures where Ubuntu, Windows and macOS jobs all failed before exposing a step. A fresh exact-head T030 run is still required; if it exhibits the same condition, that remains infrastructure evidence only.
+The repository has separately reproduced hosted-runner failures where Ubuntu, Windows, and macOS jobs terminate before exposing a step. Such failures must remain distinguished from implementation failures and from PASS.
 
 ## Authority Boundary
 
