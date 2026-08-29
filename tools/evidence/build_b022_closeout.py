@@ -67,6 +67,41 @@ with EVIDENCE.open("a", encoding="utf-8") as handle:
 replace_once(
     TASK_GATE_TEST,
     '@pytest.mark.parametrize("task_id", ["B022", "B025"])\n'
+    "def test_b014_closeout_opens_direct_nongated_successors(task_id: str) -> None:\n"
+    '    result = evaluate_task_snapshot(task_id, canonical_main=_CANONICAL_MAIN)\n\n'
+    '    assert result["eligible"] is True\n'
+    '    assert result["reasons"] == []\n'
+    '    assert result["state_consistency_result"]["observed_state"] == "PENDING"\n'
+    '    assert result["authority_result"]["required"] is False\n'
+    '    assert result["authority_result"]["satisfied"] is True\n'
+    '    predecessor = next(\n'
+    '        item for item in result["prerequisite_results"] if item["task_id"] == "B014"\n'
+    '    )\n'
+    '    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"\n'
+    '    assert predecessor["evidence_present"] is True\n'
+    '    assert predecessor["satisfied"] is True\n'
+    '    assert predecessor["reasons"] == []\n'
+    '    validate_instance("mstr-task-eligibility-v0", result)\n',
+    "def test_b014_closeout_preserves_b025_direct_nongated_successor() -> None:\n"
+    '    result = evaluate_task_snapshot("B025", canonical_main=_CANONICAL_MAIN)\n\n'
+    '    assert result["eligible"] is True\n'
+    '    assert result["reasons"] == []\n'
+    '    assert result["state_consistency_result"]["observed_state"] == "PENDING"\n'
+    '    assert result["authority_result"]["required"] is False\n'
+    '    assert result["authority_result"]["satisfied"] is True\n'
+    '    predecessor = next(\n'
+    '        item for item in result["prerequisite_results"] if item["task_id"] == "B014"\n'
+    '    )\n'
+    '    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"\n'
+    '    assert predecessor["evidence_present"] is True\n'
+    '    assert predecessor["satisfied"] is True\n'
+    '    assert predecessor["reasons"] == []\n'
+    '    validate_instance("mstr-task-eligibility-v0", result)\n',
+)
+
+replace_once(
+    TASK_GATE_TEST,
+    '@pytest.mark.parametrize("task_id", ["B022", "B025"])\n'
     "def test_b021_closeout_preserves_independent_phase_v_successors(task_id: str) -> None:\n"
     '    result = evaluate_task_snapshot(task_id, canonical_main=_CANONICAL_MAIN)\n\n'
     '    assert result["eligible"] is True\n'
