@@ -1,0 +1,25 @@
+{
+  "attempt_count": 4,
+  "calibration_time": "2026-08-28T18:15:43Z",
+  "difficulty_class": "LEARNABLE_FRONTIER",
+  "difficulty_record_identity": "difficulty-fixture-invalid",
+  "estimated_solve_probability": 0.5,
+  "failure_distribution": [],
+  "harness_profile_id": "h1-fixture",
+  "sampling_identity": "sampling-fixture-v1",
+  "schema_version": "mstr.difficulty-calibration.v0",
+  "structural_features": {
+    "files_touched_hint": 3,
+    "requires_repository_context": true,
+    "task_kind": "fixture",
+    "verification_steps_hint": 2
+  },
+  "student_model_identity": {
+    "checkpoint_id": "checkpoint-0001",
+    "harness_profile_id": "h1-fixture",
+    "model_id": "fixture/student",
+    "sampling_identity": "sampling-fixture-v1"
+  },
+  "success_count": 5,
+  "task_or_family_id": "fixture.task.family"
+}

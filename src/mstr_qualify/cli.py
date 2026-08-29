@@ -80,6 +80,8 @@ _SCHEMA_VERSION_TO_SCHEMA_NAME = {
     "mstr.self-alignment-generation.v0": "mstr-self-alignment-generation-v0",
     # MSTR-000B B019 bounded teacher-rescue contract.
     "mstr.teacher-rescue-record.v0": "mstr-teacher-rescue-record-v0",
+    # MSTR-000B B020 checkpoint-relative difficulty calibration contract.
+    "mstr.difficulty-calibration.v0": "mstr-difficulty-calibration-v0",
 }
 
 _REPOSITORY_ROOT = DEFAULT_SCHEMA_DIR.parent

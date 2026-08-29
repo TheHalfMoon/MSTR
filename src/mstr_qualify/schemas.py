@@ -8,6 +8,7 @@ cannot become an implicit network boundary.
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
@@ -41,6 +42,8 @@ SCHEMA_FILES: Mapping[str, str] = {
     "mstr-self-alignment-generation-v0": "mstr-self-alignment-generation-v0.schema.json",
     # MSTR-000B B019: bounded teacher-rescue record contract.
     "mstr-teacher-rescue-record-v0": "mstr-teacher-rescue-record-v0.schema.json",
+    # MSTR-000B B020: checkpoint-relative difficulty calibration contract.
+    "mstr-difficulty-calibration-v0": "mstr-difficulty-calibration-v0.schema.json",
 }
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -236,7 +239,6 @@ def _self_alignment_semantic_errors(instance: Any) -> tuple[str, ...]:
     return tuple(sorted(errors))
 
 
-
 def _teacher_rescue_semantic_errors(instance: Any) -> tuple[str, ...]:
     """Enforce B019 output bindings and external-effect authority semantics."""
 
@@ -254,9 +256,7 @@ def _teacher_rescue_semantic_errors(instance: Any) -> tuple[str, ...]:
             if not isinstance(output_id, str):
                 continue
             if output_id in outputs:
-                errors.append(
-                    f"$.teacher_outputs[{index}]: duplicate output_id {output_id!r}"
-                )
+                errors.append(f"$.teacher_outputs[{index}]: duplicate output_id {output_id!r}")
                 continue
             outputs[output_id] = output
 
@@ -272,9 +272,7 @@ def _teacher_rescue_semantic_errors(instance: Any) -> tuple[str, ...]:
             if not isinstance(output_id, str):
                 continue
             if output_id in bindings:
-                errors.append(
-                    f"$.{field}[{index}]: duplicate output binding {output_id!r}"
-                )
+                errors.append(f"$.{field}[{index}]: duplicate output binding {output_id!r}")
                 continue
             bindings[output_id] = binding
         return bindings
@@ -304,8 +302,10 @@ def _teacher_rescue_semantic_errors(instance: Any) -> tuple[str, ...]:
         model_executed = cost.get("model_execution_occurred") is True
         authority = cost.get("external_effect_authority_identity")
         external_effect = (
-            isinstance(paid, (int, float)) and not isinstance(paid, bool) and paid > 0
-        ) or network_used or model_executed
+            (isinstance(paid, (int, float)) and not isinstance(paid, bool) and paid > 0)
+            or network_used
+            or model_executed
+        )
         if external_effect and not isinstance(authority, str):
             errors.append(
                 "$.cost_record.external_effect_authority_identity: required when "
@@ -330,11 +330,96 @@ def _teacher_rescue_semantic_errors(instance: Any) -> tuple[str, ...]:
                 )
             if access_mode == "LOCAL_MODEL" and not model_executed:
                 errors.append(
-                    "$.teacher_identity.access_mode: LOCAL_MODEL requires recorded "
-                    "model execution"
+                    "$.teacher_identity.access_mode: LOCAL_MODEL requires recorded model execution"
                 )
 
     return tuple(sorted(errors))
+
+
+def _difficulty_calibration_semantic_errors(instance: Any) -> tuple[str, ...]:
+    """Enforce B020 checkpoint-relative identity and attempt-accounting semantics."""
+
+    if not isinstance(instance, dict):
+        return ()
+
+    errors: list[str] = []
+    attempts = instance.get("attempt_count")
+    successes = instance.get("success_count")
+    if (
+        isinstance(attempts, int)
+        and not isinstance(attempts, bool)
+        and isinstance(successes, int)
+        and not isinstance(successes, bool)
+        and successes > attempts
+    ):
+        errors.append("$.success_count: cannot exceed attempt_count")
+
+    probability = instance.get("estimated_solve_probability")
+    if (
+        isinstance(probability, (int, float))
+        and not isinstance(probability, bool)
+        and not math.isfinite(float(probability))
+    ):
+        errors.append("$.estimated_solve_probability: must be finite")
+
+    student = instance.get("student_model_identity")
+    if isinstance(student, dict):
+        if instance.get("harness_profile_id") != student.get("harness_profile_id"):
+            errors.append(
+                "$.harness_profile_id: must match student_model_identity.harness_profile_id"
+            )
+        if instance.get("sampling_identity") != student.get("sampling_identity"):
+            errors.append(
+                "$.sampling_identity: must match student_model_identity.sampling_identity"
+            )
+
+    structural_features = instance.get("structural_features")
+    if isinstance(structural_features, dict):
+        for key, value in structural_features.items():
+            if (
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and not math.isfinite(float(value))
+            ):
+                errors.append(f"$.structural_features[{key!r}]: numeric value must be finite")
+
+    failure_distribution = instance.get("failure_distribution")
+    if isinstance(failure_distribution, list):
+        seen: set[str] = set()
+        failure_total = 0
+        countable = True
+        for index, bucket in enumerate(failure_distribution):
+            if not isinstance(bucket, dict):
+                countable = False
+                continue
+            failure_class = bucket.get("failure_class")
+            count = bucket.get("count")
+            if isinstance(failure_class, str):
+                if failure_class in seen:
+                    errors.append(
+                        "$.failure_distribution["
+                        f"{index}]: duplicate failure_class {failure_class!r}"
+                    )
+                seen.add(failure_class)
+            if isinstance(count, int) and not isinstance(count, bool) and count >= 0:
+                failure_total += count
+            else:
+                countable = False
+        if (
+            countable
+            and isinstance(attempts, int)
+            and not isinstance(attempts, bool)
+            and isinstance(successes, int)
+            and not isinstance(successes, bool)
+            and 0 <= successes <= attempts
+            and failure_total != attempts - successes
+        ):
+            errors.append(
+                "$.failure_distribution: counts must exactly cover attempt_count - success_count"
+            )
+
+    return tuple(sorted(errors))
+
 
 def validation_errors(
     name: str,
@@ -359,6 +444,8 @@ def validation_errors(
         formatted.extend(_self_alignment_semantic_errors(instance))
     if name == "mstr-teacher-rescue-record-v0":
         formatted.extend(_teacher_rescue_semantic_errors(instance))
+    if name == "mstr-difficulty-calibration-v0":
+        formatted.extend(_difficulty_calibration_semantic_errors(instance))
     return tuple(sorted(formatted))
 
 
