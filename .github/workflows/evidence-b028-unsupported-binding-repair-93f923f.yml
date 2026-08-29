@@ -1,0 +1,131 @@
+name: Repair B028 unsupported-status binding
+
+on:
+  push:
+    branches:
+      - evidence/b028-unsupported-binding-repair-93f923f
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: 9d5908016b2b8775eaf86dbcebb89683f52e1f90
+  EXPECTED_HEAD: 93f923fecc07b08f4d5f198bfb09209e169957a7
+  TARGET_BRANCH: feat/000b-b028-q4-promotion-preflight
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b028-unsupported-binding-repair-93f923f
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove immutable repair entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          mstr-qualify task drift > /tmp/entry-drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/entry-drift.json
+          mstr-qualify task eligible B028 > /tmp/b028-entry.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .reasons == []' /tmp/b028-entry.json
+
+      - name: Bind UNSUPPORTED status fail closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          schema_paths = [
+              Path("schemas/mstr-training-method-cell-v0.schema.json"),
+              Path("specs/002-code-model-supremacy-foundation/contracts/mstr-training-method-cell-v0.schema.json"),
+          ]
+          payload = json.loads(schema_paths[0].read_text(encoding="utf-8"))
+          rule = {
+              "if": {
+                  "properties": {"status": {"const": "UNSUPPORTED"}},
+                  "required": ["status"],
+              },
+              "then": {
+                  "properties": {"support_status": {"const": "UNSUPPORTED"}}
+              },
+          }
+          if rule in payload["allOf"]:
+              raise SystemExit("unsupported-status converse rule already present")
+          payload["allOf"].append(rule)
+          rendered = json.dumps(payload, indent=2) + "\n"
+          for path in schema_paths:
+              path.write_text(rendered, encoding="utf-8")
+
+          test_path = Path("tests/contract/test_training_promotion_contract.py")
+          text = test_path.read_text(encoding="utf-8")
+          marker = "def test_execution_ready_requires_candidate_specific_support() -> None:\n"
+          if text.count(marker) != 1:
+              raise SystemExit("expected one B028 execution-ready regression marker")
+          regression = '''def test_unsupported_status_requires_unsupported_support_and_exact_reason() -> None:\n    value = _fixture("valid", "mstr-training-method-cell-v0")\n    value["status"] = "UNSUPPORTED"\n    assert validation_errors("mstr-training-method-cell-v0", value)\n\n    value["support_status"] = "UNSUPPORTED"\n    value["unsupported_reason"] = "exact fixture incompatibility"\n    validate_instance("mstr-training-method-cell-v0", value)\n\n\n'''
+          if "test_unsupported_status_requires_unsupported_support_and_exact_reason" in text:
+              raise SystemExit("unsupported-status regression already present")
+          test_path.write_text(text.replace(marker, regression + marker, 1), encoding="utf-8")
+          PY
+          ruff format tests/contract/test_training_promotion_contract.py
+          git diff --check
+          mapfile -t actual < <(git diff --name-only | sort)
+          expected=(
+            schemas/mstr-training-method-cell-v0.schema.json
+            specs/002-code-model-supremacy-foundation/contracts/mstr-training-method-cell-v0.schema.json
+            tests/contract/test_training_promotion_contract.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 3
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          cmp schemas/mstr-training-method-cell-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-training-method-cell-v0.schema.json
+
+      - name: Prove repair and full candidate quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_training_promotion_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+
+      - name: Commit repair, prove prospective state, and fast-forward target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add \
+            schemas/mstr-training-method-cell-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-training-method-cell-v0.schema.json \
+            tests/contract/test_training_promotion_contract.py
+          git commit -m "fix(mstr-000b): bind B028 unsupported status"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_HEAD"
+          REPAIRED_HEAD=$(git rev-parse HEAD)
+          git update-ref refs/heads/main "$REPAIRED_HEAD"
+          git update-ref refs/remotes/origin/main "$REPAIRED_HEAD"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          mstr-qualify task eligible B028 > /tmp/b028.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .reasons == []' /tmp/b028.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "B028_REPAIRED_HEAD=$REPAIRED_HEAD"
+          echo "B028_REPAIRED_TREE=$(git rev-parse HEAD^{tree})"
+          echo "B028_REPAIR_FILES=3"
