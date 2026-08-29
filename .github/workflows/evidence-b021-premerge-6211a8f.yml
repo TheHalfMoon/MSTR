@@ -1,0 +1,215 @@
+name: Mandatory premerge verification for exact B021 candidate
+
+on:
+  push:
+    branches:
+      - evidence/b021-premerge-6211a8f
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: 641e13033b00451ea4b81063640e4066a8c7389d
+  EXPECTED_HEAD: 6211a8f2ccf2613f2e988ce230c7d432877b1aff
+  EXPECTED_TREE: e7f07643c423f773f105558b99659834495008af
+  PR_NUMBER: '83'
+  REVIEW_ID: '5057065431'
+
+jobs:
+  pr_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6211a8f2ccf2613f2e988ce230c7d432877b1aff
+          fetch-depth: 0
+      - name: Verify exact PR identity, ancestry, tree, and five-file scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
+          test "$(jq -r '.state' <<<"$pr")" = "open"
+          test "$(jq -r '.draft' <<<"$pr")" = "false"
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$EXPECTED_HEAD"
+          test "$(jq -r '.commits' <<<"$pr")" -eq 1
+          test "$(jq -r '.changed_files' <<<"$pr")" -eq 5
+          mapfile -t actual < <(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" --jq '.[].filename' | sort)
+          expected=(
+            evidence/mstr-000b/B021-frontier-sampler.md
+            src/mstr_qualify/curriculum/__init__.py
+            src/mstr_qualify/curriculum/frontier.py
+            tests/fixtures/curriculum/b021-frontier-refresh.json
+            tests/unit/test_frontier_curriculum.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 5
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          test "$(git diff --name-only "$EXPECTED_MAIN"..."$EXPECTED_HEAD" -- configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md specs/002-code-model-supremacy-foundation/plan.md .specify/memory/constitution.md schemas specs/002-code-model-supremacy-foundation/contracts | wc -l)" -eq 0
+          git diff --check "$EXPECTED_MAIN"..."$EXPECTED_HEAD"
+
+  review_surface:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6211a8f2ccf2613f2e988ce230c7d432877b1aff
+          fetch-depth: 0
+      - name: Verify exact-head formal review and zero unresolved threads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          reviews=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews")
+          jq -e --argjson id "$REVIEW_ID" --arg head "$EXPECTED_HEAD" '.[] | select(.id == $id and .state == "COMMENTED" and .commit_id == $head)' <<<"$reviews" >/dev/null
+          query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved comments(first:20){nodes{body commit{oid}}}}}}}}'
+          threads=$(gh api graphql -f query="$query" -F owner='TheHalfMoon' -F name='MSTR' -F number="$PR_NUMBER")
+          jq -e '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length == 0' <<<"$threads"
+
+  task_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 641e13033b00451ea4b81063640e4066a8c7389d
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-prove B021 eligibility, B011 block, and canonical drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          mstr-qualify task eligible B021 > /tmp/b021.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b021.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+
+  adversarial_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6211a8f2ccf2613f2e988ce230c7d432877b1aff
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-prove fixture-only frontier invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/test_frontier_curriculum.py tests/contract/test_difficulty_calibration_contract.py
+          grep -Fx 'MODEL_WEIGHT_ACCESS = NONE' evidence/mstr-000b/B021-frontier-sampler.md
+          grep -Fx 'MODEL_EXECUTION = NONE' evidence/mstr-000b/B021-frontier-sampler.md
+          grep -Fx 'REAL_CHECKPOINT_CALIBRATION = NONE' evidence/mstr-000b/B021-frontier-sampler.md
+          grep -Fx 'WEIGHT_CHANGING_TRAINING = NONE' evidence/mstr-000b/B021-frontier-sampler.md
+          grep -Fx 'B021_AUTHORITY = REPOSITORY_OWNED_FIXTURE_FRONTIER_CALIBRATION_AND_SAMPLING_ONLY' evidence/mstr-000b/B021-frontier-sampler.md
+          python - <<'PY'
+          import copy
+          import json
+          from pathlib import Path
+          from mstr_qualify.curriculum.frontier import (
+              FixtureSamplingPolicy,
+              FrontierCalibrationError,
+              calibrate_fixture_frontier,
+              deterministic_sampling_plan,
+              refresh_fixture_frontier,
+          )
+
+          payload = json.loads(Path('tests/fixtures/curriculum/b021-frontier-refresh.json').read_text())
+          policy = FixtureSamplingPolicy(**payload['policy'])
+          snapshot = calibrate_fixture_frontier(payload['before_records'], policy=policy)
+          lanes = {e.task_or_family_id: (e.curriculum_lane, e.sampling_weight) for e in snapshot.entries}
+          assert lanes['task-invalid'] == ('REJECTED_INVALID', 0)
+          assert lanes['task-unproductive'] == ('DEFERRED', 0)
+          assert lanes['task-regression'][0] == 'REPLAY_ANCHOR'
+          assert lanes['task-fim'][0] == 'REPLAY_ANCHOR'
+          plan = deterministic_sampling_plan(snapshot, budget=48)
+          assert 'task-invalid' not in plan and 'task-unproductive' not in plan
+          refresh = refresh_fixture_frontier(payload['before_records'], payload['after_records'], policy=policy)
+          assert refresh.recalibration_required is True
+          assert refresh.before_checkpoint_id != refresh.after_checkpoint_id
+
+          same = copy.deepcopy(payload['before_records'][:2])
+          for i, klass in enumerate(('LEARNABLE_FRONTIER', 'HARD_FRONTIER')):
+              same[i]['task_or_family_id'] = f'same-prob-{i}'
+              same[i]['difficulty_record_identity'] = f'same-prob-record-{i}'
+              same[i]['difficulty_class'] = klass
+              same[i]['success_count'] = 5
+              same[i]['estimated_solve_probability'] = 0.5
+              same[i]['failure_distribution'] = [{'failure_class': 'FIXTURE_FAILURE', 'count': 5}]
+              same[i]['structural_features']['curriculum_role'] = 'STANDARD'
+          same_snapshot = calibrate_fixture_frontier(same, policy=policy)
+          same_lanes = {e.difficulty_class: e.curriculum_lane for e in same_snapshot.entries}
+          assert same_lanes['LEARNABLE_FRONTIER'] != same_lanes['HARD_FRONTIER']
+
+          bad = copy.deepcopy(payload['before_records'][:1])
+          bad[0]['structural_features']['source_class'] = 'PUBLIC_OPEN_SOURCE_REPOSITORY'
+          try:
+              calibrate_fixture_frontier(bad, policy=policy)
+          except FrontierCalibrationError as exc:
+              assert 'fixture-only' in str(exc)
+          else:
+              raise AssertionError('non-fixture source was accepted')
+          PY
+
+  full_quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6211a8f2ccf2613f2e988ce230c7d432877b1aff
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run exact-head canonical quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [pr_semantics, review_surface, task_gate, adversarial_semantics, full_quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b021-premerge-6211a8f
+          fetch-depth: 0
+      - name: Final immutable main, head, tree, and PR recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/feat/000b-b021-frontier-sampler | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/feat/000b-b021-frontier-sampler | cut -f1)" = "$EXPECTED_HEAD"
+          pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
+          test "$(jq -r '.state' <<<"$pr")" = "open"
+          test "$(jq -r '.draft' <<<"$pr")" = "false"
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$EXPECTED_MAIN"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$EXPECTED_HEAD"
+          tree=$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${EXPECTED_HEAD}" --jq '.tree.sha')
+          test "$tree" = "$EXPECTED_TREE"
