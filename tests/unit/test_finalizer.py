@@ -141,6 +141,18 @@ def test_untrusted_verifier_result_source_fails_closed() -> None:
     assert excinfo.value.code == "finalizer.untrusted_verifier_source"
 
 
+def test_untrusted_stop_source_fails_closed() -> None:
+    events: list[dict[str, object]] = []
+    _event(events, "run.started", {})
+    _event(events, "run.stop_proposed", {"reason": "spoofed"}, source="user")
+    _verifier(events, "tests", "PASS", "tests-pass")
+
+    with pytest.raises(FinalizerError) as excinfo:
+        finalize_run(events, required_verifier_ids=["tests"])
+
+    assert excinfo.value.code == "finalizer.untrusted_stop_source"
+
+
 def test_preexisting_harness_completion_is_never_trusted() -> None:
     events = _base()
     _verifier(events, "tests", "PASS", "tests-pass")
@@ -157,7 +169,21 @@ def test_preexisting_harness_completion_is_never_trusted() -> None:
     with pytest.raises(FinalizerError) as excinfo:
         finalize_run(events, required_verifier_ids=["tests"])
 
-    assert excinfo.value.code == "finalizer.preexisting_completion"
+    assert excinfo.value.code == "finalizer.preexisting_terminal"
+
+
+@pytest.mark.parametrize("event_type", ["run.failed", "run.escalated"])
+def test_preexisting_terminal_failure_or_escalation_cannot_be_rewritten_as_success(
+    event_type: str,
+) -> None:
+    events = _base()
+    _verifier(events, "tests", "PASS", "tests-pass")
+    _event(events, event_type, {"reason": "terminal"}, source="harness")
+
+    with pytest.raises(FinalizerError) as excinfo:
+        finalize_run(events, required_verifier_ids=["tests"])
+
+    assert excinfo.value.code == "finalizer.preexisting_terminal"
 
 
 def test_verifier_result_requires_result_identity() -> None:
