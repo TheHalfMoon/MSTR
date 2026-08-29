@@ -1,0 +1,160 @@
+name: Qualify exact B021 fixture frontier candidate
+
+on:
+  push:
+    branches:
+      - evidence/b021-qualify-6211a8f
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: 641e13033b00451ea4b81063640e4066a8c7389d
+  EXPECTED_HEAD: 6211a8f2ccf2613f2e988ce230c7d432877b1aff
+  EXPECTED_TREE: e7f07643c423f773f105558b99659834495008af
+  PR_NUMBER: '83'
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6211a8f2ccf2613f2e988ce230c7d432877b1aff
+          fetch-depth: 0
+      - name: Verify exact PR identity, ancestry, tree, and five-file scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/feat/000b-b021-frontier-sampler | cut -f1)" = "$EXPECTED_HEAD"
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$EXPECTED_MAIN" --arg head "$EXPECTED_HEAD" \
+            '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head' /tmp/pr.json
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_MAIN" "$EXPECTED_HEAD" | sort)
+          expected=(
+            evidence/mstr-000b/B021-frontier-sampler.md
+            src/mstr_qualify/curriculum/__init__.py
+            src/mstr_qualify/curriculum/frontier.py
+            tests/fixtures/curriculum/b021-frontier-refresh.json
+            tests/unit/test_frontier_curriculum.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 5
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+          git diff --quiet "$EXPECTED_MAIN" "$EXPECTED_HEAD" -- \
+            configs/task-gate/mstr-000b.json \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            specs/002-code-model-supremacy-foundation/plan.md \
+            .specify/memory/constitution.md \
+            schemas/mstr-difficulty-calibration-v0.schema.json
+
+  exact_main_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 641e13033b00451ea4b81063640e4066a8c7389d
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-prove B021 entry eligibility and canonical drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          mstr-qualify task eligible B021 > /tmp/b021.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true' /tmp/b021.json
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+
+  adversarial_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6211a8f2ccf2613f2e988ce230c7d432877b1aff
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove fixture-only frontier invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q \
+            tests/unit/test_frontier_curriculum.py::test_fixture_frontier_maps_classes_and_preserves_replay_anchors \
+            tests/unit/test_frontier_curriculum.py::test_sampling_plan_is_deterministic_weighted_and_excludes_rejected_cells \
+            tests/unit/test_frontier_curriculum.py::test_refresh_recalibrates_sampling_decisions_for_new_checkpoint \
+            tests/unit/test_frontier_curriculum.py::test_same_probability_can_route_by_frozen_class_without_threshold_encoding \
+            tests/unit/test_frontier_curriculum.py::test_snapshot_rejects_mixed_checkpoint_identity \
+            tests/unit/test_frontier_curriculum.py::test_snapshot_rejects_non_fixture_source_class \
+            tests/unit/test_frontier_curriculum.py::test_snapshot_rejects_unknown_curriculum_role \
+            tests/unit/test_frontier_curriculum.py::test_snapshot_rejects_duplicate_task_identity \
+            tests/unit/test_frontier_curriculum.py::test_refresh_rejects_harness_or_sampling_change \
+            tests/unit/test_frontier_curriculum.py::test_refresh_rejects_stale_calibration_time_and_reused_record_identity \
+            tests/unit/test_frontier_curriculum.py::test_fixture_policy_has_no_implicit_defaults_and_fails_closed \
+            tests/unit/test_frontier_curriculum.py::test_canonical_frontier_serialization_is_stable
+          python - <<'PY'
+          from pathlib import Path
+          source = Path('src/mstr_qualify/curriculum/frontier.py').read_text(encoding='utf-8')
+          evidence = Path('evidence/mstr-000b/B021-frontier-sampler.md').read_text(encoding='utf-8')
+          assert 'estimated_solve_probability' not in source
+          assert 'MODEL_EXECUTION = NONE' in evidence
+          assert 'WEIGHT_CHANGING_TRAINING = NONE' in evidence
+          assert 'LARGE_DATASET_INGESTION = NONE' in evidence
+          assert 'REPOSITORY_OWNED_FIXTURE' in source
+          assert 'SYNTHETIC_VERIFIED' in source
+          PY
+
+  full_quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6211a8f2ccf2613f2e988ce230c7d432877b1aff
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run exact-head canonical quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/test_frontier_curriculum.py tests/contract/test_difficulty_calibration_contract.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [identity_scope, exact_main_gate, adversarial_semantics, full_quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6211a8f2ccf2613f2e988ce230c7d432877b1aff
+          fetch-depth: 0
+      - name: Final immutable main, head, and tree check
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/feat/000b-b021-frontier-sampler | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          echo "B021_QUALIFIED_HEAD=$EXPECTED_HEAD"
