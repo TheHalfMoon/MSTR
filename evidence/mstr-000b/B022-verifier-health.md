@@ -1,7 +1,10 @@
 # B022 — VerifierHealthRecord Contract Evidence
 
 **Task:** `B022`
-**State:** `IMPLEMENTATION_ACTIVE`
+**Implementation PR:** #85
+**Final implementation head:** `ab3330afdef9c9329b1d2bb2a7e5aab09064f62b`
+**Canonical implementation merge:** `97bf66a98bad51ff0d574d90a04fa47b802708ee`
+**State:** COMPLETE_CANONICAL
 **Canonical entry main:** `127fd5fd1a5a6f1843f207a0272664ae8cb129f4`
 
 ## Canonical Entry Provenance
@@ -60,3 +63,18 @@ B022_AUTHORITY = VERIFIER_HEALTH_CONTRACT_AND_FIXTURES_ONLY
 ```
 
 This task freezes a record contract only. It does not execute real verifiers, classify controlled fixtures, admit training data, generate tests, access model weights, run a model, or authorize training.
+
+## Canonical Implementation Closeout
+
+The B022 verifier-health record contract was merged and verified on canonical main without executing a real verifier, implementing the B023 classifier, accessing model weights, or widening training/external-effect authority.
+
+- implementation PR: `#85`
+- final implementation head: `ab3330afdef9c9329b1d2bb2a7e5aab09064f62b`
+- canonical implementation merge: `97bf66a98bad51ff0d574d90a04fa47b802708ee`
+- atomic implementation build: run `33245760496` — SUCCESS
+- exact-head qualification: run `33245884971` — SUCCESS
+- exact-head formal review: review `5057533717` — NO BLOCKING FINDINGS
+- mandatory pre-merge verification: run `33245974810` — SUCCESS
+- post-merge implementation verification: run `33246110168` — SUCCESS
+
+This closeout changes only canonical task/provenance state and terminal-behavior regression assertions. It does not change the frozen verifier-health schema, fixtures, or schema registration. It grants no real verifier execution, B023 evaluator/classifier authority, test-generation curriculum authority, model execution, model-weight access, training, teacher/API use, paid compute, network model calls, large/private/production data ingestion, large-scale RL, or production release authority. B011 remains blocked.

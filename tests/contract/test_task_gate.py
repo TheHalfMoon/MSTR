@@ -1234,9 +1234,8 @@ def test_b020_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-@pytest.mark.parametrize("task_id", ["B022", "B025"])
-def test_b014_closeout_opens_direct_nongated_successors(task_id: str) -> None:
-    result = evaluate_task_snapshot(task_id, canonical_main=_CANONICAL_MAIN)
+def test_b014_closeout_preserves_b025_direct_nongated_successor() -> None:
+    result = evaluate_task_snapshot("B025", canonical_main=_CANONICAL_MAIN)
 
     assert result["eligible"] is True
     assert result["reasons"] == []
@@ -1275,11 +1274,45 @@ def test_b021_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-@pytest.mark.parametrize("task_id", ["B022", "B025"])
-def test_b021_closeout_preserves_independent_phase_v_successors(task_id: str) -> None:
-    result = evaluate_task_snapshot(task_id, canonical_main=_CANONICAL_MAIN)
+def test_b021_closeout_preserves_b025_independent_successor() -> None:
+    result = evaluate_task_snapshot("B025", canonical_main=_CANONICAL_MAIN)
 
     assert result["eligible"] is True
     assert result["state_consistency_result"]["observed_state"] == "PENDING"
     assert result["authority_result"]["required"] is False
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b022_is_terminal_after_canonical_closeout() -> None:
+    result = evaluate_task_snapshot("B022", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert result["authority_result"]["required"] is False
+    assert "task.already_terminal" in result["reasons"]
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b022_closeout_satisfies_only_its_b023_prerequisite() -> None:
+    result = evaluate_task_snapshot("B023", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "PENDING"
+    assert "prerequisite.unsatisfied:B022" not in result["reasons"]
+    assert "prerequisite.unsatisfied:A006" in result["reasons"]
+    assert "prerequisite.unsatisfied:A014" in result["reasons"]
+    predecessor = next(item for item in result["prerequisite_results"] if item["task_id"] == "B022")
+    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
+    assert predecessor["evidence_present"] is True
+    assert predecessor["satisfied"] is True
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b022_closeout_preserves_b025_as_next_machine_eligible_task() -> None:
+    result = evaluate_task_snapshot("B025", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is True
+    assert result["reasons"] == []
+    assert result["state_consistency_result"]["observed_state"] == "PENDING"
     validate_instance("mstr-task-eligibility-v0", result)
