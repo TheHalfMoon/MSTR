@@ -40,7 +40,7 @@ jobs:
           python /tmp/build_b022_contract.py
           ruff format tests/contract/test_verifier_health_contract.py
           git diff --check
-          mapfile -t actual < <(git diff --name-only | sort)
+          mapfile -t actual < <({ git diff --name-only; git ls-files --others --exclude-standard; } | sort -u)
           expected=(
             evidence/mstr-000b/B022-verifier-health.md
             schemas/mstr-verifier-health-v0.schema.json
