@@ -10,7 +10,7 @@ permissions:
 
 env:
   EXPECTED_MAIN: f5a4892bff6bc20e376efcaa8f554c15ac88bca8
-  TARGET_BRANCH: docs/000b-b020-canonicalize
+  TARGET_BRANCH: docs/000b-b020-canonicalize-v2
 
 jobs:
   build:
@@ -38,13 +38,11 @@ jobs:
           jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b020-entry.json
           mstr-qualify task drift > /tmp/drift.json
           jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
-      - name: Materialize exact six-file closeout
+      - name: Materialize exact six-file closeout without unrelated formatting
         shell: bash
         run: |
           set -euo pipefail
           python /tmp/build_b020_closeout.py
-          ruff format tests/contract/test_task_gate.py tests/contract/test_difficulty_calibration_contract.py tests/integration/test_task_gate_cli.py
-          ruff check --fix tests/contract/test_task_gate.py tests/contract/test_difficulty_calibration_contract.py tests/integration/test_task_gate_cli.py
           git diff --check
           mapfile -t changed < <(git diff --name-only | sort)
           expected=(
