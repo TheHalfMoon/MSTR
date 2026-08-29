@@ -44,8 +44,6 @@ jobs:
         run: |
           set -euo pipefail
           python /tmp/build_b025_greenfield_curriculum.py
-          git diff --check
-          mapfile -t actual < <(git diff --name-only | sort)
           expected=(
             docs/data/GREENFIELD_FEATURE_CURRICULUM.md
             evidence/mstr-000b/B025-greenfield-curriculum.md
@@ -59,7 +57,12 @@ jobs:
             tests/fixtures/schemas/valid/mstr-greenfield-task-v0.json
             tests/integration/test_cli_offline.py
           )
+          git add -N "${expected[@]}"
+          git diff --check
+          mapfile -t actual < <(git diff --name-only | sort)
           mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          printf 'B025_MATERIALIZED_FILES=%s\n' "${#actual[@]}"
+          printf '%s\n' "${actual[@]}"
           test "${#actual[@]}" -eq 11
           diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
           test -z "$(git diff --name-only -- configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md .specify/memory/constitution.md specs/002-code-model-supremacy-foundation/plan.md)"
