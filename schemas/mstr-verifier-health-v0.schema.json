@@ -1,0 +1,398 @@
+{
+  "$defs": {
+    "disagreement_signal": {
+      "additionalProperties": false,
+      "properties": {
+        "left_evidence_identity": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "right_evidence_identity": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "signal_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "AGREE",
+            "DISAGREE",
+            "INDETERMINATE"
+          ]
+        }
+      },
+      "required": [
+        "signal_id",
+        "left_evidence_identity",
+        "right_evidence_identity",
+        "status"
+      ],
+      "type": "object"
+    },
+    "evaluator_hash": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "leakage_check": {
+      "additionalProperties": false,
+      "properties": {
+        "check_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "evidence_identity": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "leakage_class": {
+          "enum": [
+            "FUTURE_HISTORY",
+            "HIDDEN_TEST",
+            "BENCHMARK_SOLUTION",
+            "CACHED_SOLUTION",
+            "PUBLIC_SOLUTION",
+            "OTHER"
+          ]
+        },
+        "status": {
+          "enum": [
+            "CLEAR",
+            "DETECTED",
+            "NOT_APPLICABLE"
+          ]
+        }
+      },
+      "required": [
+        "check_id",
+        "leakage_class",
+        "status",
+        "evidence_identity"
+      ],
+      "type": "object"
+    },
+    "mutation_result": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_identity": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "expected_rejection": {
+          "type": "boolean"
+        },
+        "mutation_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "observed_rejection": {
+          "type": "boolean"
+        },
+        "shortcut_class": {
+          "enum": [
+            "DELETE_TESTS",
+            "WEAKEN_ASSERTIONS",
+            "HARDCODE_OUTPUT",
+            "MODIFY_EVALUATOR",
+            "FUTURE_HISTORY_READ",
+            "CACHED_SOLUTION_RECOVERY",
+            "SPOOF_COMMAND_OUTPUT",
+            "OTHER"
+          ]
+        }
+      },
+      "required": [
+        "mutation_id",
+        "shortcut_class",
+        "expected_rejection",
+        "observed_rejection",
+        "evidence_identity"
+      ],
+      "type": "object"
+    },
+    "stage_eligibility": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "reason_codes": {
+                "minItems": 1
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "admission_class": {
+                "const": "CLEAN_POSITIVE_ELIGIBLE"
+              }
+            },
+            "required": [
+              "admission_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason_codes": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "admission_class": {
+          "enum": [
+            "CLEAN_POSITIVE_ELIGIBLE",
+            "RESEARCH_DIAGNOSTIC_ONLY",
+            "BLOCKED"
+          ]
+        },
+        "reason_codes": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "stage_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "stage_id",
+        "admission_class",
+        "reason_codes"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://mstr.local/schemas/mstr-verifier-health-v0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "health_class": {
+            "enum": [
+              "PARTIAL",
+              "DISAGREEMENT"
+            ]
+          }
+        },
+        "required": [
+          "health_class"
+        ]
+      },
+      "then": {
+        "properties": {
+          "training_stage_eligibility": {
+            "items": {
+              "properties": {
+                "admission_class": {
+                  "enum": [
+                    "RESEARCH_DIAGNOSTIC_ONLY",
+                    "BLOCKED"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "health_class": {
+            "enum": [
+              "BROKEN",
+              "LEAKED",
+              "TAMPERED"
+            ]
+          }
+        },
+        "required": [
+          "health_class"
+        ]
+      },
+      "then": {
+        "properties": {
+          "training_stage_eligibility": {
+            "items": {
+              "properties": {
+                "admission_class": {
+                  "const": "BLOCKED"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "disagreement_signals": {
+      "items": {
+        "$ref": "#/$defs/disagreement_signal"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "evaluator_hashes": {
+      "items": {
+        "$ref": "#/$defs/evaluator_hash"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "generated_test_independence": {
+      "enum": [
+        "INDEPENDENT",
+        "PARTIAL",
+        "NOT_INDEPENDENT",
+        "NOT_APPLICABLE",
+        "UNRESOLVED"
+      ]
+    },
+    "health_class": {
+      "enum": [
+        "HEALTHY",
+        "PARTIAL",
+        "DISAGREEMENT",
+        "BROKEN",
+        "LEAKED",
+        "TAMPERED"
+      ]
+    },
+    "known_bad_fail_status": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "leakage_checks": {
+      "items": {
+        "$ref": "#/$defs/leakage_check"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "mutation_results": {
+      "items": {
+        "$ref": "#/$defs/mutation_result"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "noop_fail_status": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "protected_path_integrity": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "protected_paths": {
+      "items": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "reference_oracle_status": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "schema_version": {
+      "const": "mstr.verifier-health.v0"
+    },
+    "task_identity": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
+    "training_stage_eligibility": {
+      "items": {
+        "$ref": "#/$defs/stage_eligibility"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "verifier_health_id": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
+    "verifier_manifest_id": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "verifier_health_id",
+    "task_identity",
+    "verifier_manifest_id",
+    "evaluator_hashes",
+    "protected_paths",
+    "protected_path_integrity",
+    "reference_oracle_status",
+    "noop_fail_status",
+    "known_bad_fail_status",
+    "mutation_results",
+    "generated_test_independence",
+    "leakage_checks",
+    "disagreement_signals",
+    "health_class",
+    "training_stage_eligibility"
+  ],
+  "title": "MSTR Verifier Health v0",
+  "type": "object"
+}

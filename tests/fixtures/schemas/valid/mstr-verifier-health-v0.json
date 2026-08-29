@@ -1,0 +1,53 @@
+{
+  "disagreement_signals": [
+    {
+      "left_evidence_identity": "fixture-existing-tests",
+      "right_evidence_identity": "fixture-targeted-tests",
+      "signal_id": "existing-vs-targeted",
+      "status": "AGREE"
+    }
+  ],
+  "evaluator_hashes": [
+    {
+      "path": "tests/verifier.py",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "generated_test_independence": "INDEPENDENT",
+  "health_class": "HEALTHY",
+  "known_bad_fail_status": "PASS",
+  "leakage_checks": [
+    {
+      "check_id": "future-history",
+      "evidence_identity": "fixture-leakage-future-history",
+      "leakage_class": "FUTURE_HISTORY",
+      "status": "CLEAR"
+    }
+  ],
+  "mutation_results": [
+    {
+      "evidence_identity": "fixture-mutation-delete-tests",
+      "expected_rejection": true,
+      "mutation_id": "delete-tests",
+      "observed_rejection": true,
+      "shortcut_class": "DELETE_TESTS"
+    }
+  ],
+  "noop_fail_status": "PASS",
+  "protected_path_integrity": "PASS",
+  "protected_paths": [
+    "tests/verifier.py"
+  ],
+  "reference_oracle_status": "PASS",
+  "schema_version": "mstr.verifier-health.v0",
+  "task_identity": "fixture-task/verifier-health",
+  "training_stage_eligibility": [
+    {
+      "admission_class": "CLEAN_POSITIVE_ELIGIBLE",
+      "reason_codes": [],
+      "stage_id": "MSTR-002"
+    }
+  ],
+  "verifier_health_id": "vh-fixture-healthy-v0",
+  "verifier_manifest_id": "fixture-verifier-manifest-v0"
+}
