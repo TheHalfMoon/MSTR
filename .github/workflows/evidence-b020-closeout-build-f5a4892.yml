@@ -1,0 +1,255 @@
+name: Build B020 canonical closeout atomically
+
+on:
+  push:
+    branches:
+      - evidence/b020-closeout-build-f5a4892
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: f5a4892bff6bc20e376efcaa8f554c15ac88bca8
+  TARGET_BRANCH: docs/000b-b020-canonicalize
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b020-closeout-build-f5a4892
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify immutable baseline and install dev dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git checkout --detach "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task eligible B020 > /tmp/b020-entry.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b020-entry.json
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+      - name: Materialize exact six-file B020 closeout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if text.count(old) != 1:
+                  raise SystemExit(f'{path}: expected unique anchor, found {text.count(old)}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          replace_once(
+              'configs/task-gate/mstr-000b.json',
+              '    "B020": {\n      "canonical_state": "PENDING",',
+              '    "B020": {\n      "canonical_state": "COMPLETE_CANONICAL",',
+          )
+
+          evidence_path = Path('evidence/mstr-000b/B020-difficulty-contract.md')
+          evidence = evidence_path.read_text(encoding='utf-8')
+          old_header = '**Task:** `B020`\n**State:** `IMPLEMENTATION_ACTIVE`\n**Contract:** `mstr.difficulty-calibration.v0`\n'
+          new_header = (
+              '**Task:** `B020`\n'
+              '**Implementation PR:** #81\n'
+              '**Final implementation head:** `189509470eae10f1080938b0b2b873f375842f35`\n'
+              '**Canonical implementation merge:** `f5a4892bff6bc20e376efcaa8f554c15ac88bca8`\n'
+              '**State:** COMPLETE_CANONICAL\n'
+              '**Contract:** `mstr.difficulty-calibration.v0`\n'
+          )
+          if evidence.count(old_header) != 1:
+              raise SystemExit('B020 evidence header anchor mismatch')
+          evidence = evidence.replace(old_header, new_header, 1)
+          closeout = '''
+## Canonical Implementation Closeout
+
+The checkpoint-relative difficulty calibration contract was merged and verified on canonical main without executing a model, calibrating a real checkpoint, or widening any external-effect authority.
+
+- implementation PR: `#81`
+- final implementation head: `189509470eae10f1080938b0b2b873f375842f35`
+- canonical implementation merge: `f5a4892bff6bc20e376efcaa8f554c15ac88bca8`
+- atomic implementation build: run `33199352285` — SUCCESS
+- finite-structural-feature hardening: run `33200021831` — SUCCESS
+- exact hardened-head qualification: run `33234320679` — SUCCESS
+- independent adversarial review: run `33234412303` — SUCCESS
+- mandatory pre-merge verification: run `33234492918` — SUCCESS
+- post-merge implementation verification: run `33234636531` — SUCCESS
+
+This closeout changes only canonical task/provenance state and terminal-behavior regression assertions. It grants no model-weight access, model execution, real calibration execution, teacher/API use, paid compute, network model calls, large/private/production data ingestion, weight-changing training, B021 frontier-sampler execution, large-scale RL, or production release authority. B011 remains blocked.
+'''
+          if '## Canonical Implementation Closeout' in evidence:
+              raise SystemExit('B020 closeout section already exists')
+          evidence_path.write_text(evidence.rstrip() + '\n' + closeout, encoding='utf-8')
+
+          tasks = Path('specs/002-code-model-supremacy-foundation/tasks.md')
+          text = tasks.read_text(encoding='utf-8')
+          old_task = '''- [ ] **B020 Freeze checkpoint-relative difficulty calibration contract.**  
+  Define exact student/harness/sampling identity and classes `TOO_EASY`, `LEARNABLE_FRONTIER`, `HARD_FRONTIER`, `CURRENTLY_UNPRODUCTIVE`, `INVALID`.  
+  Outputs: schema/fixtures, `evidence/mstr-000b/B020-difficulty-contract.md`.
+'''
+          new_task = '''- [x] **B020 Freeze checkpoint-relative difficulty calibration contract.**
+  Define exact student/harness/sampling identity and classes `TOO_EASY`, `LEARNABLE_FRONTIER`, `HARD_FRONTIER`, `CURRENTLY_UNPRODUCTIVE`, `INVALID`.  
+  Outputs: schema/fixtures, `evidence/mstr-000b/B020-difficulty-contract.md`.
+  Canonical implementation: PR #81 / final head `189509470eae10f1080938b0b2b873f375842f35` / merge `f5a4892bff6bc20e376efcaa8f554c15ac88bca8`.
+'''
+          if text.count(old_task) != 1:
+              raise SystemExit('B020 tasks anchor mismatch')
+          tasks.write_text(text.replace(old_task, new_task, 1), encoding='utf-8')
+
+          gate_test = Path('tests/contract/test_task_gate.py')
+          text = gate_test.read_text(encoding='utf-8')
+          marker = '@pytest.mark.parametrize("task_id", ["B020", "B022", "B025"])\n'
+          insertion = '''def test_b020_is_terminal_after_canonical_closeout() -> None:
+    result = evaluate_task_snapshot("B020", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert result["authority_result"]["required"] is False
+    assert "task.already_terminal" in result["reasons"]
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b020_closeout_opens_b021_frontier_sampler() -> None:
+    result = evaluate_task_snapshot("B021", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is True
+    assert result["reasons"] == []
+    assert result["state_consistency_result"]["observed_state"] == "PENDING"
+    assert result["authority_result"]["required"] is False
+    predecessor = next(
+        item for item in result["prerequisite_results"] if item["task_id"] == "B020"
+    )
+    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
+    assert predecessor["evidence_present"] is True
+    assert predecessor["satisfied"] is True
+    assert predecessor["reasons"] == []
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+@pytest.mark.parametrize("task_id", ["B022", "B025"])
+'''
+          if text.count(marker) != 1:
+              raise SystemExit('B020 task-gate marker mismatch')
+          gate_test.write_text(text.replace(marker, insertion, 1), encoding='utf-8')
+
+          contract_test = Path('tests/contract/test_difficulty_calibration_contract.py')
+          text = contract_test.read_text(encoding='utf-8')
+          closeout_test = '''
+
+
+def test_b020_canonical_closeout_provenance_and_authority_boundary() -> None:
+    evidence = (ROOT / "evidence" / "mstr-000b" / "B020-difficulty-contract.md").read_text(
+        encoding="utf-8"
+    )
+    assert "**State:** COMPLETE_CANONICAL" in evidence
+    assert "**Implementation PR:** #81" in evidence
+    assert "`189509470eae10f1080938b0b2b873f375842f35`" in evidence
+    assert "`f5a4892bff6bc20e376efcaa8f554c15ac88bca8`" in evidence
+    for run_id in (
+        "33199352285",
+        "33200021831",
+        "33234320679",
+        "33234412303",
+        "33234492918",
+        "33234636531",
+    ):
+        assert f"run `{run_id}` — SUCCESS" in evidence
+    assert "MODEL_WEIGHT_ACCESS = NONE" in evidence
+    assert "MODEL_EXECUTION = NONE" in evidence
+    assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
+    assert "B020_CALIBRATION_EXECUTION = NONE" in evidence
+    assert "B021_FRONTIER_SAMPLER_EXECUTION = NONE" in evidence
+'''
+          if 'def test_b020_canonical_closeout_provenance_and_authority_boundary()' in text:
+              raise SystemExit('B020 closeout contract test already exists')
+          contract_test.write_text(text.rstrip() + closeout_test + '\n', encoding='utf-8')
+
+          cli_test = Path('tests/integration/test_task_gate_cli.py')
+          text = cli_test.read_text(encoding='utf-8')
+          cli_closeout = '''
+
+
+def test_task_eligible_b020_terminal_returns_one(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    expected = evaluate_task_snapshot("B020", canonical_main=_CANONICAL_MAIN)
+
+    def fake_evaluate_task_eligibility(task_id: str) -> dict[str, object]:
+        assert task_id == "B020"
+        return expected
+
+    monkeypatch.setattr(
+        "mstr_qualify.cli.evaluate_task_eligibility", fake_evaluate_task_eligibility
+    )
+    exit_code = main(["task", "eligible", "B020"])
+    payload = _stdout_json(capsys)
+    assert exit_code == 1
+    assert payload == expected
+    assert payload["eligible"] is False
+    assert "task.already_terminal" in payload["reasons"]
+    validate_instance("mstr-task-eligibility-v0", payload)
+'''
+          if 'def test_task_eligible_b020_terminal_returns_one(' in text:
+              raise SystemExit('B020 terminal CLI test already exists')
+          cli_test.write_text(text.rstrip() + cli_closeout + '\n', encoding='utf-8')
+          PY
+          ruff format tests/contract/test_task_gate.py tests/contract/test_difficulty_calibration_contract.py tests/integration/test_task_gate_cli.py
+          ruff check --fix tests/contract/test_task_gate.py tests/contract/test_difficulty_calibration_contract.py tests/integration/test_task_gate_cli.py
+          git diff --check
+          mapfile -t changed < <(git diff --name-only | sort)
+          expected=(
+            configs/task-gate/mstr-000b.json
+            evidence/mstr-000b/B020-difficulty-contract.md
+            specs/002-code-model-supremacy-foundation/tasks.md
+            tests/contract/test_difficulty_calibration_contract.py
+            tests/contract/test_task_gate.py
+            tests/integration/test_task_gate_cli.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq 6
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+      - name: Verify prospective terminal state and full quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_difficulty_calibration_contract.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          catalog = json.loads(Path('configs/task-gate/mstr-000b.json').read_text())
+          assert catalog['tasks']['B020']['canonical_state'] == 'COMPLETE_CANONICAL'
+          for task_id, node in catalog['tasks'].items():
+              if task_id != 'B020':
+                  pass
+          PY
+      - name: Commit and fast-forward closeout target after all gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add configs/task-gate/mstr-000b.json evidence/mstr-000b/B020-difficulty-contract.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_difficulty_calibration_contract.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          git commit -m "docs(mstr-000b): canonicalize B020 closeout"
+          candidate=$(git rev-parse HEAD)
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_MAIN"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$candidate"
+          echo "B020_CLOSEOUT_HEAD=$candidate"
