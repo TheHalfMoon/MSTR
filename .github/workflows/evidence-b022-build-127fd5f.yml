@@ -32,6 +32,7 @@ jobs:
           test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
           git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
           test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
       - name: Materialize exact B022 contract candidate
         shell: bash
         run: |
@@ -59,7 +60,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install -e '.[dev]'
           pytest -q tests/contract/test_verifier_health_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
           mstr-qualify validate
           pytest -q
