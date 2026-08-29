@@ -1,0 +1,570 @@
+{
+  "$defs": {
+    "contamination_boundary": {
+      "additionalProperties": false,
+      "properties": {
+        "benchmark_overlap": {
+          "enum": [
+            "CLEAR",
+            "DETECTED",
+            "UNRESOLVED"
+          ]
+        },
+        "cross_split_duplicate": {
+          "enum": [
+            "CLEAR",
+            "DETECTED",
+            "UNRESOLVED"
+          ]
+        },
+        "evidence_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "future_history_exposure": {
+          "enum": [
+            "CLEAR",
+            "DETECTED",
+            "UNRESOLVED"
+          ]
+        },
+        "hidden_answer_exposure": {
+          "enum": [
+            "CLEAR",
+            "DETECTED",
+            "UNRESOLVED"
+          ]
+        }
+      },
+      "required": [
+        "benchmark_overlap",
+        "hidden_answer_exposure",
+        "future_history_exposure",
+        "cross_split_duplicate",
+        "evidence_identity"
+      ],
+      "type": "object"
+    },
+    "hidden_behavior_manifest": {
+      "additionalProperties": false,
+      "properties": {
+        "behavior_classes": {
+          "items": {
+            "enum": [
+              "FUNCTIONAL",
+              "BOUNDARY",
+              "ERROR_PATH",
+              "INTEGRATION",
+              "MIGRATION",
+              "PRESERVATION",
+              "BUILD_CI",
+              "TEST_QUALITY"
+            ]
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "hidden_from_model": {
+          "const": true
+        },
+        "manifest_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "manifest_id",
+        "sha256",
+        "hidden_from_model",
+        "behavior_classes"
+      ],
+      "type": "object"
+    },
+    "identity": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
+    "provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "generator_identity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lineage_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "source_class": {
+          "enum": [
+            "PUBLIC_OPEN_SOURCE_REPOSITORY",
+            "PUBLIC_DATASET_COMPATIBLE_RIGHTS",
+            "PUBLIC_DOCUMENTATION_COMPATIBLE_RIGHTS",
+            "REPOSITORY_OWNED_FIXTURE",
+            "SYNTHETIC_VERIFIED",
+            "STUDENT_GENERATED_VERIFIED",
+            "TEACHER_OUTPUT_VERIFIED"
+          ]
+        },
+        "source_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "source_class",
+        "source_identity",
+        "source_revision",
+        "lineage_identity",
+        "generator_identity"
+      ],
+      "type": "object"
+    },
+    "resource_budget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_output_bytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "maximum": 10000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_wall_time_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "network_policy": {
+          "enum": [
+            "DISABLED",
+            "FIXTURE_ONLY"
+          ]
+        }
+      },
+      "required": [
+        "max_wall_time_seconds",
+        "max_tool_calls",
+        "max_output_bytes",
+        "network_policy"
+      ],
+      "type": "object"
+    },
+    "rights_decision": {
+      "additionalProperties": false,
+      "properties": {
+        "decision": {
+          "enum": [
+            "COMPATIBLE",
+            "INCOMPATIBLE",
+            "UNRESOLVED"
+          ]
+        },
+        "intended_use": {
+          "const": "MSTR_TRAINING_OR_EVALUATION"
+        },
+        "reason_codes": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "terms_identity": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "terms_identity",
+        "decision",
+        "intended_use",
+        "reason_codes"
+      ],
+      "type": "object"
+    },
+    "synthesis_evidence": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "independent_verifier_identity": {
+                "type": "null"
+              },
+              "verification_evidence_identity": {
+                "type": "null"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "independent_verification_status": {
+                "const": "VERIFIED"
+              }
+            },
+            "required": [
+              "independent_verification_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "independent_verifier_identity": {
+                "$ref": "#/$defs/identity"
+              },
+              "verification_evidence_identity": {
+                "$ref": "#/$defs/identity"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "generator_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "generator_kind": {
+          "enum": [
+            "FEATURE_TREE",
+            "SEMANTIC_COMPLEXITY"
+          ]
+        },
+        "generator_revision": {
+          "$ref": "#/$defs/identity"
+        },
+        "independent_verification_status": {
+          "enum": [
+            "VERIFIED",
+            "REJECTED",
+            "NOT_RUN"
+          ]
+        },
+        "independent_verifier_identity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proposal_only": {
+          "const": true
+        },
+        "verification_evidence_identity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "generator_kind",
+        "generator_identity",
+        "generator_revision",
+        "proposal_only",
+        "independent_verification_status",
+        "independent_verifier_identity",
+        "verification_evidence_identity"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://mstr.local/schemas/mstr-greenfield-task-v0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "else": {
+        "properties": {
+          "evolution_steps": {
+            "maxItems": 0
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "complexity_band": {
+            "const": "G5_MULTI_ROUND_EVOLUTION"
+          }
+        },
+        "required": [
+          "complexity_band"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evolution_steps": {
+            "minItems": 2
+          }
+        }
+      }
+    },
+    {
+      "else": {
+        "properties": {
+          "synthesis_evidence": {
+            "type": "null"
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "generation_method": {
+            "enum": [
+              "FEATURE_TREE_SYNTHESIS",
+              "SEMANTIC_SYNTHESIS"
+            ]
+          }
+        },
+        "required": [
+          "generation_method"
+        ]
+      },
+      "then": {
+        "allOf": [
+          {
+            "else": {
+              "properties": {
+                "admission_class": {
+                  "enum": [
+                    "EXPERIMENTAL_ONLY",
+                    "REJECTED"
+                  ]
+                }
+              }
+            },
+            "if": {
+              "properties": {
+                "synthesis_evidence": {
+                  "properties": {
+                    "independent_verification_status": {
+                      "const": "VERIFIED"
+                    }
+                  },
+                  "required": [
+                    "independent_verification_status"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "properties": {
+          "synthesis_evidence": {
+            "$ref": "#/$defs/synthesis_evidence"
+          }
+        }
+      }
+    },
+    {
+      "else": {
+        "properties": {
+          "admission_reasons": {
+            "minItems": 1
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "admission_class": {
+            "const": "CURRICULUM_ELIGIBLE"
+          }
+        },
+        "required": [
+          "admission_class"
+        ]
+      },
+      "then": {
+        "properties": {
+          "admission_reasons": {
+            "maxItems": 0
+          },
+          "contamination_boundary": {
+            "properties": {
+              "benchmark_overlap": {
+                "const": "CLEAR"
+              },
+              "cross_split_duplicate": {
+                "const": "CLEAR"
+              },
+              "future_history_exposure": {
+                "const": "CLEAR"
+              },
+              "hidden_answer_exposure": {
+                "const": "CLEAR"
+              }
+            }
+          },
+          "rights_decision": {
+            "properties": {
+              "decision": {
+                "const": "COMPATIBLE"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "admission_class": {
+      "enum": [
+        "CURRICULUM_ELIGIBLE",
+        "EXPERIMENTAL_ONLY",
+        "REJECTED"
+      ]
+    },
+    "admission_reasons": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "allowed_languages": {
+      "items": {
+        "maxLength": 64,
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "complexity_band": {
+      "enum": [
+        "G0_FUNCTION",
+        "G1_MODULE_TESTS",
+        "G2_COMPONENT_FILE",
+        "G3_MULTI_FILE_FEATURE",
+        "G4_BOUNDED_PROGRAM",
+        "G5_MULTI_ROUND_EVOLUTION"
+      ]
+    },
+    "contamination_boundary": {
+      "$ref": "#/$defs/contamination_boundary"
+    },
+    "direction": {
+      "maxLength": 8192,
+      "minLength": 1,
+      "type": "string"
+    },
+    "environment_identity": {
+      "$ref": "#/$defs/identity"
+    },
+    "evolution_steps": {
+      "items": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "generation_method": {
+      "enum": [
+        "CURATED",
+        "REPOSITORY_DERIVED",
+        "FEATURE_TREE_SYNTHESIS",
+        "SEMANTIC_SYNTHESIS"
+      ]
+    },
+    "hidden_behavior_manifest": {
+      "$ref": "#/$defs/hidden_behavior_manifest"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "resource_budget": {
+      "$ref": "#/$defs/resource_budget"
+    },
+    "rights_decision": {
+      "$ref": "#/$defs/rights_decision"
+    },
+    "schema_version": {
+      "const": "mstr.greenfield-task.v0"
+    },
+    "synthesis_evidence": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/synthesis_evidence"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "task_archetypes": {
+      "items": {
+        "enum": [
+          "FEATURE_IMPLEMENTATION",
+          "GREENFIELD_PROGRAM",
+          "API_CLI_CONSTRUCTION",
+          "INTEGRATION",
+          "MIGRATION",
+          "BEHAVIOR_PRESERVING_REFACTOR",
+          "BUILD_CI_REPAIR",
+          "TEST_AUTHORING",
+          "BUG_REPAIR"
+        ]
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "task_id": {
+      "$ref": "#/$defs/identity"
+    },
+    "verifier_health_requirement": {
+      "const": "HEALTHY"
+    },
+    "verifier_manifest_id": {
+      "$ref": "#/$defs/identity"
+    }
+  },
+  "required": [
+    "schema_version",
+    "task_id",
+    "complexity_band",
+    "direction",
+    "task_archetypes",
+    "allowed_languages",
+    "environment_identity",
+    "hidden_behavior_manifest",
+    "resource_budget",
+    "verifier_manifest_id",
+    "verifier_health_requirement",
+    "contamination_boundary",
+    "provenance",
+    "rights_decision",
+    "generation_method",
+    "synthesis_evidence",
+    "evolution_steps",
+    "admission_class",
+    "admission_reasons"
+  ],
+  "title": "MSTR Greenfield Task Manifest v0",
+  "type": "object"
+}
