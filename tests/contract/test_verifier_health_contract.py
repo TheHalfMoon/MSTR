@@ -226,3 +226,19 @@ def test_b022_fixture_mutations_do_not_change_input_helper() -> None:
     second = copy.deepcopy(first)
     second["health_class"] = "PARTIAL"
     assert first["health_class"] == "HEALTHY"
+
+
+def test_b022_canonical_closeout_provenance_and_authority_boundary() -> None:
+    evidence = (ROOT / "evidence" / "mstr-000b" / "B022-verifier-health.md").read_text(
+        encoding="utf-8"
+    )
+    assert "**State:** COMPLETE_CANONICAL" in evidence
+    assert "**Implementation PR:** #85" in evidence
+    assert "`ab3330afdef9c9329b1d2bb2a7e5aab09064f62b`" in evidence
+    assert "`97bf66a98bad51ff0d574d90a04fa47b802708ee`" in evidence
+    for run_id in ("33245760496", "33245884971", "33245974810", "33246110168"):
+        assert f"run `{run_id}` — SUCCESS" in evidence
+    assert "review `5057533717` — NO BLOCKING FINDINGS" in evidence
+    assert "VERIFIER_EVALUATOR_EXECUTION = NONE" in evidence
+    assert "B023_VERIFIER_HEALTH_EVALUATOR_AUTHORITY = NONE" in evidence
+    assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
