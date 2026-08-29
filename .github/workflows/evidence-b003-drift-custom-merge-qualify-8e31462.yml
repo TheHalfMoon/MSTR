@@ -1,0 +1,125 @@
+name: Qualify B003 custom merge proof repair exact head
+
+on:
+  push:
+    branches:
+      - evidence/b003-drift-custom-merge-qualify-8e31462
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_BASE: 7da90d2d9cb16a8ebd6c5ede390139831370e861
+  EXPECTED_HEAD: 8e31462b2c57006da26fa67ec8de823bd245974a
+  EXPECTED_TREE: 25377fde0e385e420333cb2f87737c523f3d1a45
+  PR_NUMBER: '88'
+  TARGET_BRANCH: fix/b003-drift-custom-merge-proof
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8e31462b2c57006da26fa67ec8de823bd245974a
+          fetch-depth: 0
+      - name: Verify exact repair identity and four-file scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_BASE"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .commits == 1 and .changed_files == 4' /tmp/pr.json
+          mapfile -t actual < <(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" | sort)
+          expected=(
+            evidence/mstr-000b/B003-drift-custom-merge-proof-repair.md
+            src/mstr_qualify/task_drift.py
+            tests/fixtures/task_drift_cases.json
+            tests/unit/test_task_drift.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 4
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          test -z "$(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" -- configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md AGENTS.md .specify/memory/constitution.md)"
+
+  fail_closed_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8e31462b2c57006da26fa67ec8de823bd245974a
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove custom-subject topology fallback and negative control
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/test_task_drift.py tests/integration/test_task_drift_cli.py
+          grep -F 'valid_terminal_custom_subject' tests/fixtures/task_drift_cases.json
+          grep -F 'custom_subject_wrong_recorded_head' tests/fixtures/task_drift_cases.json
+          grep -F 'git.pr_merge_unverifiable' tests/fixtures/task_drift_cases.json
+          grep -F 'TASK_STATE_MUTATION = NONE' evidence/mstr-000b/B003-drift-custom-merge-proof-repair.md
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+
+  canonical_quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8e31462b2c57006da26fa67ec8de823bd245974a
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run full quality and candidate-main drift proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          git update-ref refs/heads/main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          if mstr-qualify task eligible B003 > /tmp/b003.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b003.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+
+  complete:
+    needs: [identity_scope, fail_closed_semantics, canonical_quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8e31462b2c57006da26fa67ec8de823bd245974a
+          fetch-depth: 0
+      - name: Final immutable exact-head recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_BASE"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" | jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .commits == 1 and .changed_files == 4'
+          echo "B003_REPAIR_QUALIFIED_HEAD=$EXPECTED_HEAD"
+          echo "TASK_STATE_MUTATION=NONE"
+          echo "EXTERNAL_EFFECT=NONE"
