@@ -200,7 +200,7 @@ def finalize_run(
     if post_stop_invalid:
         first = post_stop_invalid[0]
         raise FinalizerError(
-            "state-changing or recovery events after the latest stop proposal require a new stop proposal before finalization",
+            f"event {first['event_type']!r} after the latest stop proposal requires a new stop proposal before finalization",
             code="finalizer.post_stop_event_invalid",
         )
 
