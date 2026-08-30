@@ -1,0 +1,84 @@
+name: Qualify A006 exact head 3efd9f9
+
+on:
+  push:
+    branches:
+      - evidence/a006-finalizer-3efd9f9
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_BASE: 97904ac5ad17e7142e88944ee83dbb304ecb197f
+  EXPECTED_HEAD: 3efd9f902746a1e6248f8bfee21bbe4a4f4db76b
+  TARGET_BRANCH: feat/000a-a006-protected-finalizer
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3efd9f902746a1e6248f8bfee21bbe4a4f4db76b
+          fetch-depth: 0
+      - name: Verify exact identity, entry main, and A006 scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          mapfile -t actual < <(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" | sort)
+          expected=(
+            evidence/mstr-000a/A006-finalizer.md
+            src/mstr_qualify/verifier/__init__.py
+            src/mstr_qualify/verifier/finalizer.py
+            tests/security/test_finalizer_boundary.py
+            tests/security/test_finalizer_identity_boundary.py
+            tests/security/test_finalizer_post_stop_boundary.py
+            tests/unit/test_finalizer.py
+          )
+          test "${#actual[@]}" -eq "${#expected[@]}"
+          diff -u <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${actual[@]}" | sort)
+          test -z "$(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" -- schemas configs/task-gate specs/001-agent-harness-verified-loop-foundation/tasks.md AGENTS.md .specify/memory/constitution.md)"
+
+  quality_semantics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3efd9f902746a1e6248f8bfee21bbe4a4f4db76b
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run A006 focused and frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/test_finalizer.py tests/security/test_finalizer_boundary.py tests/security/test_finalizer_identity_boundary.py tests/security/test_finalizer_post_stop_boundary.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+
+  complete:
+    needs: [identity_scope, quality_semantics]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3efd9f902746a1e6248f8bfee21bbe4a4f4db76b
+          fetch-depth: 0
+      - name: Final immutable exact-head recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo "A006_HEAD=$EXPECTED_HEAD"
+          echo "EXTERNAL_EFFECT=NONE"
