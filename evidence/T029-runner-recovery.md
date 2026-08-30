@@ -1,101 +1,30 @@
 # T029 Runner Recovery Evidence
 
-**Task:** `T029`
-**Scope:** runner hardening and historical result reconciliation only
-**Canonical base:** `97904ac5ad17e7142e88944ee83dbb304ecb197f`
-**State:** `REPAIR_CANDIDATE / NOT_T029_COMPLETE_CANONICAL`
+**Task:** `T029`  
+**Scope:** runner hardening and historical result reconciliation  
+**Canonical base:** `97904ac5ad17e7142e88944ee83dbb304ecb197f`  
+**State:** `RUNNER_RECOVERY_PROVEN / T029_GOVERNANCE_PENDING`
 
-## Why This Repair Exists
+## Historical Failure
 
-The T029 execution surface was merged by PR #35, but T029 was never closed canonical. Historical GitHub Actions evidence shows three execution generations.
-
-### Generation 1 — dependency-invalid batch
-
-Head: `e46699d1892046bed8a1fc5090320f71e3c3bf06`
-
-Eight candidate runs failed before valid conversion because `convert_hf_to_gguf.py` could not import NumPy. Those reports were infrastructure/runner failures and are not Q4 compatibility evidence.
+The final historical T029 batch used:
 
 ```text
-ROOT_CAUSE = ModuleNotFoundError: No module named 'numpy'
-SCIENTIFIC_Q4_FAILURE = NOT_PROVEN
-```
-
-Commit `c937df457cdbf241f519e39e1585e9ad947a22c5` added the required conversion dependencies and corrected missing-dependency classification.
-
-### Generation 2 — dependency repair
-
-Head: `c937df457cdbf241f519e39e1585e9ad947a22c5`
-
-This generation reran the eight-candidate batch after installing conversion dependencies. It remained superseded by the later compatibility repair below and is not used as final T029 evidence.
-
-### Generation 3 — final historical batch
-
-Head: `406de41d132fa6d24d55814f3f6dd4fced5f12bd`
-
-Commit `406de41d132fa6d24d55814f3f6dd4fced5f12bd` added `safetensors`/`transformers` and moved the T029 llama.cpp execution pin to:
-
-```text
+HEAD = 406de41d132fa6d24d55814f3f6dd4fced5f12bd
 LLAMA_CPP = fc35562ba46fbbf8e30cac85edbb39642c37d248
 ```
 
-Seven of eight final candidate runs produced durable `Q4_PROFILE_READY` reports with both `Q4_K_M` and `Q4_K_S` arms `OK`:
-
-| Candidate | Run | Artifact | Result |
-| --- | ---: | ---: | --- |
-| `qwen3.5-2b` | `32959707029` | `9603552151` | `Q4_PROFILE_READY` |
-| `qwen3.5-4b` | `32959712851` | `9603766969` | `Q4_PROFILE_READY` |
-| `qwen3-4b` | `32959723760` | `9603722432` | `Q4_PROFILE_READY` |
-| `granite-4.1-3b` | `32959729068` | `9603875247` | `Q4_PROFILE_READY` |
-| `smollm3-3b` | `32959733977` | `9603684909` | `Q4_PROFILE_READY` |
-| `qwen2.5-coder-1.5b` | `32959739245` | `9603602508` | `Q4_PROFILE_READY` |
-| `yi-coder-1.5b` | `32959744422` | `9603583604` | `Q4_PROFILE_READY` |
-
-Every successful report binds:
-
-- the exact model revision;
-- source-file acquisition/integrity checks;
-- llama.cpp commit `fc35562ba46fbbf8e30cac85edbb39642c37d248`;
-- conversion recipe `convert_hf_to_gguf.py --outtype f16`;
-- F16 GGUF SHA-256 and byte size;
-- Q4_K_M SHA-256 and byte size;
-- Q4_K_S SHA-256 and byte size;
-- execution environment identity;
-- `USD 0.00` resource cost.
-
-## Ministral Run #19 Is Not a Q4 Rejection
-
-Final historical Ministral run:
+Seven candidates produced durable `Q4_PROFILE_READY` reports. Ministral run `32959718688` entered `llama-quantize` but the Python wrapper failed while decoding captured stderr:
 
 ```text
-RUN = 32959718688
-JOB = 98149160350
-CANDIDATE = ministral-3-3b
-LLAMA_CPP = fc35562ba46fbbf8e30cac85edbb39642c37d248
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xc4 ...
 ```
 
-The job successfully completed checkout, Python setup, build-toolchain installation, and conversion dependency installation. The runner proceeded through HF -> GGUF conversion and entered `llama-quantize` execution.
-
-The Python wrapper then failed while decoding quantizer stderr:
-
-```text
-UnicodeDecodeError: 'utf-8' codec can't decode byte 0xc4 in position 4034: invalid continuation byte
-```
-
-The failure occurred inside `subprocess.run(..., text=True)` while translating captured stderr. It is therefore a runner output-decoding failure, not evidence that Ministral conversion or Q4 quantization is unsupported.
-
-The report upload then failed because the unexpected exception occurred before the report was written. Cleanup succeeded.
-
-Canonical interpretation:
-
-```text
-MINISTRAL_Q4_STATUS = PENDING_RETRY_AFTER_RUNNER_FIX
-MINISTRAL_Q4_UNSUPPORTED = NOT_PROVEN
-MINISTRAL_Q4_INTEGRITY_FAILURE = NOT_PROVEN
-```
+That failure was in `subprocess.run(..., text=True)` output decoding. It did not prove model conversion or Q4 incompatibility.
 
 ## Repair
 
-`run()` now requests deterministic UTF-8 decoding with replacement for invalid subprocess bytes:
+`colab/mstr_t029_quantize.py` now requests deterministic UTF-8 replacement decoding:
 
 ```python
 subprocess.run(
@@ -108,39 +37,53 @@ subprocess.run(
 )
 ```
 
-This preserves bounded diagnostic text without allowing arbitrary quantizer byte sequences to crash the evidence runner.
+Regression tests require invalid subprocess bytes to be preserved as diagnostic text with replacement characters and require ordinary UTF-8 output to remain unchanged.
 
-A regression executes a child Python process that writes invalid UTF-8 bytes directly to stderr and requires:
+## Recovery Execution
+
+Hosted runners recovered on 2026-08-30. Workflow run `33263175072` executed the exact pending Ministral T029 cell under the existing T027/T028/T029 authority envelope:
 
 ```text
-RETURN_CODE = 0
-DIAGNOSTIC_TEXT_PRESERVED = TRUE
-INVALID_BYTES_REPLACED = TRUE
-UNEXPECTED_UNICODE_DECODE_EXCEPTION = FALSE
+TARGET_CODE_HEAD = f0f0210a43fb0c70839259d29f9b8a24d7ca3f55
+JOB = 99232907513
+JOB_CONCLUSION = SUCCESS
+ACTIONS_ARTIFACT_ID = 9729481097
+ARTIFACT_NAME = t029-recovery-ministral-3-3b
+MODEL_REVISION = 6f9c4b12a95b139af68670a6713616b757923735
+LLAMA_CPP = fc35562ba46fbbf8e30cac85edbb39642c37d248
+RESOURCE_COST = USD 0.00
+RESULT_CLASSIFICATION = Q4_PROFILE_READY
 ```
 
-A second regression proves ordinary UTF-8 output is unchanged.
+The report records both quantization arms as successful:
+
+```text
+Q4_K_M = OK / 2146489952 bytes
+Q4_K_S = OK / 2053248608 bytes
+```
+
+The prior `UnicodeDecodeError` is therefore proven to have been a runner output-decoding defect, not a scientific Q4 rejection.
 
 ## Authority Boundary
 
-This repair itself performs no model access, inference, quantization, paid compute, large dataset ingestion, or release action.
+The recovery stayed inside the existing T029 candidate envelope. It did not access or authorize B011 candidates and did not perform inference or training.
 
 ```text
-MODEL_WEIGHT_ACCESS_BY_REPAIR = NONE
-MODEL_EXECUTION_BY_REPAIR = NONE
-QUANTIZATION_EXECUTION_BY_REPAIR = NONE
-PAID_COMPUTE_BY_REPAIR = NONE
-LARGE_DATASET_INGESTION_BY_REPAIR = NONE
+B011_MODEL_WEIGHT_ACCESS = NONE
+MODEL_INFERENCE = NONE
+WEIGHT_CHANGING_TRAINING = NONE
+PAID_API = NONE
+PAID_COMPUTE = NONE
+LARGE_DATASET_INGESTION = NONE
+PRODUCTION_RELEASE = NONE
 ```
 
-The historical seven successful reports were produced under the already-authorized T027/T028 candidate envelope. Re-running Ministral remains an execution action and must use the same canonical T029/T028 authority and exact pinned inputs; this document does not manufacture new authority.
+## Current Boundary
 
-## Completion Boundary
+All eight T029 Q4 profile cells now have durable `Q4_PROFILE_READY` evidence. The runner recovery loop is proven, but T029 itself remains open until the current reconciliation head passes fresh qualification, exact-head review, mandatory premerge, guarded merge, post-merge proof, and canonical task closeout.
 
-This repair does not mark T029 complete. T029 remains open until:
-
-1. the repair candidate passes required repository gates and governance;
-2. Ministral is rerun or receives an evidence-backed explicit rejection under the T029 contract;
-3. durable quantization manifests are committed under `artifacts/manifests/quantization/` for the final admitted/rejected T029 cells;
-4. `evidence/T029-q4-profiles.md` is complete;
-5. T029 closeout is canonical through repository governance.
+```text
+RUNNER_RECOVERY = PASS
+T029_Q4_PROFILE_SET = READY_8_OF_8
+T029_COMPLETE_CANONICAL = NO
+```
