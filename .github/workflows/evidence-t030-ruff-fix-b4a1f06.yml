@@ -1,0 +1,57 @@
+name: Apply scoped T030 Ruff fixes
+
+on:
+  push:
+    branches:
+      - evidence/t030-ruff-fix-b4a1f06
+
+permissions:
+  contents: write
+
+env:
+  TARGET_BRANCH: feat/000-t030-portable-cpu-runtime-adapters
+  EXPECTED_HEAD: b4a1f06ee94d68c4a0de48a5d27d02bdf7fe2d6c
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/000-t030-portable-cpu-runtime-adapters
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Apply only known import-order fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          python -m pip install -e '.[dev]'
+          files=(
+            src/mstr_qualify/runtimes/__init__.py
+            src/mstr_qualify/runtimes/benchmark_cli.py
+            tests/integration/test_runtime_adapters.py
+            tests/security/test_runtime_benchmark_boundary.py
+            tests/unit/test_runtime_benchmark_cli.py
+          )
+          ruff check --fix --select I001 "${files[@]}"
+          ruff check "${files[@]}"
+          git diff --check
+          mapfile -t actual < <(git diff --name-only | sort)
+          diff -u <(printf '%s\n' "${files[@]}" | sort) <(printf '%s\n' "${actual[@]}" | sort)
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add "${files[@]}"
+          git commit -m "style(mstr-000): normalize T030 imports"
+      - name: Push exact style-only repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:$TARGET_BRANCH
+          head="$(git rev-parse HEAD)"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$head"
+          echo "T030_STYLE_HEAD=$head"
+          echo "EXTERNAL_EFFECT=NONE"
