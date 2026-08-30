@@ -1,0 +1,89 @@
+name: Qualify T030 runtime adapter exact head b4a1f06
+
+on:
+  push:
+    branches:
+      - evidence/t030-runtime-b4a1f06
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: 97904ac5ad17e7142e88944ee83dbb304ecb197f
+  TARGET_HEAD: b4a1f06ee94d68c4a0de48a5d27d02bdf7fe2d6c
+  TARGET_BRANCH: feat/000-t030-portable-cpu-runtime-adapters
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check immutable refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN_SHA="$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)"
+          TARGET_SHA="$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)"
+          test "$MAIN_SHA" = "$EXPECTED_MAIN"
+          test "$TARGET_SHA" = "$TARGET_HEAD"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - name: Check exact T030 scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only "$EXPECTED_MAIN" "$TARGET_HEAD" | sort > /tmp/actual.txt
+          cat > /tmp/expected.txt <<'EOF'
+          artifacts/decisions/T030-runtime-interface-scan.json
+          configs/runtimes/llama-cpp-cpu.json
+          evidence/T030-runtime-adapters.md
+          src/mstr_qualify/runtimes/__init__.py
+          src/mstr_qualify/runtimes/benchmark_cli.py
+          tests/integration/test_runtime_adapters.py
+          tests/security/test_runtime_benchmark_boundary.py
+          tests/security/test_runtime_profile_alias_boundary.py
+          tests/unit/test_runtime_benchmark_cli.py
+          EOF
+          sort -o /tmp/expected.txt /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e '.[dev]'
+      - name: Focused T023/T030 tests
+        run: >-
+          python -m pytest -q
+          tests/unit/test_runtime_protocol.py
+          tests/unit/test_runtime_benchmark_cli.py
+          tests/security/test_runtime_benchmark_boundary.py
+          tests/security/test_runtime_profile_alias_boundary.py
+          tests/integration/test_runtime_adapters.py
+      - name: Offline schema validation
+        run: mstr-qualify validate
+      - name: Full pytest
+        run: python -m pytest -q
+      - name: Ruff
+        run: ruff check src tests
+      - name: Mypy
+        run: mypy src
+
+  complete:
+    needs: [identity_scope, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recheck immutable refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN_SHA="$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)"
+          TARGET_SHA="$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)"
+          test "$MAIN_SHA" = "$EXPECTED_MAIN"
+          test "$TARGET_SHA" = "$TARGET_HEAD"
