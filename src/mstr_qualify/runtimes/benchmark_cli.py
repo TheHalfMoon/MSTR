@@ -220,7 +220,7 @@ class BenchmarkCliProfile:
                 code="runtime.benchmark_profile_network_flag",
                 details={"flags": ",".join(forbidden)},
             )
-        _validate_cpu_device_args(self.output_args)
+        _validate_cpu_device_args(command_tokens)
 
 
 def _read_json_object(path: Path) -> dict[str, object]:
