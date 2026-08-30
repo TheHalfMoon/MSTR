@@ -1,12 +1,15 @@
 # A006 — Protected Finalizer / Verifier Boundary Evidence
 
 **Task:** `A006`  
-**State:** `IMPLEMENTATION_ACTIVE / FINAL_REQUALIFICATION_PENDING`  
-**Canonical entry main:** `97904ac5ad17e7142e88944ee83dbb304ecb197f`
+**State:** `COMPLETE_CANONICAL`  
+**Canonical entry main:** `97904ac5ad17e7142e88944ee83dbb304ecb197f`  
+**Implementation PR:** `#94`  
+**Final implementation head:** `3efd9f902746a1e6248f8bfee21bbe4a4f4db76b`  
+**Canonical implementation merge:** `1fc07252dcad95c7f1377c76fa8ab9f9da3dd7f2`
 
 ## Entry Gate
 
-A006 is model-independent early-safe MSTR-000A work. The canonical entry state proves:
+A006 is model-independent early-safe MSTR-000A work. Its canonical entry state proved:
 
 ```text
 A001 = COMPLETE_CANONICAL
@@ -25,73 +28,46 @@ PRODUCTION_TRACE_INGESTION = NONE
 PRODUCTION_RELEASE = NONE
 ```
 
-The repository has no machine-readable MSTR-000A task catalog, so A006 uses the canonical Spec001 manual exact-prerequisite rule. A006 consumes the canonical A002/A003 event integrity chain and the A005 bounded Build Loop stop-proposal boundary; it introduces no competing event or task authority.
+## Canonical Implementation
 
-## Implementation Scope
+The protected finalizer:
 
-A006 introduces a small protected finalizer package under `src/mstr_qualify/verifier/` plus unit/security regressions.
-
-The finalizer:
-
-- replays and validates the complete `mstr.run-event.v0` hash/predecessor chain before making a decision;
-- rejects mixed run identities;
-- rejects any pre-existing `run.completed`, `run.failed`, or `run.escalated` event rather than rewriting terminal history;
+- replays and validates the complete `mstr.run-event.v0` schema/hash/predecessor chain before making a decision;
+- rejects mixed run identities and pre-existing terminal history;
 - requires the latest `run.stop_proposed` to be authored by `model` or `harness`;
-- allows only `verifier.started` / `verifier.result` events after the latest stop proposal; any edit/tool/context/recovery or other state-changing event requires a new stop proposal before finalization;
+- allows only verifier lifecycle events after the latest stop proposal, so any later edit/tool/context/recovery/state mutation requires a new stop proposal;
 - accepts `verifier.result` authority only from `source=verifier`;
-- requires every configured verifier id to be non-empty, unique, canonical, and present;
-- rejects surrounding whitespace in required verifier ids, event verifier ids, and verifier result identities instead of silently normalizing exact evidence identities;
-- requires a fresh result for every required verifier after the latest stop proposal, preventing stale PASS reuse;
-- requires the latest result for every required verifier to be `PASS`;
-- rejects malformed verifier statuses through the stable finalizer error boundary, including non-string/unhashable JSON values;
+- requires configured verifier ids to be non-empty, unique, canonical, and present;
+- rejects surrounding whitespace in configured verifier ids, event verifier ids, and result identities rather than silently rewriting exact evidence identities;
+- requires a fresh post-stop result from every required verifier and requires each latest status to be `PASS`;
+- rejects malformed statuses, missing/stale verifier evidence, spoofed sources, hash-chain tamper, and duplicate verifier configuration;
 - derives `VERIFIED_SUCCESS` or `RECOVERED_SUCCESS` mechanically rather than accepting a caller-selected terminal class;
-- computes a deterministic aggregate `verifier_result_identity` from the exact final required result identities;
-- emits the canonical `run.completed` event as `source=verifier`, `model_visible=false`, chained to the exact final input event;
-- provides no API by which model text, repository text, harness text, or a pre-existing completion event can self-author success.
+- computes the terminal aggregate identity from the exact final required verifier result identities;
+- emits `run.completed` only as a verifier-authored, non-model-visible, hash-chained event;
+- exposes no model/harness/caller path that can self-author canonical success.
 
-## Post-Stop Freshness Hardening
+## Security Hardening Proven
 
-A security review identified an event-order freshness gap. The earlier candidate required verifier PASS results after the latest `run.stop_proposed`, but it did not reject a valid state-changing event inserted after that stop. Therefore an event sequence such as either of these was not explicitly rejected by the finalizer boundary itself:
+Two independent review findings were repaired before merge.
 
-```text
-run.stop_proposed
--> edit.applied
--> verifier.result PASS
--> finalize
-```
+### Post-stop freshness
+
+Schema-valid state mutation after the latest stop proposal is rejected even if a PASS result follows or precedes the mutation:
 
 ```text
-run.stop_proposed
--> verifier.result PASS
--> edit.applied
--> finalize
+run.stop_proposed -> edit.applied -> verifier.result PASS -> REJECT
+run.stop_proposed -> verifier.result PASS -> edit.applied -> REJECT
 ```
 
-A005's `BuildLoop` makes STOP terminal for the builder, but A006 is the protected event-log success boundary and must fail closed even if an invalid producer appends a schema-valid post-stop mutation. The candidate now restricts the post-stop interval to verifier lifecycle events only. Any other event requires a fresh stop proposal before success can be derived.
-
-Dedicated security regression:
-
-```text
-tests/security/test_finalizer_post_stop_boundary.py
-```
-
-covers mutation before and after the fresh verifier PASS and requires:
+Stable error:
 
 ```text
 finalizer.post_stop_event_invalid
 ```
 
-## Exact Verifier Identity Hardening
+### Exact verifier identity
 
-PR review identified a separate evidence-identity defect in the otherwise qualified candidate: `_observation()` used `.strip()` when storing `verifier_id` and `result_identity`, and `_required_ids()` normalized configured verifier ids. A value such as:
-
-```text
-result_identity = " exact-proof "
-```
-
-could therefore be rewritten to `"exact-proof"` before aggregate identity calculation. That behavior violates the exact-evidence identity requirement even though the event itself remains hash-bound.
-
-The current candidate now uses canonical-or-reject semantics:
+The earlier implementation normalized opaque verifier identities with `.strip()`. The final implementation uses canonical-or-reject semantics:
 
 ```text
 REQUIRED_VERIFIER_ID_SURROUNDING_WHITESPACE -> REJECT
@@ -100,77 +76,51 @@ RESULT_IDENTITY_SURROUNDING_WHITESPACE -> REJECT
 EXACT_CANONICAL_IDENTITY -> PRESERVE_UNCHANGED
 ```
 
-Dedicated regression:
+Dedicated security coverage is retained in:
 
 ```text
+tests/security/test_finalizer_boundary.py
+tests/security/test_finalizer_post_stop_boundary.py
 tests/security/test_finalizer_identity_boundary.py
 ```
 
-requires stable fail-closed codes and prevents silent identity normalization.
-
-## Security Regressions
-
-The candidate includes explicit tests for:
+## Canonical Lifecycle Evidence
 
 ```text
-MODEL_FAKE_COMPLETION -> REJECT / NO_VERIFIER_AUTHORITY
-HARNESS_OR_MODEL_SPOOFED_VERIFIER_RESULT -> REJECT
-STALE_PRE_STOP_PASS_REUSE -> REJECT
-POST_STOP_STATE_MUTATION_BEFORE_PASS -> REJECT / NEW_STOP_REQUIRED
-POST_STOP_STATE_MUTATION_AFTER_PASS -> REJECT / NEW_STOP_REQUIRED
-REQUIRED_VERIFIER_ID_WHITESPACE_NORMALIZATION -> REJECT
-EVENT_VERIFIER_ID_WHITESPACE_NORMALIZATION -> REJECT
-RESULT_IDENTITY_WHITESPACE_NORMALIZATION -> REJECT
-MISSING_REQUIRED_VERIFIER -> REJECT
-REQUIRED_FAIL_ERROR_UNKNOWN -> REJECT
-MALFORMED_NON_STRING_VERIFIER_STATUS -> REJECT
-PREEXISTING_COMPLETION_FAILURE_ESCALATION -> REJECT
-MIXED_RUN_IDENTITY -> REJECT
-TAMPERED_EVENT_HASH_CHAIN -> REJECT
-EMPTY_OR_DUPLICATE_REQUIRED_VERIFIER_CONFIG -> REJECT
-UNTRUSTED_STOP_SOURCE -> REJECT
-ALL_FRESH_REQUIRED_PASS -> VERIFIED_SUCCESS
-RECOVERY_OR_PRIOR_FAILURE_THEN_FRESH_PASS -> RECOVERED_SUCCESS
+IMPLEMENTATION_PR = 94
+FINAL_IMPLEMENTATION_HEAD = 3efd9f902746a1e6248f8bfee21bbe4a4f4db76b
+IMPLEMENTATION_TREE = 8ee03f71fbd632628dc6069fee842c146f9e753e
+EXACT_HEAD_QUALIFICATION_RUN = 33306551501 / SUCCESS
+EXACT_HEAD_REVIEW = 5060548795 / NO_BLOCKING_FINDINGS
+MANDATORY_PREMERGE_RUN = 33306722605 / SUCCESS
+CANONICAL_IMPLEMENTATION_MERGE = 1fc07252dcad95c7f1377c76fa8ab9f9da3dd7f2
+POST_MERGE_VERIFICATION_RUN = 33306819921 / SUCCESS
 ```
 
-## Qualification History
-
-Historical focused evidence exists for the earlier exact candidate `d6de54c685622ad0d230c11d7173b3559676b37c`:
+The final exact-head qualification proved:
 
 ```text
-PYTHONPATH=src python -m pytest -q tests/unit/test_finalizer.py tests/security/test_finalizer_boundary.py
-25 passed in 1.64s
+FOCUSED_FINALIZER_SECURITY_TESTS = 30 passed
+MSTR_QUALIFY_VALIDATE = PASS / 19 valid fixtures + 19 invalid fixtures
+FULL_PYTEST = 900 passed
+RUFF = PASS
+MYPY = PASS / 32 source files
+IDENTITY_SCOPE = PASS
+FINAL_IMMUTABLE_RECHECK = PASS
 ```
 
-Hosted runners later recovered. Exact-head run `33302583302` qualified candidate `f789a5e4cec0b7c441a49296d0f4c0f00c5541b8` before the exact-identity review repair:
+Mandatory premerge independently re-proved the exact PR/head/tree, successful qualification, exact-head review, zero unresolved review threads, exact seven-file scope, and the complete frozen quality suite.
+
+The canonical merge is an exact two-parent GitHub merge:
 
 ```text
-identity_scope = 99233330267 / SUCCESS
-quality_semantics = 99233330187 / SUCCESS
-complete = 99233472898 / SUCCESS
-focused finalizer tests = 27 passed
-mstr-qualify validate = PASS / 19 valid + 19 invalid fixtures
-full pytest = 897 passed
-ruff check src tests = PASS
-mypy src = PASS / 32 source files
+PARENT_1 = 97904ac5ad17e7142e88944ee83dbb304ecb197f
+PARENT_2 = 3efd9f902746a1e6248f8bfee21bbe4a4f4db76b
+TREE = 8ee03f71fbd632628dc6069fee842c146f9e753e
+SIGNATURE = VERIFIED
 ```
 
-This is valid historical PASS evidence for `f789a5e4cec0b7c441a49296d0f4c0f00c5541b8` only. The exact-verifier-identity repair changed implementation/test/evidence content afterward, so the prior PASS does **not** transfer to the current head.
-
-## Current Qualification State
-
-```text
-A006_CURRENT_HEAD_FOCUSED_PYTEST = NOT_EXECUTED
-A006_CURRENT_HEAD_FULL_PYTEST = NOT_EXECUTED
-A006_CURRENT_HEAD_SCHEMA_VALIDATE = NOT_EXECUTED
-A006_CURRENT_HEAD_RUFF = NOT_EXECUTED
-A006_CURRENT_HEAD_MYPY = NOT_EXECUTED
-CI_PASS = NOT_CLAIMED_ON_CURRENT_HEAD
-A006_COMPLETE_CANONICAL = NO
-MERGE_AUTHORITY = ABSENT
-```
-
-Fresh exact-head qualification is mandatory after the identity hardening. Historical PASS results may not be reused as current PASS.
+Post-merge run `33306819921` re-proved canonical merge identity/tree/parents, focused A006 tests, schema validation, full pytest, Ruff, mypy, and the exact `main` identity before this closeout.
 
 ## Authority Boundary
 
@@ -185,4 +135,4 @@ PRODUCTION_TRACE_INGESTION = NONE
 PRODUCTION_RELEASE = NONE
 ```
 
-A006 remains unchecked in `tasks.md`. It cannot become `COMPLETE_CANONICAL`, unblock A007/B023, or authorize dependent work merely because the implementation exists on a branch. Exact-head qualification, review, mandatory premerge verification, guarded merge, post-merge proof, and separate closeout remain required.
+This closeout changes only canonical task/provenance state. It does not modify A006 runtime behavior, schemas, governance, or any external-effect authority. A007 and every later task remain independently gated by their exact live prerequisites.
