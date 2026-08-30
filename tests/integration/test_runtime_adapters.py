@@ -18,7 +18,6 @@ from mstr_qualify.runtimes import (
     load_benchmark_profile,
 )
 
-
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PROFILE_PATH = REPOSITORY_ROOT / "configs" / "runtimes" / "llama-cpp-cpu.json"
 
