@@ -19,6 +19,7 @@ VerifierStatus = Literal["PASS", "FAIL", "ERROR", "UNKNOWN"]
 TerminalClass = Literal["VERIFIED_SUCCESS", "RECOVERED_SUCCESS"]
 _VALID_STATUSES = frozenset({"PASS", "FAIL", "ERROR", "UNKNOWN"})
 _TRUSTED_STOP_SOURCES = frozenset({"model", "harness"})
+_POST_STOP_ALLOWED_EVENTS = frozenset({"verifier.started", "verifier.result"})
 
 
 class FinalizerError(ValueError):
@@ -189,6 +190,19 @@ def finalize_run(
             code="finalizer.untrusted_stop_source",
         )
     latest_stop_seq = int(latest_stop["seq"])
+
+    post_stop_invalid = [
+        event
+        for event in raw_events
+        if int(event["seq"]) > latest_stop_seq
+        and event["event_type"] not in _POST_STOP_ALLOWED_EVENTS
+    ]
+    if post_stop_invalid:
+        first = post_stop_invalid[0]
+        raise FinalizerError(
+            "state-changing or recovery events after the latest stop proposal require a new stop proposal before finalization",
+            code="finalizer.post_stop_event_invalid",
+        )
 
     observations: list[_VerifierObservation] = []
     for event in raw_events:
