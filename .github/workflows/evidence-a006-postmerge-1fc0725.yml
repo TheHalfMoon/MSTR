@@ -1,0 +1,73 @@
+name: Verify A006 post-merge build
+
+on:
+  push:
+    branches:
+      - evidence/a006-postmerge-1fc0725
+
+permissions:
+  contents: read
+
+env:
+  MERGE_SHA: 1fc07252dcad95c7f1377c76fa8ab9f9da3dd7f2
+  BASE_SHA: 97904ac5ad17e7142e88944ee83dbb304ecb197f
+  CANDIDATE_SHA: 3efd9f902746a1e6248f8bfee21bbe4a4f4db76b
+  EXPECTED_TREE: 8ee03f71fbd632628dc6069fee842c146f9e753e
+
+jobs:
+  identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1fc07252dcad95c7f1377c76fa8ab9f9da3dd7f2
+          fetch-depth: 0
+      - name: Verify canonical merge identity and tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          read -r commit parent1 parent2 < <(git rev-list --parents -n 1 HEAD)
+          test "$commit" = "$MERGE_SHA"
+          test "$parent1" = "$BASE_SHA"
+          test "$parent2" = "$CANDIDATE_SHA"
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1fc07252dcad95c7f1377c76fa8ab9f9da3dd7f2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-prove A006 canonical merge quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/test_finalizer.py tests/security/test_finalizer_boundary.py tests/security/test_finalizer_identity_boundary.py tests/security/test_finalizer_post_stop_boundary.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+
+  complete:
+    needs: [identity, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1fc07252dcad95c7f1377c76fa8ab9f9da3dd7f2
+      - name: Record post-merge proof boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          echo "A006_POSTMERGE_MAIN=$MERGE_SHA"
+          echo "EXTERNAL_EFFECT=NONE"
