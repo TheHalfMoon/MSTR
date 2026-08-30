@@ -1,0 +1,51 @@
+name: Verify A006 post-closeout canonical state
+
+on:
+  push:
+    branches:
+      - evidence/a006-postcloseout-93bfb94
+
+permissions:
+  contents: read
+
+env:
+  CLOSEOUT_MERGE: 93bfb94d6b8f5949ea5ce125d780ef7f2b739c01
+  IMPLEMENTATION_MERGE: 1fc07252dcad95c7f1377c76fa8ab9f9da3dd7f2
+  CLOSEOUT_HEAD: d5c4967894db47a35551a24ce491537c77729457
+  EXPECTED_TREE: 8c22b8e1618c3818bb2ce5c505d8641462da9450
+
+jobs:
+  canonical_state:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 93bfb94d6b8f5949ea5ce125d780ef7f2b739c01
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify closeout merge identity, ledger, quality, and next frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_MERGE"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CLOSEOUT_MERGE"
+          read -r commit parent1 parent2 < <(git rev-list --parents -n 1 HEAD)
+          test "$commit" = "$CLOSEOUT_MERGE"
+          test "$parent1" = "$IMPLEMENTATION_MERGE"
+          test "$parent2" = "$CLOSEOUT_HEAD"
+          grep -Fq -- '- [x] **A006 Implement protected finalizer / verifier boundary.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -Fq '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A006-finalizer.md
+          grep -Fq -- '- [ ] **A007 Implement H0 neutral-minimal harness.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/test_finalizer.py tests/security/test_finalizer_boundary.py tests/security/test_finalizer_identity_boundary.py tests/security/test_finalizer_post_stop_boundary.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CLOSEOUT_MERGE"
+          echo "A006_COMPLETE_CANONICAL=YES"
+          echo "NEXT_ELIGIBLE=A007"
+          echo "EXTERNAL_EFFECT=NONE"
