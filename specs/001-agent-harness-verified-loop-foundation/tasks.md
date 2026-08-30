@@ -64,9 +64,10 @@ This reconciliation does not infer completion for A005+ and grants no external-e
   Outputs: loop implementation, state-machine tests, `evidence/mstr-000a/A005-build-loop.md`.
   Canonical implementation: PR #92 / final head `a157c2f359a2c9eb600fed787cd7d1f23fa10eff` / merge `3c8d817d27948bffefaacc589eb10ec2733ecbd4`.
 
-- [ ] **A006 Implement protected finalizer / verifier boundary.**  
+- [x] **A006 Implement protected finalizer / verifier boundary.**  
   Success must be mechanically derived from required verifier results; fake model completion must fail.  
-  Outputs: finalizer/verifier interface, contract/security tests, `evidence/mstr-000a/A006-finalizer.md`.
+  Outputs: finalizer/verifier interface, contract/security tests, `evidence/mstr-000a/A006-finalizer.md`.  
+  Canonical implementation: PR #94 / final head `3efd9f902746a1e6248f8bfee21bbe4a4f4db76b` / merge `1fc07252dcad95c7f1377c76fa8ab9f9da3dd7f2`.
 
 - [ ] **A007 Implement H0 neutral-minimal harness.**  
   Minimum repository read/search, shell, one deterministic edit/apply path, verifier invocation, bounded state.  
