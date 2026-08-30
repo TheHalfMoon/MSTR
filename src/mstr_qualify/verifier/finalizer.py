@@ -59,13 +59,17 @@ def _required_ids(required_verifier_ids: Iterable[str]) -> tuple[str, ...]:
             "required verifier ids must be non-empty strings",
             code="finalizer.required_verifier_id_invalid",
         )
-    normalized = tuple(value.strip() for value in values)
-    if len(set(normalized)) != len(normalized):
+    if any(value.strip() != value for value in values):
+        raise FinalizerError(
+            "required verifier ids must not contain surrounding whitespace",
+            code="finalizer.required_verifier_id_invalid",
+        )
+    if len(set(values)) != len(values):
         raise FinalizerError(
             "required verifier ids must be unique",
             code="finalizer.required_verifiers_duplicate",
         )
-    return tuple(sorted(normalized))
+    return tuple(sorted(values))
 
 
 def _observation(event: dict[str, Any]) -> _VerifierObservation:
@@ -86,6 +90,11 @@ def _observation(event: dict[str, Any]) -> _VerifierObservation:
             "verifier.result requires a non-empty verifier_id",
             code="finalizer.verifier_id_missing",
         )
+    if verifier_id.strip() != verifier_id:
+        raise FinalizerError(
+            "verifier.result verifier_id must not contain surrounding whitespace",
+            code="finalizer.verifier_id_invalid",
+        )
     status = payload.get("status")
     if not isinstance(status, str) or status not in _VALID_STATUSES:
         raise FinalizerError(
@@ -99,10 +108,15 @@ def _observation(event: dict[str, Any]) -> _VerifierObservation:
             "verifier.result requires a non-empty result_identity",
             code="finalizer.verifier_result_identity_missing",
         )
+    if result_identity.strip() != result_identity:
+        raise FinalizerError(
+            "verifier.result result_identity must not contain surrounding whitespace",
+            code="finalizer.verifier_result_identity_invalid",
+        )
     return _VerifierObservation(
-        verifier_id=verifier_id.strip(),
+        verifier_id=verifier_id,
         status=typed_status,
-        result_identity=result_identity.strip(),
+        result_identity=result_identity,
         seq=int(event["seq"]),
     )
 
