@@ -30,6 +30,7 @@ configs/runtimes/llama-cpp-cpu.json
 artifacts/decisions/T030-runtime-interface-scan.json
 tests/unit/test_runtime_benchmark_cli.py
 tests/security/test_runtime_benchmark_boundary.py
+tests/security/test_runtime_profile_alias_boundary.py
 tests/integration/test_runtime_adapters.py
 ```
 
@@ -39,13 +40,30 @@ The adapter:
 - verifies the local artifact SHA-256 against the exact load identity before entering `READY`;
 - performs no artifact acquisition;
 - rejects Hugging Face provider-acquisition flags and llama.cpp RPC flags in runtime profiles, including `--flag=value` forms;
-- requires exactly one runtime device selector and requires it to be `none`;
+- requires exactly one runtime device selector across the complete generated CLI profile and requires it to be `none`;
 - forces `n_gpu_layers=0` and `--device none` for the portable CPU path;
 - binds prompt/generation token counts, thread count, GPU-layer count, device selection, model filename and runtime build commit to returned JSON before accepting a result;
 - rejects non-finite/zero timing data rather than admitting malformed measurement evidence;
 - exposes stable fail-closed errors for missing artifacts, hash mismatch, unsupported format/context, missing executable, timeout, non-zero process exit, malformed JSON, output shape/type mismatch and result identity mismatch;
 - models benchmark calls as isolated processes with `supports_prefix_cache=false` and `PrefixCacheState.EMPTY` rather than pretending that reusable cache state exists;
 - preserves the verified benchmark observation for later T031 measurement plumbing without mutating the T023 protocol.
+
+## Candidate Hardening
+
+A final security review found that device-selector validation covered `output_args` but not the complete generated CLI token set. A non-output argument field such as `model_arg="--device"` could therefore introduce a second device selector while the canonical `output_args` still contained `--device none`.
+
+The candidate now validates the complete `command_tokens` tuple before admission. A dedicated regression covers both `-dev` and `--device` injection through every non-output CLI argument field:
+
+```text
+model_arg
+prompt_arg
+generation_arg
+threads_arg
+gpu_layers_arg
+repetitions_arg
+```
+
+This hardening does not add runtime/model execution or external effects. It closes an alias/collision path in the profile validation boundary.
 
 ## llama.cpp Interface Pin
 
@@ -107,7 +125,7 @@ No fake adapter, guessed CLI, or compatibility result is created.
 
 The T030 tests use temporary synthetic fixture bytes and injected deterministic command runners. They exercise adapter semantics without downloading or executing model weights or requiring a real runtime binary.
 
-The exact task-required integration path now exists:
+The exact task-required integration path exists:
 
 ```text
 tests/integration/test_runtime_adapters.py
@@ -121,6 +139,7 @@ FORMAT_OR_CONTEXT_UNSUPPORTED -> REJECT
 CPU_ONLY_COMMAND -> -ngl 0 + --device none
 RPC_OR_PROVIDER_NETWORK_FLAGS -> REJECT
 DUPLICATE_OR_NON_NONE_DEVICE_SELECTOR -> REJECT
+CROSS_FIELD_DEVICE_SELECTOR_ALIAS -> REJECT
 PREFIX_CACHE_REUSE -> FALSE / EMPTY
 NONZERO_PROCESS -> STABLE_FAILURE
 MALFORMED_JSON -> STABLE_FAILURE
