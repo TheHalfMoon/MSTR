@@ -6,7 +6,6 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
-
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RUNNER_PATH = REPOSITORY_ROOT / "colab" / "mstr_t029_quantize.py"
 
