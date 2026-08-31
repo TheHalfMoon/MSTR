@@ -1,0 +1,85 @@
+name: Verify A007 post-merge build
+
+on:
+  push:
+    branches:
+      - evidence/a007-postmerge-e28fea9
+
+permissions:
+  contents: read
+
+env:
+  CANONICAL_MAIN: e28fea9132bc65fc6ba0cfdf13afc645d9fdd441
+  IMPLEMENTATION_HEAD: 65071b8469bc759d0951dc9b853c571013f6c295
+  PRIOR_MAIN: 93bfb94d6b8f5949ea5ce125d780ef7f2b739c01
+  EXPECTED_TREE: 6f800c5a06deb72de79f147112c8446c149a1c5f
+
+jobs:
+  identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e28fea9132bc65fc6ba0cfdf13afc645d9fdd441
+          fetch-depth: 0
+      - name: Verify canonical A007 merge identity and tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git rev-parse HEAD^1)" = "$PRIOR_MAIN"
+          test "$(git rev-parse HEAD^2)" = "$IMPLEMENTATION_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          mapfile -t actual < <(git diff --name-only "$PRIOR_MAIN" "$CANONICAL_MAIN" | sort)
+          expected=(
+            configs/harness/neutral-minimal-v0.json
+            evidence/mstr-000a/A007-neutral-harness.md
+            src/mstr_qualify/harness/neutral.py
+            tests/security/test_neutral_harness_boundary.py
+            tests/unit/harness/test_neutral.py
+          )
+          diff -u <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${actual[@]}" | sort)
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e28fea9132bc65fc6ba0cfdf13afc645d9fdd441
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-prove A007 canonical merge quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/harness/test_neutral.py tests/security/test_neutral_harness_boundary.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          grep -Fq -- '- [ ] **A007 Implement H0 neutral-minimal harness.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -Fq '**State:** `IMPLEMENTATION_ACTIVE / QUALIFICATION_PENDING`' evidence/mstr-000a/A007-neutral-harness.md
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+
+  complete:
+    needs: [identity, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e28fea9132bc65fc6ba0cfdf13afc645d9fdd441
+          fetch-depth: 0
+      - name: Record A007 post-merge proof boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          echo "A007_IMPLEMENTATION_MERGE=$CANONICAL_MAIN"
+          echo "A007_POST_MERGE_READY_FOR_CLOSEOUT=YES"
+          echo "EXTERNAL_EFFECT=NONE"
