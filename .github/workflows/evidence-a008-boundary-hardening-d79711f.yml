@@ -45,7 +45,13 @@ jobs:
           new_context = '''    def select_context(self, request: ContextRequest) -> ContextSelectionResult:\n        self._require_state(\n            frozenset({LoopState.LOCALIZE, LoopState.OBSERVE}),\n            "context selection",\n        )\n        if request.mode == "NO_RETRIEVAL":\n'''
           if text.count(old_context) != 1:
               raise SystemExit("context state insertion point not unique")
-          path.write_text(text.replace(old_context, new_context))
+          text = text.replace(old_context, new_context)
+
+          old_actual = '''        actual = _ABSENT_SHA256 if not path.exists() else hashlib.sha256(path.read_bytes()).hexdigest()\n'''
+          new_actual = '''        actual = (\n            _ABSENT_SHA256\n            if not path.exists()\n            else hashlib.sha256(path.read_bytes()).hexdigest()\n        )\n'''
+          if text.count(old_actual) != 1:
+              raise SystemExit("stale identity style insertion point not unique")
+          path.write_text(text.replace(old_actual, new_actual))
 
           test_path = Path("tests/security/test_native_harness_boundary.py")
           tests = test_path.read_text()
