@@ -1,0 +1,18 @@
+name: Build A011 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/a011-closeout-build-477de59
+
+permissions:
+  contents: write
+
+env:
+  CANONICAL_MAIN: 477de59557bdaf016ab8f9bcf5c98981daba8cb2
+
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Workflow staged through Git object path"
