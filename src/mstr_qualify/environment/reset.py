@@ -180,7 +180,7 @@ def _normalize_repository_url(value: str) -> str:
     return value[:-4] if value.endswith(".git") else value
 
 
-def _assert_repository_identity(
+def _assert_repository_origin(
     workspace: Path, repository: Mapping[str, Any], timeout: int
 ) -> None:
     expected_url = _normalize_repository_url(str(repository["repository_url"]))
@@ -194,6 +194,12 @@ def _assert_repository_identity(
             expected=expected_url,
             observed=observed_url,
         )
+
+
+def _assert_repository_identity(
+    workspace: Path, repository: Mapping[str, Any], timeout: int
+) -> None:
+    _assert_repository_origin(workspace, repository, timeout)
     expected_revision = str(repository["revision_sha"])
     observed_revision = _git(workspace, "rev-parse", "HEAD", timeout_seconds=timeout)
     if observed_revision != expected_revision:
@@ -335,6 +341,7 @@ def _reset_workspace(
     elif mode == "HARD_RESET_CLEAN":
         if not (workspace / ".git").exists():
             raise _fail("workspace is not a git checkout", "environment.git_checkout_required")
+        _assert_repository_origin(workspace, repository, timeout)
         _git(
             workspace,
             "rev-parse",
