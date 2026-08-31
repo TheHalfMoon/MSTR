@@ -1,0 +1,105 @@
+name: Qualify A017 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/a017-closeout-qualify-fefed09
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact A017 closeout identity and evidence chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='11c528c0ad015f7505dd143c700e710a0f08d86a'
+          HEAD='fefed09b18b1b1f817c1f3e3ef9bb95abb6536b7'
+          TREE='c6739191b278e6c82b59692d0dda3a5b92244860'
+          git fetch origin main closeout/000a-a017 --quiet
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/closeout/000a-a017)" = "$HEAD"
+          test "$(git show -s --format=%T "$HEAD")" = "$TREE"
+          test "$(git show -s --format=%P "$HEAD")" = "$BASE"
+          expected="$(printf '%s\n' 'evidence/mstr-000a/A017-trajectory-contract.md' 'specs/001-agent-harness-verified-loop-foundation/tasks.md')"
+          actual="$(git diff --name-only "$BASE..$HEAD")"
+          test "$actual" = "$expected"
+          git diff --check "$BASE..$HEAD"
+          tasks="$(git show "$HEAD:specs/001-agent-harness-verified-loop-foundation/tasks.md")"
+          grep -F -- '- [x] **A016 Implement DVCR/TTVC + diagnostic metric computation.**' <<<"$tasks"
+          grep -F -- '- [x] **A017 Freeze failure taxonomy and training trajectory contract.**' <<<"$tasks"
+          grep -F -- '- [ ] **A018 Implement trajectory recorder/replay/admission.**' <<<"$tasks"
+          evidence="$(git show "$HEAD:evidence/mstr-000a/A017-trajectory-contract.md")"
+          grep -F '**State:** COMPLETE_CANONICAL' <<<"$evidence"
+          for line in \
+            'FINAL_FEATURE_HEAD = 2270cbbd6a1110e2823679ea3ca2d7b77a92d256' \
+            'FINAL_FEATURE_TREE = 1e85b48fda0569e4e51e188ae566b2b9674ad2b8' \
+            'IMPLEMENTATION_PR = 120' \
+            'INDEPENDENT_REVIEW = 5071307102 / NO_BLOCKING_FINDING' \
+            'FAILED_QUALIFICATION_1 = 33439438385 / FAILURE / PRESERVED' \
+            'FAILED_QUALIFICATION_2 = 33439766350 / FAILURE / PRESERVED' \
+            'FINAL_QUALIFICATION = 33440052024 / SUCCESS' \
+            'MANDATORY_PREMERGE = 33440372946 / SUCCESS' \
+            'IMPLEMENTATION_MERGE = 11c528c0ad015f7505dd143c700e710a0f08d86a' \
+            'IMPLEMENTATION_MERGE_TREE = 1e85b48fda0569e4e51e188ae566b2b9674ad2b8' \
+            'POST_MERGE_PROOF = 33441203968 / SUCCESS' \
+            'A017_STATE = COMPLETE_CANONICAL' \
+            'A018_STATE = PENDING'; do
+            grep -F "$line" <<<"$evidence"
+          done
+          test "$(jq -r '.conclusion' <<<"$(gh api repos/TheHalfMoon/MSTR/actions/runs/33439438385)")" = failure
+          test "$(jq -r '.conclusion' <<<"$(gh api repos/TheHalfMoon/MSTR/actions/runs/33439766350)")" = failure
+          test "$(jq -r '.conclusion' <<<"$(gh api repos/TheHalfMoon/MSTR/actions/runs/33440052024)")" = success
+          test "$(jq -r '.conclusion' <<<"$(gh api repos/TheHalfMoon/MSTR/actions/runs/33440372946)")" = success
+          test "$(jq -r '.conclusion' <<<"$(gh api repos/TheHalfMoon/MSTR/actions/runs/33441203968)")" = success
+          test "$(jq -r '.conclusion' <<<"$(gh api repos/TheHalfMoon/MSTR/actions/runs/33441445707)")" = failure
+          test "$(jq -r '.conclusion' <<<"$(gh api repos/TheHalfMoon/MSTR/actions/runs/33441572452)")" = failure
+          test "$(jq -r '.conclusion' <<<"$(gh api repos/TheHalfMoon/MSTR/actions/runs/33441656261)")" = success
+
+  quality:
+    needs: identity_scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fefed09b18b1b1f817c1f3e3ef9bb95abb6536b7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Run A017 closeout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_trajectory_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+
+  complete:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Final immutable A017 closeout candidate recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main closeout/000a-a017 --quiet
+          test "$(git rev-parse origin/main)" = '11c528c0ad015f7505dd143c700e710a0f08d86a'
+          test "$(git rev-parse origin/closeout/000a-a017)" = 'fefed09b18b1b1f817c1f3e3ef9bb95abb6536b7'
+          test "$(git show -s --format=%T origin/closeout/000a-a017)" = 'c6739191b278e6c82b59692d0dda3a5b92244860'
+          test "$(git diff --name-only origin/main..origin/closeout/000a-a017)" = "$(printf '%s\n' 'evidence/mstr-000a/A017-trajectory-contract.md' 'specs/001-agent-harness-verified-loop-foundation/tasks.md')"
