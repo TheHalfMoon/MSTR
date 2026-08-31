@@ -1,0 +1,70 @@
+name: Harden A008 typed harness boundaries
+
+on:
+  push:
+    branches:
+      - evidence/a008-boundary-hardening-d79711f
+
+permissions:
+  contents: write
+
+env:
+  TARGET_BRANCH: feat/000a-a008-native-harness
+  EXPECTED_BEFORE: d79711fd6669c741ed28db1be98045c15644b012
+  CANONICAL_MAIN: f1e94e9c754e89a3584a391841599c05ed050d3e
+
+jobs:
+  harden:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/000a-a008-native-harness
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Apply fail-closed H1 boundary repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_BEFORE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/mstr_qualify/harness/native.py")
+          text = path.read_text()
+          old_measure = '''    def __post_init__(self) -> None:\n        values = (self.input_tokens, self.shared_prefix_tokens)\n'''
+          new_measure = '''    def __post_init__(self) -> None:\n        if self.measurement_source != "MEASURED_RUNTIME":\n            raise NativeHarnessError(\n                "prefix/cache evidence must come from a measured runtime",\n                code="h1.prefix_measurement_invalid",\n            )\n        values = (self.input_tokens, self.shared_prefix_tokens)\n'''
+          if text.count(old_measure) != 1:
+              raise SystemExit("prefix measurement insertion point not unique")
+          text = text.replace(old_measure, new_measure)
+
+          old_context = '''    def select_context(self, request: ContextRequest) -> ContextSelectionResult:\n        if request.mode == "NO_RETRIEVAL":\n'''
+          new_context = '''    def select_context(self, request: ContextRequest) -> ContextSelectionResult:\n        self._require_state(\n            frozenset({LoopState.LOCALIZE, LoopState.OBSERVE}),\n            "context selection",\n        )\n        if request.mode == "NO_RETRIEVAL":\n'''
+          if text.count(old_context) != 1:
+              raise SystemExit("context state insertion point not unique")
+          path.write_text(text.replace(old_context, new_context))
+          PY
+          git diff --check
+      - name: Run focused A008 repair gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/harness/test_native.py tests/security/test_native_harness_boundary.py
+          ruff check src/mstr_qualify/harness/native.py tests/unit/harness/test_native.py tests/security/test_native_harness_boundary.py
+          mypy src/mstr_qualify/harness/native.py
+      - name: Push hardened A008 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add src/mstr_qualify/harness/native.py
+          git commit -m "fix(mstr-000a): harden A008 typed boundaries"
+          git push origin HEAD:$TARGET_BRANCH
+          echo "A008_HARDENED_HEAD=$(git rev-parse HEAD)"
+          echo "A008_HARDENED_TREE=$(git rev-parse HEAD^{tree})"
