@@ -1,0 +1,80 @@
+name: Postmerge A012 clean-checkout environment reset
+
+on:
+  push:
+    branches:
+      - evidence/a012-postmerge-95a9014
+
+permissions:
+  contents: read
+
+env:
+  PREVIOUS_MAIN: 3cb9f44569a7469e785ed8ffc4ea88080663adda
+  FEATURE_HEAD: b75397999f8b84ab5abbfe0ef1614af99705864c
+  MERGE_SHA: 95a9014de72bd31e6763a2323c31a25a42974302
+  MERGE_TREE: 9c032ec0fd1f531d90c9de1603779095d4250302
+
+jobs:
+  identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Prove exact canonical implementation merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          mapfile -t parents < <(git show -s --format=%P "$MERGE_SHA" | tr ' ' '\n')
+          test "${#parents[@]}" -eq 2
+          test "${parents[0]}" = "$PREVIOUS_MAIN"
+          test "${parents[1]}" = "$FEATURE_HEAD"
+          test "$(git rev-parse "$FEATURE_HEAD^{tree}")" = "$MERGE_TREE"
+          grep -F -- '- [ ] **A012 Implement clean-checkout environment reset/setup abstraction.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '**State:** `IMPLEMENTATION_CANDIDATE`' evidence/mstr-000a/A012-environment-reset.md
+          grep -F -- 'A012_CANONICAL_EXECUTION_PROFILE = LOCAL_RESET_AND_REPOSITORY_FIXTURES_ONLY' evidence/mstr-000a/A012-environment-reset.md
+          grep -F -- 'ENVIRONMENT_ADMISSION_AUTHORITY = A013 / NOT_CREATED_BY_A012' evidence/mstr-000a/A012-environment-reset.md
+          git diff --check "$PREVIOUS_MAIN" "$MERGE_SHA"
+
+  quality:
+    needs: identity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Re-prove merged A012 quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/integration/test_environment_reset.py tests/security/test_environment_reset_boundary.py tests/security/test_environment_reset_destructive_preflight.py tests/security/test_environment_reset_write_policy.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [identity, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Final canonical ref recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
