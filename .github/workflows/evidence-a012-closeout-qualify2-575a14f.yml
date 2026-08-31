@@ -1,0 +1,99 @@
+name: Requalify A012 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/a012-closeout-qualify2-575a14f
+
+permissions:
+  contents: read
+
+env:
+  CANONICAL_BASE: 95a9014de72bd31e6763a2323c31a25a42974302
+  TARGET_BRANCH: docs/000a-a012-closeout
+  TARGET_HEAD: 575a14fc2f170d49d4edbfb116780eceb1115e87
+  TARGET_TREE: 01e95f19e384b736452689bda26ff1440842bf28
+  IMPLEMENTATION_HEAD: b75397999f8b84ab5abbfe0ef1614af99705864c
+  IMPLEMENTATION_MERGE: 95a9014de72bd31e6763a2323c31a25a42974302
+  POSTMERGE_RUN: "33411593331"
+  SUPERSEDED_CLOSEOUT_QUALIFICATION: "33411953027"
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - name: Verify repaired exact A012 closeout identity and scope
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$CANONICAL_BASE" "$TARGET_HEAD")" = "$CANONICAL_BASE"
+          test "$(git rev-list --count "$TARGET_HEAD..$CANONICAL_BASE")" = "0"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_BASE"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_HEAD"
+          mapfile -t actual < <(git diff --name-only "$CANONICAL_BASE" "$TARGET_HEAD" | sort)
+          expected=(
+            evidence/mstr-000a/A012-environment-reset.md
+            specs/001-agent-harness-verified-loop-foundation/tasks.md
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 2
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          git diff --check "$CANONICAL_BASE" "$TARGET_HEAD"
+          test ! -e evidence/mstr-000a/.a012-closeout-anchor
+          grep -F -- '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A012-environment-reset.md
+          grep -F -- 'A012_STATE = COMPLETE_CANONICAL_CANDIDATE' evidence/mstr-000a/A012-environment-reset.md
+          grep -F -- 'A013_STATE = PENDING' evidence/mstr-000a/A012-environment-reset.md
+          grep -F -- "POST_MERGE_VERIFICATION_RUN = $POSTMERGE_RUN / SUCCESS" evidence/mstr-000a/A012-environment-reset.md
+          grep -F -- '- [x] **A012 Implement clean-checkout environment reset/setup abstraction.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A013 Implement bounded environment bootstrap/admission loop.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          run_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$POSTMERGE_RUN")"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$run_json"
+          old_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$SUPERSEDED_CLOSEOUT_QUALIFICATION")"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$old_json"
+
+  quality:
+    needs: identity_scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Re-run closeout quality gates on repaired head
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [identity_scope, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - name: Final immutable repaired-closeout recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_BASE"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_HEAD"
