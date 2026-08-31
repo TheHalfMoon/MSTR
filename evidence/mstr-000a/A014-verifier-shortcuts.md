@@ -1,7 +1,7 @@
 # A014 — Verifier Runner + Reward-Shortcut Battery
 
 **Task:** `MSTR-000A / A014`
-**State:** `IMPLEMENTATION_CANDIDATE`
+**State:** `COMPLETE_CANONICAL`
 **Canonical base:** `d1d0587aac1bbe1daf32f899810a20a519c31f5d`
 
 ## Entry decision
@@ -10,7 +10,7 @@ A013 is `COMPLETE_CANONICAL` on the canonical base. A006 remains the protected t
 
 A014 is also an explicit prerequisite of MSTR-000B B023 verifier-health implementation. This implementation therefore produces verifier evidence and reward-shortcut resistance only; it does not implement B023 health classification and does not create a parallel terminal-success authority.
 
-## Candidate scope
+## Canonical implementation scope
 
 ```text
 src/mstr_qualify/verifier/runner.py
@@ -20,7 +20,7 @@ src/mstr_qualify/verifier/__init__.py
 evidence/mstr-000a/A014-verifier-shortcuts.md
 ```
 
-`specs/001-agent-harness-verified-loop-foundation/tasks.md` intentionally remains unchanged until implementation evidence is proven and canonical closeout is authorized by the completed lifecycle.
+The implementation was merged through PR #114 and re-proven on canonical `main` before this dedicated closeout marks A014 complete in `tasks.md`.
 
 ## Verifier runner semantics
 
@@ -92,17 +92,48 @@ PRODUCTION_RELEASE = NONE
 
 The injected executor abstraction is intentionally not a generic unisolated subprocess implementation. A014 requires complete effect observations from a controlled fixture or separately admitted isolation layer; absence of such evidence fails closed.
 
-## Required qualification
+## Canonical lifecycle evidence
 
-This candidate is not canonical until a fresh exact-head hosted qualification proves:
+```text
+CANONICAL_IMPLEMENTATION_BASE = d1d0587aac1bbe1daf32f899810a20a519c31f5d
+FINAL_IMPLEMENTATION_HEAD = 3c61c9f792027d36c20cdf5ad921eca29ce3f6de
+FINAL_IMPLEMENTATION_TREE = 8e3c960f5452842cb359d4b9a9ed1c1c34cdc45f
+FINAL_EXACT_HEAD_QUALIFICATION = 33422233350 / SUCCESS
+EXACT_HEAD_REVIEW = 5069578156 / COMMENTED / NO_BLOCKING_FINDING
+UNRESOLVED_REVIEW_THREADS = 0
+MANDATORY_PREMERGE = 33422524606 / SUCCESS
+IMPLEMENTATION_PR = 114
+IMPLEMENTATION_MERGE = 87f1636e434ec36f508528ab4a78204adf103856
+IMPLEMENTATION_MERGE_TREE = 8e3c960f5452842cb359d4b9a9ed1c1c34cdc45f
+POST_MERGE_VERIFICATION_RUN = 33422854862 / SUCCESS
+INITIAL_CLOSEOUT_QUALIFICATION = 33423959583 / FAILURE / IDENTITY_SCOPE / TRAILING_WHITESPACE
+A014_STATE = COMPLETE_CANONICAL_CANDIDATE
+A015_STATE = PENDING
+```
 
-1. focused A014 integration/security tests;
-2. repository schema validation;
-3. full pytest;
-4. Ruff;
-5. strict mypy;
-6. exact head/tree/scope identity and immutable recheck.
+Negative qualification evidence remains preserved and is not reused as PASS:
 
-After qualification, the exact patch requires independent review, mandatory exact-head premerge qualification, guarded expected-head merge, post-merge proof, and a separate canonical closeout before A014 may be marked complete in `tasks.md`.
+```text
+33421271341 = FAILURE / identity_scope / trailing whitespace found by git diff --check
+33421460726 = FAILURE / quality / Ruff import ordering after focused tests, schema validation, and 1007 full pytest passed
+33421732025 = FAILURE / quality / one mypy typing error after focused tests, schema validation, full pytest, and Ruff passed
+33423959583 = FAILURE / closeout identity_scope / trailing whitespace found by git diff --check before quality
+```
 
-Historical or stale test results are not reusable as PASS for this candidate.
+The initial closeout qualification failed before quality because `git diff --check` found trailing whitespace on two newly changed A014 lines in `tasks.md`. That run remains preserved as negative evidence and is not represented as passing.
+
+An independent pre-PR security review also found that shortcut labels could be satisfied by unrelated failures. The final implementation head fixed that issue by binding each shortcut class to compatible detection codes and adding negative mismatch/expected-pass tests. The final exact-head qualification then proved:
+
+```text
+focused_A014 = 9 passed
+schema_validation = PASS / 23 valid fixtures + 23 invalid fixtures
+full_pytest = 1009 passed
+ruff = PASS
+mypy = PASS / 39 source files
+```
+
+The implementation head was qualified before PR creation, independently reviewed on that immutable head, mandatory-premerge verified, guarded-merged with the expected head SHA, and then re-proven on canonical `main` by post-merge run `33422854862` with identity, quality, and final canonical-ref recheck all successful.
+
+> This terminal state is a closeout candidate until the dedicated closeout PR is itself qualified, independently reviewed, mandatory-premerge verified, guarded-merged, and post-closeout verified on canonical `main`.
+
+This closeout does not widen A014 beyond controlled verifier evidence. A006 remains the only protected terminal-success authority. B023 verifier-health classification remains independently gated, A015 remains pending, and no real-environment, network, secret, model, model-weight, paid-compute, large-dataset, weight-changing-training, large-scale-RL, or production-release authority is granted.
