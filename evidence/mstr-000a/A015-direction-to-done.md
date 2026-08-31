@@ -1,7 +1,7 @@
 # A015 — Direction-to-Done v0 Contract and Taxonomy
 
 **Task:** `A015`
-**State:** IMPLEMENTATION_CANDIDATE
+**State:** COMPLETE_CANONICAL
 **Canonical base:** `28a4a972182c0f58f7c6500239f625a0e2143d0a`
 **Feature branch:** `feat/000a-a015-direction-to-done`
 
@@ -84,7 +84,33 @@ complete = SKIPPED
 
 The failure was repaired by adding `mstr-direction-task-v0` to the expected
 sorted offline schema inventory. No production behavior or authority boundary was
-weakened. A fresh exact-head qualification is required after this repair.
+weakened.
+
+## Canonical lifecycle
+
+```text
+canonical_base = 28a4a972182c0f58f7c6500239f625a0e2143d0a
+final_feature_head = 5bf16bba43711c40c62bd3a838ee4f138c01fc06
+final_feature_tree = 4cbcce5f00cd9b7b669ba05d1880d4b02eb52c18
+stale_exact_head_qualification = 33427721219 / SUCCESS / NOT_REUSED
+failed_requalification = 33428444420 / FAILURE / quality
+final_exact_head_qualification = 33428990007 / SUCCESS
+implementation_pr = #116
+independent_exact_head_review = 5070218869 / NO_BLOCKING_FINDING
+mandatory_premerge = 33429274513 / SUCCESS
+implementation_merge = 462a9d5ce32f01408a538d7fe55a585e432397a7
+implementation_merge_tree = 4cbcce5f00cd9b7b669ba05d1880d4b02eb52c18
+failed_postmerge_proof = 33430200851 / FAILURE / evidence-workflow assertion only
+repaired_postmerge_proof = 33430301950 / SUCCESS
+```
+
+The failed post-merge proof `33430200851` is preserved rather than rewritten. Its
+identity step had already proven the exact merge SHA/tree/parents, canonical
+`main`, merged PR identity, and successful qualification/premerge records. The
+failure came from a brittle evidence-workflow text assertion against `tasks.md`,
+not from the canonical A015 implementation. The repaired proof replaced that
+fragile assertion with machine-safe task-state checks and completed identity,
+full repository quality, and immutable canonical-main verification successfully.
 
 ## B025 reconciliation
 
@@ -119,7 +145,7 @@ A015 records verifier identity; it does not implement B023 verifier-health
 classification. Clean headline/training use remains blocked until the downstream
 verifier-health gate is satisfied.
 
-## Candidate outputs
+## Canonical outputs
 
 ```text
 schemas/mstr-direction-task-v0.schema.json
@@ -134,10 +160,6 @@ tests/contract/test_direction_task_contract.py
 benchmarks/direction-to-done/v0-taxonomy.json
 evidence/mstr-000a/A015-direction-to-done.md
 ```
-
-`tasks.md` is intentionally unchanged in the implementation candidate. A015 may
-be marked complete only after governed merge and post-merge proof followed by a
-separate canonical closeout.
 
 ## Authority containment
 
@@ -157,3 +179,7 @@ PRODUCTION_RELEASE = NONE
 B023_VERIFIER_HEALTH_EXECUTION = NOT_IMPLEMENTED_BY_A015
 A016_STATE = PENDING
 ```
+
+A015 is canonically complete only with the separate closeout that marks its task
+complete while leaving A016 pending. This evidence does not grant any downstream
+training, model, paid-compute, or production authority.

@@ -116,9 +116,10 @@ This reconciliation does not infer completion for A005+ and grants no external-e
 
 ## Phase D — Direction-to-Done + Trajectory Factory
 
-- [ ] **A015 Freeze `DirectionTaskManifest` and MSTR Direction-to-Done v0 task taxonomy.**  
+- [x] **A015 Freeze `DirectionTaskManifest` and MSTR Direction-to-Done v0 task taxonomy.**
   Include terse feature direction, multi-file construction, repair, build/tooling, bounded greenfield, WePLD-spec-driven, failure/recovery, and security-sensitive tasks. MSTR-000B B025 extends the greenfield/feature curriculum before headline convergence.  
   Outputs: schema/manifests + `evidence/mstr-000a/A015-direction-to-done.md`.
+  Canonical implementation: PR #116 / final head `5bf16bba43711c40c62bd3a838ee4f138c01fc06` / merge `462a9d5ce32f01408a538d7fe55a585e432397a7`; post-merge proof run `33430301950` = `SUCCESS`.
 
 - [ ] **A016 Implement DVCR/TTVC + diagnostic metric computation.**  
   Mandatory: DVCR, TTVC, first-pass accept, edit-survival, repair success, tool-error, tool/tokens/context per verified completion, harness overhead. Repository Health Delta is added by MSTR-000B B030.  
