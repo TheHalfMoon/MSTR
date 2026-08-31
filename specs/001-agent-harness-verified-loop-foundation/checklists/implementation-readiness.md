@@ -23,7 +23,7 @@
 - [ ] No unresolved constitutional conflict exists.
 - [ ] No active conflicting implementation PR changes the same authority surface.
 - [ ] The task requires no unauthorized external effect.
-- [ ] Once MSTR-000B B002 is canonical, task eligibility validator returns eligible.
+- [x] Machine-gate applicability is reconciled: the canonical B002 validator/catalog covers MSTR-000B `B001-B034`; A001-A018 remain under manual exact-prerequisite verification unless a later canonical A-task catalog explicitly extends machine-gate coverage.
 
 `T034 = COMPLETE_CANONICAL` is **not** a blanket prerequisite for model-independent A001-A018 tasks. A019-A024 are separately convergence-gated.
 
