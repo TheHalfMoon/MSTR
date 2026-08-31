@@ -1,0 +1,50 @@
+{
+  "effect_policy": {
+    "allowed_hosts": [],
+    "allowed_secret_ids": [],
+    "authority_id": null,
+    "filesystem_writes": "WORKTREE_AND_TEMP",
+    "network_access": "NONE",
+    "secret_access": false,
+    "subprocess_execution": true
+  },
+  "environment_id": "fixture.python-repo.v0",
+  "finalizer_contract_id": "A006_PROTECTED_FINALIZER",
+  "fixture_contract": {
+    "known_bad": [
+      "fixture.bad"
+    ],
+    "known_good": [
+      "fixture.good"
+    ],
+    "noop": [
+      "fixture.noop"
+    ]
+  },
+  "protected_paths": [
+    "tests",
+    "schemas"
+  ],
+  "schema_version": "mstr.verifier-manifest.v0",
+  "success_semantics": "MODEL_CAN_DECLARE_SUCCESS",
+  "verifier_manifest_id": "fixture.verifier.v0",
+  "verifiers": [
+    {
+      "argv": [
+        "pytest",
+        "-q"
+      ],
+      "expected_exit_codes": [
+        0
+      ],
+      "required": true,
+      "source_identity": {
+        "path": "tests",
+        "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "timeout_seconds": 300,
+      "verifier_id": "pytest",
+      "working_directory": "."
+    }
+  ]
+}
