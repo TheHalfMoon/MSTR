@@ -1,0 +1,72 @@
+name: Build A017 trajectory contract candidate v2
+
+on:
+  push:
+    branches:
+      - automation/a017-contract-builder
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Extract deterministic A017 generator
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path('.github/workflows/automation-a017-contract-builder.yml').read_text(
+              encoding='utf-8'
+          )
+          marker_start = "          python - <<'PY'\n"
+          marker_end = "          PY\n"
+          start = source.index(marker_start) + len(marker_start)
+          end = source.index(marker_end, start)
+          raw = source[start:end]
+          lines = []
+          for line in raw.splitlines():
+              if line.startswith('          '):
+                  line = line[10:]
+              lines.append(line)
+          Path('/tmp/build_a017_candidate.py').write_text(
+              '\n'.join(lines) + '\n', encoding='utf-8'
+          )
+          compile(
+              Path('/tmp/build_a017_candidate.py').read_text(encoding='utf-8'),
+              '/tmp/build_a017_candidate.py',
+              'exec',
+          )
+          PY
+      - name: Generate and push exact A017 feature candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_BRANCH='feat/000a-a017-trajectory-contract'
+          EXPECTED_HEAD='0bd69861b987c616e1b9b25ef88a5d14f4762788'
+          git fetch origin "$TARGET_BRANCH" --quiet
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python /tmp/build_a017_candidate.py
+          git diff --check
+          git status --short
+          git add \
+            schemas/mstr-trajectory-manifest-v0.schema.json \
+            specs/001-agent-harness-verified-loop-foundation/contracts/trajectory-manifest.schema.json \
+            artifacts/manifests/mstr-failure-taxonomy-v0.json \
+            tests/fixtures/schemas/valid/mstr-trajectory-manifest-v0.json \
+            tests/fixtures/schemas/invalid/mstr-trajectory-manifest-v0.json \
+            tests/contract/test_trajectory_contract.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_schemas.py \
+            evidence/mstr-000a/A017-trajectory-contract.md
+          test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = '9'
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git commit -m 'feat(000a): freeze A017 trajectory contract'
+          git push origin HEAD:"$TARGET_BRANCH"
