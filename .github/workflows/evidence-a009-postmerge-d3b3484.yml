@@ -1,0 +1,84 @@
+name: Post-merge proof A009 WePLD adapter
+
+on:
+  push:
+    branches:
+      - evidence/a009-postmerge-d3b3484
+
+permissions:
+  contents: read
+
+env:
+  MERGE_SHA: d3b3484280d9cbd13986af4217d934c4c7c49a44
+  MERGE_TREE: 821b3be332d577a6ad49360b480c6b7cd086feb1
+  BASE_PARENT: 5416494b60590c0b9a3f6178c58224f4edb01dd7
+  IMPLEMENTATION_PARENT: d9ed5caa78c51cc3ac923e47855327971349b8b7
+
+jobs:
+  canonical_identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Verify canonical merge identity and pre-closeout ledger state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^1)" = "$BASE_PARENT"
+          test "$(git rev-parse HEAD^2)" = "$IMPLEMENTATION_PARENT"
+          test -f src/mstr_qualify/harness/wepld.py
+          test -f configs/harness/wepld-native-v0.json
+          test "$(jq -r '.profile_id' configs/harness/wepld-native-v0.json)" = "mstr.harness.h2-wepld-native.v0"
+          test "$(jq -r '.wepld_runtime_dependency' configs/harness/wepld-native-v0.json)" = "false"
+          test "$(jq -r '.authority_policy.canonical_success' configs/harness/wepld-native-v0.json)" = "A006 protected finalizer only"
+          grep -F -- '- [ ] **A009 Implement H2 WePLD-native adapter.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+
+  quality:
+    needs: canonical_identity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run canonical post-merge gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/harness/test_wepld.py tests/security/test_wepld_adapter_boundary.py tests/unit/harness/test_native.py
+          pytest -q
+          python -m mstr_qualify validate
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs:
+      - canonical_identity
+      - quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Final immutable canonical recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^1)" = "$BASE_PARENT"
+          test "$(git rev-parse HEAD^2)" = "$IMPLEMENTATION_PARENT"
