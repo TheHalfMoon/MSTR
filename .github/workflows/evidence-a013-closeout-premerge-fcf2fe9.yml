@@ -1,0 +1,118 @@
+name: Premerge A013 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/a013-closeout-premerge-fcf2fe9
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  CANONICAL_BASE: 1f22a4d91c1874cd18454e63cc87d92e18f9e14a
+  TARGET_BRANCH: docs/000a-a013-closeout
+  TARGET_HEAD: fcf2fe9caa2e3ee8055f0efaa4ad105236e71eec
+  TARGET_TREE: 68a3f5871f7b33136e5de78c5038d09cbcba583d
+  PR_NUMBER: "113"
+  REVIEW_ID: "5069217480"
+  QUALIFICATION_RUN: "33418356121"
+  FAILED_QUALIFICATION_RUN: "33418142861"
+  POSTMERGE_RUN: "33417713420"
+
+jobs:
+  admission:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - name: Verify exact A013 closeout PR admission
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$CANONICAL_BASE" "$TARGET_HEAD")" = "$CANONICAL_BASE"
+          test "$(git rev-list --count "$TARGET_HEAD..$CANONICAL_BASE")" = "0"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_BASE"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_HEAD"
+
+          mapfile -t actual < <(git diff --name-only "$CANONICAL_BASE" "$TARGET_HEAD" | sort)
+          expected=(
+            evidence/mstr-000a/A013-autoinstall-admission.md
+            specs/001-agent-harness-verified-loop-foundation/tasks.md
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 2
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          git diff --check "$CANONICAL_BASE" "$TARGET_HEAD"
+
+          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER")"
+          jq -e --arg head "$TARGET_HEAD" --arg base "$CANONICAL_BASE" '.state == "open" and .draft == false and .head.sha == $head and .base.sha == $base and .mergeable == true' <<<"$pr_json"
+
+          review_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER/reviews/$REVIEW_ID")"
+          jq -e --arg head "$TARGET_HEAD" '.commit_id == $head and (.state == "COMMENTED" or .state == "APPROVED")' <<<"$review_json"
+
+          run_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$QUALIFICATION_RUN")"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$run_json"
+          failed_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$FAILED_QUALIFICATION_RUN")"
+          jq -e '.status == "completed" and .conclusion == "failure"' <<<"$failed_json"
+          postmerge_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$POSTMERGE_RUN")"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$postmerge_json"
+
+          query='query { repository(owner:"TheHalfMoon", name:"MSTR") { pullRequest(number:113) { reviewThreads(first:100) { nodes { isResolved } } } } }'
+          threads_json="$(jq -nc --arg query "$query" '{query:$query}' | curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Content-Type: application/json' --data-binary @- https://api.github.com/graphql)"
+          jq -e '(.data.repository.pullRequest.reviewThreads.nodes | map(select(.isResolved == false)) | length) == 0' <<<"$threads_json"
+
+          grep -F -- '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- 'A013_STATE = COMPLETE_CANONICAL_CANDIDATE' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- 'A014_STATE = PENDING' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- '- [x] **A013 Implement bounded environment bootstrap/admission loop.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A014 Implement verifier runner + reward-shortcut battery.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+
+  quality:
+    needs: admission
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run mandatory A013 closeout premerge quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [admission, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - name: Final immutable A013 closeout premerge recheck
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_BASE"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_HEAD"
+          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER")"
+          jq -e --arg head "$TARGET_HEAD" --arg base "$CANONICAL_BASE" '.state == "open" and .draft == false and .head.sha == $head and .base.sha == $base and .mergeable == true' <<<"$pr_json"
