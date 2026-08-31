@@ -1,0 +1,53 @@
+name: B029 exact-main eligibility
+
+on:
+  push:
+    branches:
+      - evidence/b029-entry-3cb9f44
+
+permissions:
+  contents: read
+
+env:
+  CANONICAL_MAIN: 3cb9f44569a7469e785ed8ffc4ea88080663adda
+
+jobs:
+  eligible:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Prove exact canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout -B main origin/main
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$CANONICAL_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$CANONICAL_MAIN"
+          test -z "$(git status --porcelain)"
+      - name: Install repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+      - name: Run production B029 eligibility gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify task eligible B029 | tee /tmp/b029-eligibility.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('/tmp/b029-eligibility.json').read_text())
+          assert data['task_id'] == 'B029'
+          assert data['canonical_main'] == '3cb9f44569a7469e785ed8ffc4ea88080663adda'
+          assert data['eligible'] is True
+          PY
