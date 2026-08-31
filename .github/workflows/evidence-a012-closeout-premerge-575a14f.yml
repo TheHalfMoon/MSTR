@@ -1,0 +1,118 @@
+name: Premerge A012 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/a012-closeout-premerge-575a14f
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  CANONICAL_BASE: 95a9014de72bd31e6763a2323c31a25a42974302
+  TARGET_BRANCH: docs/000a-a012-closeout
+  TARGET_HEAD: 575a14fc2f170d49d4edbfb116780eceb1115e87
+  TARGET_TREE: 01e95f19e384b736452689bda26ff1440842bf28
+  PR_NUMBER: "110"
+  REVIEW_ID: "5068625631"
+  QUALIFICATION_RUN: "33412203533"
+  IMPLEMENTATION_POSTMERGE_RUN: "33411593331"
+
+jobs:
+  admission:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - name: Verify exact A012 closeout admission
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$CANONICAL_BASE" "$TARGET_HEAD")" = "$CANONICAL_BASE"
+          test "$(git rev-list --count "$TARGET_HEAD..$CANONICAL_BASE")" = "0"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_BASE"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_HEAD"
+
+          mapfile -t actual < <(git diff --name-only "$CANONICAL_BASE" "$TARGET_HEAD" | sort)
+          expected=(
+            evidence/mstr-000a/A012-environment-reset.md
+            specs/001-agent-harness-verified-loop-foundation/tasks.md
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 2
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          git diff --check "$CANONICAL_BASE" "$TARGET_HEAD"
+          test ! -e evidence/mstr-000a/.a012-closeout-anchor
+
+          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER")"
+          jq -e --arg head "$TARGET_HEAD" --arg base "$CANONICAL_BASE" '.state == "open" and .draft == false and .head.sha == $head and .base.sha == $base and .mergeable == true' <<<"$pr_json"
+
+          review_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER/reviews/$REVIEW_ID")"
+          jq -e --arg head "$TARGET_HEAD" '.commit_id == $head and (.state == "COMMENTED" or .state == "APPROVED")' <<<"$review_json"
+
+          qual_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$QUALIFICATION_RUN")"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$qual_json"
+
+          implementation_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$IMPLEMENTATION_POSTMERGE_RUN")"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$implementation_json"
+
+          query='query { repository(owner:"TheHalfMoon", name:"MSTR") { pullRequest(number:110) { reviewThreads(first:100) { nodes { isResolved } } } } }'
+          threads_json="$(jq -nc --arg query "$query" '{query:$query}' | curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Content-Type: application/json' --data-binary @- https://api.github.com/graphql)"
+          jq -e '(.data.repository.pullRequest.reviewThreads.nodes | map(select(.isResolved == false)) | length) == 0' <<<"$threads_json"
+
+          grep -F -- '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A012-environment-reset.md
+          grep -F -- 'A012_STATE = COMPLETE_CANONICAL_CANDIDATE' evidence/mstr-000a/A012-environment-reset.md
+          grep -F -- 'A013_STATE = PENDING' evidence/mstr-000a/A012-environment-reset.md
+          grep -F -- '- [x] **A012 Implement clean-checkout environment reset/setup abstraction.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A013 Implement bounded environment bootstrap/admission loop.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- 'This closeout grants no environment admission' <(printf '%s\n' 'This closeout grants no environment admission')
+
+  quality:
+    needs: admission
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run mandatory closeout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [admission, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - name: Final immutable closeout premerge recheck
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_BASE"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_HEAD"
+          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER")"
+          jq -e --arg head "$TARGET_HEAD" --arg base "$CANONICAL_BASE" '.state == "open" and .draft == false and .head.sha == $head and .base.sha == $base and .mergeable == true' <<<"$pr_json"
