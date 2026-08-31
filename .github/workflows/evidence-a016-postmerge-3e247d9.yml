@@ -1,0 +1,86 @@
+name: Postmerge proof A016 implementation
+
+on:
+  push:
+    branches:
+      - evidence/a016-postmerge-3e247d9
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3e247d9b89dabce1bcbdfcf1799face3d583d4a4
+          fetch-depth: 0
+      - name: Verify exact A016 implementation merge identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          MERGE=3e247d9b89dabce1bcbdfcf1799face3d583d4a4
+          BASE=907ab88722223cf53379bc98935f0641536a6907
+          FEATURE=66381acbab6295d5e445c4354605c704a90df719
+          TREE=eb8df5ef99a465e960db0bd0b1c2e75acb8c1d9e
+          test "$(git rev-parse HEAD)" = "$MERGE"
+          test "$(git rev-parse HEAD^{tree})" = "$TREE"
+          test "$(git rev-parse HEAD^1)" = "$BASE"
+          test "$(git rev-parse HEAD^2)" = "$FEATURE"
+          test "$(git rev-parse "$FEATURE^{tree}")" = "$TREE"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/git/ref/heads/main --jq .object.sha)" = "$MERGE"
+          gh api repos/${GITHUB_REPOSITORY}/pulls/118 --jq '[.state,.merged,.head.sha,.merge_commit_sha] | @tsv' | grep -F $'closed\ttrue\t66381acbab6295d5e445c4354605c704a90df719\t3e247d9b89dabce1bcbdfcf1799face3d583d4a4'
+          test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/33433558709 --jq .conclusion)" = success
+          test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/33433849446 --jq .conclusion)" = success
+          python - <<'PY'
+          from pathlib import Path
+          tasks = Path('specs/001-agent-harness-verified-loop-foundation/tasks.md').read_text()
+          evidence = Path('evidence/mstr-000a/A016-metrics.md').read_text()
+          assert '**State:** IMPLEMENTATION_CANDIDATE' in evidence
+          assert '- [x] **A015 ' in tasks
+          assert '- [ ] **A016 ' in tasks
+          assert '- [ ] **A017 ' in tasks
+          assert 'B030_REPOSITORY_HEALTH_DELTA = NOT_IMPLEMENTED_BY_A016' in evidence
+          PY
+
+  quality:
+    needs: identity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3e247d9b89dabce1bcbdfcf1799face3d583d4a4
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run frozen repository quality gates on canonical A016 merge
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest tests/unit/test_metrics.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+
+  complete:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3e247d9b89dabce1bcbdfcf1799face3d583d4a4
+          fetch-depth: 0
+      - name: Final immutable A016 postmerge recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "3e247d9b89dabce1bcbdfcf1799face3d583d4a4"
+          test "$(git rev-parse HEAD^{tree})" = "eb8df5ef99a465e960db0bd0b1c2e75acb8c1d9e"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/git/ref/heads/main --jq .object.sha)" = "3e247d9b89dabce1bcbdfcf1799face3d583d4a4"
