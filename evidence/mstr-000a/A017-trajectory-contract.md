@@ -113,6 +113,7 @@ tests/fixtures/schemas/invalid/mstr-trajectory-manifest-v0.json
 tests/contract/test_trajectory_contract.py
 src/mstr_qualify/schemas.py
 tests/contract/test_schemas.py
+tests/integration/test_cli_offline.py
 evidence/mstr-000a/A017-trajectory-contract.md
 ```
 
@@ -126,6 +127,15 @@ A016 is `COMPLETE_CANONICAL` on the entry main. Its first post-closeout proof ru
 `33438200600` failed because the evidence workflow asserted a stale text spelling;
 that failure remains preserved. The repaired fresh proof run `33438264767` is
 `SUCCESS` across identity, quality, and immutable complete recheck.
+
+## Preserved A017 qualification failures
+
+```text
+33439438385 = FAILURE / syntax collection / generated indentation defect
+33439766350 = FAILURE / full-suite frozen CLI schema list missing A017 registration
+```
+
+Both failures remain evidence and are not reused as PASS.
 
 ## Authority containment
 
