@@ -1,0 +1,138 @@
+name: Build A011 environment verifier contracts v4
+
+on:
+  push:
+    branches:
+      - evidence/a011-build4-17985cb
+
+permissions:
+  contents: write
+
+env:
+  CANONICAL_MAIN: 17985cb7176bb99df6139c1d3fbc23c6de4e3bf0
+  TARGET_BRANCH: feat/000a-a011-env-verifier-contracts
+  SOURCE_WORKFLOW_BRANCH: evidence/a011-build-17985cb
+  SOURCE_WORKFLOW_PATH: .github/workflows/evidence-a011-build-17985cb.yml
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANONICAL_MAIN }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify exact A011 entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          if git ls-remote --exit-code --heads origin "refs/heads/$TARGET_BRANCH" >/dev/null 2>&1; then
+            echo "target A011 branch already exists" >&2
+            exit 1
+          fi
+          grep -F -- '- [x] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A012 Implement clean-checkout environment reset/setup abstraction.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+      - name: Materialize A011 package and repository schema expectations
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$SOURCE_WORKFLOW_BRANCH:refs/remotes/origin/$SOURCE_WORKFLOW_BRANCH"
+          git show "refs/remotes/origin/$SOURCE_WORKFLOW_BRANCH:$SOURCE_WORKFLOW_PATH" > /tmp/a011-source.yml
+          python - <<'PY'
+          from pathlib import Path
+
+          text = Path('/tmp/a011-source.yml').read_text(encoding='utf-8')
+          start_marker = "          python - <<'PY'\n"
+          start = text.index(start_marker, text.index('- name: Materialize A011 contract package')) + len(start_marker)
+          end = text.index("          PY\n", start)
+          block = text[start:end]
+          lines = []
+          for line in block.splitlines():
+              if line.startswith('          '):
+                  line = line[10:]
+              lines.append(line)
+          script = '\n'.join(lines) + '\n'
+          old = '''paths = {line[3:] for line in subprocess.check_output(["git", "status", "--short"], text=True).splitlines()}\nif paths != expected:\n    raise SystemExit(f"unexpected A011 scope: {sorted(paths)}")'''
+          new = '''tracked = set(subprocess.check_output(["git", "diff", "--name-only"], text=True).splitlines())\nuntracked = set(subprocess.check_output(["git", "ls-files", "--others", "--exclude-standard"], text=True).splitlines())\npaths = tracked | untracked\nprint("A011_SCOPE_START")\nprint("\\n".join(sorted(paths)))\nprint("A011_SCOPE_END")\nif paths != expected:\n    raise SystemExit(f"unexpected A011 scope: {sorted(paths)}")'''
+          if script.count(old) != 1:
+              raise SystemExit('scope-accounting patch marker mismatch')
+          Path('/tmp/a011-materialize.py').write_text(script.replace(old, new, 1), encoding='utf-8')
+          PY
+          git checkout -b "$TARGET_BRANCH"
+          python /tmp/a011-materialize.py
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('tests/contract/test_schemas.py')
+          text = path.read_text(encoding='utf-8')
+          marker = '    "mstr-capability-profile-v0": (\n'
+          block = '''    "mstr-environment-manifest-v0": (\n        ROOT\n        / "specs"\n        / "001-agent-harness-verified-loop-foundation"\n        / "contracts"\n        / "mstr-environment-manifest-v0.schema.json"\n    ),\n    "mstr-setup-manifest-v0": (\n        ROOT\n        / "specs"\n        / "001-agent-harness-verified-loop-foundation"\n        / "contracts"\n        / "mstr-setup-manifest-v0.schema.json"\n    ),\n    "mstr-verifier-manifest-v0": (\n        ROOT\n        / "specs"\n        / "001-agent-harness-verified-loop-foundation"\n        / "contracts"\n        / "mstr-verifier-manifest-v0.schema.json"\n    ),\n'''
+          if text.count(marker) != 1:
+              raise SystemExit('design schema override marker mismatch')
+          path.write_text(text.replace(marker, block + marker, 1), encoding='utf-8')
+          PY
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('tests/integration/test_cli_offline.py')
+          text = path.read_text(encoding='utf-8')
+          inserts = [
+              (
+                  '        "mstr-difficulty-calibration-v0",\n',
+                  '        "mstr-difficulty-calibration-v0",\n        "mstr-environment-manifest-v0",\n',
+              ),
+              (
+                  '        "mstr-self-alignment-generation-v0",\n',
+                  '        "mstr-self-alignment-generation-v0",\n        "mstr-setup-manifest-v0",\n',
+              ),
+              (
+                  '        "mstr-verifier-health-v0",\n',
+                  '        "mstr-verifier-health-v0",\n        "mstr-verifier-manifest-v0",\n',
+              ),
+          ]
+          for old, new in inserts:
+              if text.count(old) != 1:
+                  raise SystemExit(f'CLI schema expectation marker mismatch: {old!r}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          tracked="$(git diff --name-only)"
+          untracked="$(git ls-files --others --exclude-standard)"
+          printf '%s\n%s\n' "$tracked" "$untracked" | sed '/^$/d' | sort -u | tee /tmp/a011-scope.txt
+          test "$(wc -l < /tmp/a011-scope.txt)" -eq 17
+          grep -Fx 'tests/contract/test_schemas.py' /tmp/a011-scope.txt
+          grep -Fx 'tests/integration/test_cli_offline.py' /tmp/a011-scope.txt
+          git diff --check
+      - name: Run A011 focused and frozen gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_environment_verifier_contracts.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py::test_validate_self_checks_schemas_and_fixtures
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+      - name: Commit and publish exact A011 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          git diff --check
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add schemas specs/001-agent-harness-verified-loop-foundation/contracts src/mstr_qualify/schemas.py tests/contract/test_environment_verifier_contracts.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py tests/fixtures/schemas evidence/mstr-000a/A011-env-verifier-contracts.md
+          git commit -m "feat(mstr-000a): freeze A011 environment verifier contracts"
+          TARGET_SHA="$(git rev-parse HEAD)"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_SHA"
+          test -z "$(git status --porcelain)"
+          echo "TARGET_SHA=$TARGET_SHA"
