@@ -1,0 +1,107 @@
+name: Qualify integrated A017 trajectory contract
+
+on:
+  push:
+    branches:
+      - evidence/a017-qualify-2270cbb
+
+permissions:
+  contents: read
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact integrated A017 identity and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='0bd69861b987c616e1b9b25ef88a5d14f4762788'
+          HEAD='2270cbbd6a1110e2823679ea3ca2d7b77a92d256'
+          TREE='1e85b48fda0569e4e51e188ae566b2b9674ad2b8'
+          git fetch origin main feat/000a-a017-trajectory-contract --quiet
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/feat/000a-a017-trajectory-contract)" = "$HEAD"
+          test "$(git show -s --format=%T "$HEAD")" = "$TREE"
+          test "$(git merge-base "$BASE" "$HEAD")" = "$BASE"
+          expected="$(cat <<'EOF'
+          artifacts/manifests/mstr-failure-taxonomy-v0.json
+          evidence/mstr-000a/A017-trajectory-contract.md
+          schemas/mstr-trajectory-manifest-v0.schema.json
+          specs/001-agent-harness-verified-loop-foundation/contracts/trajectory-manifest.schema.json
+          src/mstr_qualify/schemas.py
+          tests/contract/test_schemas.py
+          tests/contract/test_trajectory_contract.py
+          tests/fixtures/schemas/invalid/mstr-trajectory-manifest-v0.json
+          tests/fixtures/schemas/valid/mstr-trajectory-manifest-v0.json
+          tests/integration/test_cli_offline.py
+          EOF
+          )"
+          actual="$(git diff --name-only "$BASE..$HEAD")"
+          test "$actual" = "$expected"
+          git diff --check "$BASE..$HEAD"
+          test "$(git show "$HEAD:schemas/mstr-trajectory-manifest-v0.schema.json" | sha256sum | cut -d' ' -f1)" = "$(git show "$HEAD:specs/001-agent-harness-verified-loop-foundation/contracts/trajectory-manifest.schema.json" | sha256sum | cut -d' ' -f1)"
+          git show "$HEAD:specs/001-agent-harness-verified-loop-foundation/tasks.md" | grep -F -- '- [x] **A016 Implement DVCR/TTVC + diagnostic metric computation.**'
+          git show "$HEAD:specs/001-agent-harness-verified-loop-foundation/tasks.md" | grep -F -- '- [ ] **A017 Freeze failure taxonomy and training trajectory contract.**'
+          git show "$HEAD:evidence/mstr-000a/A017-trajectory-contract.md" | grep -F '**State:** IMPLEMENTATION_CANDIDATE'
+          git show "$HEAD:evidence/mstr-000a/A017-trajectory-contract.md" | grep -F '33439438385 = FAILURE'
+          git show "$HEAD:evidence/mstr-000a/A017-trajectory-contract.md" | grep -F '33439766350 = FAILURE'
+          git show "$HEAD:evidence/mstr-000a/A017-trajectory-contract.md" | grep -F 'B023_VERIFIER_HEALTH_EVALUATOR = NOT_IMPLEMENTED_BY_A017'
+          git show "$HEAD:evidence/mstr-000a/A017-trajectory-contract.md" | grep -F 'A018_TRAJECTORY_RECORDER_REPLAY_ADMISSION = NOT_IMPLEMENTED_BY_A017'
+          python - <<'PY'
+          import json
+          import subprocess
+
+          head = '2270cbbd6a1110e2823679ea3ca2d7b77a92d256'
+          schema = json.loads(subprocess.check_output(['git','show',f'{head}:schemas/mstr-trajectory-manifest-v0.schema.json']))
+          taxonomy = json.loads(subprocess.check_output(['git','show',f'{head}:artifacts/manifests/mstr-failure-taxonomy-v0.json']))
+          assert schema['properties']['schema_version']['const'] == 'mstr.trajectory-manifest.v0'
+          assert schema['properties']['failure_taxonomy_version']['const'] == 'mstr.failure-taxonomy.v0'
+          assert len(schema['properties']['failure_classes']['items']['enum']) == 18
+          assert taxonomy['schema_version'] == 'mstr.failure-taxonomy.v0'
+          assert len(taxonomy['classes']) == 18
+          assert taxonomy['training_policy']['clean_positive_requires_stage_eligible_healthy_verifier'] is True
+          assert taxonomy['training_policy']['private_user_repository_training_admission'] == 'REJECTED_IN_V0'
+          assert taxonomy['training_policy']['production_trace_training_admission'] == 'REJECTED_IN_V0'
+          PY
+
+  quality:
+    needs: identity_scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2270cbbd6a1110e2823679ea3ca2d7b77a92d256
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Run integrated A017 and frozen repository quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_trajectory_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+
+  complete:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Final immutable integrated A017 recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main feat/000a-a017-trajectory-contract --quiet
+          test "$(git rev-parse origin/main)" = '0bd69861b987c616e1b9b25ef88a5d14f4762788'
+          test "$(git rev-parse origin/feat/000a-a017-trajectory-contract)" = '2270cbbd6a1110e2823679ea3ca2d7b77a92d256'
+          test "$(git show -s --format=%T origin/feat/000a-a017-trajectory-contract)" = '1e85b48fda0569e4e51e188ae566b2b9674ad2b8'
