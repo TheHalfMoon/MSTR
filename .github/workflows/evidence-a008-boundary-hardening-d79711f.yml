@@ -46,6 +46,23 @@ jobs:
           if text.count(old_context) != 1:
               raise SystemExit("context state insertion point not unique")
           path.write_text(text.replace(old_context, new_context))
+
+          test_path = Path("tests/security/test_native_harness_boundary.py")
+          tests = test_path.read_text()
+          old_import = '''from mstr_qualify.harness.native import (\n    ContextRequest,\n    EditRequest,\n    NativeHarness,\n    NativeHarnessError,\n    PrefixCacheMeasurement,\n)\n'''
+          new_import = old_import + '''from mstr_qualify.harness.neutral import NeutralHarnessError\n'''
+          if tests.count(old_import) != 1:
+              raise SystemExit("native security import block not found exactly once")
+          tests = tests.replace(old_import, new_import)
+          tests = tests.replace(
+              '''    with pytest.raises(NativeHarnessError) as excinfo:\n        harness.select_context(ContextRequest("NO_RETRIEVAL"))\n''',
+              '''    with pytest.raises(NeutralHarnessError) as excinfo:\n        harness.select_context(ContextRequest("NO_RETRIEVAL"))\n''',
+          )
+          tests = tests.replace(
+              '''    with pytest.raises(NativeHarnessError) as excinfo:\n        harness.apply_stale_safe_edit(\n            EditRequest(\n                "nested/../value.txt",\n''',
+              '''    with pytest.raises(NeutralHarnessError) as excinfo:\n        harness.apply_stale_safe_edit(\n            EditRequest(\n                "nested/../value.txt",\n''',
+          )
+          test_path.write_text(tests)
           PY
           git diff --check
       - name: Run focused A008 repair gates
@@ -63,7 +80,7 @@ jobs:
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
           git config user.name "Abdulaziz M. Shehri"
           git config user.email "alshehriofficial@gmail.com"
-          git add src/mstr_qualify/harness/native.py
+          git add src/mstr_qualify/harness/native.py tests/security/test_native_harness_boundary.py
           git commit -m "fix(mstr-000a): harden A008 typed boundaries"
           git push origin HEAD:$TARGET_BRANCH
           echo "A008_HARDENED_HEAD=$(git rev-parse HEAD)"
