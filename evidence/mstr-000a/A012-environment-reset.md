@@ -1,7 +1,7 @@
 # A012 — Clean-Checkout Environment Reset / Setup Abstraction
 
-**Task:** `MSTR-000A / A012`  
-**State:** `IMPLEMENTATION_CANDIDATE`  
+**Task:** `MSTR-000A / A012`
+**State:** `IMPLEMENTATION_CANDIDATE`
 **Canonical base:** `3cb9f44569a7469e785ed8ffc4ea88080663adda`
 
 ## Implemented boundary
@@ -41,6 +41,10 @@ TERMINAL_SUCCESS_AUTHORITY = A006_PROTECTED_FINALIZER
 ```
 
 Any future caller that wishes to consume a network/secret-bearing setup manifest must independently supply the exact canonical authority referenced by that manifest and an executor enforcing the identical envelope. This implementation does not create or widen such authority.
+
+## Qualification history
+
+`33401051608` = `FAILURE` at `git diff --check` because the initial candidate evidence contained Markdown trailing whitespace. Quality jobs were skipped. The failure is preserved as negative evidence and is not represented as passing.
 
 ## Required qualification
 
