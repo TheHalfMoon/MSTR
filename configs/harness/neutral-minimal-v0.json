@@ -1,0 +1,34 @@
+{
+  "profile_id": "mstr.harness.h0-neutral-minimal.v0",
+  "harness_class": "H0",
+  "purpose": "Neutral-minimal repository harness for capability attribution",
+  "tool_surface": [
+    "repository.read_utf8",
+    "repository.search_literal",
+    "shell.argv_no_shell",
+    "edit.whole_file_utf8",
+    "verifier.callback"
+  ],
+  "shared_authority": {
+    "loop_contract": "mstr.loop-contract.v0",
+    "event_contract": "mstr.run-event.v0",
+    "agent_state": "A004 deterministic projection",
+    "builder_stop": "A005 non-authoritative stop proposal",
+    "canonical_success": "A006 protected finalizer only"
+  },
+  "deliberate_non_features": [
+    "model-specific prompt scaffolding",
+    "selective context ranking",
+    "stale-safe edit transactions",
+    "prefix-cache optimization",
+    "autonomous recovery cadence",
+    "WePLD-specific routing"
+  ],
+  "execution_boundary": {
+    "model_access": false,
+    "model_execution": false,
+    "network_authority_granted": false,
+    "training_authority_granted": false,
+    "paid_compute_authority_granted": false
+  }
+}
