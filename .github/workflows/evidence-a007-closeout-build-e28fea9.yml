@@ -40,7 +40,7 @@ jobs:
           path = Path("specs/001-agent-harness-verified-loop-foundation/tasks.md")
           text = path.read_text()
           old = """- [ ] **A007 Implement H0 neutral-minimal harness.**  \n  Minimum repository read/search, shell, one deterministic edit/apply path, verifier invocation, bounded state.  \n  Outputs: neutral harness profile/config + tests + `evidence/mstr-000a/A007-neutral-harness.md`.\n"""
-          new = """- [x] **A007 Implement H0 neutral-minimal harness.**  \n  Minimum repository read/search, shell, one deterministic edit/apply path, verifier invocation, bounded state.  \n  Outputs: neutral harness profile/config + tests + `evidence/mstr-000a/A007-neutral-harness.md`.  \n  Canonical implementation: PR #98 / final head `65071b8469bc759d0951dc9b853c571013f6c295` / merge `e28fea9132bc65fc6ba0cfdf13afc645d9fdd441`.\n"""
+          new = """- [x] **A007 Implement H0 neutral-minimal harness.**\n  Minimum repository read/search, shell, one deterministic edit/apply path, verifier invocation, bounded state.\n  Outputs: neutral harness profile/config + tests + `evidence/mstr-000a/A007-neutral-harness.md`.\n  Canonical implementation: PR #98 / final head `65071b8469bc759d0951dc9b853c571013f6c295` / merge `e28fea9132bc65fc6ba0cfdf13afc645d9fdd441`.\n"""
           if text.count(old) != 1:
               raise SystemExit("exact A007 task stanza not found exactly once")
           path.write_text(text.replace(old, new))
