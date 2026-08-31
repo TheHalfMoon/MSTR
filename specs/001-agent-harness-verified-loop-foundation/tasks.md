@@ -93,8 +93,9 @@ This reconciliation does not infer completion for A005+ and grants no external-e
 
 ## Phase C — Environment + Verifier Factory MVP
 
-- [ ] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**  
+- [x] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**
   Outputs: schemas, known-good/known-bad fixture contracts, `evidence/mstr-000a/A011-env-verifier-contracts.md`.
+  Canonical implementation: PR #106 / final head `5fa636286ae317cff389d2e9e84a74183d09866a` / merge `477de59557bdaf016ab8f9bcf5c98981daba8cb2`; post-merge proof run `33368221217` = `SUCCESS`.
 
 - [ ] **A012 Implement clean-checkout environment reset/setup abstraction.**  
   Must record repo revision, setup recipe, health targets, reset, network/effects, resource limits.  
