@@ -1,0 +1,81 @@
+name: Qualify A010 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/a010-closeout-qualify-860dbb6
+
+permissions:
+  contents: read
+
+env:
+  CANONICAL_MAIN: ffbcbd9b43562302136f8fc2d1478ee4abfb180a
+  CLOSEOUT_HEAD: 860dbb6f89855680e61bdac4bff350444256074a
+  CLOSEOUT_TREE: 47829bdc2f0fd7ff37a15f89822132b15b952535
+  CLOSEOUT_BRANCH: docs/000a-a010-closeout
+  BUILDER_RUN: "33364732385"
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CLOSEOUT_HEAD }}
+          fetch-depth: 0
+      - name: Verify exact closeout identity and scope
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$CLOSEOUT_TREE"
+          test "$(git rev-parse HEAD^)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/$CLOSEOUT_BRANCH | cut -f1)" = "$CLOSEOUT_HEAD"
+          test "$(git diff --name-only "$CANONICAL_MAIN".."$CLOSEOUT_HEAD" | wc -l)" -eq 2
+          test "$(git diff --name-only "$CANONICAL_MAIN".."$CLOSEOUT_HEAD" | sort | paste -sd ' ' -)" = "evidence/mstr-000a/A010-capability-profile.md specs/001-agent-harness-verified-loop-foundation/tasks.md"
+          git diff --check "$CANONICAL_MAIN".."$CLOSEOUT_HEAD"
+          grep -F -- '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A010-capability-profile.md
+          grep -F -- '- [x] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          run_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$BUILDER_RUN")"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$run_json"
+  quality:
+    needs: identity_scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CLOSEOUT_HEAD }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run exact closeout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+  complete:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CLOSEOUT_HEAD }}
+          fetch-depth: 0
+      - name: Final immutable exact-head recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$CLOSEOUT_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/$CLOSEOUT_BRANCH | cut -f1)" = "$CLOSEOUT_HEAD"
