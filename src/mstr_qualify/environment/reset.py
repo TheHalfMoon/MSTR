@@ -160,7 +160,11 @@ def _git(workspace: Path, *args: str, timeout_seconds: int) -> str:
             timeout=timeout_seconds,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise _fail("local git operation failed", "environment.git_execution", args=" ".join(args)) from exc
+        raise _fail(
+            "local git operation failed",
+            "environment.git_execution",
+            args=" ".join(args),
+        ) from exc
     if completed.returncode != 0:
         raise _fail(
             "local git operation failed",
@@ -176,9 +180,13 @@ def _normalize_repository_url(value: str) -> str:
     return value[:-4] if value.endswith(".git") else value
 
 
-def _assert_repository_identity(workspace: Path, repository: Mapping[str, Any], timeout: int) -> None:
+def _assert_repository_identity(
+    workspace: Path, repository: Mapping[str, Any], timeout: int
+) -> None:
     expected_url = _normalize_repository_url(str(repository["repository_url"]))
-    observed_url = _normalize_repository_url(_git(workspace, "remote", "get-url", "origin", timeout_seconds=timeout))
+    observed_url = _normalize_repository_url(
+        _git(workspace, "remote", "get-url", "origin", timeout_seconds=timeout)
+    )
     if observed_url != expected_url:
         raise _fail(
             "repository origin does not match manifest",
@@ -215,7 +223,11 @@ def _assert_clean(workspace: Path, timeout: int) -> None:
         timeout_seconds=timeout,
     )
     if dirty:
-        raise _fail("workspace is not clean after reset", "environment.reset_not_clean", status=dirty)
+        raise _fail(
+            "workspace is not clean after reset",
+            "environment.reset_not_clean",
+            status=dirty,
+        )
 
 
 def _assert_protected_clean(workspace: Path, protected_paths: Sequence[str], timeout: int) -> None:
@@ -258,7 +270,9 @@ def _contained_directory(workspace: Path, relative: str) -> Path:
     return candidate
 
 
-def _cross_bind(environment: Mapping[str, Any], setup: Mapping[str, Any]) -> tuple[EffectEnvelope, ResourceEnvelope]:
+def _cross_bind(
+    environment: Mapping[str, Any], setup: Mapping[str, Any]
+) -> tuple[EffectEnvelope, ResourceEnvelope]:
     checks = (
         ("environment_id", environment["environment_id"], setup["environment_id"]),
         ("setup_manifest_id", environment["setup_manifest_id"], setup["setup_manifest_id"]),
@@ -321,7 +335,13 @@ def _reset_workspace(
     elif mode == "HARD_RESET_CLEAN":
         if not (workspace / ".git").exists():
             raise _fail("workspace is not a git checkout", "environment.git_checkout_required")
-        _git(workspace, "rev-parse", "--verify", f"{repository['revision_sha']}^{{commit}}", timeout_seconds=timeout)
+        _git(
+            workspace,
+            "rev-parse",
+            "--verify",
+            f"{repository['revision_sha']}^{{commit}}",
+            timeout_seconds=timeout,
+        )
         _git(workspace, "reset", "--hard", str(repository["revision_sha"]), timeout_seconds=timeout)
         _git(workspace, "clean", "-ffdx", timeout_seconds=timeout)
     else:
@@ -372,7 +392,10 @@ def prepare_environment(
         elapsed = time.monotonic() - started
         remaining = resources.wall_clock_seconds - elapsed
         if remaining <= 0:
-            raise _fail("setup exceeded wall-clock resource limit", "environment.wall_clock_exceeded")
+            raise _fail(
+                "setup exceeded wall-clock resource limit",
+                "environment.wall_clock_exceeded",
+            )
         step_timeout = int(raw_step["timeout_seconds"])
         effective_timeout = max(1, min(step_timeout, int(remaining)))
         cwd = _contained_directory(workspace, str(raw_step["working_directory"]))
