@@ -121,9 +121,10 @@ This reconciliation does not infer completion for A005+ and grants no external-e
   Outputs: schema/manifests + `evidence/mstr-000a/A015-direction-to-done.md`.
   Canonical implementation: PR #116 / final head `5bf16bba43711c40c62bd3a838ee4f138c01fc06` / merge `462a9d5ce32f01408a538d7fe55a585e432397a7`; post-merge proof run `33430301950` = `SUCCESS`.
 
-- [ ] **A016 Implement DVCR/TTVC + diagnostic metric computation.**  
-  Mandatory: DVCR, TTVC, first-pass accept, edit-survival, repair success, tool-error, tool/tokens/context per verified completion, harness overhead. Repository Health Delta is added by MSTR-000B B030.  
+- [x] **A016 Implement DVCR/TTVC + diagnostic metric computation.**
+  Mandatory: DVCR, TTVC, first-pass accept, edit-survival, repair success, tool-error, tool/tokens/context per verified completion, harness overhead. Repository Health Delta is added by MSTR-000B B030.
   Outputs: metric module/tests + `evidence/mstr-000a/A016-metrics.md`.
+  Canonical implementation: PR #118 / final head `66381acbab6295d5e445c4354605c704a90df719` / merge `3e247d9b89dabce1bcbdfcf1799face3d583d4a4`; post-merge proof run `33434283002` = `SUCCESS`.
 
 - [ ] **A017 Freeze failure taxonomy and training trajectory contract.**  
   Preserve verified success, recovered success, valid failure, timeout, invalid environment/verifier, contamination/leakage/authority failure. MSTR-000B verifier-health records become a required admission input before training.  
