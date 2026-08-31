@@ -106,6 +106,7 @@ IMPLEMENTATION_PR = 114
 IMPLEMENTATION_MERGE = 87f1636e434ec36f508528ab4a78204adf103856
 IMPLEMENTATION_MERGE_TREE = 8e3c960f5452842cb359d4b9a9ed1c1c34cdc45f
 POST_MERGE_VERIFICATION_RUN = 33422854862 / SUCCESS
+INITIAL_CLOSEOUT_QUALIFICATION = 33423959583 / FAILURE / IDENTITY_SCOPE / TRAILING_WHITESPACE
 A014_STATE = COMPLETE_CANONICAL_CANDIDATE
 A015_STATE = PENDING
 ```
@@ -116,7 +117,10 @@ Negative qualification evidence remains preserved and is not reused as PASS:
 33421271341 = FAILURE / identity_scope / trailing whitespace found by git diff --check
 33421460726 = FAILURE / quality / Ruff import ordering after focused tests, schema validation, and 1007 full pytest passed
 33421732025 = FAILURE / quality / one mypy typing error after focused tests, schema validation, full pytest, and Ruff passed
+33423959583 = FAILURE / closeout identity_scope / trailing whitespace found by git diff --check before quality
 ```
+
+The initial closeout qualification failed before quality because `git diff --check` found trailing whitespace on two newly changed A014 lines in `tasks.md`. That run remains preserved as negative evidence and is not represented as passing.
 
 An independent pre-PR security review also found that shortcut labels could be satisfied by unrelated failures. The final implementation head fixed that issue by binding each shortcut class to compatible detection codes and adding negative mismatch/expected-pass tests. The final exact-head qualification then proved:
 

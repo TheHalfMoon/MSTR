@@ -107,9 +107,9 @@ This reconciliation does not infer completion for A005+ and grants no external-e
   Outputs: admission module, fixtures, `evidence/mstr-000a/A013-autoinstall-admission.md`.
   Canonical implementation: PR #112 / final head `a4c67bc06e7174e58ee71a6a36727cea7658e8d8` / merge `1f22a4d91c1874cd18454e63cc87d92e18f9e14a`; post-merge proof run `33417713420` = `SUCCESS`.
 
-- [x] **A014 Implement verifier runner + reward-shortcut battery.**  
+- [x] **A014 Implement verifier runner + reward-shortcut battery.**
   Cover test/evaluator deletion, assertion weakening, hardcoding, spoofing, cached/future solution leakage, prohibited network, and protected-path tamper.  
-  Outputs: verifier modules, security tests, `evidence/mstr-000a/A014-verifier-shortcuts.md`.  
+  Outputs: verifier modules, security tests, `evidence/mstr-000a/A014-verifier-shortcuts.md`.
   Canonical implementation: PR #114 / final head `3c61c9f792027d36c20cdf5ad921eca29ce3f6de` / merge `87f1636e434ec36f508528ab4a78204adf103856`; post-merge proof run `33422854862` = `SUCCESS`.
 
 **Checkpoint C:** at least one controlled environment proves known-good pass, no-op/broken fail, reset reproducibility, and shortcut resistance.
