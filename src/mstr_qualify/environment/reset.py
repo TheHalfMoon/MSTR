@@ -316,6 +316,15 @@ def _assert_authority(effects: EffectEnvelope, authority_ids: frozenset[str]) ->
         )
 
 
+def _assert_reset_write_policy(effects: EffectEnvelope) -> None:
+    if effects.filesystem_writes != "WORKTREE_AND_TEMP":
+        raise _fail(
+            "clean-checkout reset requires worktree write authority",
+            "environment.reset_write_policy",
+            filesystem_writes=effects.filesystem_writes,
+        )
+
+
 def _reset_workspace(
     workspace: Path,
     environment: Mapping[str, Any],
@@ -375,6 +384,7 @@ def prepare_environment(
     setup = _load_json(setup_manifest, "mstr-setup-manifest-v0")
     effects, resources = _cross_bind(environment, setup)
     _assert_authority(effects, authority_ids)
+    _assert_reset_write_policy(effects)
     if not effects.subprocess_execution:
         raise _fail(
             "setup recipe requires subprocess execution but policy forbids it",
