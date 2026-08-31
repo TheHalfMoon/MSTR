@@ -1,0 +1,51 @@
+name: Verify A007 post-closeout canonical state
+
+on:
+  push:
+    branches:
+      - evidence/a007-postcloseout-f1e94e9
+
+permissions:
+  contents: read
+
+env:
+  CLOSEOUT_MERGE: f1e94e9c754e89a3584a391841599c05ed050d3e
+  IMPLEMENTATION_MERGE: e28fea9132bc65fc6ba0cfdf13afc645d9fdd441
+  CLOSEOUT_HEAD: 7a47e3d7565b129da772c9648ac5725891ad96aa
+  EXPECTED_TREE: 6238902295f44fe2de9b01a2a0026c9e7d4ebfed
+
+jobs:
+  canonical_state:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f1e94e9c754e89a3584a391841599c05ed050d3e
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify closeout merge identity, ledger, quality, and next frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_MERGE"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CLOSEOUT_MERGE"
+          read -r commit parent1 parent2 < <(git rev-list --parents -n 1 HEAD)
+          test "$commit" = "$CLOSEOUT_MERGE"
+          test "$parent1" = "$IMPLEMENTATION_MERGE"
+          test "$parent2" = "$CLOSEOUT_HEAD"
+          grep -Fq -- '- [x] **A007 Implement H0 neutral-minimal harness.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -Fq '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A007-neutral-harness.md
+          grep -Fq -- '- [ ] **A008 Implement H1 MSTR-native typed harness.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/harness/test_neutral.py tests/security/test_neutral_harness_boundary.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CLOSEOUT_MERGE"
+          echo "A007_COMPLETE_CANONICAL=YES"
+          echo "NEXT_ELIGIBLE=A008"
+          echo "EXTERNAL_EFFECT=NONE"
