@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 from mstr_qualify.verifier.runner import (
-    CommandObservation,
     REQUIRED_SHORTCUT_CLASSES,
+    CommandObservation,
     ShortcutClass,
     VerifierFixtureCase,
     VerifierRunnerError,
