@@ -1,0 +1,101 @@
+name: Requalify A013 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/a013-closeout-qualify2-fcf2fe9
+
+permissions:
+  contents: read
+
+env:
+  CANONICAL_BASE: 1f22a4d91c1874cd18454e63cc87d92e18f9e14a
+  TARGET_BRANCH: docs/000a-a013-closeout
+  TARGET_HEAD: fcf2fe9caa2e3ee8055f0efaa4ad105236e71eec
+  TARGET_TREE: 68a3f5871f7b33136e5de78c5038d09cbcba583d
+  IMPLEMENTATION_HEAD: a4c67bc06e7174e58ee71a6a36727cea7658e8d8
+  IMPLEMENTATION_MERGE: 1f22a4d91c1874cd18454e63cc87d92e18f9e14a
+  POSTMERGE_RUN: "33417713420"
+  SUPERSEDED_CLOSEOUT_QUALIFICATION: "33418142861"
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - name: Verify repaired exact A013 closeout identity and scope
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$CANONICAL_BASE" "$TARGET_HEAD")" = "$CANONICAL_BASE"
+          test "$(git rev-list --count "$TARGET_HEAD..$CANONICAL_BASE")" = "0"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_BASE"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_HEAD"
+          mapfile -t actual < <(git diff --name-only "$CANONICAL_BASE" "$TARGET_HEAD" | sort)
+          expected=(
+            evidence/mstr-000a/A013-autoinstall-admission.md
+            specs/001-agent-harness-verified-loop-foundation/tasks.md
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 2
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          git diff --check "$CANONICAL_BASE" "$TARGET_HEAD"
+          grep -F -- '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- 'INITIAL_CLOSEOUT_QUALIFICATION = 33418142861 / FAILURE / IDENTITY_SCOPE_BEFORE_QUALITY / SUPERSEDED_AFTER_CHECKLIST_FORMATTING_REPAIR' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- 'A013_STATE = COMPLETE_CANONICAL_CANDIDATE' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- 'A014_STATE = PENDING' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- "POST_MERGE_VERIFICATION_RUN = $POSTMERGE_RUN / SUCCESS" evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- 'A013_CANONICAL_EXECUTION_PROFILE = LOCAL_CONTROLLED_FIXTURES_ONLY' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- 'REAL_ENVIRONMENT_ADMISSION = PROHIBITED_PENDING_A014_AND_REMAINING_ENVIRONMENT_GATES' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- '- [x] **A013 Implement bounded environment bootstrap/admission loop.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A014 Implement verifier runner + reward-shortcut battery.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          run_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$POSTMERGE_RUN")"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$run_json"
+          old_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$SUPERSEDED_CLOSEOUT_QUALIFICATION")"
+          jq -e '.status == "completed" and .conclusion == "failure"' <<<"$old_json"
+
+  quality:
+    needs: identity_scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Re-run A013 closeout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [identity_scope, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - name: Final immutable repaired-closeout recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_BASE"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_HEAD"
