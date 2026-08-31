@@ -1,7 +1,7 @@
 # A010 — Evidence-Derived CapabilityProfile Contract
 
 **Task:** `MSTR-000A / A010`
-**State:** `IMPLEMENTATION_ACTIVE`
+**State:** `COMPLETE_CANONICAL`
 **Canonical base:** `cdf5e89886919a05173a2921c03d213ee5992126`
 **Authority:** contract/schema/fixture work only; no model execution or external effect.
 
@@ -56,4 +56,25 @@ PRODUCTION_RELEASE = NONE
 A010_AUTHORITY = CAPABILITY_PROFILE_CONTRACT_AND_REPOSITORY_FIXTURES_ONLY
 ```
 
-A010 remains non-canonical until exact-head qualification, review, mandatory premerge verification, guarded merge, post-merge proof, canonical closeout, and post-closeout proof succeed.
+> This terminal state is a closeout candidate until the dedicated closeout PR is itself qualified, reviewed, mandatory-premerge verified, guarded-merged, and post-closeout verified on canonical `main`.
+
+## Canonical Lifecycle Evidence
+
+```text
+CANONICAL_IMPLEMENTATION_BASE = cdf5e89886919a05173a2921c03d213ee5992126
+ATOMIC_BUILDER_RUN = 33363386203 / SUCCESS
+INITIAL_QUALIFICATION_RUN = 33363567728 / FAILURE / git diff --check trailing-space findings only
+FINAL_IMPLEMENTATION_HEAD = 16aa467348d89cb4cbadc06314589cd51da346e9
+FINAL_IMPLEMENTATION_TREE = b3660eb742b3aab3af755673ac2faa620081ad48
+FINAL_EXACT_HEAD_QUALIFICATION = 33363643410 / SUCCESS
+EXACT_HEAD_REVIEW = 5063628959 / COMMENTED / NO_BLOCKING_FINDING
+UNRESOLVED_REVIEW_THREADS = 0
+MANDATORY_PREMERGE = 33363854255 / SUCCESS
+IMPLEMENTATION_PR = 104
+IMPLEMENTATION_MERGE = ffbcbd9b43562302136f8fc2d1478ee4abfb180a
+POST_MERGE_VERIFICATION_RUN = 33364067973 / SUCCESS
+A010_STATE = COMPLETE_CANONICAL_CANDIDATE
+A011_STATE = PENDING
+```
+
+No failed or superseded workflow run is represented as passing evidence. The initial qualification failure remains preserved as negative evidence and was superseded only by the whitespace-only hardening commit plus a fresh exact-head qualification. A011 remains independently gated and is not made complete by this closeout.

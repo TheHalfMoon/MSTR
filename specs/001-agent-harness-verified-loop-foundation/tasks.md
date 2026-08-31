@@ -84,9 +84,10 @@ This reconciliation does not infer completion for A005+ and grants no external-e
   Outputs: adapter contract/config, integration fixtures, `evidence/mstr-000a/A009-wepld-adapter.md`.  
   Canonical implementation: PR #102 / final head `d9ed5caa78c51cc3ac923e47855327971349b8b7` / merge `d3b3484280d9cbd13986af4217d934c4c7c49a44`.
 
-- [ ] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**  
-  Include reliable context budget, edit preference, tool reliability, localization, planning depth, verifier cadence, repair depth, FIM/shell/compaction strength.  
+- [x] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**
+  Include reliable context budget, edit preference, tool reliability, localization, planning depth, verifier cadence, repair depth, FIM/shell/compaction strength.
   Outputs: schema + fixtures + `evidence/mstr-000a/A010-capability-profile.md`.
+  Canonical implementation: PR #104 / final head `16aa467348d89cb4cbadc06314589cd51da346e9` / merge `ffbcbd9b43562302136f8fc2d1478ee4abfb180a`; post-merge proof run `33364067973` = `SUCCESS`.
 
 **Checkpoint B:** same model can run under neutral/MSTR/WePLD harness surfaces with exact score separation.
 
