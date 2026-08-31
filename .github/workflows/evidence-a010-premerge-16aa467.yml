@@ -1,0 +1,116 @@
+name: Premerge A010 capability profile
+
+on:
+  push:
+    branches:
+      - evidence/a010-premerge-16aa467
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  CANONICAL_BASE: cdf5e89886919a05173a2921c03d213ee5992126
+  TARGET_BRANCH: feat/000a-a010-capability-profile
+  TARGET_HEAD: 16aa467348d89cb4cbadc06314589cd51da346e9
+  TARGET_TREE: b3660eb742b3aab3af755673ac2faa620081ad48
+  PR_NUMBER: "104"
+  REVIEW_ID: "5063628959"
+  QUALIFICATION_RUN: "33363643410"
+
+jobs:
+  admission:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - name: Verify PR admission and exact evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$CANONICAL_BASE" "$TARGET_HEAD")" = "$CANONICAL_BASE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_BASE"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_HEAD"
+          mapfile -t actual < <(git diff --name-only "$CANONICAL_BASE" "$TARGET_HEAD" | sort)
+          expected=(
+            evidence/mstr-000a/A010-capability-profile.md
+            schemas/mstr-capability-profile-v0.schema.json
+            specs/001-agent-harness-verified-loop-foundation/contracts/mstr-capability-profile-v0.schema.json
+            src/mstr_qualify/schemas.py
+            tests/contract/test_capability_profile_contract.py
+            tests/contract/test_schemas.py
+            tests/fixtures/schemas/invalid/mstr-capability-profile-v0.json
+            tests/fixtures/schemas/valid/mstr-capability-profile-v0.json
+            tests/integration/test_cli_offline.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          git diff --check "$CANONICAL_BASE" "$TARGET_HEAD"
+          cmp schemas/mstr-capability-profile-v0.schema.json specs/001-agent-harness-verified-loop-foundation/contracts/mstr-capability-profile-v0.schema.json
+
+          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER")"
+          jq -e --arg head "$TARGET_HEAD" --arg base "$CANONICAL_BASE" '.state == "open" and .draft == false and .head.sha == $head and .base.sha == $base and .mergeable == true' <<<"$pr_json"
+
+          review_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER/reviews/$REVIEW_ID")"
+          jq -e --arg head "$TARGET_HEAD" '.commit_id == $head and (.state == "COMMENTED" or .state == "APPROVED")' <<<"$review_json"
+
+          run_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$QUALIFICATION_RUN")"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$run_json"
+
+          query='query { repository(owner:"TheHalfMoon", name:"MSTR") { pullRequest(number:104) { reviewThreads(first:100) { nodes { isResolved } } } } }'
+          threads_json="$(jq -nc --arg query "$query" '{query:$query}' | curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Content-Type: application/json' --data-binary @- https://api.github.com/graphql)"
+          jq -e '(.data.repository.pullRequest.reviewThreads.nodes | map(select(.isResolved == false)) | length) == 0' <<<"$threads_json"
+
+          grep -F -- '- [x] **A009 Implement H2 WePLD-native adapter.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+
+  quality:
+    needs: admission
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run mandatory premerge quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_capability_profile_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [admission, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - name: Final immutable premerge recheck
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_BASE"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_HEAD"
+          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER")"
+          jq -e --arg head "$TARGET_HEAD" --arg base "$CANONICAL_BASE" '.state == "open" and .head.sha == $head and .base.sha == $base and .mergeable == true' <<<"$pr_json"
