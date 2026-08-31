@@ -1,0 +1,98 @@
+name: Mandatory premerge verification for A008 closeout
+
+on:
+  push:
+    branches:
+      - evidence/a008-closeout-premerge-6ee0b3f
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_BASE: d6a2c83227be09b8cd37f62de0d8e841eba9854d
+  EXPECTED_HEAD: 6ee0b3f60721951e23c90759c8efff7a7bc19140
+  EXPECTED_TREE: 008ee388319ecdf224eea724d7cc1da9dcd9e482
+  TARGET_BRANCH: docs/000a-a008-canonicalize
+  PR_NUMBER: '101'
+  QUALIFY_RUN: '33359120220'
+  REVIEW_ID: '5063247885'
+
+jobs:
+  admission:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6ee0b3f60721951e23c90759c8efff7a7bc19140
+          fetch-depth: 0
+      - name: Verify exact PR, qualification, review, threads, scope, and refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" | jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .commits == 2 and .changed_files == 2'
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFY_RUN}" | jq -e '.status == "completed" and .conclusion == "success"'
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" | jq -e --argjson rid "$REVIEW_ID" --arg head "$EXPECTED_HEAD" '[.[] | select(.id == $rid and .commit_id == $head and .state == "COMMENTED")] | length == 1'
+          gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' -f owner='TheHalfMoon' -f name='MSTR' -F number=101 | jq -e '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length == 0'
+          mapfile -t actual < <(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" | sort)
+          expected=(
+            evidence/mstr-000a/A008-mstr-harness.md
+            specs/001-agent-harness-verified-loop-foundation/tasks.md
+          )
+          diff -u <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${actual[@]}" | sort)
+
+  quality_terminal:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6ee0b3f60721951e23c90759c8efff7a7bc19140
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-prove full quality and terminal closeout semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/harness/test_native.py tests/security/test_native_harness_boundary.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          grep -Fq -- '- [x] **A008 Implement H1 MSTR-native typed harness.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -Fq '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A008-mstr-harness.md
+          grep -Fq -- '- [ ] **A009 Implement H2 WePLD-native adapter.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          test -z "$(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" -- src schemas tests AGENTS.md .specify/memory/constitution.md configs/task-gate)"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+
+  complete:
+    needs: [admission, quality_terminal]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6ee0b3f60721951e23c90759c8efff7a7bc19140
+          fetch-depth: 0
+      - name: Final immutable merge-admission recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" | jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '.state == "open" and .base.sha == $base and .head.sha == $head'
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFY_RUN}" | jq -e '.status == "completed" and .conclusion == "success"'
+          echo "A008_CLOSEOUT_PREMERGE_HEAD=$EXPECTED_HEAD"
+          echo "EXTERNAL_EFFECT=NONE"
