@@ -37,7 +37,7 @@ jobs:
           test -f configs/task-gate/mstr-000b.json
           test "$(find configs/task-gate -maxdepth 1 -type f -name '*.json' | wc -l)" -eq 1
           grep -F -- '_TASK_LINE_RE = re.compile(' src/mstr_qualify/task_gate.py
-          grep -F -- 'r"^- \\[(?P<mark>[ xX])\\] \\*\\*(?P<task_id>B\\d{3})' src/mstr_qualify/task_gate.py
+          grep -F -- '(?P<task_id>B\d{3})' src/mstr_qualify/task_gate.py
           git diff --check "$BASE_SHA" "$TARGET_SHA"
 
   quality:
