@@ -1,0 +1,100 @@
+name: Premerge MSTR-000A task-gate wording reconciliation
+
+on:
+  push:
+    branches:
+      - evidence/a-task-gate-wording-premerge-a3df305
+
+permissions:
+  contents: read
+
+env:
+  BASE_SHA: 6b0681adc6f0b31bf32907ed80c072bc4ccccff1
+  TARGET_SHA: a3df30547d900366cdcbc178744d5d166ce70741
+  TARGET_TREE: e73f9f73dfe705e3eb277a2bed0dd81d5e2e3ca3
+  PR_NUMBER: "111"
+  QUALIFICATION_RUN: "33414428496"
+
+jobs:
+  admission:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - name: Verify exact PR and evidence admission
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          def get(url: str):
+              req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": "mstr-premerge-evidence"})
+              with urllib.request.urlopen(req, timeout=20) as response:
+                  return json.load(response)
+
+          pr = get(f"https://api.github.com/repos/TheHalfMoon/MSTR/pulls/{os.environ['PR_NUMBER']}")
+          assert pr["state"] == "open"
+          assert pr["draft"] is False
+          assert pr["base"]["ref"] == "main"
+          assert pr["base"]["sha"] == os.environ["BASE_SHA"]
+          assert pr["head"]["ref"] == "fix/000a-a-task-gate-wording"
+          assert pr["head"]["sha"] == os.environ["TARGET_SHA"]
+          assert pr["changed_files"] == 1
+          assert pr["mergeable"] is True
+
+          run = get(f"https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/{os.environ['QUALIFICATION_RUN']}")
+          assert run["status"] == "completed"
+          assert run["conclusion"] == "success"
+          PY
+          mapfile -t files < <(git diff --name-only "$BASE_SHA" "$TARGET_SHA")
+          test "${#files[@]}" -eq 1
+          test "${files[0]}" = "specs/001-agent-harness-verified-loop-foundation/checklists/implementation-readiness.md"
+          git diff --check "$BASE_SHA" "$TARGET_SHA"
+
+  quality:
+    needs: admission
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run mandatory repository quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [admission, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - name: Final immutable premerge recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/fix/000a-a-task-gate-wording | cut -f1)" = "$TARGET_SHA"
