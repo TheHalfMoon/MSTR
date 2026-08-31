@@ -1,0 +1,123 @@
+name: Premerge A009 WePLD adapter exact head
+
+on:
+  push:
+    branches:
+      - evidence/a009-premerge-d9ed5ca
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+env:
+  TARGET_SHA: d9ed5caa78c51cc3ac923e47855327971349b8b7
+  TARGET_TREE: 821b3be332d577a6ad49360b480c6b7cd086feb1
+  BASE_SHA: 5416494b60590c0b9a3f6178c58224f4edb01dd7
+  TARGET_BRANCH: feat/000a-a009-wepld-adapter
+  PR_NUMBER: "102"
+  REVIEW_ID: "5063357962"
+  QUALIFICATION_RUN: "33360113475"
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  admission:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - name: Verify immutable PR admission
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_SHA"
+
+          pr_json="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")"
+          test "$(jq -r '.state' <<<"$pr_json")" = "open"
+          test "$(jq -r '.draft' <<<"$pr_json")" = "false"
+          test "$(jq -r '.head.sha' <<<"$pr_json")" = "$TARGET_SHA"
+          test "$(jq -r '.head.ref' <<<"$pr_json")" = "$TARGET_BRANCH"
+          test "$(jq -r '.base.ref' <<<"$pr_json")" = "main"
+          test "$(jq -r '.base.sha' <<<"$pr_json")" = "$BASE_SHA"
+          test "$(jq -r '.mergeable' <<<"$pr_json")" = "true"
+
+          review_json="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews/$REVIEW_ID")"
+          test "$(jq -r '.commit_id' <<<"$review_json")" = "$TARGET_SHA"
+          test "$(jq -r '.state' <<<"$review_json")" = "COMMENTED"
+
+          files="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" --paginate --jq '.[].filename' | sort)"
+          expected="$(printf '%s\n' \
+            configs/harness/wepld-native-v0.json \
+            evidence/mstr-000a/A009-wepld-adapter.md \
+            src/mstr_qualify/harness/wepld.py \
+            tests/fixtures/harness/a009-wepld-state.json \
+            tests/security/test_wepld_adapter_boundary.py \
+            tests/unit/harness/test_wepld.py | sort)"
+          test "$files" = "$expected"
+
+          unresolved="$(gh api graphql -f query='query { repository(owner: "TheHalfMoon", name: "MSTR") { pullRequest(number: 102) { reviewThreads(first: 100) { nodes { isResolved } } } } }' --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')"
+          test "$unresolved" = "0"
+
+          qual_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$QUALIFICATION_RUN")"
+          test "$(jq -r '.status' <<<"$qual_json")" = "completed"
+          test "$(jq -r '.conclusion' <<<"$qual_json")" = "success"
+
+  quality:
+    needs: admission
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run frozen A009 premerge gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/harness/test_wepld.py tests/security/test_wepld_adapter_boundary.py tests/unit/harness/test_native.py
+          pytest -q
+          python -m mstr_qualify validate
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs:
+      - admission
+      - quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - name: Final immutable merge-admission recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_SHA"
+
+          pr_json="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")"
+          test "$(jq -r '.state' <<<"$pr_json")" = "open"
+          test "$(jq -r '.head.sha' <<<"$pr_json")" = "$TARGET_SHA"
+          test "$(jq -r '.base.sha' <<<"$pr_json")" = "$BASE_SHA"
+          test "$(jq -r '.mergeable' <<<"$pr_json")" = "true"
+
+          review_json="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews/$REVIEW_ID")"
+          test "$(jq -r '.commit_id' <<<"$review_json")" = "$TARGET_SHA"
+
+          unresolved="$(gh api graphql -f query='query { repository(owner: "TheHalfMoon", name: "MSTR") { pullRequest(number: 102) { reviewThreads(first: 100) { nodes { isResolved } } } } }' --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')"
+          test "$unresolved" = "0"
