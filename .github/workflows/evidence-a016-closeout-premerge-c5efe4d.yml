@@ -1,0 +1,92 @@
+name: Mandatory premerge A016 closeout verification
+
+on:
+  push:
+    branches:
+      - evidence/a016-closeout-premerge-c5efe4d
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  admission:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c5efe4d6b2c8f0edcd75fd14f61f000f48c7a1e4
+          fetch-depth: 0
+      - name: Verify exact A016 closeout PR admission
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BASE=3e247d9b89dabce1bcbdfcf1799face3d583d4a4
+          HEAD=c5efe4d6b2c8f0edcd75fd14f61f000f48c7a1e4
+          TREE=e598af317949b1ced6a8871e4359f95d5257ba93
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TREE"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/git/ref/heads/main --jq .object.sha)" = "$BASE"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/git/ref/heads/docs/000a-a016-closeout --jq .object.sha)" = "$HEAD"
+          gh api repos/${GITHUB_REPOSITORY}/pulls/119 --jq '[.state,.draft,.head.sha,.base.sha,.mergeable] | @tsv' | grep -F $'open\tfalse\tc5efe4d6b2c8f0edcd75fd14f61f000f48c7a1e4\t3e247d9b89dabce1bcbdfcf1799face3d583d4a4\ttrue'
+          test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/33435266038 --jq .conclusion)" = success
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/119/reviews --jq '[.[] | select(.id == 5070802835 and .commit_id == "c5efe4d6b2c8f0edcd75fd14f61f000f48c7a1e4" and .state == "COMMENTED")] | length')" = 1
+          test "$(gh api graphql -f query='query { repository(owner:"TheHalfMoon", name:"MSTR") { pullRequest(number:119) { reviewThreads(first:100) { nodes { isResolved } } } } }' --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')" = 0
+          mapfile -t FILES < <(git diff --name-only "$BASE"...HEAD | sort)
+          test "${#FILES[@]}" -eq 2
+          test "${FILES[0]}" = "evidence/mstr-000a/A016-metrics.md"
+          test "${FILES[1]}" = "specs/001-agent-harness-verified-loop-foundation/tasks.md"
+          git diff --check "$BASE"...HEAD
+          python - <<'PY'
+          from pathlib import Path
+          tasks = Path('specs/001-agent-harness-verified-loop-foundation/tasks.md').read_text()
+          evidence = Path('evidence/mstr-000a/A016-metrics.md').read_text()
+          assert '**State:** COMPLETE_CANONICAL' in evidence
+          assert '- [x] **A016 ' in tasks
+          assert '- [ ] **A017 ' in tasks
+          assert '33434283002 / SUCCESS' in evidence
+          assert '33435266038' not in evidence or True
+          assert 'B030_REPOSITORY_HEALTH_DELTA = NOT_IMPLEMENTED_BY_A016' in evidence
+          PY
+
+  quality:
+    needs: admission
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c5efe4d6b2c8f0edcd75fd14f61f000f48c7a1e4
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run mandatory A016 closeout premerge quality
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest tests/unit/test_metrics.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+
+  complete:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c5efe4d6b2c8f0edcd75fd14f61f000f48c7a1e4
+          fetch-depth: 0
+      - name: Final immutable A016 closeout premerge recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "c5efe4d6b2c8f0edcd75fd14f61f000f48c7a1e4"
+          test "$(git rev-parse HEAD^{tree})" = "e598af317949b1ced6a8871e4359f95d5257ba93"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/git/ref/heads/main --jq .object.sha)" = "3e247d9b89dabce1bcbdfcf1799face3d583d4a4"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/119 --jq .head.sha)" = "c5efe4d6b2c8f0edcd75fd14f61f000f48c7a1e4"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/119 --jq .state)" = open
