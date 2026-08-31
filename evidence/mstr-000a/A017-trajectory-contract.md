@@ -1,7 +1,7 @@
 # A017 — Failure Taxonomy and Training Trajectory Contract
 
 **Task:** `A017`
-**State:** IMPLEMENTATION_CANDIDATE
+**State:** COMPLETE_CANONICAL
 **Canonical base:** `0bd69861b987c616e1b9b25ef88a5d14f4762788`
 **Feature branch:** `feat/000a-a017-trajectory-contract`
 
@@ -156,3 +156,38 @@ PRODUCTION_RELEASE = NONE
 A018_TRAJECTORY_RECORDER_REPLAY_ADMISSION = NOT_IMPLEMENTED_BY_A017
 B023_VERIFIER_HEALTH_EVALUATOR = NOT_IMPLEMENTED_BY_A017
 ```
+
+
+## Canonical closeout
+
+A017 is complete only after the governed implementation lifecycle and this
+separate canonical closeout. The immutable evidence chain is:
+
+```text
+FINAL_FEATURE_HEAD = 2270cbbd6a1110e2823679ea3ca2d7b77a92d256
+FINAL_FEATURE_TREE = 1e85b48fda0569e4e51e188ae566b2b9674ad2b8
+IMPLEMENTATION_PR = 120
+INDEPENDENT_REVIEW = 5071307102 / NO_BLOCKING_FINDING
+FAILED_QUALIFICATION_1 = 33439438385 / FAILURE / PRESERVED
+FAILED_QUALIFICATION_2 = 33439766350 / FAILURE / PRESERVED
+FINAL_QUALIFICATION = 33440052024 / SUCCESS
+MANDATORY_PREMERGE = 33440372946 / SUCCESS
+IMPLEMENTATION_MERGE = 11c528c0ad015f7505dd143c700e710a0f08d86a
+IMPLEMENTATION_MERGE_TREE = 1e85b48fda0569e4e51e188ae566b2b9674ad2b8
+POST_MERGE_PROOF = 33441203968 / SUCCESS
+A017_STATE = COMPLETE_CANONICAL
+A018_STATE = PENDING
+```
+
+The implementation merge has parents
+`0bd69861b987c616e1b9b25ef88a5d14f4762788` and
+`2270cbbd6a1110e2823679ea3ca2d7b77a92d256`. Its tree equals the final feature
+tree, and the post-merge proof re-ran identity, focused contract/schema/CLI
+integration checks, offline schema validation, full pytest, Ruff, strict mypy,
+and an immutable main recheck.
+
+This closeout changes task state only. It does not implement A018 trajectory
+recording/replay/admission, does not implement B023 verifier-health evaluation,
+and grants no model-weight access, model execution, weight-changing training,
+paid compute/API, private-user data ingestion, production-trace ingestion, or
+production-release authority.
