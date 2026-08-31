@@ -1,0 +1,77 @@
+name: Postmerge MSTR-000A task-gate wording reconciliation
+
+on:
+  push:
+    branches:
+      - evidence/a-task-gate-wording-postmerge-f82eb0c
+
+permissions:
+  contents: read
+
+env:
+  PREVIOUS_MAIN: 6b0681adc6f0b31bf32907ed80c072bc4ccccff1
+  FEATURE_HEAD: a3df30547d900366cdcbc178744d5d166ce70741
+  MERGE_SHA: f82eb0c4c78080792ff9ca84f07690e4a972a3f8
+  MERGE_TREE: e73f9f73dfe705e3eb277a2bed0dd81d5e2e3ca3
+
+jobs:
+  identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Prove exact canonical governance repair merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          mapfile -t parents < <(git show -s --format=%P "$MERGE_SHA" | tr ' ' '\n')
+          test "${#parents[@]}" -eq 2
+          test "${parents[0]}" = "$PREVIOUS_MAIN"
+          test "${parents[1]}" = "$FEATURE_HEAD"
+          test "$(git rev-parse "$FEATURE_HEAD^{tree}")" = "$MERGE_TREE"
+          grep -F -- 'the canonical B002 validator/catalog covers MSTR-000B `B001-B034`' specs/001-agent-harness-verified-loop-foundation/checklists/implementation-readiness.md
+          grep -F -- 'A001-A018 remain under manual exact-prerequisite verification' specs/001-agent-harness-verified-loop-foundation/checklists/implementation-readiness.md
+          git diff --check "$PREVIOUS_MAIN" "$MERGE_SHA"
+
+  quality:
+    needs: identity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Re-prove repository quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [identity, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Final canonical ref recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
