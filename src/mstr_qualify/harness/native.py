@@ -132,6 +132,11 @@ class PrefixCacheMeasurement:
     measurement_source: Literal["MEASURED_RUNTIME"] = "MEASURED_RUNTIME"
 
     def __post_init__(self) -> None:
+        if self.measurement_source != "MEASURED_RUNTIME":
+            raise NativeHarnessError(
+                "prefix/cache evidence must come from a measured runtime",
+                code="h1.prefix_measurement_invalid",
+            )
         values = (self.input_tokens, self.shared_prefix_tokens)
         if any(value < 0 for value in values):
             raise NativeHarnessError(
@@ -353,7 +358,11 @@ class NativeHarness(NeutralHarness):
                 "edit target must be a regular non-symlink file",
                 code="h1.edit_target_invalid",
             )
-        actual = _ABSENT_SHA256 if not path.exists() else hashlib.sha256(path.read_bytes()).hexdigest()
+        actual = (
+            _ABSENT_SHA256
+            if not path.exists()
+            else hashlib.sha256(path.read_bytes()).hexdigest()
+        )
         if actual != expected:
             self._loop.record_tool_call()
             self._emit(
@@ -392,6 +401,10 @@ class NativeHarness(NeutralHarness):
         return EditResult(request.path, actual, digest, identity)
 
     def select_context(self, request: ContextRequest) -> ContextSelectionResult:
+        self._require_state(
+            frozenset({LoopState.LOCALIZE, LoopState.OBSERVE}),
+            "context selection",
+        )
         if request.mode == "NO_RETRIEVAL":
             if request.paths:
                 raise NativeHarnessError(

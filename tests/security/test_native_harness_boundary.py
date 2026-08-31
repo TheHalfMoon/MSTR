@@ -12,6 +12,7 @@ from mstr_qualify.harness.native import (
     NativeHarnessError,
     PrefixCacheMeasurement,
 )
+from mstr_qualify.harness.neutral import NeutralHarnessError
 
 
 def _contract() -> dict[str, object]:
@@ -57,7 +58,7 @@ def _harness(tmp_path: Path) -> NativeHarness:
 def test_context_decision_is_rejected_outside_context_states(tmp_path: Path) -> None:
     harness = _harness(tmp_path)
 
-    with pytest.raises(NativeHarnessError) as excinfo:
+    with pytest.raises(NeutralHarnessError) as excinfo:
         harness.select_context(ContextRequest("NO_RETRIEVAL"))
 
     assert excinfo.value.code == "h0.operation_state_invalid"
@@ -81,7 +82,7 @@ def test_noncanonical_edit_path_cannot_alias_one_file(tmp_path: Path) -> None:
     harness.admit_goal("edit", acceptance_criteria=("canonical identity",))
     harness.transition(LoopState.ACT)
 
-    with pytest.raises(NativeHarnessError) as excinfo:
+    with pytest.raises(NeutralHarnessError) as excinfo:
         harness.apply_stale_safe_edit(
             EditRequest(
                 "nested/../value.txt",
