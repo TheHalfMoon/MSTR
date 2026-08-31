@@ -1,0 +1,105 @@
+name: Postmerge A014 verifier shortcut battery
+
+on:
+  push:
+    branches:
+      - evidence/a014-postmerge-87f1636
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  PREVIOUS_MAIN: d1d0587aac1bbe1daf32f899810a20a519c31f5d
+  FEATURE_HEAD: 3c61c9f792027d36c20cdf5ad921eca29ce3f6de
+  MERGE_SHA: 87f1636e434ec36f508528ab4a78204adf103856
+  MERGE_TREE: 8e3c960f5452842cb359d4b9a9ed1c1c34cdc45f
+  PR_NUMBER: "114"
+  REVIEW_ID: "5069578156"
+  QUALIFICATION_RUN: "33422233350"
+  PREMERGE_RUN: "33422524606"
+
+jobs:
+  identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Prove exact canonical A014 implementation merge
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          mapfile -t parents < <(git show -s --format=%P "$MERGE_SHA" | tr ' ' '\n')
+          test "${#parents[@]}" -eq 2
+          test "${parents[0]}" = "$PREVIOUS_MAIN"
+          test "${parents[1]}" = "$FEATURE_HEAD"
+          test "$(git rev-parse "$FEATURE_HEAD^{tree}")" = "$MERGE_TREE"
+
+          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER")"
+          jq -e --arg merge "$MERGE_SHA" --arg head "$FEATURE_HEAD" '.state == "closed" and .merged == true and .merge_commit_sha == $merge and .head.sha == $head' <<<"$pr_json"
+
+          review_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER/reviews/$REVIEW_ID")"
+          jq -e --arg head "$FEATURE_HEAD" '.commit_id == $head and (.state == "COMMENTED" or .state == "APPROVED")' <<<"$review_json"
+
+          qualification_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$QUALIFICATION_RUN")"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$qualification_json"
+
+          premerge_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$PREMERGE_RUN")"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$premerge_json"
+
+          grep -F -- '- [x] **A013 Implement bounded environment bootstrap/admission loop.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A014 Implement verifier runner + reward-shortcut battery.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A015 Freeze `DirectionTaskManifest` and MSTR Direction-to-Done v0 task taxonomy.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '**State:** `IMPLEMENTATION_CANDIDATE`' evidence/mstr-000a/A014-verifier-shortcuts.md
+          grep -F -- 'TERMINAL_SUCCESS_AUTHORITY = A006_PROTECTED_FINALIZER' evidence/mstr-000a/A014-verifier-shortcuts.md
+          grep -F -- 'A014_OUTPUT = VERIFIER_EVIDENCE_ONLY' evidence/mstr-000a/A014-verifier-shortcuts.md
+          grep -F -- 'B023_VERIFIER_HEALTH_CLASSIFICATION = NOT_IMPLEMENTED_BY_A014' evidence/mstr-000a/A014-verifier-shortcuts.md
+          grep -F -- 'verifier.shortcut_detection_mismatch' src/mstr_qualify/verifier/runner.py
+          grep -F -- 'verifier.battery_shortcut_expectation' src/mstr_qualify/verifier/runner.py
+          git diff --check "$PREVIOUS_MAIN" "$MERGE_SHA"
+
+  quality:
+    needs: identity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Re-prove merged A014 quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/integration/test_verifier_runner.py tests/security/test_verifier_shortcuts.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [identity, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Final canonical A014 ref recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
