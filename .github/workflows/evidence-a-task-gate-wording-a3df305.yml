@@ -11,7 +11,7 @@ permissions:
 env:
   BASE_SHA: 6b0681adc6f0b31bf32907ed80c072bc4ccccff1
   TARGET_SHA: a3df30547d900366cdcbc178744d5d166ce70741
-  TARGET_TREE: 47f96c311395669862bf15c2724d855773be653f
+  TARGET_TREE: e73f9f73dfe705e3eb277a2bed0dd81d5e2e3ca3
 
 jobs:
   identity_scope:
