@@ -37,6 +37,8 @@ SCHEMA_FILES: Mapping[str, str] = {
     "mstr-environment-manifest-v0": "mstr-environment-manifest-v0.schema.json",
     "mstr-setup-manifest-v0": "mstr-setup-manifest-v0.schema.json",
     "mstr-verifier-manifest-v0": "mstr-verifier-manifest-v0.schema.json",
+    # MSTR-000A A015: Direction-to-Done task identity and hidden acceptance boundary.
+    "mstr-direction-task-v0": "mstr-direction-task-v0.schema.json",
     # MSTR-000B B001: machine-readable task graph and eligibility result contracts.
     "mstr-task-node-v0": "mstr-task-node-v0.schema.json",
     "mstr-task-eligibility-v0": "mstr-task-eligibility-v0.schema.json",

@@ -1,0 +1,59 @@
+{
+  "acceptance_surface": {
+    "hidden_from_model": false,
+    "manifest_id": "fixture:hidden-acceptance:a015-local-v1",
+    "public_repo_contains_acceptance_payload": false,
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "verifier_owned": true
+  },
+  "allowed_effects": [
+    "LOCAL_PROCESS",
+    "WORKTREE_READ",
+    "WORKTREE_WRITE"
+  ],
+  "b025_extension": {
+    "curriculum_contract_id": "mstr.greenfield-task.v0",
+    "greenfield_manifest_id": null,
+    "required_for_headline_convergence": false,
+    "verifier_health_requirement": "HEALTHY"
+  },
+  "difficulty_tags": [
+    "fixture-only",
+    "repair"
+  ],
+  "direction": "Repair the local parser so malformed records fail closed without changing unrelated behavior.",
+  "environment_manifest_id": "fixture:environment:a015-local-v1",
+  "execution_posture": "CONTRACT_FIXTURE_ONLY",
+  "freshness_provenance": {
+    "benchmark_overlap": "CLEAR",
+    "created_at_utc": "2026-08-31T00:00:00Z",
+    "public_repo_contains_hidden_acceptance": false,
+    "source_identity": "TheHalfMoon/MSTR",
+    "source_revision": "28a4a972182c0f58f7c6500239f625a0e2143d0a",
+    "surface_class": "REPOSITORY_OWNED_FIXTURE"
+  },
+  "prohibited_effects": [
+    "LARGE_DATASET_INGESTION",
+    "MODEL_EXECUTION",
+    "MODEL_WEIGHT_ACCESS",
+    "NETWORK",
+    "PAID_COMPUTE",
+    "PAID_MODEL_API",
+    "PRODUCTION_RELEASE",
+    "SECRET_READ",
+    "WEIGHT_CHANGING_TRAINING"
+  ],
+  "recovery_path_required": false,
+  "repository_revision": "28a4a972182c0f58f7c6500239f625a0e2143d0a",
+  "schema_version": "mstr.direction-task.v0",
+  "security_sensitive": false,
+  "task_family": "REPAIR",
+  "task_id": "fixture:a015-repair-001",
+  "task_revision": "v1",
+  "timeout_seconds": 300,
+  "verifier_manifest_id": "fixture:verifier:a015-local-v1",
+  "wepld_binding": {
+    "required": false,
+    "spec_task_identity": null
+  }
+}

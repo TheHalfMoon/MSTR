@@ -138,6 +138,7 @@ def test_validate_self_checks_schemas_and_fixtures(capsys: pytest.CaptureFixture
         "mstr-capability-profile-v0",
         "mstr-data-constitution-v0",
         "mstr-difficulty-calibration-v0",
+        "mstr-direction-task-v0",
         "mstr-environment-manifest-v0",
         "mstr-greenfield-task-v0",
         "mstr-loop-contract-v0",

@@ -1,0 +1,375 @@
+{
+  "$defs": {
+    "acceptance_surface": {
+      "additionalProperties": false,
+      "properties": {
+        "hidden_from_model": {
+          "const": true
+        },
+        "manifest_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "public_repo_contains_acceptance_payload": {
+          "const": false
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "verifier_owned": {
+          "const": true
+        }
+      },
+      "required": [
+        "verifier_owned",
+        "hidden_from_model",
+        "manifest_id",
+        "sha256",
+        "public_repo_contains_acceptance_payload"
+      ],
+      "type": "object"
+    },
+    "b025_extension": {
+      "additionalProperties": false,
+      "properties": {
+        "curriculum_contract_id": {
+          "const": "mstr.greenfield-task.v0"
+        },
+        "greenfield_manifest_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "required_for_headline_convergence": {
+          "type": "boolean"
+        },
+        "verifier_health_requirement": {
+          "const": "HEALTHY"
+        }
+      },
+      "required": [
+        "required_for_headline_convergence",
+        "curriculum_contract_id",
+        "greenfield_manifest_id",
+        "verifier_health_requirement"
+      ],
+      "type": "object"
+    },
+    "effect": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Z][A-Z0-9_]*$",
+      "type": "string"
+    },
+    "freshness_provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "benchmark_overlap": {
+          "enum": [
+            "CLEAR",
+            "DETECTED",
+            "UNRESOLVED"
+          ]
+        },
+        "created_at_utc": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "public_repo_contains_hidden_acceptance": {
+          "const": false
+        },
+        "source_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/identity"
+        },
+        "surface_class": {
+          "enum": [
+            "REPOSITORY_OWNED_FIXTURE",
+            "PRIVATE_FRESH",
+            "PUBLIC_CONTINUITY"
+          ]
+        }
+      },
+      "required": [
+        "surface_class",
+        "source_identity",
+        "source_revision",
+        "created_at_utc",
+        "benchmark_overlap",
+        "public_repo_contains_hidden_acceptance"
+      ],
+      "type": "object"
+    },
+    "identity": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
+    "wepld_binding": {
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "spec_task_identity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "required",
+        "spec_task_identity"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://mstr.local/schemas/mstr-direction-task-v0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "task_family": {
+            "enum": [
+              "TERSE_FEATURE_DIRECTION",
+              "MULTI_FILE_CONSTRUCTION",
+              "BOUNDED_GREENFIELD"
+            ]
+          }
+        },
+        "required": [
+          "task_family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "b025_extension": {
+            "properties": {
+              "greenfield_manifest_id": {
+                "$ref": "#/$defs/identity"
+              },
+              "required_for_headline_convergence": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "task_family": {
+            "const": "WEPLD_SPEC_DRIVEN"
+          }
+        },
+        "required": [
+          "task_family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "wepld_binding": {
+            "properties": {
+              "required": {
+                "const": true
+              },
+              "spec_task_identity": {
+                "$ref": "#/$defs/identity"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "task_family": {
+            "const": "FAILURE_RECOVERY"
+          }
+        },
+        "required": [
+          "task_family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "recovery_path_required": {
+            "const": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "task_family": {
+            "const": "SECURITY_SENSITIVE"
+          }
+        },
+        "required": [
+          "task_family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "security_sensitive": {
+            "const": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "freshness_provenance": {
+            "properties": {
+              "surface_class": {
+                "const": "PRIVATE_FRESH"
+              }
+            },
+            "required": [
+              "surface_class"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "execution_posture": {
+            "const": "DOWNSTREAM_GATED"
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "acceptance_surface": {
+      "$ref": "#/$defs/acceptance_surface"
+    },
+    "allowed_effects": {
+      "items": {
+        "$ref": "#/$defs/effect"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "b025_extension": {
+      "$ref": "#/$defs/b025_extension"
+    },
+    "difficulty_tags": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "direction": {
+      "maxLength": 8192,
+      "minLength": 1,
+      "type": "string"
+    },
+    "environment_manifest_id": {
+      "$ref": "#/$defs/identity"
+    },
+    "execution_posture": {
+      "enum": [
+        "CONTRACT_FIXTURE_ONLY",
+        "DOWNSTREAM_GATED"
+      ]
+    },
+    "freshness_provenance": {
+      "$ref": "#/$defs/freshness_provenance"
+    },
+    "prohibited_effects": {
+      "items": {
+        "$ref": "#/$defs/effect"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "recovery_path_required": {
+      "type": "boolean"
+    },
+    "repository_revision": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "mstr.direction-task.v0"
+    },
+    "security_sensitive": {
+      "type": "boolean"
+    },
+    "task_family": {
+      "enum": [
+        "TERSE_FEATURE_DIRECTION",
+        "MULTI_FILE_CONSTRUCTION",
+        "REPAIR",
+        "BUILD_TOOLING",
+        "BOUNDED_GREENFIELD",
+        "WEPLD_SPEC_DRIVEN",
+        "FAILURE_RECOVERY",
+        "SECURITY_SENSITIVE"
+      ]
+    },
+    "task_id": {
+      "$ref": "#/$defs/identity"
+    },
+    "task_revision": {
+      "$ref": "#/$defs/identity"
+    },
+    "timeout_seconds": {
+      "maximum": 86400,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "verifier_manifest_id": {
+      "$ref": "#/$defs/identity"
+    },
+    "wepld_binding": {
+      "$ref": "#/$defs/wepld_binding"
+    }
+  },
+  "required": [
+    "schema_version",
+    "task_id",
+    "task_revision",
+    "direction",
+    "repository_revision",
+    "environment_manifest_id",
+    "verifier_manifest_id",
+    "allowed_effects",
+    "prohibited_effects",
+    "timeout_seconds",
+    "difficulty_tags",
+    "task_family",
+    "freshness_provenance",
+    "acceptance_surface",
+    "b025_extension",
+    "wepld_binding",
+    "recovery_path_required",
+    "security_sensitive",
+    "execution_posture"
+  ],
+  "title": "MSTR Direction Task Manifest v0",
+  "type": "object"
+}
