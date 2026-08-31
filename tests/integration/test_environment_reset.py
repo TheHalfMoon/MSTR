@@ -132,7 +132,10 @@ class FixtureExecutor:
             (cwd / "protected.txt").write_text("tampered\n", encoding="utf-8")
         else:
             (cwd / "generated.txt").write_text("ready\n", encoding="utf-8")
-        return CommandResult(exit_code=self.exit_code, stderr="fixture failure" if self.exit_code else "")
+        return CommandResult(
+            exit_code=self.exit_code,
+            stderr="fixture failure" if self.exit_code else "",
+        )
 
 
 def _envelope(effect: dict[str, object] | None = None) -> ExecutorEnvelope:
