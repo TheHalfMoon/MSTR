@@ -10,9 +10,113 @@ permissions:
 
 env:
   CANONICAL_MAIN: 477de59557bdaf016ab8f9bcf5c98981daba8cb2
+  TARGET_BRANCH: docs/000a-a011-closeout
+  IMPLEMENTATION_HEAD: 5fa636286ae317cff389d2e9e84a74183d09866a
+  IMPLEMENTATION_TREE: 51d03553701104a6f5f29482cbb1bdc93263c6f6
+  QUALIFICATION_RUN: "33367704620"
+  REVIEW_ID: "5063998052"
+  PREMERGE_RUN: "33367990650"
+  IMPLEMENTATION_PR: "106"
+  POSTMERGE_RUN: "33368221217"
 
 jobs:
-  noop:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Workflow staged through Git object path"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANONICAL_MAIN }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify canonical A011 closeout entry
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git rev-parse HEAD^{tree})" = "$IMPLEMENTATION_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          if git ls-remote --exit-code --heads origin "refs/heads/$TARGET_BRANCH" >/dev/null 2>&1; then exit 1; fi
+          grep -F -- '- [x] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A012 Implement clean-checkout environment reset/setup abstraction.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '**State:** `IMPLEMENTATION_ACTIVE`' evidence/mstr-000a/A011-env-verifier-contracts.md
+          for run in "$QUALIFICATION_RUN" "$PREMERGE_RUN" "$POSTMERGE_RUN"; do
+            json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$run")"
+            jq -e '.status == "completed" and .conclusion == "success"' <<<"$json"
+          done
+          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$IMPLEMENTATION_PR")"
+          jq -e --arg head "$IMPLEMENTATION_HEAD" --arg merge "$CANONICAL_MAIN" '.state == "closed" and .merged == true and .head.sha == $head and .merge_commit_sha == $merge' <<<"$pr_json"
+          reviews_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$IMPLEMENTATION_PR/reviews?per_page=100")"
+          jq -e --argjson review "$REVIEW_ID" --arg head "$IMPLEMENTATION_HEAD" 'any(.[]; .id == $review and .commit_id == $head and (.state == "COMMENTED" or .state == "APPROVED"))' <<<"$reviews_json"
+      - name: Materialize exact two-file A011 closeout
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -b "$TARGET_BRANCH"
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          evidence = Path("evidence/mstr-000a/A011-env-verifier-contracts.md")
+          text = evidence.read_text(encoding="utf-8")
+          old_state = "**State:** `IMPLEMENTATION_ACTIVE`"
+          if text.count(old_state) != 1:
+              raise SystemExit("A011 evidence state marker mismatch")
+          text = text.replace(old_state, "**State:** `COMPLETE_CANONICAL`", 1)
+          old_tail = "A011 remains non-canonical until exact-head qualification, review, mandatory premerge verification, guarded merge, post-merge proof, canonical closeout, and post-closeout proof succeed.\n"
+          if text.count(old_tail) != 1:
+              raise SystemExit("A011 evidence tail marker mismatch")
+          new_tail = '''> This terminal state is a closeout candidate until the dedicated closeout PR is itself qualified, independently reviewed, mandatory-premerge verified, guarded-merged, and post-closeout verified on canonical `main`.\n\n## Canonical Lifecycle Evidence\n\n```text\nCANONICAL_IMPLEMENTATION_BASE = 17985cb7176bb99df6139c1d3fbc23c6de4e3bf0\nBUILDER_RUN_33366266057 = FAILURE / repository design-source mappings missing for the three new Spec001 schemas\nBUILDER_RUN_33366375013 = FAILURE / stale offline CLI schema-list expectation\nBUILDER_RUN_33366909746 = FAILURE / Ruff E501 formatting findings only\nFINAL_BUILDER_RUN = 33367327490 / SUCCESS\nINITIAL_QUALIFICATION_RUN = 33367518203 / FAILURE / qualification-workflow assertion defect only\nFINAL_IMPLEMENTATION_HEAD = 5fa636286ae317cff389d2e9e84a74183d09866a\nFINAL_IMPLEMENTATION_TREE = 51d03553701104a6f5f29482cbb1bdc93263c6f6\nFINAL_EXACT_HEAD_QUALIFICATION = 33367704620 / SUCCESS\nEXACT_HEAD_REVIEW = 5063998052 / COMMENTED / NO_BLOCKING_FINDING\nUNRESOLVED_REVIEW_THREADS = 0\nMANDATORY_PREMERGE = 33367990650 / SUCCESS\nIMPLEMENTATION_PR = 106\nIMPLEMENTATION_MERGE = 477de59557bdaf016ab8f9bcf5c98981daba8cb2\nPOST_MERGE_VERIFICATION_RUN = 33368221217 / SUCCESS\nA011_STATE = COMPLETE_CANONICAL_CANDIDATE\nA012_STATE = PENDING\n```\n\nThe failed and superseded workflow runs above remain preserved as negative evidence and are not represented as passing. A011 grants no setup execution, network, secret, model, paid-compute, training, or production-release authority. A006 remains the protected final success authority. A012 remains independently gated and is not made complete by this closeout.\n'''
+          evidence.write_text(text.replace(old_tail, new_tail, 1), encoding="utf-8")
+
+          tasks = Path("specs/001-agent-harness-verified-loop-foundation/tasks.md")
+          text = tasks.read_text(encoding="utf-8")
+          old = '''- [ ] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**  \n  Outputs: schemas, known-good/known-bad fixture contracts, `evidence/mstr-000a/A011-env-verifier-contracts.md`.\n'''
+          new = '''- [x] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**\n  Outputs: schemas, known-good/known-bad fixture contracts, `evidence/mstr-000a/A011-env-verifier-contracts.md`.\n  Canonical implementation: PR #106 / final head `5fa636286ae317cff389d2e9e84a74183d09866a` / merge `477de59557bdaf016ab8f9bcf5c98981daba8cb2`; post-merge proof run `33368221217` = `SUCCESS`.\n'''
+          if text.count(old) != 1:
+              raise SystemExit("A011 task block marker mismatch")
+          tasks.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          expected = {
+              "evidence/mstr-000a/A011-env-verifier-contracts.md",
+              "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+          }
+          paths = {line[3:] for line in subprocess.check_output(["git", "status", "--short"], text=True).splitlines()}
+          if paths != expected:
+              raise SystemExit(f"unexpected A011 closeout scope: {sorted(paths)}")
+          PY
+          git diff --check
+          grep -F -- '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A011-env-verifier-contracts.md
+          grep -F -- '- [x] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A012 Implement clean-checkout environment reset/setup abstraction.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          test "$(git diff --name-only | wc -l)" -eq 2
+      - name: Run frozen A011 closeout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+      - name: Commit and publish exact A011 closeout candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          git diff --check
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add evidence/mstr-000a/A011-env-verifier-contracts.md specs/001-agent-harness-verified-loop-foundation/tasks.md
+          git commit -m "docs(mstr-000a): close A011 canonically"
+          TARGET_SHA="$(git rev-parse HEAD)"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_SHA"
+          test -z "$(git status --porcelain)"
+          echo "TARGET_SHA=$TARGET_SHA"
