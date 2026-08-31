@@ -187,6 +187,30 @@ def test_recovery_cadence_blocks_third_action_until_recovery(tmp_path: Path) -> 
     ] or harness.events[-3]["event_type"] == "recovery.started"
 
 
+def test_recovery_threshold_preserves_diagnostic_read_access(tmp_path: Path) -> None:
+    (tmp_path / "diagnostic.txt").write_text("evidence", encoding="utf-8")
+
+    def runner(argv: tuple[str, ...], cwd: Path, timeout: float) -> CommandResult:
+        del cwd, timeout
+        return CommandResult(argv, 1, "", "failed")
+
+    harness = _harness(
+        tmp_path,
+        command_runner=runner,
+        recovery_cadence=RecoveryCadence(max_consecutive_failures=1),
+    )
+    harness.admit_goal("recover", acceptance_criteria=("collect evidence",))
+    harness.transition(LoopState.ACT)
+    harness.run_shell_typed(ShellRequest(("false",)))
+    assert harness.recovery_required is True
+
+    harness.transition(LoopState.OBSERVE)
+    observed = harness.read_typed(ReadRequest("diagnostic.txt"))
+
+    assert observed.content == "evidence"
+    assert harness.recovery_required is True
+
+
 def test_compact_state_uses_a004_fail_closed_compaction(tmp_path: Path) -> None:
     for index in range(3):
         (tmp_path / f"f{index}.txt").write_text(str(index), encoding="utf-8")

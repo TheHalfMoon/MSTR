@@ -62,7 +62,7 @@ There is no implicit ranking/retrieval claim. Explicit paths are deterministic, 
 
 ## Recovery Cadence
 
-The candidate counts consecutive failed tool/edit/verifier outcomes. At the configured threshold, another mutating/tool action is rejected until a recovery step records failure evidence and consumes the shared repair budget. Recovery remains inside the A005 state graph and does not create success authority.
+The candidate counts consecutive failed shell/edit/verifier outcomes. At the configured threshold, another mutating shell/edit action is rejected until a recovery step records failure evidence and consumes the shared repair budget. Diagnostic read/search/context selection and verifier observation remain available so recovery evidence can be gathered. Recovery remains inside the A005 state graph and does not create success authority.
 
 ## Compact State
 

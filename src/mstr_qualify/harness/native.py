@@ -284,7 +284,7 @@ class NativeHarness(NeutralHarness):
     def _require_recovery_clear(self) -> None:
         if self.recovery_required:
             raise NativeHarnessError(
-                "recovery is required before another mutating/tool action",
+                "recovery is required before another mutating action",
                 code="h1.recovery_required",
             )
 
