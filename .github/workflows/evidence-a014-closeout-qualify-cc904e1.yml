@@ -1,0 +1,112 @@
+name: Qualify A014 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/a014-closeout-qualify-cc904e1
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  CANONICAL_BASE: 87f1636e434ec36f508528ab4a78204adf103856
+  TARGET_BRANCH: docs/000a-a014-closeout
+  TARGET_HEAD: cc904e1612b4b7a69b46abd357a2a2fcf12638cf
+  TARGET_TREE: f281e9e640fda1fd187a4f777a5e0991609dcb23
+  IMPLEMENTATION_HEAD: 3c61c9f792027d36c20cdf5ad921eca29ce3f6de
+  IMPLEMENTATION_MERGE: 87f1636e434ec36f508528ab4a78204adf103856
+  IMPLEMENTATION_PR: "114"
+  IMPLEMENTATION_QUALIFICATION: "33422233350"
+  IMPLEMENTATION_PREMERGE: "33422524606"
+  POSTMERGE_RUN: "33422854862"
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - name: Verify exact A014 closeout identity and scope
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$CANONICAL_BASE" "$TARGET_HEAD")" = "$CANONICAL_BASE"
+          test "$(git rev-list --count "$TARGET_HEAD..$CANONICAL_BASE")" = "0"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_BASE"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_HEAD"
+          mapfile -t actual < <(git diff --name-only "$CANONICAL_BASE" "$TARGET_HEAD" | sort)
+          expected=(
+            evidence/mstr-000a/A014-verifier-shortcuts.md
+            specs/001-agent-harness-verified-loop-foundation/tasks.md
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 2
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          git diff --check "$CANONICAL_BASE" "$TARGET_HEAD"
+
+          grep -F -- '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A014-verifier-shortcuts.md
+          grep -F -- 'A014_STATE = COMPLETE_CANONICAL_CANDIDATE' evidence/mstr-000a/A014-verifier-shortcuts.md
+          grep -F -- 'A015_STATE = PENDING' evidence/mstr-000a/A014-verifier-shortcuts.md
+          grep -F -- "POST_MERGE_VERIFICATION_RUN = $POSTMERGE_RUN / SUCCESS" evidence/mstr-000a/A014-verifier-shortcuts.md
+          grep -F -- 'B023_VERIFIER_HEALTH_CLASSIFICATION = NOT_IMPLEMENTED_BY_A014' evidence/mstr-000a/A014-verifier-shortcuts.md
+          grep -F -- '- [x] **A014 Implement verifier runner + reward-shortcut battery.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A015 Freeze `DirectionTaskManifest` and MSTR Direction-to-Done v0 task taxonomy.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+
+          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$IMPLEMENTATION_PR")"
+          jq -e --arg head "$IMPLEMENTATION_HEAD" --arg merge "$IMPLEMENTATION_MERGE" '.state == "closed" and .merged_at != null and .head.sha == $head and .merge_commit_sha == $merge' <<<"$pr_json"
+
+          for run_id in "$IMPLEMENTATION_QUALIFICATION" "$IMPLEMENTATION_PREMERGE" "$POSTMERGE_RUN"; do
+            run_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$run_id")"
+            jq -e '.status == "completed" and .conclusion == "success"' <<<"$run_json"
+          done
+
+          for failed_id in 33421271341 33421460726 33421732025; do
+            failed_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$failed_id")"
+            jq -e '.status == "completed" and .conclusion == "failure"' <<<"$failed_json"
+          done
+
+  quality:
+    needs: identity_scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run A014 closeout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [identity_scope, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - name: Final immutable A014 closeout recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_BASE"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_HEAD"
