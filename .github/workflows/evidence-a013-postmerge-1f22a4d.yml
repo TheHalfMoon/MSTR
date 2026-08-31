@@ -1,0 +1,81 @@
+name: Postmerge A013 bounded environment admission
+
+on:
+  push:
+    branches:
+      - evidence/a013-postmerge-1f22a4d
+
+permissions:
+  contents: read
+
+env:
+  PREVIOUS_MAIN: f82eb0c4c78080792ff9ca84f07690e4a972a3f8
+  FEATURE_HEAD: a4c67bc06e7174e58ee71a6a36727cea7658e8d8
+  MERGE_SHA: 1f22a4d91c1874cd18454e63cc87d92e18f9e14a
+  MERGE_TREE: e2abf8332c6149b0d3fac5ed82e7a494f5068783
+
+jobs:
+  identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Prove exact canonical implementation merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          mapfile -t parents < <(git show -s --format=%P "$MERGE_SHA" | tr ' ' '\n')
+          test "${#parents[@]}" -eq 2
+          test "${parents[0]}" = "$PREVIOUS_MAIN"
+          test "${parents[1]}" = "$FEATURE_HEAD"
+          test "$(git rev-parse "$FEATURE_HEAD^{tree}")" = "$MERGE_TREE"
+          grep -F -- '- [ ] **A013 Implement bounded environment bootstrap/admission loop.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A014 Implement verifier runner + reward-shortcut battery.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '**State:** `IMPLEMENTATION_CANDIDATE`' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- 'A013_CANONICAL_EXECUTION_PROFILE = LOCAL_CONTROLLED_FIXTURES_ONLY' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- 'REAL_ENVIRONMENT_ADMISSION = PROHIBITED_PENDING_A014_AND_REMAINING_ENVIRONMENT_GATES' evidence/mstr-000a/A013-autoinstall-admission.md
+          git diff --check "$PREVIOUS_MAIN" "$MERGE_SHA"
+
+  quality:
+    needs: identity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Re-prove merged A013 quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/integration/test_environment_admission.py tests/security/test_environment_admission_boundary.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [identity, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Final canonical ref recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
