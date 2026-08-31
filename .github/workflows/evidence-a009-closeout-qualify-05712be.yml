@@ -1,0 +1,105 @@
+name: Qualify A009 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/a009-closeout-qualify-05712be
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  CLOSEOUT_SHA: 05712be44172f8b526aff3fb123bc4842ba750db
+  CLOSEOUT_TREE: bdfc1bfad15ad9f864247b412e5b34af2073e1bd
+  BASE_SHA: d3b3484280d9cbd13986af4217d934c4c7c49a44
+  CLOSEOUT_BRANCH: docs/000a-a009-canonicalize
+  QUALIFICATION_RUN: "33360113475"
+  PREMERGE_RUN: "33360526812"
+  POST_MERGE_RUN: "33360725699"
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CLOSEOUT_SHA }}
+          fetch-depth: 0
+      - name: Verify exact closeout identity, scope, ledger, and lifecycle evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$CLOSEOUT_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$CLOSEOUT_BRANCH | cut -f1)" = "$CLOSEOUT_SHA"
+
+          files="$(git diff --name-only "$BASE_SHA...$CLOSEOUT_SHA" | sort)"
+          expected="$(printf '%s\n' evidence/mstr-000a/A009-wepld-adapter.md specs/001-agent-harness-verified-loop-foundation/tasks.md | sort)"
+          test "$files" = "$expected"
+
+          grep -F -- '- [x] **A009 Implement H2 WePLD-native adapter.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- 'Canonical implementation: PR #102 / final head `d9ed5caa78c51cc3ac923e47855327971349b8b7` / merge `d3b3484280d9cbd13986af4217d934c4c7c49a44`.' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+
+          evidence=evidence/mstr-000a/A009-wepld-adapter.md
+          grep -F -- '**State:** `COMPLETE_CANONICAL`' "$evidence"
+          grep -F -- 'FINAL_IMPLEMENTATION_HEAD = d9ed5caa78c51cc3ac923e47855327971349b8b7' "$evidence"
+          grep -F -- 'FINAL_IMPLEMENTATION_TREE = 821b3be332d577a6ad49360b480c6b7cd086feb1' "$evidence"
+          grep -F -- 'FINAL_EXACT_HEAD_QUALIFICATION = 33360113475 / SUCCESS' "$evidence"
+          grep -F -- 'EXACT_HEAD_REVIEW = 5063357962 / COMMENTED / NO_BLOCKING_FINDING' "$evidence"
+          grep -F -- 'MANDATORY_PREMERGE = 33360526812 / SUCCESS' "$evidence"
+          grep -F -- 'IMPLEMENTATION_MERGE = d3b3484280d9cbd13986af4217d934c4c7c49a44' "$evidence"
+          grep -F -- 'POST_MERGE_VERIFICATION_RUN = 33360725699 / SUCCESS' "$evidence"
+          grep -F -- 'A010 remains independently gated and is not made complete by this A009 closeout.' "$evidence"
+
+          for run in "$QUALIFICATION_RUN" "$PREMERGE_RUN" "$POST_MERGE_RUN"; do
+            run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run")"
+            test "$(jq -r '.status' <<<"$run_json")" = "completed"
+            test "$(jq -r '.conclusion' <<<"$run_json")" = "success"
+          done
+
+  quality:
+    needs: identity_scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CLOSEOUT_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run frozen closeout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_SHA"
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/harness/test_wepld.py tests/security/test_wepld_adapter_boundary.py tests/unit/harness/test_native.py
+          pytest -q
+          python -m mstr_qualify validate
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs:
+      - identity_scope
+      - quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CLOSEOUT_SHA }}
+          fetch-depth: 0
+      - name: Final immutable closeout recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$CLOSEOUT_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$CLOSEOUT_BRANCH | cut -f1)" = "$CLOSEOUT_SHA"
