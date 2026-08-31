@@ -13,8 +13,8 @@ The implementation:
 - validates both frozen A011 schemas before execution;
 - cross-binds environment ID, setup ID, health targets, effect policy, and resource ceilings;
 - supports exact local `HARD_RESET_CLEAN` using only local Git reset/clean operations;
+- proves the expected repository origin before any destructive `reset --hard` or `clean` operation, then re-proves origin, revision, tree, and clean state after reset;
 - requires `FRESH_CLONE` to be supplied by an injected driver and never opens network implicitly;
-- proves repository origin, revision, tree, and clean state after reset;
 - executes setup only through an injected executor whose declared enforcement envelope exactly equals the manifest effect/resource envelope;
 - requires an exact runtime authority identity before any network allowlist or secret-access envelope can be consumed;
 - contains setup working directories to the reset workspace;
@@ -42,10 +42,14 @@ TERMINAL_SUCCESS_AUTHORITY = A006_PROTECTED_FINALIZER
 
 Any future caller that wishes to consume a network/secret-bearing setup manifest must independently supply the exact canonical authority referenced by that manifest and an executor enforcing the identical envelope. This implementation does not create or widen such authority.
 
-## Qualification history
+## Qualification and hardening history
 
-`33401051608` = `FAILURE` at `git diff --check` because the initial candidate evidence contained Markdown trailing whitespace. Quality jobs were skipped. The failure is preserved as negative evidence and is not represented as passing.
+- `33401051608` = `FAILURE` at `git diff --check` because the initial candidate evidence contained Markdown trailing whitespace. Quality jobs were skipped. The failure is preserved as negative evidence and is not represented as passing.
+- `33401175833` = `SUCCESS` on superseded exact head `92439f3ceb40be725eb1d126c79998ff26882816`: focused A012 tests `8 passed`; schema validation passed; full pytest `981 passed`; Ruff passed; mypy passed with no issues in 37 source files; immutable identity recheck passed.
+- Pre-review patch inspection then identified one destructive-scope hardening finding: local `HARD_RESET_CLEAN` verified repository origin only after destructive reset/clean. The candidate was amended so expected origin is proven before any destructive Git command and re-proven afterward. A dedicated security regression proves a wrong-origin workspace reaches no reset/clean command.
+
+The successful `33401175833` run remains valid evidence for its immutable superseded head only. The hardened current head requires a fresh complete qualification before review/merge admission.
 
 ## Required qualification
 
-This candidate is not canonical until exact-head hosted qualification, independent review, mandatory premerge verification, guarded expected-head merge, post-merge proof, canonical closeout, and post-closeout proof succeed. Failed or superseded runs remain evidence and must not be rewritten as passing.
+This candidate is not canonical until current exact-head hosted qualification, independent review, mandatory premerge verification, guarded expected-head merge, post-merge proof, canonical closeout, and post-closeout proof succeed. Failed or superseded runs remain evidence and must not be rewritten as passing.
