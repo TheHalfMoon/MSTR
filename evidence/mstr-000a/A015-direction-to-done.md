@@ -45,6 +45,27 @@ The public repository contains contract fixtures and taxonomy metadata only.
 `PRIVATE_FRESH` records are downstream-gated and cannot use the contract-fixture
 execution posture.
 
+## Offline validation integration
+
+`mstr.direction-task.v0` is registered as a first-class local schema in
+`SCHEMA_FILES` and the CLI schema-version map. Therefore both repository-wide
+`python -m mstr_qualify validate` and explicit-file validation consume the same
+runtime schema and canonical valid/invalid fixtures. The generic schema contract
+tests bind the runtime schema byte-for-byte to the MSTR-000A design-source schema.
+
+The first exact-head qualification run completed successfully for the earlier
+seven-file candidate:
+
+```text
+33427721219 = SUCCESS / identity_scope + quality + complete
+qualified_head = 8c3178156add4dff915a67427d1981f0996e894a
+status_after_validation_integration = STALE_SUCCESS / NOT_REUSED_FOR_NEW_HEAD
+```
+
+That run remains valid historical evidence for its exact head, but it is not
+reused as qualification evidence after the validation-integration repair. A fresh
+qualification is required for the repaired candidate.
+
 ## B025 reconciliation
 
 A015 does not duplicate `mstr.greenfield-task.v0`.
@@ -83,6 +104,9 @@ verifier-health gate is satisfied.
 ```text
 schemas/mstr-direction-task-v0.schema.json
 specs/001-agent-harness-verified-loop-foundation/contracts/mstr-direction-task-v0.schema.json
+src/mstr_qualify/schemas.py
+src/mstr_qualify/cli.py
+tests/contract/test_schemas.py
 tests/fixtures/schemas/valid/mstr-direction-task-v0.json
 tests/fixtures/schemas/invalid/mstr-direction-task-v0.json
 tests/contract/test_direction_task_contract.py
