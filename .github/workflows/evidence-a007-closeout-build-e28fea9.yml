@@ -1,0 +1,90 @@
+name: Build A007 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/a007-closeout-build-e28fea9
+
+permissions:
+  contents: write
+
+env:
+  CANONICAL_MAIN: e28fea9132bc65fc6ba0cfdf13afc645d9fdd441
+  TARGET_BRANCH: docs/000a-a007-canonicalize
+  EXPECTED_TARGET_BEFORE: 6535d4123d43935045ff99cb6366665955542aab
+
+jobs:
+  build_closeout:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/000a-a007-canonicalize
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify exact two-file closeout and materialize canonical task ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_BEFORE"
+          test "$(git rev-parse HEAD^)" = "$CANONICAL_MAIN"
+          mapfile -t existing < <(git diff --name-only "$CANONICAL_MAIN" HEAD | sort)
+          test "${#existing[@]}" -eq 1
+          test "${existing[0]}" = "evidence/mstr-000a/A007-neutral-harness.md"
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("specs/001-agent-harness-verified-loop-foundation/tasks.md")
+          text = path.read_text()
+          old = """- [ ] **A007 Implement H0 neutral-minimal harness.**  \n  Minimum repository read/search, shell, one deterministic edit/apply path, verifier invocation, bounded state.  \n  Outputs: neutral harness profile/config + tests + `evidence/mstr-000a/A007-neutral-harness.md`.\n"""
+          new = """- [x] **A007 Implement H0 neutral-minimal harness.**  \n  Minimum repository read/search, shell, one deterministic edit/apply path, verifier invocation, bounded state.  \n  Outputs: neutral harness profile/config + tests + `evidence/mstr-000a/A007-neutral-harness.md`.  \n  Canonical implementation: PR #98 / final head `65071b8469bc759d0951dc9b853c571013f6c295` / merge `e28fea9132bc65fc6ba0cfdf13afc645d9fdd441`.\n"""
+          if text.count(old) != 1:
+              raise SystemExit("exact A007 task stanza not found exactly once")
+          path.write_text(text.replace(old, new))
+          PY
+          git diff --check
+          mapfile -t working < <(git status --porcelain=v1 --untracked-files=all | sed -E 's/^...//' | sort)
+          test "${#working[@]}" -eq 1
+          test "${working[0]}" = "specs/001-agent-harness-verified-loop-foundation/tasks.md"
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add specs/001-agent-harness-verified-loop-foundation/tasks.md
+          git commit -m "docs(mstr-000a): mark A007 canonical"
+      - name: Run prospective A007 closeout quality and state proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/harness/test_neutral.py tests/security/test_neutral_harness_boundary.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          mapfile -t actual < <(git diff --name-only "$CANONICAL_MAIN" HEAD | sort)
+          expected=(
+            evidence/mstr-000a/A007-neutral-harness.md
+            specs/001-agent-harness-verified-loop-foundation/tasks.md
+          )
+          diff -u <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${actual[@]}" | sort)
+          grep -Fq -- '- [x] **A007 Implement H0 neutral-minimal harness.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -Fq 'Canonical implementation: PR #98 / final head `65071b8469bc759d0951dc9b853c571013f6c295` / merge `e28fea9132bc65fc6ba0cfdf13afc645d9fdd441`.' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -Fq '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A007-neutral-harness.md
+          grep -Fq 'POST_MERGE_VERIFICATION_RUN = 33353512807 / SUCCESS' evidence/mstr-000a/A007-neutral-harness.md
+          grep -Fq -- '- [ ] **A008 Implement H1 MSTR-native typed harness.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          test -z "$(git diff --name-only "$CANONICAL_MAIN" HEAD -- src schemas tests AGENTS.md .specify/memory/constitution.md configs/task-gate)"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+      - name: Push exact A007 closeout candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:$TARGET_BRANCH
+          head="$(git rev-parse HEAD)"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$head"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          echo "A007_CLOSEOUT_HEAD=$head"
+          echo "A007_CLOSEOUT_TREE=$(git rev-parse HEAD^{tree})"
+          echo "A007_CLOSEOUT_FILES=2"
+          echo "EXTERNAL_EFFECT=NONE"
