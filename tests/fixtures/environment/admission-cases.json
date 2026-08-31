@@ -1,0 +1,20 @@
+{
+  "first_attempt_success": {
+    "checker_outcomes": [true],
+    "expected_attempts": 1,
+    "expected_status": "ADMITTED",
+    "max_attempts": 2
+  },
+  "recover_on_second_attempt": {
+    "checker_outcomes": [false, true],
+    "expected_attempts": 2,
+    "expected_status": "ADMITTED",
+    "max_attempts": 2
+  },
+  "reject_after_ceiling": {
+    "checker_outcomes": [false, false],
+    "expected_attempts": 2,
+    "expected_status": "REJECTED",
+    "max_attempts": 2
+  }
+}
