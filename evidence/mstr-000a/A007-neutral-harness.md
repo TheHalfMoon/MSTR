@@ -56,7 +56,7 @@ H0 does not implement model-specific scaffolding, context ranking, stale-safe ed
 
 ## Repository Boundary
 
-Read/search/edit paths are resolved relative to one configured workspace. Absolute paths, parent traversal that resolves outside the workspace, and symlink read/edit targets are rejected. Literal search is deterministic, sorted, bounded by an explicit match ceiling, and skips non-UTF-8 files.
+Read/search/edit paths are resolved relative to one configured workspace. Absolute paths, parent traversal that resolves outside the workspace, non-canonical workspace-relative aliases such as `a/../b`, and symlink read/edit targets are rejected instead of being silently normalized. Literal search is deterministic, sorted, bounded by an explicit match ceiling, and skips non-UTF-8 files.
 
 The shell surface accepts argv only and never uses `shell=True`. The working directory is fixed to the workspace. A command runner can be injected for deterministic testing. A007 does not claim that this minimal shell API is a complete sandbox or environment admission boundary; A011-A014 own those later controls.
 

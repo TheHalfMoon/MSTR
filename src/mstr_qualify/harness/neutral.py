@@ -242,12 +242,17 @@ class NeutralHarness:
             )
         resolved = (self._workspace / requested).resolve(strict=False)
         try:
-            resolved.relative_to(self._workspace)
+            canonical = resolved.relative_to(self._workspace).as_posix()
         except ValueError as exc:
             raise NeutralHarnessError(
                 "repository path escapes the workspace",
                 code="h0.path_outside_workspace",
             ) from exc
+        if requested.as_posix() != canonical:
+            raise NeutralHarnessError(
+                "repository path must use its canonical workspace-relative identity",
+                code="h0.path_not_canonical",
+            )
         return resolved
 
     def _require_state(self, allowed: frozenset[LoopState], operation: str) -> None:

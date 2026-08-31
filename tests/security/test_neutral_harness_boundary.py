@@ -59,6 +59,17 @@ def _ready(tmp_path: Path) -> NeutralHarness:
     return harness
 
 
+def test_repository_path_alias_is_rejected_instead_of_rewritten(tmp_path: Path) -> None:
+    (tmp_path / "value.txt").write_text("value", encoding="utf-8")
+    harness = _ready(tmp_path)
+    harness.transition(LoopState.LOCALIZE)
+
+    with pytest.raises(NeutralHarnessError) as excinfo:
+        harness.read_text("nested/../value.txt")
+
+    assert excinfo.value.code == "h0.path_not_canonical"
+
+
 def test_model_claim_cannot_create_terminal_event_without_verifier_evidence(
     tmp_path: Path,
 ) -> None:
