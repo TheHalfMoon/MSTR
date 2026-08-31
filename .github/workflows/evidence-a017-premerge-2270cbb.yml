@@ -1,0 +1,105 @@
+name: Mandatory premerge A017 verification
+
+on:
+  push:
+    branches:
+      - evidence/a017-premerge-2270cbb
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  admission:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact A017 PR admission
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='0bd69861b987c616e1b9b25ef88a5d14f4762788'
+          HEAD='2270cbbd6a1110e2823679ea3ca2d7b77a92d256'
+          TREE='1e85b48fda0569e4e51e188ae566b2b9674ad2b8'
+          git fetch origin main feat/000a-a017-trajectory-contract --quiet
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/feat/000a-a017-trajectory-contract)" = "$HEAD"
+          test "$(git show -s --format=%T "$HEAD")" = "$TREE"
+          pr="$(gh api repos/TheHalfMoon/MSTR/pulls/120)"
+          test "$(jq -r '.state' <<<"$pr")" = 'open'
+          test "$(jq -r '.merged' <<<"$pr")" = 'false'
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$BASE"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$HEAD"
+          reviews="$(gh api repos/TheHalfMoon/MSTR/pulls/120/reviews)"
+          jq -e '.[] | select(.id == 5071307102 and .state == "COMMENTED" and .commit_id == "2270cbbd6a1110e2823679ea3ca2d7b77a92d256")' <<<"$reviews" >/dev/null
+          qualification="$(gh api repos/TheHalfMoon/MSTR/actions/runs/33440052024)"
+          test "$(jq -r '.conclusion' <<<"$qualification")" = 'success'
+          failure1="$(gh api repos/TheHalfMoon/MSTR/actions/runs/33439438385)"
+          failure2="$(gh api repos/TheHalfMoon/MSTR/actions/runs/33439766350)"
+          test "$(jq -r '.conclusion' <<<"$failure1")" = 'failure'
+          test "$(jq -r '.conclusion' <<<"$failure2")" = 'failure'
+          expected="$(cat <<'EOF'
+          artifacts/manifests/mstr-failure-taxonomy-v0.json
+          evidence/mstr-000a/A017-trajectory-contract.md
+          schemas/mstr-trajectory-manifest-v0.schema.json
+          specs/001-agent-harness-verified-loop-foundation/contracts/trajectory-manifest.schema.json
+          src/mstr_qualify/schemas.py
+          tests/contract/test_schemas.py
+          tests/contract/test_trajectory_contract.py
+          tests/fixtures/schemas/invalid/mstr-trajectory-manifest-v0.json
+          tests/fixtures/schemas/valid/mstr-trajectory-manifest-v0.json
+          tests/integration/test_cli_offline.py
+          EOF
+          )"
+          actual="$(git diff --name-only "$BASE..$HEAD")"
+          test "$actual" = "$expected"
+          git diff --check "$BASE..$HEAD"
+          git show "$HEAD:specs/001-agent-harness-verified-loop-foundation/tasks.md" | grep -F -- '- [ ] **A017 Freeze failure taxonomy and training trajectory contract.**'
+
+  quality:
+    needs: admission
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2270cbbd6a1110e2823679ea3ca2d7b77a92d256
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Run mandatory A017 premerge quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_trajectory_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+
+  complete:
+    needs: quality
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Final immutable A017 premerge recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main feat/000a-a017-trajectory-contract --quiet
+          test "$(git rev-parse origin/main)" = '0bd69861b987c616e1b9b25ef88a5d14f4762788'
+          test "$(git rev-parse origin/feat/000a-a017-trajectory-contract)" = '2270cbbd6a1110e2823679ea3ca2d7b77a92d256'
+          test "$(git show -s --format=%T origin/feat/000a-a017-trajectory-contract)" = '1e85b48fda0569e4e51e188ae566b2b9674ad2b8'
+          pr="$(gh api repos/TheHalfMoon/MSTR/pulls/120)"
+          test "$(jq -r '.state' <<<"$pr")" = 'open'
+          test "$(jq -r '.head.sha' <<<"$pr")" = '2270cbbd6a1110e2823679ea3ca2d7b77a92d256'
