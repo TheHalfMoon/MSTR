@@ -31,6 +31,8 @@ SCHEMA_FILES: Mapping[str, str] = {
     # MSTR-000A A001/A002: loop contract and run-event schemas.
     "mstr-loop-contract-v0": "mstr-loop-contract-v0.schema.json",
     "mstr-run-event-v0": "mstr-run-event-v0.schema.json",
+    # MSTR-000A A010: evidence-derived WePLD routing capability profile.
+    "mstr-capability-profile-v0": "mstr-capability-profile-v0.schema.json",
     # MSTR-000B B001: machine-readable task graph and eligibility result contracts.
     "mstr-task-node-v0": "mstr-task-node-v0.schema.json",
     "mstr-task-eligibility-v0": "mstr-task-eligibility-v0.schema.json",

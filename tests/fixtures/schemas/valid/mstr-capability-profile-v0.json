@@ -1,0 +1,129 @@
+{
+  "context_compaction_strength": {
+    "evidence_refs": [
+      {
+        "artifact_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "evidence_id": "fixture-compaction",
+        "locator": "tests/fixtures/capability/compaction.json",
+        "source_class": "REPOSITORY_FIXTURE"
+      }
+    ],
+    "status": "MEASURED",
+    "value": 0.85
+  },
+  "fim_strength": {
+    "evidence_refs": [],
+    "status": "UNMEASURED",
+    "value": null
+  },
+  "generated_at": "2026-08-31T06:00:00Z",
+  "localization_strength": {
+    "evidence_refs": [],
+    "status": "UNMEASURED",
+    "value": null
+  },
+  "max_repair_depth": {
+    "evidence_refs": [
+      {
+        "artifact_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "evidence_id": "fixture-repair",
+        "locator": "tests/fixtures/capability/repair.json",
+        "source_class": "REPOSITORY_FIXTURE"
+      }
+    ],
+    "status": "MEASURED",
+    "value": 2
+  },
+  "model_artifact_identity": {
+    "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "model_id": "fixture/model",
+    "model_revision": "fixture-rev",
+    "quantization_identity": "fixture-q4",
+    "tokenizer_revision": "fixture-tokenizer-rev"
+  },
+  "notes": [
+    "Repository-owned fixture only; not a real model capability claim."
+  ],
+  "planning_depth": {
+    "evidence_refs": [
+      {
+        "artifact_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "evidence_id": "fixture-plan",
+        "locator": "tests/fixtures/capability/plan.json",
+        "source_class": "REPOSITORY_FIXTURE"
+      }
+    ],
+    "status": "MEASURED",
+    "value": 2
+  },
+  "preferred_edit_arm": {
+    "evidence_refs": [
+      {
+        "artifact_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "evidence_id": "fixture-edit",
+        "locator": "tests/fixtures/capability/edit.json",
+        "source_class": "REPOSITORY_FIXTURE"
+      }
+    ],
+    "status": "MEASURED",
+    "value": "deterministic-anchored-edit"
+  },
+  "profile_evidence_refs": [
+    {
+      "artifact_sha256": null,
+      "evidence_id": "fixture-profile",
+      "locator": "evidence/mstr-000a/A010-capability-profile.md",
+      "source_class": "CANONICAL_DECISION"
+    }
+  ],
+  "profile_id": "fixture-capability-profile-v0",
+  "recommended_verifier_cadence": {
+    "evidence_refs": [
+      {
+        "artifact_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "evidence_id": "fixture-verifier",
+        "locator": "tests/fixtures/capability/verifier.json",
+        "source_class": "REPOSITORY_FIXTURE"
+      }
+    ],
+    "status": "MEASURED",
+    "value": "risk-adaptive"
+  },
+  "reliable_context_budget": {
+    "evidence_refs": [
+      {
+        "artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "evidence_id": "fixture-context",
+        "locator": "tests/fixtures/capability/context.json",
+        "source_class": "REPOSITORY_FIXTURE"
+      }
+    ],
+    "status": "MEASURED",
+    "value": 8192
+  },
+  "schema_version": "mstr.capability-profile.v0",
+  "shell_reliability": {
+    "evidence_refs": [
+      {
+        "artifact_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "evidence_id": "fixture-shell",
+        "locator": "tests/fixtures/capability/shell.json",
+        "source_class": "REPOSITORY_FIXTURE"
+      }
+    ],
+    "status": "MEASURED",
+    "value": 0.9
+  },
+  "tool_call_reliability": {
+    "evidence_refs": [
+      {
+        "artifact_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "evidence_id": "fixture-tool",
+        "locator": "tests/fixtures/capability/tool.json",
+        "source_class": "REPOSITORY_FIXTURE"
+      }
+    ],
+    "status": "MEASURED",
+    "value": 0.95
+  }
+}

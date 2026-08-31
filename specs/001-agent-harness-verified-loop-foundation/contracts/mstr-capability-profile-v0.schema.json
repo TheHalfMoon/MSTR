@@ -1,0 +1,334 @@
+{
+  "$defs": {
+    "evidence_ref": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "locator": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source_class": {
+          "enum": [
+            "MSTR_RUN",
+            "MSTR_RESULT",
+            "REPOSITORY_FIXTURE",
+            "CANONICAL_DECISION"
+          ]
+        }
+      },
+      "required": [
+        "evidence_id",
+        "source_class",
+        "locator",
+        "artifact_sha256"
+      ],
+      "type": "object"
+    },
+    "integer_capability": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/measured_integer"
+        },
+        {
+          "$ref": "#/$defs/unmeasured"
+        }
+      ]
+    },
+    "measured_integer": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "status": {
+          "const": "MEASURED"
+        },
+        "value": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "value",
+        "evidence_refs"
+      ],
+      "type": "object"
+    },
+    "measured_positive_integer": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "status": {
+          "const": "MEASURED"
+        },
+        "value": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "value",
+        "evidence_refs"
+      ],
+      "type": "object"
+    },
+    "measured_ratio": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "status": {
+          "const": "MEASURED"
+        },
+        "value": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "status",
+        "value",
+        "evidence_refs"
+      ],
+      "type": "object"
+    },
+    "measured_string": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "status": {
+          "const": "MEASURED"
+        },
+        "value": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "value",
+        "evidence_refs"
+      ],
+      "type": "object"
+    },
+    "model_artifact_identity": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "model_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "model_revision": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "quantization_identity": {
+          "maxLength": 512,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tokenizer_revision": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "model_id",
+        "model_revision",
+        "artifact_sha256",
+        "tokenizer_revision",
+        "quantization_identity"
+      ],
+      "type": "object"
+    },
+    "positive_integer_capability": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/measured_positive_integer"
+        },
+        {
+          "$ref": "#/$defs/unmeasured"
+        }
+      ]
+    },
+    "ratio_capability": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/measured_ratio"
+        },
+        {
+          "$ref": "#/$defs/unmeasured"
+        }
+      ]
+    },
+    "string_capability": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/measured_string"
+        },
+        {
+          "$ref": "#/$defs/unmeasured"
+        }
+      ]
+    },
+    "unmeasured": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_refs": {
+          "maxItems": 0,
+          "type": "array"
+        },
+        "status": {
+          "const": "UNMEASURED"
+        },
+        "value": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "status",
+        "value",
+        "evidence_refs"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://mstr.local/schemas/mstr-capability-profile-v0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "context_compaction_strength": {
+      "$ref": "#/$defs/ratio_capability"
+    },
+    "fim_strength": {
+      "$ref": "#/$defs/ratio_capability"
+    },
+    "generated_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+      "type": "string"
+    },
+    "localization_strength": {
+      "$ref": "#/$defs/ratio_capability"
+    },
+    "max_repair_depth": {
+      "$ref": "#/$defs/integer_capability"
+    },
+    "model_artifact_identity": {
+      "$ref": "#/$defs/model_artifact_identity"
+    },
+    "notes": {
+      "items": {
+        "maxLength": 1024,
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "planning_depth": {
+      "$ref": "#/$defs/integer_capability"
+    },
+    "preferred_edit_arm": {
+      "$ref": "#/$defs/string_capability"
+    },
+    "profile_evidence_refs": {
+      "items": {
+        "$ref": "#/$defs/evidence_ref"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "profile_id": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
+    "recommended_verifier_cadence": {
+      "$ref": "#/$defs/string_capability"
+    },
+    "reliable_context_budget": {
+      "$ref": "#/$defs/positive_integer_capability"
+    },
+    "schema_version": {
+      "const": "mstr.capability-profile.v0"
+    },
+    "shell_reliability": {
+      "$ref": "#/$defs/ratio_capability"
+    },
+    "tool_call_reliability": {
+      "$ref": "#/$defs/ratio_capability"
+    }
+  },
+  "required": [
+    "schema_version",
+    "profile_id",
+    "model_artifact_identity",
+    "reliable_context_budget",
+    "preferred_edit_arm",
+    "tool_call_reliability",
+    "localization_strength",
+    "planning_depth",
+    "recommended_verifier_cadence",
+    "max_repair_depth",
+    "fim_strength",
+    "shell_reliability",
+    "context_compaction_strength",
+    "profile_evidence_refs",
+    "generated_at",
+    "notes"
+  ],
+  "title": "MSTR Capability Profile v0",
+  "type": "object"
+}
