@@ -1,0 +1,70 @@
+name: Post-closeout proof A016
+
+on:
+  push:
+    branches:
+      - evidence/a016-postcloseout-0bd6986
+
+permissions:
+  contents: read
+
+jobs:
+  identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact A016 closeout merge identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_MAIN='0bd69861b987c616e1b9b25ef88a5d14f4762788'
+          EXPECTED_TREE='e598af317949b1ced6a8871e4359f95d5257ba93'
+          EXPECTED_PARENT1='3e247d9b89dabce1bcbdfcf1799face3d583d4a4'
+          EXPECTED_PARENT2='c5efe4d6b2c8f0edcd75fd14f61f000f48c7a1e4'
+          git fetch origin main --quiet
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git show -s --format=%T "$EXPECTED_MAIN")" = "$EXPECTED_TREE"
+          test "$(git show -s --format=%P "$EXPECTED_MAIN")" = "$EXPECTED_PARENT1 $EXPECTED_PARENT2"
+          git show "$EXPECTED_MAIN:specs/001-agent-harness-verified-loop-foundation/tasks.md" | grep -F -- '- [x] **A016 Implement DVCR/TTVC + diagnostic metric computation.**'
+          git show "$EXPECTED_MAIN:specs/001-agent-harness-verified-loop-foundation/tasks.md" | grep -F -- '- [ ] **A017 Freeze failure taxonomy and training trajectory contract.**'
+          git show "$EXPECTED_MAIN:evidence/mstr-000a/A016-metrics.md" | grep -F '**State:** COMPLETE_CANONICAL'
+          git show "$EXPECTED_MAIN:evidence/mstr-000a/A016-metrics.md" | grep -F '33434283002 = SUCCESS'
+          git show "$EXPECTED_MAIN:evidence/mstr-000a/A016-metrics.md" | grep -F '3e247d9b89dabce1bcbdfcf1799face3d583d4a4'
+
+  quality:
+    needs: identity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0bd69861b987c616e1b9b25ef88a5d14f4762788
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Run frozen repository quality gates on canonical A016 closeout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+
+  complete:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Final immutable A016 post-closeout recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          test "$(git rev-parse origin/main)" = '0bd69861b987c616e1b9b25ef88a5d14f4762788'
+          test "$(git show -s --format=%T origin/main)" = 'e598af317949b1ced6a8871e4359f95d5257ba93'
