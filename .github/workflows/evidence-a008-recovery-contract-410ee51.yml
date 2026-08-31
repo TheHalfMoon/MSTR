@@ -1,0 +1,80 @@
+name: Reconcile A008 recovery contract
+
+on:
+  push:
+    branches:
+      - evidence/a008-recovery-contract-410ee51
+
+permissions:
+  contents: write
+
+env:
+  TARGET_BRANCH: feat/000a-a008-native-harness
+  EXPECTED_BEFORE: 410ee515abaa1354e57e3b15578dae964e74a116
+  CANONICAL_MAIN: f1e94e9c754e89a3584a391841599c05ed050d3e
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/000a-a008-native-harness
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Reconcile recovery semantics and regression coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_BEFORE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          python - <<'PY'
+          from pathlib import Path
+
+          native = Path("src/mstr_qualify/harness/native.py")
+          text = native.read_text()
+          old = '"recovery is required before another mutating/tool action"'
+          new = '"recovery is required before another mutating action"'
+          if text.count(old) != 1:
+              raise SystemExit("recovery error text not found exactly once")
+          native.write_text(text.replace(old, new))
+
+          evidence = Path("evidence/mstr-000a/A008-mstr-harness.md")
+          text = evidence.read_text()
+          old = "The candidate counts consecutive failed tool/edit/verifier outcomes. At the configured threshold, another mutating/tool action is rejected until a recovery step records failure evidence and consumes the shared repair budget. Recovery remains inside the A005 state graph and does not create success authority."
+          new = "The candidate counts consecutive failed shell/edit/verifier outcomes. At the configured threshold, another mutating shell/edit action is rejected until a recovery step records failure evidence and consumes the shared repair budget. Diagnostic read/search/context selection and verifier observation remain available so recovery evidence can be gathered. Recovery remains inside the A005 state graph and does not create success authority."
+          if text.count(old) != 1:
+              raise SystemExit("recovery evidence paragraph not found exactly once")
+          evidence.write_text(text.replace(old, new))
+
+          tests = Path("tests/unit/harness/test_native.py")
+          text = tests.read_text()
+          marker = "\ndef test_compact_state_uses_a004_fail_closed_compaction(tmp_path: Path) -> None:\n"
+          insertion = '''\ndef test_recovery_threshold_preserves_diagnostic_read_access(tmp_path: Path) -> None:\n    (tmp_path / "diagnostic.txt").write_text("evidence", encoding="utf-8")\n\n    def runner(argv: tuple[str, ...], cwd: Path, timeout: float) -> CommandResult:\n        del cwd, timeout\n        return CommandResult(argv, 1, "", "failed")\n\n    harness = _harness(\n        tmp_path,\n        command_runner=runner,\n        recovery_cadence=RecoveryCadence(max_consecutive_failures=1),\n    )\n    harness.admit_goal("recover", acceptance_criteria=("collect evidence",))\n    harness.transition(LoopState.ACT)\n    harness.run_shell_typed(ShellRequest(("false",)))\n    assert harness.recovery_required is True\n\n    harness.transition(LoopState.OBSERVE)\n    observed = harness.read_typed(ReadRequest("diagnostic.txt"))\n\n    assert observed.content == "evidence"\n    assert harness.recovery_required is True\n\n'''
+          if text.count(marker) != 1:
+              raise SystemExit("native unit-test insertion point not found exactly once")
+          tests.write_text(text.replace(marker, insertion + marker))
+          PY
+          git diff --check
+      - name: Run focused recovery-contract gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/harness/test_native.py tests/security/test_native_harness_boundary.py
+          ruff check src/mstr_qualify/harness/native.py tests/unit/harness/test_native.py tests/security/test_native_harness_boundary.py
+          mypy src/mstr_qualify/harness/native.py
+      - name: Push reconciled A008 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add src/mstr_qualify/harness/native.py tests/unit/harness/test_native.py evidence/mstr-000a/A008-mstr-harness.md
+          git commit -m "fix(mstr-000a): reconcile A008 recovery semantics"
+          git push origin HEAD:$TARGET_BRANCH
+          echo "A008_RECONCILED_HEAD=$(git rev-parse HEAD)"
+          echo "A008_RECONCILED_TREE=$(git rev-parse HEAD^{tree})"
