@@ -102,7 +102,7 @@ This reconciliation does not infer completion for A005+ and grants no external-e
   Outputs: environment module + integration tests + `evidence/mstr-000a/A012-environment-reset.md`.
   Canonical implementation: PR #109 / final head `b75397999f8b84ab5abbfe0ef1614af99705864c` / merge `95a9014de72bd31e6763a2323c31a25a42974302`; post-merge proof run `33411593331` = `SUCCESS`.
 
-- [x] **A013 Implement bounded environment bootstrap/admission loop.**  
+- [x] **A013 Implement bounded environment bootstrap/admission loop.**
   Stage A defines health targets; Stage B attempts setup from clean state; independent checker verifies targets; repeated failure rejects the environment.  
   Outputs: admission module, fixtures, `evidence/mstr-000a/A013-autoinstall-admission.md`.
   Canonical implementation: PR #112 / final head `a4c67bc06e7174e58ee71a6a36727cea7658e8d8` / merge `1f22a4d91c1874cd18454e63cc87d92e18f9e14a`; post-merge proof run `33417713420` = `SUCCESS`.
