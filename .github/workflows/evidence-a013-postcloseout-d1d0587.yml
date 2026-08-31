@@ -1,0 +1,97 @@
+name: Post-closeout A013 canonical proof
+
+on:
+  push:
+    branches:
+      - evidence/a013-postcloseout-d1d0587
+
+permissions:
+  contents: read
+
+env:
+  PREVIOUS_MAIN: 1f22a4d91c1874cd18454e63cc87d92e18f9e14a
+  CLOSEOUT_HEAD: fcf2fe9caa2e3ee8055f0efaa4ad105236e71eec
+  MERGE_SHA: d1d0587aac1bbe1daf32f899810a20a519c31f5d
+  MERGE_TREE: 68a3f5871f7b33136e5de78c5038d09cbcba583d
+  CLOSEOUT_QUALIFICATION: "33418356121"
+  CLOSEOUT_PREMERGE: "33418630350"
+  FAILED_CLOSEOUT_QUALIFICATION: "33418142861"
+
+jobs:
+  identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Prove exact canonical A013 closeout merge
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          mapfile -t parents < <(git show -s --format=%P "$MERGE_SHA" | tr ' ' '\n')
+          test "${#parents[@]}" -eq 2
+          test "${parents[0]}" = "$PREVIOUS_MAIN"
+          test "${parents[1]}" = "$CLOSEOUT_HEAD"
+          test "$(git rev-parse "$CLOSEOUT_HEAD^{tree}")" = "$MERGE_TREE"
+          grep -F -- '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- 'A013_STATE = COMPLETE_CANONICAL_CANDIDATE' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- 'A014_STATE = PENDING' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- 'INITIAL_CLOSEOUT_QUALIFICATION = 33418142861 / FAILURE / IDENTITY_SCOPE_BEFORE_QUALITY / SUPERSEDED_AFTER_CHECKLIST_FORMATTING_REPAIR' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- 'A013_CANONICAL_EXECUTION_PROFILE = LOCAL_CONTROLLED_FIXTURES_ONLY' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- 'REAL_ENVIRONMENT_ADMISSION = PROHIBITED_PENDING_A014_AND_REMAINING_ENVIRONMENT_GATES' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- 'TERMINAL_SUCCESS_AUTHORITY = A006_PROTECTED_FINALIZER' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- '- [x] **A013 Implement bounded environment bootstrap/admission loop.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A014 Implement verifier runner + reward-shortcut battery.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          qualification_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$CLOSEOUT_QUALIFICATION")"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$qualification_json"
+          premerge_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$CLOSEOUT_PREMERGE")"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$premerge_json"
+          failed_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$FAILED_CLOSEOUT_QUALIFICATION")"
+          jq -e '.status == "completed" and .conclusion == "failure"' <<<"$failed_json"
+          git diff --check "$PREVIOUS_MAIN" "$MERGE_SHA"
+
+  quality:
+    needs: identity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Re-prove canonical A013 closeout quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [identity, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Final immutable canonical A013 recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          grep -F -- '- [x] **A013 Implement bounded environment bootstrap/admission loop.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A014 Implement verifier runner + reward-shortcut battery.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
