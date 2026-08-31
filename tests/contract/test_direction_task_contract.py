@@ -6,6 +6,9 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
+from mstr_qualify.cli import run_validate
+from mstr_qualify.schemas import SCHEMA_FILES, validate_instance
+
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / "schemas/mstr-direction-task-v0.schema.json"
 DESIGN_SCHEMA = (
@@ -41,6 +44,21 @@ def _fixture() -> dict[str, object]:
 
 def _errors(value: object) -> list[object]:
     return list(Draft202012Validator(_schema()).iter_errors(value))
+
+
+def test_a015_is_registered_as_first_class_offline_schema() -> None:
+    assert SCHEMA_FILES["mstr-direction-task-v0"] == "mstr-direction-task-v0.schema.json"
+    validate_instance("mstr-direction-task-v0", _fixture())
+
+
+def test_a015_cli_auto_detects_valid_and_invalid_direction_task_files() -> None:
+    valid_code, valid_payload = run_validate([VALID])
+    invalid_code, invalid_payload = run_validate([INVALID])
+    assert valid_code == 0
+    assert valid_payload["status"] == "pass"
+    assert valid_payload["files"][0]["schema_version"] == "mstr.direction-task.v0"
+    assert invalid_code == 1
+    assert invalid_payload["status"] == "fail"
 
 
 def test_a015_runtime_schema_matches_design_source_byte_for_byte() -> None:
