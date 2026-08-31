@@ -1,7 +1,7 @@
 # A013 — Bounded Environment Bootstrap / Admission Loop
 
 **Task:** `MSTR-000A / A013`
-**State:** `IMPLEMENTATION_CANDIDATE`
+**State:** `COMPLETE_CANONICAL`
 **Canonical base:** `f82eb0c4c78080792ff9ca84f07690e4a972a3f8`
 
 ## Entry decision
@@ -72,6 +72,24 @@ TERMINAL_SUCCESS_AUTHORITY = A006_PROTECTED_FINALIZER
 
 The implementation-readiness checklist still requires the reward-shortcut battery and the remaining environment-execution gates before any real environment execution/admission. A014 remains independently gated and is not made complete by A013.
 
-## Required qualification
+> This terminal state is a closeout candidate until the dedicated closeout PR is itself qualified, independently reviewed, mandatory-premerge verified, guarded-merged, and post-closeout verified on canonical `main`.
 
-This candidate is not canonical until current exact-head hosted qualification, independent review, mandatory premerge verification, guarded expected-head merge, post-merge proof, canonical closeout, and post-closeout proof succeed. Failed or superseded runs remain evidence and must not be rewritten as passing.
+## Canonical lifecycle evidence
+
+```text
+CANONICAL_IMPLEMENTATION_BASE = f82eb0c4c78080792ff9ca84f07690e4a972a3f8
+FINAL_IMPLEMENTATION_HEAD = a4c67bc06e7174e58ee71a6a36727cea7658e8d8
+FINAL_IMPLEMENTATION_TREE = e2abf8332c6149b0d3fac5ed82e7a494f5068783
+FINAL_EXACT_HEAD_QUALIFICATION = 33415696480 / SUCCESS
+EXACT_HEAD_REVIEW = 5069078478 / COMMENTED / NO_BLOCKING_FINDING
+UNRESOLVED_REVIEW_THREADS = 0
+MANDATORY_PREMERGE = 33417468208 / SUCCESS
+IMPLEMENTATION_PR = 112
+IMPLEMENTATION_MERGE = 1f22a4d91c1874cd18454e63cc87d92e18f9e14a
+IMPLEMENTATION_MERGE_TREE = e2abf8332c6149b0d3fac5ed82e7a494f5068783
+POST_MERGE_VERIFICATION_RUN = 33417713420 / SUCCESS
+A013_STATE = COMPLETE_CANONICAL_CANDIDATE
+A014_STATE = PENDING
+```
+
+The exact implementation head was qualified before PR creation, independently reviewed on that immutable head, mandatory-premerge verified, guarded-merged with the expected head SHA, and then re-proven on canonical `main`. This closeout does not widen A013 beyond the repository-controlled local-fixture boundary and grants no A014, real-environment, network, secret, model, model-weight, paid-compute, large-dataset, weight-changing-training, or production-release authority. A006 remains the protected terminal-success authority, and A014 remains independently gated.
