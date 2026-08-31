@@ -1,0 +1,78 @@
+name: Verify A008 post-merge canonical build
+
+on:
+  push:
+    branches:
+      - evidence/a008-postmerge-d6a2c83
+
+permissions:
+  contents: read
+
+env:
+  MERGE_SHA: d6a2c83227be09b8cd37f62de0d8e841eba9854d
+  BASE_SHA: f1e94e9c754e89a3584a391841599c05ed050d3e
+  CANDIDATE_SHA: 79af1ad6c68bbd6026037e49851428be4e650e5c
+  EXPECTED_TREE: 7db8903dbea76655dc529a33bd32624e18a5dbf6
+
+jobs:
+  identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d6a2c83227be09b8cd37f62de0d8e841eba9854d
+          fetch-depth: 0
+      - name: Verify canonical A008 merge identity and tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          read -r commit parent1 parent2 < <(git rev-list --parents -n 1 HEAD)
+          test "$commit" = "$MERGE_SHA"
+          test "$parent1" = "$BASE_SHA"
+          test "$parent2" = "$CANDIDATE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          grep -Fq -- '- [ ] **A008 Implement H1 MSTR-native typed harness.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d6a2c83227be09b8cd37f62de0d8e841eba9854d
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-prove A008 canonical merge quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/harness/test_native.py tests/security/test_native_harness_boundary.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+
+  complete:
+    needs: [identity, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d6a2c83227be09b8cd37f62de0d8e841eba9854d
+          fetch-depth: 0
+      - name: Record A008 post-merge proof boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          echo "A008_IMPLEMENTATION_POST_MERGE=SUCCESS"
+          echo "A008_COMPLETE_CANONICAL=NO"
+          echo "NEXT_REQUIRED=A008_CLOSEOUT"
+          echo "EXTERNAL_EFFECT=NONE"
