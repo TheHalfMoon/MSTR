@@ -1,0 +1,90 @@
+name: Qualify A014 verifier shortcut battery v4
+
+on:
+  push:
+    branches:
+      - evidence/a014-qualify4-3c61c9f
+
+permissions:
+  contents: read
+
+env:
+  BASE_SHA: d1d0587aac1bbe1daf32f899810a20a519c31f5d
+  TARGET_SHA: 3c61c9f792027d36c20cdf5ad921eca29ce3f6de
+  TARGET_TREE: 8e3c960f5452842cb359d4b9a9ed1c1c34cdc45f
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - name: Verify exact A014 identity and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$BASE_SHA" "$TARGET_SHA")" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          mapfile -t files < <(git diff --name-only "$BASE_SHA" "$TARGET_SHA" | sort)
+          expected=(
+            evidence/mstr-000a/A014-verifier-shortcuts.md
+            src/mstr_qualify/verifier/__init__.py
+            src/mstr_qualify/verifier/runner.py
+            tests/integration/test_verifier_runner.py
+            tests/security/test_verifier_shortcuts.py
+          )
+          test "${#files[@]}" -eq "${#expected[@]}"
+          for i in "${!expected[@]}"; do
+            test "${files[$i]}" = "${expected[$i]}"
+          done
+          grep -F -- '**State:** `IMPLEMENTATION_CANDIDATE`' evidence/mstr-000a/A014-verifier-shortcuts.md
+          grep -F -- 'TERMINAL_SUCCESS_AUTHORITY = A006_PROTECTED_FINALIZER' evidence/mstr-000a/A014-verifier-shortcuts.md
+          grep -F -- 'A014_OUTPUT = VERIFIER_EVIDENCE_ONLY' evidence/mstr-000a/A014-verifier-shortcuts.md
+          grep -F -- 'a rejection caused by an unrelated error does not satisfy the declared shortcut class' evidence/mstr-000a/A014-verifier-shortcuts.md
+          grep -F -- '- [ ] **A014 Implement verifier runner + reward-shortcut battery.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A015 Freeze `DirectionTaskManifest` and MSTR Direction-to-Done v0 task taxonomy.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          git diff --check "$BASE_SHA" "$TARGET_SHA"
+
+  quality:
+    needs: identity_scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run A014 focused and repository quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/integration/test_verifier_runner.py tests/security/test_verifier_shortcuts.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [identity_scope, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - name: Final immutable A014 recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/feat/000a-a014-verifier-shortcut-battery | cut -f1)" = "$TARGET_SHA"
