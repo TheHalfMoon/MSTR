@@ -1,7 +1,7 @@
 # A014 — Verifier Runner + Reward-Shortcut Battery
 
-**Task:** `MSTR-000A / A014`  
-**State:** `IMPLEMENTATION_CANDIDATE`  
+**Task:** `MSTR-000A / A014`
+**State:** `IMPLEMENTATION_CANDIDATE`
 **Canonical base:** `d1d0587aac1bbe1daf32f899810a20a519c31f5d`
 
 ## Entry decision
