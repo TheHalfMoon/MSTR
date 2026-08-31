@@ -1,0 +1,90 @@
+name: Qualify A013 bounded environment admission
+
+on:
+  push:
+    branches:
+      - evidence/a013-qualify-a4c67bc
+
+permissions:
+  contents: read
+
+env:
+  BASE_SHA: f82eb0c4c78080792ff9ca84f07690e4a972a3f8
+  TARGET_SHA: a4c67bc06e7174e58ee71a6a36727cea7658e8d8
+  TARGET_TREE: e2abf8332c6149b0d3fac5ed82e7a494f5068783
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - name: Verify exact A013 identity and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$BASE_SHA" "$TARGET_SHA")" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          mapfile -t files < <(git diff --name-only "$BASE_SHA" "$TARGET_SHA" | sort)
+          expected=(
+            evidence/mstr-000a/A013-autoinstall-admission.md
+            src/mstr_qualify/environment/__init__.py
+            src/mstr_qualify/environment/admission.py
+            tests/fixtures/environment/admission-cases.json
+            tests/integration/test_environment_admission.py
+            tests/security/test_environment_admission_boundary.py
+          )
+          test "${#files[@]}" -eq "${#expected[@]}"
+          for i in "${!expected[@]}"; do
+            test "${files[$i]}" = "${expected[$i]}"
+          done
+          grep -F -- '**State:** `IMPLEMENTATION_CANDIDATE`' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- 'A013_CANONICAL_EXECUTION_PROFILE = LOCAL_CONTROLLED_FIXTURES_ONLY' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- 'REAL_ENVIRONMENT_ADMISSION = PROHIBITED_PENDING_A014_AND_REMAINING_ENVIRONMENT_GATES' evidence/mstr-000a/A013-autoinstall-admission.md
+          grep -F -- '- [ ] **A013 Implement bounded environment bootstrap/admission loop.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A014 Implement verifier runner + reward-shortcut battery.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          git diff --check "$BASE_SHA" "$TARGET_SHA"
+
+  quality:
+    needs: identity_scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run A013 focused and repository quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/integration/test_environment_admission.py tests/security/test_environment_admission_boundary.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [identity_scope, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - name: Final immutable A013 recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/feat/000a-a013-bounded-environment-admission | cut -f1)" = "$TARGET_SHA"
