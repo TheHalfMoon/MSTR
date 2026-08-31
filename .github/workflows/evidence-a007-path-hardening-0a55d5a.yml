@@ -1,0 +1,78 @@
+name: Apply A007 canonical path hardening
+
+on:
+  push:
+    branches:
+      - evidence/a007-path-hardening-0a55d5a
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_HEAD: 0a55d5af972f51109c09dbad6d8cb5a373be0fbe
+  TARGET_BRANCH: feat/000a-a007-neutral-harness
+
+jobs:
+  harden:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/000a-a007-neutral-harness
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Apply canonical-or-reject path identity repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path("src/mstr_qualify/harness/neutral.py")
+          text = source.read_text()
+          old = '''        try:\n            resolved.relative_to(self._workspace)\n        except ValueError as exc:\n            raise NeutralHarnessError(\n                "repository path escapes the workspace",\n                code="h0.path_outside_workspace",\n            ) from exc\n        return resolved\n'''
+          new = '''        try:\n            canonical = resolved.relative_to(self._workspace).as_posix()\n        except ValueError as exc:\n            raise NeutralHarnessError(\n                "repository path escapes the workspace",\n                code="h0.path_outside_workspace",\n            ) from exc\n        if requested.as_posix() != canonical:\n            raise NeutralHarnessError(\n                "repository path must use its canonical workspace-relative identity",\n                code="h0.path_not_canonical",\n            )\n        return resolved\n'''
+          if text.count(old) != 1:
+              raise SystemExit("source repair target not found exactly once")
+          source.write_text(text.replace(old, new))
+
+          test_path = Path("tests/security/test_neutral_harness_boundary.py")
+          test_text = test_path.read_text()
+          marker = '''def test_model_claim_cannot_create_terminal_event_without_verifier_evidence(\n'''
+          regression = '''def test_repository_path_alias_is_rejected_instead_of_rewritten(tmp_path: Path) -> None:\n    (tmp_path / "value.txt").write_text("value", encoding="utf-8")\n    harness = _ready(tmp_path)\n    harness.transition(LoopState.LOCALIZE)\n\n    with pytest.raises(NeutralHarnessError) as excinfo:\n        harness.read_text("nested/../value.txt")\n\n    assert excinfo.value.code == "h0.path_not_canonical"\n\n\n'''
+          if test_text.count(marker) != 1 or regression in test_text:
+              raise SystemExit("security regression insertion target invalid")
+          test_path.write_text(test_text.replace(marker, regression + marker))
+
+          evidence = Path("evidence/mstr-000a/A007-neutral-harness.md")
+          evidence_text = evidence.read_text()
+          old_evidence = "Absolute paths, parent traversal that resolves outside the workspace, and symlink read/edit targets are rejected."
+          new_evidence = "Absolute paths, parent traversal that resolves outside the workspace, non-canonical workspace-relative aliases such as `a/../b`, and symlink read/edit targets are rejected instead of being silently normalized."
+          if evidence_text.count(old_evidence) != 1:
+              raise SystemExit("evidence repair target not found exactly once")
+          evidence.write_text(evidence_text.replace(old_evidence, new_evidence))
+          PY
+          git diff --check
+          mapfile -t changed < <(git diff --name-only | sort)
+          expected=(
+            evidence/mstr-000a/A007-neutral-harness.md
+            src/mstr_qualify/harness/neutral.py
+            tests/security/test_neutral_harness_boundary.py
+          )
+          diff -u <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${changed[@]}" | sort)
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/harness/test_neutral.py tests/security/test_neutral_harness_boundary.py
+          ruff check src tests
+      - name: Push exact A007 hardening commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add evidence/mstr-000a/A007-neutral-harness.md src/mstr_qualify/harness/neutral.py tests/security/test_neutral_harness_boundary.py
+          git commit -m "fix(mstr-000a): reject noncanonical H0 paths"
+          git push origin HEAD:$TARGET_BRANCH
+          echo "A007_HARDENED_HEAD=$(git rev-parse HEAD)"
