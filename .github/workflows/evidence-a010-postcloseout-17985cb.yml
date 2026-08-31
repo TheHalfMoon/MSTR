@@ -1,0 +1,73 @@
+name: Post-closeout proof A010
+
+on:
+  push:
+    branches:
+      - evidence/a010-postcloseout-17985cb
+
+permissions:
+  contents: read
+
+env:
+  CANONICAL_CLOSEOUT_MERGE: 17985cb7176bb99df6139c1d3fbc23c6de4e3bf0
+  CLOSEOUT_TREE: 47829bdc2f0fd7ff37a15f89822132b15b952535
+  PARENT_IMPLEMENTATION_MERGE: ffbcbd9b43562302136f8fc2d1478ee4abfb180a
+  PARENT_CLOSEOUT_HEAD: 860dbb6f89855680e61bdac4bff350444256074a
+
+jobs:
+  canonical_identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANONICAL_CLOSEOUT_MERGE }}
+          fetch-depth: 0
+      - name: Verify canonical closeout identity and frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_CLOSEOUT_MERGE"
+          test "$(git rev-parse HEAD^{tree})" = "$CLOSEOUT_TREE"
+          test "$(git rev-parse HEAD^1)" = "$PARENT_IMPLEMENTATION_MERGE"
+          test "$(git rev-parse HEAD^2)" = "$PARENT_CLOSEOUT_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_CLOSEOUT_MERGE"
+          grep -F -- '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A010-capability-profile.md
+          grep -F -- '- [x] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+  quality:
+    needs: canonical_identity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANONICAL_CLOSEOUT_MERGE }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run canonical post-closeout gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+  complete:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANONICAL_CLOSEOUT_MERGE }}
+          fetch-depth: 0
+      - name: Final immutable A010 frontier recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_CLOSEOUT_MERGE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_CLOSEOUT_MERGE"
+          grep -F -- '- [x] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
