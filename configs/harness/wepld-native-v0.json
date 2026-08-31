@@ -1,0 +1,41 @@
+{
+  "profile_id": "mstr.harness.h2-wepld-native.v0",
+  "harness_class": "H2",
+  "purpose": "Portable WePLD state adapter over the canonical H1 MSTR harness",
+  "extends": "mstr.harness.h1-native.v0",
+  "adapter_contract": "mstr.wepld-adapter.v0",
+  "wepld_runtime_dependency": false,
+  "input_sections": [
+    "goal",
+    "spec",
+    "task",
+    "effects",
+    "verifier"
+  ],
+  "mapping_policy": {
+    "goal_direction": "MSTR goal",
+    "goal_spec_task_acceptance": "MSTR acceptance criteria",
+    "goal_spec_task_constraints": "MSTR constraints",
+    "goal_non_goals": "MSTR non-goals",
+    "effect_envelope": "EXACT_MATCH_ACTIVE_MSTR_ENVELOPE",
+    "required_verifiers": "EXACT_MATCH_ACTIVE_MSTR_SET"
+  },
+  "authority_policy": {
+    "wepld_can_expand_effect_envelope": false,
+    "wepld_can_change_required_verifier_set": false,
+    "wepld_can_author_canonical_success": false,
+    "canonical_success": "A006 protected finalizer only"
+  },
+  "shared_authority": {
+    "loop_contract": "mstr.loop-contract.v0",
+    "event_contract": "mstr.run-event.v0",
+    "h1_profile": "mstr.harness.h1-native.v0"
+  },
+  "execution_boundary": {
+    "model_access": false,
+    "model_execution": false,
+    "network_authority_granted": false,
+    "training_authority_granted": false,
+    "paid_compute_authority_granted": false
+  }
+}
