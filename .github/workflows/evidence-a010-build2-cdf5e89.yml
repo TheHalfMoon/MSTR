@@ -1,0 +1,274 @@
+name: Build A010 capability profile candidate v2
+
+on:
+  push:
+    branches:
+      - evidence/a010-build2-cdf5e89
+
+permissions:
+  contents: write
+
+env:
+  CANONICAL_MAIN: cdf5e89886919a05173a2921c03d213ee5992126
+  TARGET_BRANCH: feat/000a-a010-capability-profile
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANONICAL_MAIN }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify immutable entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          if git ls-remote --exit-code --heads origin "refs/heads/$TARGET_BRANCH" >/dev/null 2>&1; then
+            echo "target branch already exists" >&2
+            exit 1
+          fi
+          grep -F -- '- [x] **A009 Implement H2 WePLD-native adapter.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+      - name: Materialize A010
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -b "$TARGET_BRANCH"
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          def obj(properties, required):
+              return {"type": "object", "additionalProperties": False, "properties": properties, "required": required}
+
+          evidence_ref = obj(
+              {
+                  "evidence_id": {"type": "string", "minLength": 1, "maxLength": 512},
+                  "source_class": {"enum": ["MSTR_RUN", "MSTR_RESULT", "REPOSITORY_FIXTURE", "CANONICAL_DECISION"]},
+                  "locator": {"type": "string", "minLength": 1, "maxLength": 1024},
+                  "artifact_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+              },
+              ["evidence_id", "source_class", "locator", "artifact_sha256"],
+          )
+          unmeasured = obj(
+              {
+                  "status": {"const": "UNMEASURED"},
+                  "value": {"type": "null"},
+                  "evidence_refs": {"type": "array", "maxItems": 0},
+              },
+              ["status", "value", "evidence_refs"],
+          )
+
+          def measured(value_schema):
+              return obj(
+                  {
+                      "status": {"const": "MEASURED"},
+                      "value": value_schema,
+                      "evidence_refs": {
+                          "type": "array",
+                          "minItems": 1,
+                          "uniqueItems": True,
+                          "items": {"$ref": "#/$defs/evidence_ref"},
+                      },
+                  },
+                  ["status", "value", "evidence_refs"],
+              )
+
+          defs = {
+              "evidence_ref": evidence_ref,
+              "unmeasured": unmeasured,
+              "measured_positive_integer": measured({"type": "integer", "minimum": 1}),
+              "measured_integer": measured({"type": "integer", "minimum": 0}),
+              "measured_ratio": measured({"type": "number", "minimum": 0, "maximum": 1}),
+              "measured_string": measured({"type": "string", "minLength": 1, "maxLength": 512}),
+          }
+          defs["positive_integer_capability"] = {"oneOf": [{"$ref": "#/$defs/measured_positive_integer"}, {"$ref": "#/$defs/unmeasured"}]}
+          defs["integer_capability"] = {"oneOf": [{"$ref": "#/$defs/measured_integer"}, {"$ref": "#/$defs/unmeasured"}]}
+          defs["ratio_capability"] = {"oneOf": [{"$ref": "#/$defs/measured_ratio"}, {"$ref": "#/$defs/unmeasured"}]}
+          defs["string_capability"] = {"oneOf": [{"$ref": "#/$defs/measured_string"}, {"$ref": "#/$defs/unmeasured"}]}
+          defs["model_artifact_identity"] = obj(
+              {
+                  "model_id": {"type": "string", "minLength": 1, "maxLength": 512},
+                  "model_revision": {"type": "string", "minLength": 1, "maxLength": 512},
+                  "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                  "tokenizer_revision": {"type": "string", "minLength": 1, "maxLength": 512},
+                  "quantization_identity": {"type": ["string", "null"], "maxLength": 512},
+              },
+              ["model_id", "model_revision", "artifact_sha256", "tokenizer_revision", "quantization_identity"],
+          )
+          props = {
+              "schema_version": {"const": "mstr.capability-profile.v0"},
+              "profile_id": {"type": "string", "minLength": 1, "maxLength": 512},
+              "model_artifact_identity": {"$ref": "#/$defs/model_artifact_identity"},
+              "reliable_context_budget": {"$ref": "#/$defs/positive_integer_capability"},
+              "preferred_edit_arm": {"$ref": "#/$defs/string_capability"},
+              "tool_call_reliability": {"$ref": "#/$defs/ratio_capability"},
+              "localization_strength": {"$ref": "#/$defs/ratio_capability"},
+              "planning_depth": {"$ref": "#/$defs/integer_capability"},
+              "recommended_verifier_cadence": {"$ref": "#/$defs/string_capability"},
+              "max_repair_depth": {"$ref": "#/$defs/integer_capability"},
+              "fim_strength": {"$ref": "#/$defs/ratio_capability"},
+              "shell_reliability": {"$ref": "#/$defs/ratio_capability"},
+              "context_compaction_strength": {"$ref": "#/$defs/ratio_capability"},
+              "profile_evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"$ref": "#/$defs/evidence_ref"}},
+              "generated_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"},
+              "notes": {"type": "array", "uniqueItems": True, "items": {"type": "string", "minLength": 1, "maxLength": 1024}},
+          }
+          required = [
+              "schema_version", "profile_id", "model_artifact_identity", "reliable_context_budget",
+              "preferred_edit_arm", "tool_call_reliability", "localization_strength", "planning_depth",
+              "recommended_verifier_cadence", "max_repair_depth", "fim_strength", "shell_reliability",
+              "context_compaction_strength", "profile_evidence_refs", "generated_at", "notes",
+          ]
+          schema = {
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "$id": "https://mstr.local/schemas/mstr-capability-profile-v0.json",
+              "title": "MSTR Capability Profile v0",
+              "$defs": defs,
+              **obj(props, required),
+          }
+
+          def er(eid, locator, sha):
+              return {"evidence_id": eid, "source_class": "REPOSITORY_FIXTURE", "locator": locator, "artifact_sha256": sha}
+
+          valid = {
+              "schema_version": "mstr.capability-profile.v0",
+              "profile_id": "fixture-capability-profile-v0",
+              "model_artifact_identity": {
+                  "model_id": "fixture/model",
+                  "model_revision": "fixture-rev",
+                  "artifact_sha256": "a" * 64,
+                  "tokenizer_revision": "fixture-tokenizer-rev",
+                  "quantization_identity": "fixture-q4",
+              },
+              "reliable_context_budget": {"status": "MEASURED", "value": 8192, "evidence_refs": [er("fixture-context", "tests/fixtures/capability/context.json", "b" * 64)]},
+              "preferred_edit_arm": {"status": "MEASURED", "value": "deterministic-anchored-edit", "evidence_refs": [er("fixture-edit", "tests/fixtures/capability/edit.json", "c" * 64)]},
+              "tool_call_reliability": {"status": "MEASURED", "value": 0.95, "evidence_refs": [er("fixture-tool", "tests/fixtures/capability/tool.json", "d" * 64)]},
+              "localization_strength": {"status": "UNMEASURED", "value": None, "evidence_refs": []},
+              "planning_depth": {"status": "MEASURED", "value": 2, "evidence_refs": [er("fixture-plan", "tests/fixtures/capability/plan.json", "e" * 64)]},
+              "recommended_verifier_cadence": {"status": "MEASURED", "value": "risk-adaptive", "evidence_refs": [er("fixture-verifier", "tests/fixtures/capability/verifier.json", "f" * 64)]},
+              "max_repair_depth": {"status": "MEASURED", "value": 2, "evidence_refs": [er("fixture-repair", "tests/fixtures/capability/repair.json", "1" * 64)]},
+              "fim_strength": {"status": "UNMEASURED", "value": None, "evidence_refs": []},
+              "shell_reliability": {"status": "MEASURED", "value": 0.9, "evidence_refs": [er("fixture-shell", "tests/fixtures/capability/shell.json", "2" * 64)]},
+              "context_compaction_strength": {"status": "MEASURED", "value": 0.85, "evidence_refs": [er("fixture-compaction", "tests/fixtures/capability/compaction.json", "3" * 64)]},
+              "profile_evidence_refs": [{"evidence_id": "fixture-profile", "source_class": "CANONICAL_DECISION", "locator": "evidence/mstr-000a/A010-capability-profile.md", "artifact_sha256": None}],
+              "generated_at": "2026-08-31T06:00:00Z",
+              "notes": ["Repository-owned fixture only; not a real model capability claim."],
+          }
+          invalid = json.loads(json.dumps(valid))
+          invalid["tool_call_reliability"]["evidence_refs"][0]["source_class"] = "VENDOR_CLAIM_ONLY"
+
+          schema_text = json.dumps(schema, indent=2, sort_keys=True) + "\n"
+          for path in [
+              Path("schemas/mstr-capability-profile-v0.schema.json"),
+              Path("specs/001-agent-harness-verified-loop-foundation/contracts/mstr-capability-profile-v0.schema.json"),
+          ]:
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_text(schema_text, encoding="utf-8")
+          Path("tests/fixtures/schemas/valid/mstr-capability-profile-v0.json").write_text(json.dumps(valid, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          Path("tests/fixtures/schemas/invalid/mstr-capability-profile-v0.json").write_text(json.dumps(invalid, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+          test_lines = [
+              "from __future__ import annotations", "", "import copy", "import json", "from pathlib import Path", "", "import pytest", "",
+              "from mstr_qualify.schemas import validate_instance", "", "ROOT = Path(__file__).resolve().parents[2]",
+              "VALID = ROOT / \"tests\" / \"fixtures\" / \"schemas\" / \"valid\" / \"mstr-capability-profile-v0.json\"",
+              "INVALID = ROOT / \"tests\" / \"fixtures\" / \"schemas\" / \"invalid\" / \"mstr-capability-profile-v0.json\"", "",
+              "def _load(path: Path) -> dict[str, object]:", "    data = json.loads(path.read_text(encoding=\"utf-8\"))", "    assert isinstance(data, dict)", "    return data", "",
+              "def test_valid_capability_profile_passes() -> None:", "    validate_instance(\"mstr-capability-profile-v0\", _load(VALID))", "",
+              "def test_vendor_claim_only_evidence_fails_closed() -> None:", "    with pytest.raises(ValueError, match=\"validation failed\"):", "        validate_instance(\"mstr-capability-profile-v0\", _load(INVALID))", "",
+              "def test_measured_capability_requires_evidence() -> None:", "    profile = copy.deepcopy(_load(VALID))", "    profile[\"shell_reliability\"][\"evidence_refs\"] = []", "    with pytest.raises(ValueError, match=\"validation failed\"):", "        validate_instance(\"mstr-capability-profile-v0\", profile)", "",
+              "def test_unmeasured_capability_cannot_publish_value() -> None:", "    profile = copy.deepcopy(_load(VALID))", "    profile[\"fim_strength\"][\"value\"] = 0.5", "    with pytest.raises(ValueError, match=\"validation failed\"):", "        validate_instance(\"mstr-capability-profile-v0\", profile)", "",
+              "def test_reliability_ratio_is_bounded() -> None:", "    profile = copy.deepcopy(_load(VALID))", "    profile[\"tool_call_reliability\"][\"value\"] = 1.01", "    with pytest.raises(ValueError, match=\"validation failed\"):", "        validate_instance(\"mstr-capability-profile-v0\", profile)", "",
+              "def test_context_budget_must_be_positive_when_measured() -> None:", "    profile = copy.deepcopy(_load(VALID))", "    profile[\"reliable_context_budget\"][\"value\"] = 0", "    with pytest.raises(ValueError, match=\"validation failed\"):", "        validate_instance(\"mstr-capability-profile-v0\", profile)",
+          ]
+          Path("tests/contract/test_capability_profile_contract.py").write_text("\n".join(test_lines) + "\n", encoding="utf-8")
+
+          evidence_lines = [
+              "# A010 — Evidence-Derived CapabilityProfile Contract", "", "**Task:** `MSTR-000A / A010`  ", "**State:** `IMPLEMENTATION_ACTIVE`  ",
+              "**Canonical base:** `cdf5e89886919a05173a2921c03d213ee5992126`  ", "**Authority:** contract/schema/fixture work only; no model execution or external effect.", "",
+              "## Objective", "", "Freeze `mstr.capability-profile.v0`, the evidence-derived capability description consumed by WePLD routing and other harness policy. The contract records measured capability without converting vendor claims, model-card statements, or unevaluated expectations into project truth.", "",
+              "## Frozen fields", "", "```text", "reliable_context_budget", "preferred_edit_arm", "tool_call_reliability", "localization_strength", "planning_depth", "recommended_verifier_cadence", "max_repair_depth", "fim_strength", "shell_reliability", "context_compaction_strength", "```", "",
+              "Every capability field is explicitly `MEASURED` or `UNMEASURED`. A `MEASURED` field requires a typed value and at least one admissible evidence reference. An `UNMEASURED` field carries `value=null` and no field-level evidence references, preventing placeholder values from becoming routing authority.", "",
+              "## Evidence boundary", "", "Admissible evidence source classes are exactly `MSTR_RUN`, `MSTR_RESULT`, `REPOSITORY_FIXTURE`, and `CANONICAL_DECISION`.", "", "`VENDOR_CLAIM_ONLY` and other claim-only classes are intentionally invalid. Vendor/model-card material may motivate future measurement, but cannot by itself populate a measured capability field.", "",
+              "A real profile binds exact `model_id`, `model_revision`, `artifact_sha256`, `tokenizer_revision`, and `quantization_identity`. The fixture in this task is repository-owned synthetic evidence only and is explicitly not a real model capability claim.", "",
+              "## Validation", "", "The task registers the schema in the repository-local schema registry and adds byte-identical design/runtime schemas, valid/invalid fixtures, contract tests, and offline validation regression coverage.", "",
+              "## Authority boundary", "", "```text", "MODEL_WEIGHT_ACCESS = NONE", "MODEL_EXECUTION = NONE", "REAL_CAPABILITY_MEASUREMENT = NONE", "NETWORK_MODEL_OR_PROVIDER_CALL = NONE", "PAID_MODEL_API = NONE", "PAID_COMPUTE = NONE", "LARGE_DATASET_INGESTION = NONE", "PRIVATE_USER_DATA_INGESTION = NONE", "PRODUCTION_TRACE_INGESTION = NONE", "WEIGHT_CHANGING_TRAINING = NONE", "LARGE_SCALE_RL = NONE", "PRODUCTION_RELEASE = NONE", "A010_AUTHORITY = CAPABILITY_PROFILE_CONTRACT_AND_REPOSITORY_FIXTURES_ONLY", "```", "",
+              "A010 remains non-canonical until exact-head qualification, review, mandatory premerge verification, guarded merge, post-merge proof, canonical closeout, and post-closeout proof succeed.",
+          ]
+          Path("evidence/mstr-000a/A010-capability-profile.md").write_text("\n".join(evidence_lines) + "\n", encoding="utf-8")
+
+          schemas_path = Path("src/mstr_qualify/schemas.py")
+          text = schemas_path.read_text(encoding="utf-8")
+          marker = '    "mstr-run-event-v0": "mstr-run-event-v0.schema.json",\n'
+          replacement = marker + '    # MSTR-000A A010: evidence-derived WePLD routing capability profile.\n    "mstr-capability-profile-v0": "mstr-capability-profile-v0.schema.json",\n'
+          if text.count(marker) != 1:
+              raise SystemExit("schemas.py insertion marker mismatch")
+          schemas_path.write_text(text.replace(marker, replacement, 1), encoding="utf-8")
+
+          contract_path = Path("tests/contract/test_schemas.py")
+          text = contract_path.read_text(encoding="utf-8")
+          marker = "\n}\n\n\ndef _fixture"
+          replacement = '\n    "mstr-capability-profile-v0": (\n        ROOT\n        / "specs"\n        / "001-agent-harness-verified-loop-foundation"\n        / "contracts"\n        / "mstr-capability-profile-v0.schema.json"\n    ),' + marker
+          if text.count(marker) != 1:
+              raise SystemExit("test_schemas.py insertion marker mismatch")
+          contract_path.write_text(text.replace(marker, replacement, 1), encoding="utf-8")
+
+          cli_path = Path("tests/integration/test_cli_offline.py")
+          text = cli_path.read_text(encoding="utf-8")
+          marker = '        "candidate-record",\n        "interaction-contract",\n'
+          replacement = marker + '        "mstr-capability-profile-v0",\n'
+          if text.count(marker) != 1:
+              raise SystemExit("test_cli_offline.py insertion marker mismatch")
+          cli_path.write_text(text.replace(marker, replacement, 1), encoding="utf-8")
+
+          expected = {
+              "evidence/mstr-000a/A010-capability-profile.md",
+              "schemas/mstr-capability-profile-v0.schema.json",
+              "specs/001-agent-harness-verified-loop-foundation/contracts/mstr-capability-profile-v0.schema.json",
+              "src/mstr_qualify/schemas.py",
+              "tests/contract/test_capability_profile_contract.py",
+              "tests/contract/test_schemas.py",
+              "tests/fixtures/schemas/invalid/mstr-capability-profile-v0.json",
+              "tests/fixtures/schemas/valid/mstr-capability-profile-v0.json",
+              "tests/integration/test_cli_offline.py",
+          }
+          lines = subprocess.check_output(["git", "status", "--short"], text=True).splitlines()
+          paths = {line[3:] for line in lines}
+          if paths != expected:
+              raise SystemExit(f"unexpected A010 scope: {sorted(paths)}")
+          PY
+          git diff --check
+      - name: Run focused and full gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_capability_profile_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+      - name: Commit and publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          git diff --check
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add evidence/mstr-000a/A010-capability-profile.md schemas/mstr-capability-profile-v0.schema.json specs/001-agent-harness-verified-loop-foundation/contracts/mstr-capability-profile-v0.schema.json src/mstr_qualify/schemas.py tests/contract/test_capability_profile_contract.py tests/contract/test_schemas.py tests/fixtures/schemas/invalid/mstr-capability-profile-v0.json tests/fixtures/schemas/valid/mstr-capability-profile-v0.json tests/integration/test_cli_offline.py
+          git commit -m "feat(mstr-000a): freeze A010 capability profile contract"
+          TARGET_SHA="$(git rev-parse HEAD)"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_SHA"
+          test -z "$(git status --porcelain)"
+          echo "TARGET_SHA=$TARGET_SHA"
