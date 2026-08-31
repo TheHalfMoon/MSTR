@@ -97,9 +97,10 @@ This reconciliation does not infer completion for A005+ and grants no external-e
   Outputs: schemas, known-good/known-bad fixture contracts, `evidence/mstr-000a/A011-env-verifier-contracts.md`.
   Canonical implementation: PR #106 / final head `5fa636286ae317cff389d2e9e84a74183d09866a` / merge `477de59557bdaf016ab8f9bcf5c98981daba8cb2`; post-merge proof run `33368221217` = `SUCCESS`.
 
-- [ ] **A012 Implement clean-checkout environment reset/setup abstraction.**  
-  Must record repo revision, setup recipe, health targets, reset, network/effects, resource limits.  
+- [x] **A012 Implement clean-checkout environment reset/setup abstraction.**
+  Must record repo revision, setup recipe, health targets, reset, network/effects, resource limits.
   Outputs: environment module + integration tests + `evidence/mstr-000a/A012-environment-reset.md`.
+  Canonical implementation: PR #109 / final head `b75397999f8b84ab5abbfe0ef1614af99705864c` / merge `95a9014de72bd31e6763a2323c31a25a42974302`; post-merge proof run `33411593331` = `SUCCESS`.
 
 - [ ] **A013 Implement bounded environment bootstrap/admission loop.**  
   Stage A defines health targets; Stage B attempts setup from clean state; independent checker verifies targets; repeated failure rejects the environment.  
