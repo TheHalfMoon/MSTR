@@ -1,0 +1,97 @@
+name: Build A017 canonical closeout
+
+on:
+  push:
+    branches:
+      - automation/a017-closeout-builder
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build exact two-file A017 closeout
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git fetch origin closeout/000a-a017 --quiet
+          git switch -C closeout/000a-a017 origin/closeout/000a-a017
+          python - <<'PY'
+          from pathlib import Path
+
+          evidence_path = Path('evidence/mstr-000a/A017-trajectory-contract.md')
+          evidence = evidence_path.read_text(encoding='utf-8')
+          old_state = '**State:** IMPLEMENTATION_CANDIDATE'
+          assert evidence.count(old_state) == 1
+          evidence = evidence.replace(old_state, '**State:** COMPLETE_CANONICAL', 1)
+          marker = '\n## Canonical closeout\n'
+          assert marker not in evidence
+          evidence += '''
+
+## Canonical closeout
+
+A017 is complete only after the governed implementation lifecycle and this
+separate canonical closeout. The immutable evidence chain is:
+
+```text
+FINAL_FEATURE_HEAD = 2270cbbd6a1110e2823679ea3ca2d7b77a92d256
+FINAL_FEATURE_TREE = 1e85b48fda0569e4e51e188ae566b2b9674ad2b8
+IMPLEMENTATION_PR = 120
+INDEPENDENT_REVIEW = 5071307102 / NO_BLOCKING_FINDING
+FAILED_QUALIFICATION_1 = 33439438385 / FAILURE / PRESERVED
+FAILED_QUALIFICATION_2 = 33439766350 / FAILURE / PRESERVED
+FINAL_QUALIFICATION = 33440052024 / SUCCESS
+MANDATORY_PREMERGE = 33440372946 / SUCCESS
+IMPLEMENTATION_MERGE = 11c528c0ad015f7505dd143c700e710a0f08d86a
+IMPLEMENTATION_MERGE_TREE = 1e85b48fda0569e4e51e188ae566b2b9674ad2b8
+POST_MERGE_PROOF = 33441203968 / SUCCESS
+A017_STATE = COMPLETE_CANONICAL
+A018_STATE = PENDING
+```
+
+The implementation merge has parents
+`0bd69861b987c616e1b9b25ef88a5d14f4762788` and
+`2270cbbd6a1110e2823679ea3ca2d7b77a92d256`. Its tree equals the final feature
+tree, and the post-merge proof re-ran identity, focused contract/schema/CLI
+integration checks, offline schema validation, full pytest, Ruff, strict mypy,
+and an immutable main recheck.
+
+This closeout changes task state only. It does not implement A018 trajectory
+recording/replay/admission, does not implement B023 verifier-health evaluation,
+and grants no model-weight access, model execution, weight-changing training,
+paid compute/API, private-user data ingestion, production-trace ingestion, or
+production-release authority.
+'''
+          evidence_path.write_text(evidence, encoding='utf-8')
+
+          tasks_path = Path('specs/001-agent-harness-verified-loop-foundation/tasks.md')
+          tasks = tasks_path.read_text(encoding='utf-8')
+          old = '- [ ] **A017 Freeze failure taxonomy and training trajectory contract.**'
+          new = '- [x] **A017 Freeze failure taxonomy and training trajectory contract.**'
+          assert tasks.count(old) == 1
+          assert new not in tasks
+          tasks = tasks.replace(old, new, 1)
+          assert '- [ ] **A018 Implement trajectory recorder/replay/admission.**' in tasks
+          tasks_path.write_text(tasks, encoding='utf-8')
+          PY
+          expected="$(cat <<'EOF'
+          evidence/mstr-000a/A017-trajectory-contract.md
+          specs/001-agent-harness-verified-loop-foundation/tasks.md
+          EOF
+          )"
+          actual="$(git diff --name-only)"
+          test "$actual" = "$expected"
+          git diff --check
+          grep -F '**State:** COMPLETE_CANONICAL' evidence/mstr-000a/A017-trajectory-contract.md
+          grep -F -- '- [x] **A017 Freeze failure taxonomy and training trajectory contract.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A018 Implement trajectory recorder/replay/admission.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          git add evidence/mstr-000a/A017-trajectory-contract.md specs/001-agent-harness-verified-loop-foundation/tasks.md
+          git commit -m 'docs(mstr-000a): close out A017'
+          git push origin HEAD:closeout/000a-a017
