@@ -39,6 +39,8 @@ SCHEMA_FILES: Mapping[str, str] = {
     "mstr-verifier-manifest-v0": "mstr-verifier-manifest-v0.schema.json",
     # MSTR-000A A015: Direction-to-Done task identity and hidden acceptance boundary.
     "mstr-direction-task-v0": "mstr-direction-task-v0.schema.json",
+    # MSTR-000A A017: failure-inclusive trajectory and training-admission contract.
+    "mstr-trajectory-manifest-v0": "mstr-trajectory-manifest-v0.schema.json",
     # MSTR-000B B001: machine-readable task graph and eligibility result contracts.
     "mstr-task-node-v0": "mstr-task-node-v0.schema.json",
     "mstr-task-eligibility-v0": "mstr-task-eligibility-v0.schema.json",
@@ -436,6 +438,31 @@ def _difficulty_calibration_semantic_errors(instance: Any) -> tuple[str, ...]:
     return tuple(sorted(errors))
 
 
+def _trajectory_manifest_semantic_errors(instance: Any) -> tuple[str, ...]:
+    """Enforce A017 identity bindings without implementing A018 admission execution."""
+
+    if not isinstance(instance, dict):
+        return ()
+
+    errors: list[str] = []
+    run_identity = instance.get("run_identity")
+    verifier_health = instance.get("verifier_health_binding")
+    if isinstance(run_identity, dict) and isinstance(verifier_health, dict):
+        if verifier_health.get("task_identity") != run_identity.get("task_manifest_id"):
+  errors.append(
+      "$.verifier_health_binding.task_identity: must match run_identity.task_manifest_id"
+  )
+        if verifier_health.get("verifier_manifest_id") != run_identity.get(
+  "verifier_manifest_id"
+        ):
+  errors.append(
+      "$.verifier_health_binding.verifier_manifest_id: must match "
+      "run_identity.verifier_manifest_id"
+  )
+
+    return tuple(sorted(errors))
+
+
 def validation_errors(
     name: str,
     instance: Any,
@@ -461,6 +488,8 @@ def validation_errors(
         formatted.extend(_teacher_rescue_semantic_errors(instance))
     if name == "mstr-difficulty-calibration-v0":
         formatted.extend(_difficulty_calibration_semantic_errors(instance))
+    if name == "mstr-trajectory-manifest-v0":
+        formatted.extend(_trajectory_manifest_semantic_errors(instance))
     return tuple(sorted(formatted))
 
 

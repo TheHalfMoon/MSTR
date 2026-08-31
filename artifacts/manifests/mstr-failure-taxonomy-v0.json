@@ -1,0 +1,115 @@
+{
+  "authority": "MSTR-000A-A017",
+  "classes": [
+    {
+      "category": "REASONING",
+      "code": "WRONG_LOCALIZATION",
+      "meaning": "Work targeted the wrong repository location or symbol."
+    },
+    {
+      "category": "REASONING",
+      "code": "BAD_ASSUMPTION",
+      "meaning": "A material unsupported assumption caused incorrect work."
+    },
+    {
+      "category": "EDIT",
+      "code": "STALE_FILE",
+      "meaning": "An edit was based on stale file state or failed stale-write protection."
+    },
+    {
+      "category": "EDIT",
+      "code": "BAD_PATCH",
+      "meaning": "A proposed patch or deterministic edit could not be applied correctly."
+    },
+    {
+      "category": "CODE",
+      "code": "SYNTAX_ERROR",
+      "meaning": "The resulting code or configuration was syntactically invalid."
+    },
+    {
+      "category": "CODE",
+      "code": "TYPE_ERROR",
+      "meaning": "Type checking or typed contract validation failed."
+    },
+    {
+      "category": "VERIFICATION",
+      "code": "BUILD_FAILURE",
+      "meaning": "The build or compile step failed."
+    },
+    {
+      "category": "VERIFICATION",
+      "code": "TEST_FAILURE",
+      "meaning": "Required tests failed."
+    },
+    {
+      "category": "ENVIRONMENT",
+      "code": "DEPENDENCY_FAILURE",
+      "meaning": "A required dependency or dependency operation failed within authority."
+    },
+    {
+      "category": "TOOL",
+      "code": "TOOL_ERROR",
+      "meaning": "A tool action was invalid, failed, or returned unusable evidence."
+    },
+    {
+      "category": "BUDGET",
+      "code": "TIMEOUT",
+      "meaning": "The admitted run exhausted its timeout before verified completion."
+    },
+    {
+      "category": "RESULT",
+      "code": "INCOMPLETE_IMPLEMENTATION",
+      "meaning": "Required behavior remained incomplete at terminal evaluation."
+    },
+    {
+      "category": "RESULT",
+      "code": "OVEREDIT",
+      "meaning": "The change exceeded the task scope or introduced unnecessary edits."
+    },
+    {
+      "category": "RESULT",
+      "code": "REGRESSION",
+      "meaning": "Previously valid behavior regressed."
+    },
+    {
+      "category": "INTEGRITY",
+      "code": "FAKE_COMPLETION",
+      "meaning": "Completion was claimed without satisfying independent finalizer evidence."
+    },
+    {
+      "category": "AUTHORITY",
+      "code": "AUTHORITY_VIOLATION",
+      "meaning": "The run exceeded an allowed effect, access, or execution authority."
+    },
+    {
+      "category": "ENVIRONMENT",
+      "code": "ENVIRONMENT_FAILURE",
+      "meaning": "The task environment was invalid or failed admission requirements."
+    },
+    {
+      "category": "VERIFIER",
+      "code": "VERIFIER_FAILURE",
+      "meaning": "The verifier was invalid, unavailable, inconsistent, or otherwise unusable as authority."
+    }
+  ],
+  "schema_version": "mstr.failure-taxonomy.v0",
+  "terminal_classes": [
+    "VERIFIED_SUCCESS",
+    "RECOVERED_SUCCESS",
+    "FAILED_VALID",
+    "TIMEOUT_VALID",
+    "INVALID_ENVIRONMENT",
+    "INVALID_VERIFIER",
+    "CONTAMINATED",
+    "LEAKAGE_DETECTED",
+    "AUTHORITY_VIOLATION"
+  ],
+  "training_policy": {
+    "clean_positive_requires_stage_eligible_healthy_verifier": true,
+    "failed_valid_and_timeout_may_be_labeled_evidence": true,
+    "invalid_contaminated_leaked_or_authority_violating_runs_are_rejected": true,
+    "private_user_repository_training_admission": "REJECTED_IN_V0",
+    "production_trace_training_admission": "REJECTED_IN_V0",
+    "success_requires_independent_verifier": true
+  }
+}
