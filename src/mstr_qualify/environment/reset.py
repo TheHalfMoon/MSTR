@@ -7,10 +7,11 @@ resource envelope it enforces. Environment admission remains A013 authority.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -91,6 +92,9 @@ class SetupExecutor(Protocol):
 class FreshCloneDriver(Protocol):
     """Injected fresh-clone mechanism; A012 never opens network implicitly."""
 
+    @property
+    def envelope(self) -> ExecutorEnvelope: ...
+
     def materialize(
         self,
         repository_url: str,
@@ -124,6 +128,9 @@ class EnvironmentSetupRecord:
     resources: ResourceEnvelope
     setup_steps: tuple[SetupStepRecord, ...]
     admission_status: str = "NOT_EVALUATED_A013"
+
+
+ProtectedSnapshot = tuple[tuple[str, str], ...]
 
 
 def _fail(message: str, code: str, **details: object) -> EnvironmentResetError:
@@ -236,24 +243,78 @@ def _assert_clean(workspace: Path, timeout: int) -> None:
         )
 
 
-def _assert_protected_clean(workspace: Path, protected_paths: Sequence[str], timeout: int) -> None:
-    if not protected_paths:
-        return
-    dirty = _git(
-        workspace,
-        "status",
-        "--porcelain=v1",
-        "--untracked-files=all",
-        "--",
-        *protected_paths,
-        timeout_seconds=timeout,
-    )
-    if dirty:
+def _hash_file_into(digest: Any, path: Path) -> None:
+    with path.open("rb") as handle:
+        while chunk := handle.read(1024 * 1024):
+            digest.update(chunk)
+
+
+def _fingerprint_path(path: Path) -> str:
+    digest = hashlib.sha256()
+    if not path.exists() and not path.is_symlink():
+        digest.update(b"MISSING")
+        return digest.hexdigest()
+
+    def add_node(node: Path, relative_name: str) -> None:
+        stat_result = node.lstat()
+        digest.update(relative_name.encode("utf-8", errors="surrogateescape"))
+        digest.update(str(stat_result.st_mode & 0o7777).encode("ascii"))
+        if node.is_symlink():
+            digest.update(b"SYMLINK")
+            digest.update(str(node.readlink()).encode("utf-8", errors="surrogateescape"))
+        elif node.is_dir():
+            digest.update(b"DIR")
+        elif node.is_file():
+            digest.update(b"FILE")
+            _hash_file_into(digest, node)
+        else:
+            digest.update(b"OTHER")
+
+    try:
+        add_node(path, ".")
+        if path.is_dir() and not path.is_symlink():
+            children = sorted(
+                path.rglob("*"),
+                key=lambda child: child.relative_to(path).as_posix(),
+            )
+            for child in children:
+                add_node(child, child.relative_to(path).as_posix())
+    except OSError as exc:
         raise _fail(
-            "setup modified a protected path",
-            "environment.protected_path_modified",
-            status=dirty,
-        )
+            "unable to snapshot protected path",
+            "environment.protected_snapshot",
+            path=str(path),
+        ) from exc
+    return digest.hexdigest()
+
+
+def _snapshot_protected(workspace: Path, protected_paths: tuple[str, ...]) -> ProtectedSnapshot:
+    return tuple(
+        (relative, _fingerprint_path(workspace / relative))
+        for relative in protected_paths
+    )
+
+
+def _assert_protected_unchanged(
+    workspace: Path,
+    protected_paths: tuple[str, ...],
+    expected: ProtectedSnapshot,
+) -> None:
+    observed = _snapshot_protected(workspace, protected_paths)
+    if observed == expected:
+        return
+    expected_map = dict(expected)
+    observed_map = dict(observed)
+    changed = tuple(
+        relative
+        for relative in protected_paths
+        if expected_map.get(relative) != observed_map.get(relative)
+    )
+    raise _fail(
+        "setup modified a protected path",
+        "environment.protected_path_modified",
+        changed_paths=changed,
+    )
 
 
 def _contained_directory(workspace: Path, relative: str) -> Path:
@@ -299,18 +360,18 @@ def _cross_bind(
     )
 
 
-def _assert_authority(effects: EffectEnvelope, authority_ids: frozenset[str]) -> None:
-    requires_authority = effects.network_access != "NONE" or effects.secret_access
-    if requires_authority:
-        if effects.authority_id is None or effects.authority_id not in authority_ids:
-            raise _fail(
-                "effect envelope requires an exact runtime authority",
-                "environment.authority_missing",
-                authority_id=effects.authority_id,
-            )
-    elif effects.authority_id is not None:
+def _assert_local_effect_boundary(effects: EffectEnvelope) -> None:
+    if effects.network_access != "NONE" or effects.secret_access:
         raise _fail(
-            "authority_id is not valid for a no-network/no-secret setup",
+            "A012 does not authorize network or secret effects",
+            "environment.external_effect_not_authorized",
+            network_access=effects.network_access,
+            secret_access=effects.secret_access,
+            authority_id=effects.authority_id,
+        )
+    if effects.authority_id is not None:
+        raise _fail(
+            "authority_id is not valid for the A012 local-only execution boundary",
             "environment.authority_unneeded",
             authority_id=effects.authority_id,
         )
@@ -372,18 +433,19 @@ def prepare_environment(
     setup_manifest: Path,
     *,
     executor: SetupExecutor,
-    authority_ids: frozenset[str] = frozenset(),
     fresh_clone_driver: FreshCloneDriver | None = None,
 ) -> EnvironmentSetupRecord:
     """Reset one exact checkout and execute its setup recipe without admitting it.
 
+    A012 is deliberately local-only. Network/secret-bearing manifests fail closed;
+    a later canonical task must introduce any externally authorized execution path.
     The returned record is evidence for A013's independent health/admission loop.
     """
 
     environment = _load_json(environment_manifest, "mstr-environment-manifest-v0")
     setup = _load_json(setup_manifest, "mstr-setup-manifest-v0")
     effects, resources = _cross_bind(environment, setup)
-    _assert_authority(effects, authority_ids)
+    _assert_local_effect_boundary(effects)
     _assert_reset_write_policy(effects)
     if not effects.subprocess_execution:
         raise _fail(
@@ -396,12 +458,20 @@ def prepare_environment(
             "setup executor does not enforce the exact manifest envelope",
             "environment.executor_envelope_mismatch",
         )
+    if (
+        str(environment["reset_policy"]["mode"]) == "FRESH_CLONE"
+        and fresh_clone_driver is not None
+        and fresh_clone_driver.envelope != expected_envelope
+    ):
+        raise _fail(
+            "fresh-clone driver does not enforce the exact manifest envelope",
+            "environment.clone_envelope_mismatch",
+        )
 
     workspace = workspace.resolve()
     _reset_workspace(workspace, environment, fresh_clone_driver=fresh_clone_driver)
     protected = tuple(str(item) for item in environment["protected_paths"])
-    reset_timeout = int(environment["reset_policy"]["max_reset_seconds"])
-    _assert_protected_clean(workspace, protected, reset_timeout)
+    protected_snapshot = _snapshot_protected(workspace, protected)
 
     started = time.monotonic()
     records: list[SetupStepRecord] = []
@@ -432,7 +502,7 @@ def prepare_environment(
                 exit_code=result.exit_code,
                 stderr=result.stderr[-2000:],
             )
-        _assert_protected_clean(workspace, protected, reset_timeout)
+        _assert_protected_unchanged(workspace, protected, protected_snapshot)
         records.append(
             SetupStepRecord(
                 step_id=str(raw_step["step_id"]),
