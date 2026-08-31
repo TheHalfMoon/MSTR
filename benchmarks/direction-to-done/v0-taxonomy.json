@@ -1,0 +1,46 @@
+{
+  "authority": {
+    "large_dataset_ingestion": "NONE",
+    "large_scale_rl": "NONE",
+    "model_execution": "NONE",
+    "model_weight_access": "NONE",
+    "network_execution": "NONE",
+    "paid_api": "NONE",
+    "paid_compute": "NONE",
+    "production_release": "NONE",
+    "weight_changing_training": "NONE"
+  },
+  "b025_extension_families": [
+    "BOUNDED_GREENFIELD",
+    "MULTI_FILE_CONSTRUCTION",
+    "TERSE_FEATURE_DIRECTION"
+  ],
+  "direction_task_contract": "mstr.direction-task.v0",
+  "headline_convergence": {
+    "b023_execution_required_before_clean_headline_use": true,
+    "b025_greenfield_extension_required_where_applicable": true,
+    "private_fresh_surface_required": true,
+    "verifier_health_requirement": "HEALTHY"
+  },
+  "public_repository_posture": {
+    "contains_hidden_acceptance_payloads": false,
+    "contains_model_answers_or_future_fixes": false,
+    "contains_private_fresh_tasks": false,
+    "contains_taxonomy_and_contract_fixtures_only": true
+  },
+  "recovery_required_family": "FAILURE_RECOVERY",
+  "schema_version": "mstr.direction-to-done-taxonomy.v0",
+  "security_sensitive_family": "SECURITY_SENSITIVE",
+  "task_families": [
+    "TERSE_FEATURE_DIRECTION",
+    "MULTI_FILE_CONSTRUCTION",
+    "REPAIR",
+    "BUILD_TOOLING",
+    "BOUNDED_GREENFIELD",
+    "WEPLD_SPEC_DRIVEN",
+    "FAILURE_RECOVERY",
+    "SECURITY_SENSITIVE"
+  ],
+  "taxonomy_id": "MSTR-DIRECTION-TO-DONE-v0",
+  "wepld_binding_family": "WEPLD_SPEC_DRIVEN"
+}
