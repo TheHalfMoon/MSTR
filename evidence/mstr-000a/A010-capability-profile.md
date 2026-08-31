@@ -1,8 +1,8 @@
 # A010 — Evidence-Derived CapabilityProfile Contract
 
-**Task:** `MSTR-000A / A010`  
-**State:** `IMPLEMENTATION_ACTIVE`  
-**Canonical base:** `cdf5e89886919a05173a2921c03d213ee5992126`  
+**Task:** `MSTR-000A / A010`
+**State:** `IMPLEMENTATION_ACTIVE`
+**Canonical base:** `cdf5e89886919a05173a2921c03d213ee5992126`
 **Authority:** contract/schema/fixture work only; no model execution or external effect.
 
 ## Objective
