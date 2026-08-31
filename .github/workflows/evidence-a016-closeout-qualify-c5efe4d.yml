@@ -1,0 +1,99 @@
+name: Qualify A016 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/a016-closeout-qualify-c5efe4d
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c5efe4d6b2c8f0edcd75fd14f61f000f48c7a1e4
+          fetch-depth: 0
+      - name: Verify exact A016 closeout identity and lifecycle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BASE=3e247d9b89dabce1bcbdfcf1799face3d583d4a4
+          HEAD=c5efe4d6b2c8f0edcd75fd14f61f000f48c7a1e4
+          TREE=e598af317949b1ced6a8871e4359f95d5257ba93
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TREE"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/git/ref/heads/main --jq .object.sha)" = "$BASE"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/git/ref/heads/docs/000a-a016-closeout --jq .object.sha)" = "$HEAD"
+          mapfile -t FILES < <(git diff --name-only "$BASE"...HEAD | sort)
+          test "${#FILES[@]}" -eq 2
+          test "${FILES[0]}" = "evidence/mstr-000a/A016-metrics.md"
+          test "${FILES[1]}" = "specs/001-agent-harness-verified-loop-foundation/tasks.md"
+          git diff --check "$BASE"...HEAD
+          test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/33433558709 --jq .conclusion)" = success
+          test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/33433849446 --jq .conclusion)" = success
+          test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/33434283002 --jq .conclusion)" = success
+          gh api repos/${GITHUB_REPOSITORY}/pulls/118 --jq '[.merged,.head.sha,.merge_commit_sha] | @tsv' | grep -F $'true\t66381acbab6295d5e445c4354605c704a90df719\t3e247d9b89dabce1bcbdfcf1799face3d583d4a4'
+          python - <<'PY'
+          from pathlib import Path
+          tasks = Path('specs/001-agent-harness-verified-loop-foundation/tasks.md').read_text()
+          evidence = Path('evidence/mstr-000a/A016-metrics.md').read_text()
+          assert '**State:** COMPLETE_CANONICAL' in evidence
+          assert '- [x] **A015 ' in tasks
+          assert '- [x] **A016 ' in tasks
+          assert '- [ ] **A017 ' in tasks
+          for marker in (
+              '33433558709 / SUCCESS',
+              '5070652127 / NO_BLOCKING_FINDING',
+              '33433849446 / SUCCESS',
+              '3e247d9b89dabce1bcbdfcf1799face3d583d4a4',
+              '33434283002 / SUCCESS',
+              'B030_REPOSITORY_HEALTH_DELTA = NOT_IMPLEMENTED_BY_A016',
+              'A017_STATE = PENDING',
+          ):
+              assert marker in evidence
+          PY
+
+  quality:
+    needs: identity_scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c5efe4d6b2c8f0edcd75fd14f61f000f48c7a1e4
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run frozen repository quality gates on A016 closeout
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest tests/unit/test_metrics.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+
+  complete:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c5efe4d6b2c8f0edcd75fd14f61f000f48c7a1e4
+          fetch-depth: 0
+      - name: Final immutable A016 closeout recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "c5efe4d6b2c8f0edcd75fd14f61f000f48c7a1e4"
+          test "$(git rev-parse HEAD^{tree})" = "e598af317949b1ced6a8871e4359f95d5257ba93"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/git/ref/heads/main --jq .object.sha)" = "3e247d9b89dabce1bcbdfcf1799face3d583d4a4"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/git/ref/heads/docs/000a-a016-closeout --jq .object.sha)" = "c5efe4d6b2c8f0edcd75fd14f61f000f48c7a1e4"
