@@ -1,0 +1,86 @@
+name: Requalify final A008 exact head
+
+on:
+  push:
+    branches:
+      - evidence/a008-qualify-79af1ad
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_BASE: f1e94e9c754e89a3584a391841599c05ed050d3e
+  EXPECTED_HEAD: 79af1ad6c68bbd6026037e49851428be4e650e5c
+  EXPECTED_TREE: 7db8903dbea76655dc529a33bd32624e18a5dbf6
+  TARGET_BRANCH: feat/000a-a008-native-harness
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 79af1ad6c68bbd6026037e49851428be4e650e5c
+          fetch-depth: 0
+      - name: Verify final A008 candidate identity and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          mapfile -t actual < <(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" | sort)
+          expected=(
+            configs/harness/mstr-native-v0.json
+            evidence/mstr-000a/A008-mstr-harness.md
+            src/mstr_qualify/harness/native.py
+            tests/security/test_native_harness_boundary.py
+            tests/unit/harness/test_native.py
+          )
+          diff -u <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${actual[@]}" | sort)
+          grep -Fq '**State:** `IMPLEMENTATION_ACTIVE / QUALIFICATION_PENDING`' evidence/mstr-000a/A008-mstr-harness.md
+          grep -Fq -- '- [ ] **A008 Implement H1 MSTR-native typed harness.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          test -z "$(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" -- AGENTS.md .specify/memory/constitution.md schemas configs/task-gate specs/001-agent-harness-verified-loop-foundation/tasks.md)"
+
+  quality_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 79af1ad6c68bbd6026037e49851428be4e650e5c
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run final frozen A008 qualification gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/harness/test_native.py tests/security/test_native_harness_boundary.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+
+  complete:
+    needs: [identity_scope, quality_semantics]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 79af1ad6c68bbd6026037e49851428be4e650e5c
+          fetch-depth: 0
+      - name: Final immutable A008 exact-head recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo "A008_FINAL_EXACT_HEAD=$EXPECTED_HEAD"
+          echo "EXTERNAL_EFFECT=NONE"
