@@ -1,7 +1,7 @@
 # A012 — Clean-Checkout Environment Reset / Setup Abstraction
 
 **Task:** `MSTR-000A / A012`
-**State:** `IMPLEMENTATION_CANDIDATE`
+**State:** `COMPLETE_CANONICAL`
 **Canonical base:** `3cb9f44569a7469e785ed8ffc4ea88080663adda`
 
 ## Implemented boundary
@@ -45,18 +45,27 @@ TERMINAL_SUCCESS_AUTHORITY = A006_PROTECTED_FINALIZER
 
 A manifest carrying network or secret effects is rejected by this A012 implementation even if it names an authority ID. A future canonical task may add a separately authorized execution path, but generic continuation or an arbitrary authority string does not widen A012.
 
-## Qualification and hardening history
+> This terminal state is a closeout candidate until the dedicated closeout PR is itself qualified, independently reviewed, mandatory-premerge verified, guarded-merged, and post-closeout verified on canonical `main`.
 
-- `33401051608` = `FAILURE` at `git diff --check` because the initial candidate evidence contained Markdown trailing whitespace. Quality jobs were skipped. The failure is preserved as negative evidence and is not represented as passing.
-- `33401175833` = `SUCCESS` on superseded exact head `92439f3ceb40be725eb1d126c79998ff26882816`: focused A012 tests `8 passed`; schema validation passed; full pytest `981 passed`; Ruff passed; mypy passed with no issues in 37 source files; immutable identity recheck passed.
-- Pre-review patch inspection identified destructive-scope hardening: local `HARD_RESET_CLEAN` verified repository origin only after destructive reset/clean. The candidate was amended so expected origin is proven before any destructive Git command and re-proven afterward. A dedicated security regression proves a wrong-origin workspace reaches no reset/clean command.
-- `33401772264` = `SUCCESS` on superseded exact head `9bb9669d5c76f2fe78aebd5e9751b41f742648dc`: focused A012 tests `9 passed`; schema validation passed; full pytest `982 passed`; Ruff passed; mypy passed with no issues in 37 source files; immutable identity recheck passed.
-- Further review found that A011 permits `filesystem_writes = NONE | TEMP_ONLY | WORKTREE_AND_TEMP`; because reset writes the checkout, A012 now rejects narrower write policies before mutation.
-- The execution boundary was then made explicitly local-only: network/secret manifests are rejected rather than trusting a caller-supplied authority string; a fresh-clone driver must attest the exact manifest envelope.
-- Protected-path verification was strengthened from Git-status visibility to deterministic content/type/mode fingerprinting so ignored/untracked protected paths cannot be modified silently.
+## Canonical lifecycle evidence
 
-Every successful historical qualification remains valid evidence only for its immutable superseded head. The final hardened head requires a fresh complete exact-head qualification before review/merge admission.
+```text
+CANONICAL_IMPLEMENTATION_BASE = 3cb9f44569a7469e785ed8ffc4ea88080663adda
+INITIAL_QUALIFICATION_RUN = 33401051608 / FAILURE / Markdown trailing whitespace; quality skipped
+SUPERSEDED_QUALIFICATION_RUN = 33401175833 / SUCCESS / head 92439f3ceb40be725eb1d126c79998ff26882816
+SUPERSEDED_QUALIFICATION_RUN_2 = 33401772264 / SUCCESS / head 9bb9669d5c76f2fe78aebd5e9751b41f742648dc
+FINAL_IMPLEMENTATION_HEAD = b75397999f8b84ab5abbfe0ef1614af99705864c
+FINAL_IMPLEMENTATION_TREE = 9c032ec0fd1f531d90c9de1603779095d4250302
+FINAL_EXACT_HEAD_QUALIFICATION = 33410772058 / SUCCESS / 15 focused / 988 full / schema 23 valid + 23 invalid / Ruff PASS / mypy PASS
+EXACT_HEAD_REVIEW = 5068484080 / COMMENTED / NO_BLOCKING_FINDING
+UNRESOLVED_REVIEW_THREADS = 0
+MANDATORY_PREMERGE = 33411107991 / SUCCESS
+IMPLEMENTATION_PR = 109
+IMPLEMENTATION_MERGE = 95a9014de72bd31e6763a2323c31a25a42974302
+IMPLEMENTATION_MERGE_TREE = 9c032ec0fd1f531d90c9de1603779095d4250302
+POST_MERGE_VERIFICATION_RUN = 33411593331 / SUCCESS
+A012_STATE = COMPLETE_CANONICAL_CANDIDATE
+A013_STATE = PENDING
+```
 
-## Required qualification
-
-This candidate is not canonical until current exact-head hosted qualification, independent review, mandatory premerge verification, guarded expected-head merge, post-merge proof, canonical closeout, and post-closeout proof succeed. Failed or superseded runs remain evidence and must not be rewritten as passing.
+The failed and superseded workflow runs above remain preserved as negative or head-specific evidence and are not represented as final qualification. A012 grants no environment admission, network, secret, model, paid-compute, training, private-data, large-dataset, or production-release authority. A006 remains the protected final success authority. A013 remains independently gated and is not made complete by this closeout.
