@@ -1,0 +1,99 @@
+name: Premerge A010 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/a010-closeout-premerge-860dbb6
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  CANONICAL_MAIN: ffbcbd9b43562302136f8fc2d1478ee4abfb180a
+  CLOSEOUT_HEAD: 860dbb6f89855680e61bdac4bff350444256074a
+  CLOSEOUT_TREE: 47829bdc2f0fd7ff37a15f89822132b15b952535
+  CLOSEOUT_BRANCH: docs/000a-a010-closeout
+  PR_NUMBER: "105"
+  QUALIFICATION_RUN: "33364862779"
+  REVIEW_ID: "5063728261"
+
+jobs:
+  admission:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CLOSEOUT_HEAD }}
+          fetch-depth: 0
+      - name: Verify closeout PR admission and exact evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$CLOSEOUT_TREE"
+          test "$(git rev-parse HEAD^)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/$CLOSEOUT_BRANCH | cut -f1)" = "$CLOSEOUT_HEAD"
+          test "$(git diff --name-only "$CANONICAL_MAIN".."$CLOSEOUT_HEAD" | wc -l)" -eq 2
+          test "$(git diff --name-only "$CANONICAL_MAIN".."$CLOSEOUT_HEAD" | sort | paste -sd ' ' -)" = "evidence/mstr-000a/A010-capability-profile.md specs/001-agent-harness-verified-loop-foundation/tasks.md"
+          git diff --check "$CANONICAL_MAIN".."$CLOSEOUT_HEAD"
+          grep -F -- '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A010-capability-profile.md
+          grep -F -- '- [x] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+
+          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER")"
+          jq -e --arg head "$CLOSEOUT_HEAD" --arg base "$CANONICAL_MAIN" '.state == "open" and .draft == false and .head.sha == $head and .base.ref == "main" and .base.sha == $base and .mergeable == true' <<<"$pr_json"
+
+          run_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$QUALIFICATION_RUN")"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$run_json"
+
+          reviews_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER/reviews?per_page=100")"
+          jq -e --argjson review_id "$REVIEW_ID" --arg head "$CLOSEOUT_HEAD" 'any(.[]; .id == $review_id and .commit_id == $head and .state == "COMMENTED")' <<<"$reviews_json"
+
+          query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}'
+          graphql_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Content-Type: application/json' https://api.github.com/graphql -d "$(jq -nc --arg q "$query" '{query:$q,variables:{owner:"TheHalfMoon",name:"MSTR",number:105}}')")"
+          jq -e '([.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length) == 0' <<<"$graphql_json"
+  quality:
+    needs: admission
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CLOSEOUT_HEAD }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run mandatory closeout premerge quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+  complete:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CLOSEOUT_HEAD }}
+          fetch-depth: 0
+      - name: Final immutable closeout merge-admission recheck
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$CLOSEOUT_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/$CLOSEOUT_BRANCH | cut -f1)" = "$CLOSEOUT_HEAD"
+          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER")"
+          jq -e --arg head "$CLOSEOUT_HEAD" --arg base "$CANONICAL_MAIN" '.state == "open" and .draft == false and .head.sha == $head and .base.sha == $base and .mergeable == true' <<<"$pr_json"
