@@ -79,9 +79,10 @@ This reconciliation does not infer completion for A005+ and grants no external-e
   Outputs: native harness profile/config + tests + `evidence/mstr-000a/A008-mstr-harness.md`.
   Canonical implementation: PR #100 / final head `79af1ad6c68bbd6026037e49851428be4e650e5c` / merge `d6a2c83227be09b8cd37f62de0d8e841eba9854d`.
 
-- [ ] **A009 Implement H2 WePLD-native adapter.**  
+- [x] **A009 Implement H2 WePLD-native adapter.**  
   Map WePLD goal/spec/task/effect/verifier state into MSTR loop contracts without making WePLD mandatory for standalone MSTR.  
-  Outputs: adapter contract/config, integration fixtures, `evidence/mstr-000a/A009-wepld-adapter.md`.
+  Outputs: adapter contract/config, integration fixtures, `evidence/mstr-000a/A009-wepld-adapter.md`.  
+  Canonical implementation: PR #102 / final head `d9ed5caa78c51cc3ac923e47855327971349b8b7` / merge `d3b3484280d9cbd13986af4217d934c4c7c49a44`.
 
 - [ ] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**  
   Include reliable context budget, edit preference, tool reliability, localization, planning depth, verifier cadence, repair depth, FIM/shell/compaction strength.  
