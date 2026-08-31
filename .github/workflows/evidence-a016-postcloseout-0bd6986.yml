@@ -30,8 +30,8 @@ jobs:
           git show "$EXPECTED_MAIN:specs/001-agent-harness-verified-loop-foundation/tasks.md" | grep -F -- '- [x] **A016 Implement DVCR/TTVC + diagnostic metric computation.**'
           git show "$EXPECTED_MAIN:specs/001-agent-harness-verified-loop-foundation/tasks.md" | grep -F -- '- [ ] **A017 Freeze failure taxonomy and training trajectory contract.**'
           git show "$EXPECTED_MAIN:evidence/mstr-000a/A016-metrics.md" | grep -F '**State:** COMPLETE_CANONICAL'
-          git show "$EXPECTED_MAIN:evidence/mstr-000a/A016-metrics.md" | grep -F '33434283002 = SUCCESS'
-          git show "$EXPECTED_MAIN:evidence/mstr-000a/A016-metrics.md" | grep -F '3e247d9b89dabce1bcbdfcf1799face3d583d4a4'
+          git show "$EXPECTED_MAIN:evidence/mstr-000a/A016-metrics.md" | grep -F 'POST_MERGE_PROOF = 33434283002 / SUCCESS'
+          git show "$EXPECTED_MAIN:evidence/mstr-000a/A016-metrics.md" | grep -F 'IMPLEMENTATION_MERGE = 3e247d9b89dabce1bcbdfcf1799face3d583d4a4'
 
   quality:
     needs: identity
