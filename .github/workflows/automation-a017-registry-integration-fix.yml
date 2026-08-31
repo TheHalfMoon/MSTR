@@ -1,0 +1,63 @@
+name: Repair A017 schema registry integration
+
+on:
+  push:
+    branches:
+      - automation/a017-registry-integration-fix
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch frozen CLI schema list and A017 evidence scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_BRANCH='feat/000a-a017-trajectory-contract'
+          EXPECTED_HEAD='074b5810a589582e506fd6c23d1308aa53dcfd59'
+          git fetch origin "$TARGET_BRANCH" --quiet
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python - <<'PY'
+          from pathlib import Path
+
+          cli = Path('tests/integration/test_cli_offline.py')
+          text = cli.read_text(encoding='utf-8')
+          needle = '''        "mstr-training-method-cell-v0",\n        "mstr-verifier-health-v0",\n'''
+          replacement = '''        "mstr-training-method-cell-v0",\n        "mstr-trajectory-manifest-v0",\n        "mstr-verifier-health-v0",\n'''
+          if text.count(needle) != 1:
+              raise SystemExit('unexpected frozen CLI schema list surface')
+          cli.write_text(text.replace(needle, replacement, 1), encoding='utf-8')
+
+          evidence = Path('evidence/mstr-000a/A017-trajectory-contract.md')
+          ev = evidence.read_text(encoding='utf-8')
+          needle = '''tests/contract/test_schemas.py\nevidence/mstr-000a/A017-trajectory-contract.md\n'''
+          replacement = '''tests/contract/test_schemas.py\ntests/integration/test_cli_offline.py\nevidence/mstr-000a/A017-trajectory-contract.md\n'''
+          if ev.count(needle) != 1:
+              raise SystemExit('unexpected evidence candidate output surface')
+          ev = ev.replace(needle, replacement, 1)
+          marker = '''The repaired fresh proof run `33438264767` is\n`SUCCESS` across identity, quality, and immutable complete recheck.\n'''
+          addition = marker + '''\n## Preserved A017 qualification failures\n\n```text\n33439438385 = FAILURE / syntax collection / generated indentation defect\n33439766350 = FAILURE / full-suite frozen CLI schema list missing A017 registration\n```\n\nBoth failures remain evidence and are not reused as PASS.\n'''
+          if ev.count(marker) != 1:
+              raise SystemExit('unexpected A016 prerequisite marker')
+          evidence.write_text(ev.replace(marker, addition, 1), encoding='utf-8')
+          PY
+          git diff --check
+          expected="$(cat <<'EOF'
+          evidence/mstr-000a/A017-trajectory-contract.md
+          tests/integration/test_cli_offline.py
+          EOF
+          )"
+          actual="$(git diff --name-only)"
+          test "$actual" = "$expected"
+          git add evidence/mstr-000a/A017-trajectory-contract.md tests/integration/test_cli_offline.py
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git commit -m 'fix(000a): register A017 trajectory schema in CLI contract'
+          git push origin HEAD:"$TARGET_BRANCH"
