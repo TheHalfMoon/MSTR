@@ -1,0 +1,78 @@
+name: Verify A011 canonical post-closeout
+
+on:
+  push:
+    branches:
+      - evidence/a011-postcloseout-3cb9f44
+
+permissions:
+  contents: read
+
+env:
+  CANONICAL_MAIN: 3cb9f44569a7469e785ed8ffc4ea88080663adda
+  CANONICAL_TREE: 55467dadd91ce03016a6113848c1f72011989300
+  IMPLEMENTATION_MERGE: 477de59557bdaf016ab8f9bcf5c98981daba8cb2
+  CLOSEOUT_HEAD: 87223ac50ea434fa1bcf1592407a409a81dfc459
+
+jobs:
+  identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANONICAL_MAIN }}
+          fetch-depth: 0
+      - name: Verify exact canonical merge identity and frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git rev-parse HEAD^{tree})" = "$CANONICAL_TREE"
+          test "$(git rev-parse HEAD^1)" = "$IMPLEMENTATION_MERGE"
+          test "$(git rev-parse HEAD^2)" = "$CLOSEOUT_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          grep -F -- '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A011-env-verifier-contracts.md
+          grep -F -- '- [x] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A012 Implement clean-checkout environment reset/setup abstraction.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- 'A006 remains the protected final success authority.' evidence/mstr-000a/A011-env-verifier-contracts.md
+          git diff --check "$IMPLEMENTATION_MERGE".."$CANONICAL_MAIN"
+
+  quality:
+    needs: identity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANONICAL_MAIN }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run canonical post-closeout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANONICAL_MAIN }}
+          fetch-depth: 0
+      - name: Final immutable canonical recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git rev-parse HEAD^{tree})" = "$CANONICAL_TREE"
+          test "$(git rev-parse HEAD^1)" = "$IMPLEMENTATION_MERGE"
+          test "$(git rev-parse HEAD^2)" = "$CLOSEOUT_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
