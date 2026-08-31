@@ -4,6 +4,7 @@ import json
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -198,7 +199,7 @@ class SequenceChecker:
         )
 
 
-def _fixture_cases() -> dict[str, dict[str, object]]:
+def _fixture_cases() -> dict[str, dict[str, Any]]:
     path = Path(__file__).parents[1] / "fixtures" / "environment" / "admission-cases.json"
     value = json.loads(path.read_text(encoding="utf-8"))
     assert isinstance(value, dict)
@@ -303,7 +304,10 @@ def test_every_declared_health_target_must_pass_in_same_attempt(tmp_path: Path) 
     assert record.admitted_attempt is None
     assert len(record.attempts) == 2
     assert all(len(attempt.checks) == 2 for attempt in record.attempts)
-    assert all(attempt.failure_code == "environment.health_target_failed" for attempt in record.attempts)
+    assert all(
+        attempt.failure_code == "environment.health_target_failed"
+        for attempt in record.attempts
+    )
     assert executor.clean_retry_observed is True
 
 
