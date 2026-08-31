@@ -1,0 +1,105 @@
+name: Qualify repaired A015 Direction-to-Done contract
+
+on:
+  push:
+    branches:
+      - evidence/a015-qualify3-5bf16bb
+
+permissions:
+  contents: read
+
+env:
+  BASE_SHA: 28a4a972182c0f58f7c6500239f625a0e2143d0a
+  TARGET_SHA: 5bf16bba43711c40c62bd3a838ee4f138c01fc06
+  TARGET_TREE: 4cbcce5f00cd9b7b669ba05d1880d4b02eb52c18
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - name: Verify exact repaired A015 identity and preserved evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$BASE_SHA" "$TARGET_SHA")" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          mapfile -t files < <(git diff --name-only "$BASE_SHA" "$TARGET_SHA" | sort)
+          expected=(
+            benchmarks/direction-to-done/v0-taxonomy.json
+            evidence/mstr-000a/A015-direction-to-done.md
+            schemas/mstr-direction-task-v0.schema.json
+            specs/001-agent-harness-verified-loop-foundation/contracts/mstr-direction-task-v0.schema.json
+            src/mstr_qualify/cli.py
+            src/mstr_qualify/schemas.py
+            tests/contract/test_direction_task_contract.py
+            tests/contract/test_schemas.py
+            tests/fixtures/schemas/invalid/mstr-direction-task-v0.json
+            tests/fixtures/schemas/valid/mstr-direction-task-v0.json
+            tests/integration/test_cli_offline.py
+          )
+          test "${#files[@]}" -eq "${#expected[@]}"
+          for i in "${!expected[@]}"; do
+            test "${files[$i]}" = "${expected[$i]}"
+          done
+          cmp schemas/mstr-direction-task-v0.schema.json specs/001-agent-harness-verified-loop-foundation/contracts/mstr-direction-task-v0.schema.json
+          grep -F -- '33427721219 = SUCCESS / identity_scope + quality + complete' evidence/mstr-000a/A015-direction-to-done.md
+          grep -F -- 'status_after_validation_integration = STALE_SUCCESS / NOT_REUSED_FOR_NEW_HEAD' evidence/mstr-000a/A015-direction-to-done.md
+          grep -F -- '33428444420 = FAILURE / quality' evidence/mstr-000a/A015-direction-to-done.md
+          grep -F -- 'full_pytest = 1025 PASSED / 1 FAILED' evidence/mstr-000a/A015-direction-to-done.md
+          grep -F -- '"mstr-direction-task-v0"' tests/integration/test_cli_offline.py
+          grep -F -- '- [x] **A014 Implement verifier runner + reward-shortcut battery.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A015 Freeze `DirectionTaskManifest` and MSTR Direction-to-Done v0 task taxonomy.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A016 Implement DVCR/TTVC + diagnostic metric computation.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          git diff --check "$BASE_SHA" "$TARGET_SHA"
+
+  quality:
+    needs: identity_scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run repaired A015 focused and frozen repository quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_direction_task_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          python -m mstr_qualify validate
+          python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-direction-task-v0.json
+          set +e
+          python -m mstr_qualify validate tests/fixtures/schemas/invalid/mstr-direction-task-v0.json >/tmp/a015-invalid.log 2>&1
+          code=$?
+          set -e
+          test "$code" -eq 1
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [identity_scope, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - name: Final immutable repaired A015 recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/feat/000a-a015-direction-to-done | cut -f1)" = "$TARGET_SHA"
