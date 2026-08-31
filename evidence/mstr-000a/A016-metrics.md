@@ -1,9 +1,12 @@
 # A016 — DVCR / TTVC and Diagnostic Metric Computation
 
 **Task:** `A016`
-**State:** IMPLEMENTATION_CANDIDATE
-**Canonical base:** `907ab88722223cf53379bc98935f0641536a6907`
+**State:** COMPLETE_CANONICAL
+**Canonical implementation base:** `907ab88722223cf53379bc98935f0641536a6907`
 **Feature branch:** `feat/000a-a016-diagnostic-metrics`
+**Final feature head:** `66381acbab6295d5e445c4354605c704a90df719`
+**Final feature tree:** `eb8df5ef99a465e960db0bd0b1c2e75acb8c1d9e`
+**Implementation merge:** `3e247d9b89dabce1bcbdfcf1799face3d583d4a4`
 
 ## Scope
 
@@ -102,7 +105,24 @@ B030_REPOSITORY_HEALTH_DELTA_AUTHORITY = PRESERVED
 A016 also does not create a verifier-health classifier, trajectory admission
 authority, harness tournament result, or training signal.
 
-## Candidate outputs
+## Canonical lifecycle
+
+```text
+IMPLEMENTATION_BASE = 907ab88722223cf53379bc98935f0641536a6907
+FINAL_FEATURE_HEAD = 66381acbab6295d5e445c4354605c704a90df719
+FINAL_FEATURE_TREE = eb8df5ef99a465e960db0bd0b1c2e75acb8c1d9e
+EXACT_HEAD_QUALIFICATION = 33433558709 / SUCCESS
+IMPLEMENTATION_PR = #118
+INDEPENDENT_EXACT_HEAD_REVIEW = 5070652127 / NO_BLOCKING_FINDING
+MANDATORY_PREMERGE = 33433849446 / SUCCESS
+IMPLEMENTATION_MERGE = 3e247d9b89dabce1bcbdfcf1799face3d583d4a4
+POST_MERGE_PROOF = 33434283002 / SUCCESS
+```
+
+The implementation candidate had no failed qualification run. Historical failure
+evidence from unrelated tasks is neither imported nor reclassified by this closeout.
+
+## Canonical outputs
 
 ```text
 src/mstr_qualify/metrics.py
@@ -110,9 +130,8 @@ tests/unit/test_metrics.py
 evidence/mstr-000a/A016-metrics.md
 ```
 
-`tasks.md` is intentionally unchanged in the implementation candidate. A016 may
-be marked complete only after governed implementation merge, successful
-post-merge proof, and a separate closeout.
+A016 is complete only with this closeout merged and a successful post-closeout
+proof on canonical `main`. A017 remains pending.
 
 ## Authority containment
 
