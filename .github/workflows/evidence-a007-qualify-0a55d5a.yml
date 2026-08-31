@@ -1,0 +1,86 @@
+name: Qualify A007 exact head
+
+on:
+  push:
+    branches:
+      - evidence/a007-qualify-0a55d5a
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_BASE: 93bfb94d6b8f5949ea5ce125d780ef7f2b739c01
+  EXPECTED_HEAD: 0a55d5af972f51109c09dbad6d8cb5a373be0fbe
+  EXPECTED_TREE: 524437fbf46a49ed72558ecddbdf5f04a6b43805
+  TARGET_BRANCH: feat/000a-a007-neutral-harness
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0a55d5af972f51109c09dbad6d8cb5a373be0fbe
+          fetch-depth: 0
+      - name: Verify exact A007 candidate identity and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          mapfile -t actual < <(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" | sort)
+          expected=(
+            configs/harness/neutral-minimal-v0.json
+            evidence/mstr-000a/A007-neutral-harness.md
+            src/mstr_qualify/harness/neutral.py
+            tests/security/test_neutral_harness_boundary.py
+            tests/unit/harness/test_neutral.py
+          )
+          diff -u <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${actual[@]}" | sort)
+          test -z "$(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" -- AGENTS.md .specify/memory/constitution.md specs/001-agent-harness-verified-loop-foundation/tasks.md schemas configs/task-gate)"
+
+  quality_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0a55d5af972f51109c09dbad6d8cb5a373be0fbe
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run frozen A007 qualification gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/harness/test_neutral.py tests/security/test_neutral_harness_boundary.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          grep -Fq '**State:** `IMPLEMENTATION_ACTIVE / QUALIFICATION_PENDING`' evidence/mstr-000a/A007-neutral-harness.md
+          grep -Fq -- '- [ ] **A007 Implement H0 neutral-minimal harness.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+
+  complete:
+    needs: [identity_scope, quality_semantics]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0a55d5af972f51109c09dbad6d8cb5a373be0fbe
+          fetch-depth: 0
+      - name: Final immutable A007 exact-head recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo "A007_HEAD=$EXPECTED_HEAD"
+          echo "A007_TREE=$EXPECTED_TREE"
+          echo "EXTERNAL_EFFECT=NONE"
