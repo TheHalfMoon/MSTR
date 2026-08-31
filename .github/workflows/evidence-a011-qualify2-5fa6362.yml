@@ -1,0 +1,108 @@
+name: Qualify A011 environment verifier exact head v2
+
+on:
+  push:
+    branches:
+      - evidence/a011-qualify2-5fa6362
+
+permissions:
+  contents: read
+
+env:
+  CANONICAL_BASE: 17985cb7176bb99df6139c1d3fbc23c6de4e3bf0
+  TARGET_BRANCH: feat/000a-a011-env-verifier-contracts
+  TARGET_HEAD: 5fa636286ae317cff389d2e9e84a74183d09866a
+  TARGET_TREE: 51d03553701104a6f5f29482cbb1bdc93263c6f6
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - name: Verify exact A011 identity, scope, and contract mirrors
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$CANONICAL_BASE" "$TARGET_HEAD")" = "$CANONICAL_BASE"
+          test "$(git rev-list --count "$TARGET_HEAD..$CANONICAL_BASE")" = "0"
+          test "$(git rev-list --count "$CANONICAL_BASE..$TARGET_HEAD")" = "1"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_BASE"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_HEAD"
+          mapfile -t actual < <(git diff --name-only "$CANONICAL_BASE" "$TARGET_HEAD" | sort)
+          expected=(
+            evidence/mstr-000a/A011-env-verifier-contracts.md
+            schemas/mstr-environment-manifest-v0.schema.json
+            schemas/mstr-setup-manifest-v0.schema.json
+            schemas/mstr-verifier-manifest-v0.schema.json
+            specs/001-agent-harness-verified-loop-foundation/contracts/mstr-environment-manifest-v0.schema.json
+            specs/001-agent-harness-verified-loop-foundation/contracts/mstr-setup-manifest-v0.schema.json
+            specs/001-agent-harness-verified-loop-foundation/contracts/mstr-verifier-manifest-v0.schema.json
+            src/mstr_qualify/schemas.py
+            tests/contract/test_environment_verifier_contracts.py
+            tests/contract/test_schemas.py
+            tests/fixtures/schemas/invalid/mstr-environment-manifest-v0.json
+            tests/fixtures/schemas/invalid/mstr-setup-manifest-v0.json
+            tests/fixtures/schemas/invalid/mstr-verifier-manifest-v0.json
+            tests/fixtures/schemas/valid/mstr-environment-manifest-v0.json
+            tests/fixtures/schemas/valid/mstr-setup-manifest-v0.json
+            tests/fixtures/schemas/valid/mstr-verifier-manifest-v0.json
+            tests/integration/test_cli_offline.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq "${#expected_sorted[@]}"
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          for name in mstr-environment-manifest-v0 mstr-setup-manifest-v0 mstr-verifier-manifest-v0; do
+            cmp "schemas/$name.schema.json" "specs/001-agent-harness-verified-loop-foundation/contracts/$name.schema.json"
+          done
+          grep -F -- '- [x] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A012 Implement clean-checkout environment reset/setup abstraction.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '**State:** `IMPLEMENTATION_ACTIVE`' evidence/mstr-000a/A011-env-verifier-contracts.md
+          grep -F -- 'A011 cannot create a second success authority.' evidence/mstr-000a/A011-env-verifier-contracts.md
+          grep -F -- 'A011 does not execute setup, network calls, secrets, models, external verifiers, or production workloads.' evidence/mstr-000a/A011-env-verifier-contracts.md
+          git diff --check "$CANONICAL_BASE" "$TARGET_HEAD"
+
+  quality:
+    needs: identity_scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run independent exact-head quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_environment_verifier_contracts.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [identity_scope, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - name: Final immutable exact-head recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_BASE"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_HEAD"
