@@ -1,0 +1,285 @@
+{
+  "$defs": {
+    "effect_policy": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "network_access": {
+                "const": "NONE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "allowed_hosts": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "secret_access": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "allowed_secret_ids": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "network_access": {
+                "const": "ALLOWLIST"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "allowed_hosts": {
+                "minItems": 1
+              },
+              "authority_id": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "secret_access": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "allowed_secret_ids": {
+                "minItems": 1
+              },
+              "authority_id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "allowed_hosts": {
+          "items": {
+            "maxLength": 253,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "allowed_secret_ids": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "authority_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "filesystem_writes": {
+          "enum": [
+            "NONE",
+            "TEMP_ONLY",
+            "WORKTREE_AND_TEMP"
+          ]
+        },
+        "network_access": {
+          "enum": [
+            "NONE",
+            "ALLOWLIST"
+          ]
+        },
+        "secret_access": {
+          "type": "boolean"
+        },
+        "subprocess_execution": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "network_access",
+        "allowed_hosts",
+        "secret_access",
+        "allowed_secret_ids",
+        "filesystem_writes",
+        "subprocess_execution",
+        "authority_id"
+      ],
+      "type": "object"
+    },
+    "resource_limits": {
+      "additionalProperties": false,
+      "properties": {
+        "disk_mib": {
+          "maximum": 10485760,
+          "minimum": 64,
+          "type": "integer"
+        },
+        "memory_mib": {
+          "maximum": 1048576,
+          "minimum": 64,
+          "type": "integer"
+        },
+        "process_count": {
+          "maximum": 4096,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "wall_clock_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "wall_clock_seconds",
+        "memory_mib",
+        "disk_mib",
+        "process_count"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://mstr.local/schemas/mstr-environment-manifest-v0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "effect_policy": {
+      "$ref": "#/$defs/effect_policy"
+    },
+    "environment_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+      "type": "string"
+    },
+    "health_target_ids": {
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "protected_paths": {
+      "items": {
+        "maxLength": 1024,
+        "minLength": 1,
+        "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "repository_identity": {
+      "additionalProperties": false,
+      "properties": {
+        "repository_url": {
+          "pattern": "^https://github\\.com/[^/]+/[^/]+(?:\\.git)?$",
+          "type": "string"
+        },
+        "revision_sha": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "tree_sha": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository_url",
+        "revision_sha",
+        "tree_sha"
+      ],
+      "type": "object"
+    },
+    "reset_policy": {
+      "additionalProperties": false,
+      "properties": {
+        "clean_checkout_required": {
+          "const": true
+        },
+        "max_reset_seconds": {
+          "maximum": 3600,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "mode": {
+          "enum": [
+            "FRESH_CLONE",
+            "HARD_RESET_CLEAN"
+          ]
+        }
+      },
+      "required": [
+        "clean_checkout_required",
+        "mode",
+        "max_reset_seconds"
+      ],
+      "type": "object"
+    },
+    "resource_limits": {
+      "$ref": "#/$defs/resource_limits"
+    },
+    "schema_version": {
+      "const": "mstr.environment-manifest.v0"
+    },
+    "setup_manifest_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+      "type": "string"
+    },
+    "verifier_manifest_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "environment_id",
+    "repository_identity",
+    "setup_manifest_id",
+    "verifier_manifest_id",
+    "reset_policy",
+    "health_target_ids",
+    "resource_limits",
+    "effect_policy",
+    "protected_paths"
+  ],
+  "title": "MSTR Environment Manifest v0",
+  "type": "object"
+}

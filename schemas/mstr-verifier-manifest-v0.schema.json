@@ -1,0 +1,312 @@
+{
+  "$defs": {
+    "effect_policy": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "network_access": {
+                "const": "NONE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "allowed_hosts": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "secret_access": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "allowed_secret_ids": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "network_access": {
+                "const": "ALLOWLIST"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "allowed_hosts": {
+                "minItems": 1
+              },
+              "authority_id": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "secret_access": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "allowed_secret_ids": {
+                "minItems": 1
+              },
+              "authority_id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "allowed_hosts": {
+          "items": {
+            "maxLength": 253,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "allowed_secret_ids": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "authority_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "filesystem_writes": {
+          "enum": [
+            "NONE",
+            "TEMP_ONLY",
+            "WORKTREE_AND_TEMP"
+          ]
+        },
+        "network_access": {
+          "enum": [
+            "NONE",
+            "ALLOWLIST"
+          ]
+        },
+        "secret_access": {
+          "type": "boolean"
+        },
+        "subprocess_execution": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "network_access",
+        "allowed_hosts",
+        "secret_access",
+        "allowed_secret_ids",
+        "filesystem_writes",
+        "subprocess_execution",
+        "authority_id"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://mstr.local/schemas/mstr-verifier-manifest-v0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "effect_policy": {
+      "$ref": "#/$defs/effect_policy"
+    },
+    "environment_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+      "type": "string"
+    },
+    "finalizer_contract_id": {
+      "const": "A006_PROTECTED_FINALIZER"
+    },
+    "fixture_contract": {
+      "additionalProperties": false,
+      "properties": {
+        "known_bad": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "known_good": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "noop": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "known_good",
+        "known_bad",
+        "noop"
+      ],
+      "type": "object"
+    },
+    "protected_paths": {
+      "items": {
+        "maxLength": 1024,
+        "minLength": 1,
+        "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "schema_version": {
+      "const": "mstr.verifier-manifest.v0"
+    },
+    "success_semantics": {
+      "const": "VERIFIER_EVIDENCE_ONLY"
+    },
+    "verifier_manifest_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+      "type": "string"
+    },
+    "verifiers": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "argv": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "expected_exit_codes": {
+            "items": {
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "source_identity": {
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
+                "type": "string"
+              },
+              "sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "type": "object"
+          },
+          "timeout_seconds": {
+            "maximum": 3600,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "verifier_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+            "type": "string"
+          },
+          "working_directory": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "verifier_id",
+          "argv",
+          "working_directory",
+          "timeout_seconds",
+          "required",
+          "expected_exit_codes",
+          "source_identity"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "verifier_manifest_id",
+    "environment_id",
+    "finalizer_contract_id",
+    "success_semantics",
+    "verifiers",
+    "fixture_contract",
+    "effect_policy",
+    "protected_paths"
+  ],
+  "title": "MSTR Verifier Manifest v0",
+  "type": "object"
+}

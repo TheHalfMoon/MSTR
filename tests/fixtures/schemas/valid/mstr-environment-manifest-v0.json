@@ -1,0 +1,39 @@
+{
+  "effect_policy": {
+    "allowed_hosts": [],
+    "allowed_secret_ids": [],
+    "authority_id": null,
+    "filesystem_writes": "WORKTREE_AND_TEMP",
+    "network_access": "NONE",
+    "secret_access": false,
+    "subprocess_execution": true
+  },
+  "environment_id": "fixture.python-repo.v0",
+  "health_target_ids": [
+    "health.import",
+    "health.tests"
+  ],
+  "protected_paths": [
+    "tests",
+    "schemas"
+  ],
+  "repository_identity": {
+    "repository_url": "https://github.com/example/repository",
+    "revision_sha": "1111111111111111111111111111111111111111",
+    "tree_sha": "2222222222222222222222222222222222222222"
+  },
+  "reset_policy": {
+    "clean_checkout_required": true,
+    "max_reset_seconds": 60,
+    "mode": "HARD_RESET_CLEAN"
+  },
+  "resource_limits": {
+    "disk_mib": 8192,
+    "memory_mib": 4096,
+    "process_count": 64,
+    "wall_clock_seconds": 900
+  },
+  "schema_version": "mstr.environment-manifest.v0",
+  "setup_manifest_id": "fixture.setup.v0",
+  "verifier_manifest_id": "fixture.verifier.v0"
+}

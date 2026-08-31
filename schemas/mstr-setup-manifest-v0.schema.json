@@ -1,0 +1,281 @@
+{
+  "$defs": {
+    "effect_policy": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "network_access": {
+                "const": "NONE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "allowed_hosts": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "secret_access": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "allowed_secret_ids": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "network_access": {
+                "const": "ALLOWLIST"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "allowed_hosts": {
+                "minItems": 1
+              },
+              "authority_id": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "secret_access": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "allowed_secret_ids": {
+                "minItems": 1
+              },
+              "authority_id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "allowed_hosts": {
+          "items": {
+            "maxLength": 253,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "allowed_secret_ids": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "authority_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "filesystem_writes": {
+          "enum": [
+            "NONE",
+            "TEMP_ONLY",
+            "WORKTREE_AND_TEMP"
+          ]
+        },
+        "network_access": {
+          "enum": [
+            "NONE",
+            "ALLOWLIST"
+          ]
+        },
+        "secret_access": {
+          "type": "boolean"
+        },
+        "subprocess_execution": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "network_access",
+        "allowed_hosts",
+        "secret_access",
+        "allowed_secret_ids",
+        "filesystem_writes",
+        "subprocess_execution",
+        "authority_id"
+      ],
+      "type": "object"
+    },
+    "resource_limits": {
+      "additionalProperties": false,
+      "properties": {
+        "disk_mib": {
+          "maximum": 10485760,
+          "minimum": 64,
+          "type": "integer"
+        },
+        "memory_mib": {
+          "maximum": 1048576,
+          "minimum": 64,
+          "type": "integer"
+        },
+        "process_count": {
+          "maximum": 4096,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "wall_clock_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "wall_clock_seconds",
+        "memory_mib",
+        "disk_mib",
+        "process_count"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://mstr.local/schemas/mstr-setup-manifest-v0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "clean_state_required": {
+      "const": true
+    },
+    "effect_policy": {
+      "$ref": "#/$defs/effect_policy"
+    },
+    "environment_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+      "type": "string"
+    },
+    "health_target_ids": {
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "independent_checker_ids": {
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "max_attempts": {
+      "maximum": 8,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "resource_limits": {
+      "$ref": "#/$defs/resource_limits"
+    },
+    "schema_version": {
+      "const": "mstr.setup-manifest.v0"
+    },
+    "setup_manifest_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "argv": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "step_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "maximum": 3600,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "working_directory": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step_id",
+          "argv",
+          "working_directory",
+          "timeout_seconds"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "setup_manifest_id",
+    "environment_id",
+    "clean_state_required",
+    "max_attempts",
+    "steps",
+    "health_target_ids",
+    "independent_checker_ids",
+    "resource_limits",
+    "effect_policy"
+  ],
+  "title": "MSTR Setup Manifest v0",
+  "type": "object"
+}

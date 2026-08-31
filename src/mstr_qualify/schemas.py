@@ -33,6 +33,10 @@ SCHEMA_FILES: Mapping[str, str] = {
     "mstr-run-event-v0": "mstr-run-event-v0.schema.json",
     # MSTR-000A A010: evidence-derived WePLD routing capability profile.
     "mstr-capability-profile-v0": "mstr-capability-profile-v0.schema.json",
+    # MSTR-000A A011: environment/setup/verifier identities and effect boundaries.
+    "mstr-environment-manifest-v0": "mstr-environment-manifest-v0.schema.json",
+    "mstr-setup-manifest-v0": "mstr-setup-manifest-v0.schema.json",
+    "mstr-verifier-manifest-v0": "mstr-verifier-manifest-v0.schema.json",
     # MSTR-000B B001: machine-readable task graph and eligibility result contracts.
     "mstr-task-node-v0": "mstr-task-node-v0.schema.json",
     "mstr-task-eligibility-v0": "mstr-task-eligibility-v0.schema.json",

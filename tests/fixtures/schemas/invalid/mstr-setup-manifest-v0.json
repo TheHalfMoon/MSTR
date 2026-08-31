@@ -1,0 +1,45 @@
+{
+  "clean_state_required": true,
+  "effect_policy": {
+    "allowed_hosts": [],
+    "allowed_secret_ids": [],
+    "authority_id": null,
+    "filesystem_writes": "WORKTREE_AND_TEMP",
+    "network_access": "NONE",
+    "secret_access": false,
+    "subprocess_execution": true
+  },
+  "environment_id": "fixture.python-repo.v0",
+  "health_target_ids": [
+    "health.import",
+    "health.tests"
+  ],
+  "independent_checker_ids": [
+    "checker.import",
+    "checker.tests"
+  ],
+  "max_attempts": 0,
+  "resource_limits": {
+    "disk_mib": 8192,
+    "memory_mib": 4096,
+    "process_count": 64,
+    "wall_clock_seconds": 900
+  },
+  "schema_version": "mstr.setup-manifest.v0",
+  "setup_manifest_id": "fixture.setup.v0",
+  "steps": [
+    {
+      "argv": [
+        "python",
+        "-m",
+        "pip",
+        "install",
+        "-e",
+        ".[dev]"
+      ],
+      "step_id": "install",
+      "timeout_seconds": 300,
+      "working_directory": "."
+    }
+  ]
+}

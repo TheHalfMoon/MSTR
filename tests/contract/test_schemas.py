@@ -90,6 +90,27 @@ DESIGN_SCHEMA_OVERRIDES = {
         / "contracts"
         / "mstr-software-evolution-record-v0.schema.json"
     ),
+    "mstr-environment-manifest-v0": (
+        ROOT
+        / "specs"
+        / "001-agent-harness-verified-loop-foundation"
+        / "contracts"
+        / "mstr-environment-manifest-v0.schema.json"
+    ),
+    "mstr-setup-manifest-v0": (
+        ROOT
+        / "specs"
+        / "001-agent-harness-verified-loop-foundation"
+        / "contracts"
+        / "mstr-setup-manifest-v0.schema.json"
+    ),
+    "mstr-verifier-manifest-v0": (
+        ROOT
+        / "specs"
+        / "001-agent-harness-verified-loop-foundation"
+        / "contracts"
+        / "mstr-verifier-manifest-v0.schema.json"
+    ),
     "mstr-capability-profile-v0": (
         ROOT
         / "specs"
