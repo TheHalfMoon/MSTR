@@ -1,0 +1,93 @@
+name: Post-closeout proof A009
+
+on:
+  push:
+    branches:
+      - evidence/a009-postcloseout-cdf5e89
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  CLOSEOUT_MERGE_SHA: cdf5e89886919a05173a2921c03d213ee5992126
+  CLOSEOUT_TREE: bdfc1bfad15ad9f864247b412e5b34af2073e1bd
+  IMPLEMENTATION_MERGE_PARENT: d3b3484280d9cbd13986af4217d934c4c7c49a44
+  CLOSEOUT_HEAD_PARENT: 05712be44172f8b526aff3fb123bc4842ba750db
+  CLOSEOUT_QUALIFICATION_RUN: "33360973919"
+  CLOSEOUT_PREMERGE_RUN: "33361151635"
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  canonical_identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CLOSEOUT_MERGE_SHA }}
+          fetch-depth: 0
+      - name: Verify canonical closeout identity and ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$CLOSEOUT_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CLOSEOUT_MERGE_SHA"
+          test "$(git rev-parse HEAD^1)" = "$IMPLEMENTATION_MERGE_PARENT"
+          test "$(git rev-parse HEAD^2)" = "$CLOSEOUT_HEAD_PARENT"
+
+          grep -F -- '- [x] **A009 Implement H2 WePLD-native adapter.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- 'Canonical implementation: PR #102 / final head `d9ed5caa78c51cc3ac923e47855327971349b8b7` / merge `d3b3484280d9cbd13986af4217d934c4c7c49a44`.' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A009-wepld-adapter.md
+          grep -F -- 'A010 remains independently gated and is not made complete by this A009 closeout.' evidence/mstr-000a/A009-wepld-adapter.md
+
+          for run in "$CLOSEOUT_QUALIFICATION_RUN" "$CLOSEOUT_PREMERGE_RUN"; do
+            run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run")"
+            test "$(jq -r '.status' <<<"$run_json")" = "completed"
+            test "$(jq -r '.conclusion' <<<"$run_json")" = "success"
+          done
+
+  quality:
+    needs: canonical_identity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CLOSEOUT_MERGE_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run canonical post-closeout gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_MERGE_SHA"
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/harness/test_wepld.py tests/security/test_wepld_adapter_boundary.py tests/unit/harness/test_native.py
+          pytest -q
+          python -m mstr_qualify validate
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs:
+      - canonical_identity
+      - quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CLOSEOUT_MERGE_SHA }}
+          fetch-depth: 0
+      - name: Final immutable canonical frontier recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$CLOSEOUT_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CLOSEOUT_MERGE_SHA"
+          grep -F -- '- [x] **A009 Implement H2 WePLD-native adapter.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
