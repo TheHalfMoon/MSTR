@@ -1,0 +1,83 @@
+name: Postcloseout A012 clean-checkout environment reset
+
+on:
+  push:
+    branches:
+      - evidence/a012-postcloseout-6b0681a
+
+permissions:
+  contents: read
+
+env:
+  PREVIOUS_MAIN: 95a9014de72bd31e6763a2323c31a25a42974302
+  CLOSEOUT_HEAD: 575a14fc2f170d49d4edbfb116780eceb1115e87
+  MERGE_SHA: 6b0681adc6f0b31bf32907ed80c072bc4ccccff1
+  MERGE_TREE: 01e95f19e384b736452689bda26ff1440842bf28
+
+jobs:
+  identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Prove exact canonical A012 closeout merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          mapfile -t parents < <(git show -s --format=%P "$MERGE_SHA" | tr ' ' '\n')
+          test "${#parents[@]}" -eq 2
+          test "${parents[0]}" = "$PREVIOUS_MAIN"
+          test "${parents[1]}" = "$CLOSEOUT_HEAD"
+          test "$(git rev-parse "$CLOSEOUT_HEAD^{tree}")" = "$MERGE_TREE"
+          grep -F -- '- [x] **A012 Implement clean-checkout environment reset/setup abstraction.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A013 Implement bounded environment bootstrap/admission loop.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A012-environment-reset.md
+          grep -F -- 'A012_STATE = COMPLETE_CANONICAL_CANDIDATE' evidence/mstr-000a/A012-environment-reset.md
+          grep -F -- 'A013_STATE = PENDING' evidence/mstr-000a/A012-environment-reset.md
+          grep -F -- 'A012_CANONICAL_EXECUTION_PROFILE = LOCAL_RESET_AND_REPOSITORY_FIXTURES_ONLY' evidence/mstr-000a/A012-environment-reset.md
+          grep -F -- 'ENVIRONMENT_ADMISSION_AUTHORITY = A013 / NOT_CREATED_BY_A012' evidence/mstr-000a/A012-environment-reset.md
+          git diff --check "$PREVIOUS_MAIN" "$MERGE_SHA"
+
+  quality:
+    needs: identity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Re-prove canonical A012 quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/integration/test_environment_reset.py tests/security/test_environment_reset_boundary.py tests/security/test_environment_reset_destructive_preflight.py tests/security/test_environment_reset_write_policy.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [identity, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Final canonical A012 closeout recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
