@@ -1,0 +1,121 @@
+name: Build A010 canonical closeout v2
+
+on:
+  push:
+    branches:
+      - evidence/a010-closeout-build2-ffbcbd9
+
+permissions:
+  contents: write
+
+env:
+  CANONICAL_MAIN: ffbcbd9b43562302136f8fc2d1478ee4abfb180a
+  TARGET_BRANCH: docs/000a-a010-closeout
+  IMPLEMENTATION_HEAD: 16aa467348d89cb4cbadc06314589cd51da346e9
+  IMPLEMENTATION_TREE: b3660eb742b3aab3af755673ac2faa620081ad48
+  QUALIFICATION_RUN: "33363643410"
+  REVIEW_ID: "5063628959"
+  PREMERGE_RUN: "33363854255"
+  IMPLEMENTATION_PR: "104"
+  POSTMERGE_RUN: "33364067973"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANONICAL_MAIN }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify canonical closeout entry
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          if git ls-remote --exit-code --heads origin "refs/heads/$TARGET_BRANCH" >/dev/null 2>&1; then
+            echo "target closeout branch already exists" >&2
+            exit 1
+          fi
+          grep -F -- '- [x] **A009 Implement H2 WePLD-native adapter.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '**State:** `IMPLEMENTATION_ACTIVE`' evidence/mstr-000a/A010-capability-profile.md
+          run_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/$POSTMERGE_RUN")"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$run_json"
+          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/$IMPLEMENTATION_PR")"
+          jq -e --arg head "$IMPLEMENTATION_HEAD" --arg merge "$CANONICAL_MAIN" '.state == "closed" and .merged == true and .head.sha == $head and .merge_commit_sha == $merge' <<<"$pr_json"
+      - name: Materialize exact two-file closeout
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -b "$TARGET_BRANCH"
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          evidence = Path("evidence/mstr-000a/A010-capability-profile.md")
+          text = evidence.read_text(encoding="utf-8")
+          old_state = "**State:** `IMPLEMENTATION_ACTIVE`"
+          if text.count(old_state) != 1:
+              raise SystemExit("A010 evidence state marker mismatch")
+          text = text.replace(old_state, "**State:** `COMPLETE_CANONICAL`", 1)
+          old_tail = "A010 remains non-canonical until exact-head qualification, review, mandatory premerge verification, guarded merge, post-merge proof, canonical closeout, and post-closeout proof succeed.\n"
+          if text.count(old_tail) != 1:
+              raise SystemExit("A010 evidence tail marker mismatch")
+          new_tail = '''> This terminal state is a closeout candidate until the dedicated closeout PR is itself qualified, reviewed, mandatory-premerge verified, guarded-merged, and post-closeout verified on canonical `main`.\n\n## Canonical Lifecycle Evidence\n\n```text\nCANONICAL_IMPLEMENTATION_BASE = cdf5e89886919a05173a2921c03d213ee5992126\nATOMIC_BUILDER_RUN = 33363386203 / SUCCESS\nINITIAL_QUALIFICATION_RUN = 33363567728 / FAILURE / git diff --check trailing-space findings only\nFINAL_IMPLEMENTATION_HEAD = 16aa467348d89cb4cbadc06314589cd51da346e9\nFINAL_IMPLEMENTATION_TREE = b3660eb742b3aab3af755673ac2faa620081ad48\nFINAL_EXACT_HEAD_QUALIFICATION = 33363643410 / SUCCESS\nEXACT_HEAD_REVIEW = 5063628959 / COMMENTED / NO_BLOCKING_FINDING\nUNRESOLVED_REVIEW_THREADS = 0\nMANDATORY_PREMERGE = 33363854255 / SUCCESS\nIMPLEMENTATION_PR = 104\nIMPLEMENTATION_MERGE = ffbcbd9b43562302136f8fc2d1478ee4abfb180a\nPOST_MERGE_VERIFICATION_RUN = 33364067973 / SUCCESS\nA010_STATE = COMPLETE_CANONICAL_CANDIDATE\nA011_STATE = PENDING\n```\n\nNo failed or superseded workflow run is represented as passing evidence. The initial qualification failure remains preserved as negative evidence and was superseded only by the whitespace-only hardening commit plus a fresh exact-head qualification. A011 remains independently gated and is not made complete by this closeout.\n'''
+          evidence.write_text(text.replace(old_tail, new_tail, 1), encoding="utf-8")
+
+          tasks = Path("specs/001-agent-harness-verified-loop-foundation/tasks.md")
+          text = tasks.read_text(encoding="utf-8")
+          old = '''- [ ] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**  \n  Include reliable context budget, edit preference, tool reliability, localization, planning depth, verifier cadence, repair depth, FIM/shell/compaction strength.  \n  Outputs: schema + fixtures + `evidence/mstr-000a/A010-capability-profile.md`.\n'''
+          new = '''- [x] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**\n  Include reliable context budget, edit preference, tool reliability, localization, planning depth, verifier cadence, repair depth, FIM/shell/compaction strength.\n  Outputs: schema + fixtures + `evidence/mstr-000a/A010-capability-profile.md`.\n  Canonical implementation: PR #104 / final head `16aa467348d89cb4cbadc06314589cd51da346e9` / merge `ffbcbd9b43562302136f8fc2d1478ee4abfb180a`; post-merge proof run `33364067973` = `SUCCESS`.\n'''
+          if text.count(old) != 1:
+              raise SystemExit("A010 task block marker mismatch")
+          tasks.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          expected = {
+              "evidence/mstr-000a/A010-capability-profile.md",
+              "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+          }
+          lines = subprocess.check_output(["git", "status", "--short"], text=True).splitlines()
+          paths = {line[3:] for line in lines}
+          if paths != expected:
+              raise SystemExit(f"unexpected closeout scope: {sorted(paths)}")
+          PY
+          git diff --check
+          grep -F -- '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A010-capability-profile.md
+          grep -F -- '- [x] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          test "$(git diff --name-only | wc -l)" -eq 2
+      - name: Run frozen closeout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+      - name: Commit and publish exact closeout candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          git diff --check
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add evidence/mstr-000a/A010-capability-profile.md specs/001-agent-harness-verified-loop-foundation/tasks.md
+          git commit -m "docs(mstr-000a): close A010 canonically"
+          TARGET_SHA="$(git rev-parse HEAD)"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_SHA"
+          test -z "$(git status --porcelain)"
+          echo "TARGET_SHA=$TARGET_SHA"
