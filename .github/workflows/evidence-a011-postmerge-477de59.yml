@@ -1,0 +1,82 @@
+name: Post-merge proof A011 environment verifier contracts
+
+on:
+  push:
+    branches:
+      - evidence/a011-postmerge-477de59
+
+permissions:
+  contents: read
+
+env:
+  MERGE_SHA: 477de59557bdaf016ab8f9bcf5c98981daba8cb2
+  MERGE_TREE: 51d03553701104a6f5f29482cbb1bdc93263c6f6
+  PARENT_MAIN: 17985cb7176bb99df6139c1d3fbc23c6de4e3bf0
+  IMPLEMENTATION_HEAD: 5fa636286ae317cff389d2e9e84a74183d09866a
+
+jobs:
+  canonical_identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Verify canonical A011 implementation merge and pending ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git rev-parse HEAD^1)" = "$PARENT_MAIN"
+          test "$(git rev-parse HEAD^2)" = "$IMPLEMENTATION_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          grep -F -- '- [x] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A012 Implement clean-checkout environment reset/setup abstraction.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '**State:** `IMPLEMENTATION_ACTIVE`' evidence/mstr-000a/A011-env-verifier-contracts.md
+          grep -F -- 'A011 cannot create a second success authority.' evidence/mstr-000a/A011-env-verifier-contracts.md
+          for name in mstr-environment-manifest-v0 mstr-setup-manifest-v0 mstr-verifier-manifest-v0; do
+            cmp "schemas/$name.schema.json" "specs/001-agent-harness-verified-loop-foundation/contracts/$name.schema.json"
+          done
+
+  quality:
+    needs: canonical_identity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run canonical A011 post-merge gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_environment_verifier_contracts.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [canonical_identity, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Final immutable A011 canonical recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          grep -F -- '- [ ] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A012 Implement clean-checkout environment reset/setup abstraction.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
