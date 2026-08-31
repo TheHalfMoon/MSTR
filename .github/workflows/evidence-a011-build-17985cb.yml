@@ -1,0 +1,295 @@
+name: Build A011 environment verifier contracts
+
+on:
+  push:
+    branches:
+      - evidence/a011-build-17985cb
+
+permissions:
+  contents: write
+
+env:
+  CANONICAL_MAIN: 17985cb7176bb99df6139c1d3fbc23c6de4e3bf0
+  TARGET_BRANCH: feat/000a-a011-env-verifier-contracts
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANONICAL_MAIN }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify exact A011 entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          if git ls-remote --exit-code --heads origin "refs/heads/$TARGET_BRANCH" >/dev/null 2>&1; then
+            echo "target A011 branch already exists" >&2
+            exit 1
+          fi
+          grep -F -- '- [x] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A012 Implement clean-checkout environment reset/setup abstraction.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+      - name: Materialize A011 contract package
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -b "$TARGET_BRANCH"
+          python - <<'PY'
+          import copy
+          import json
+          import subprocess
+          from pathlib import Path
+
+          SHA = {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+          SHA256 = {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          RELPATH = {"type": "string", "minLength": 1, "maxLength": 1024, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"}
+          ID = {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$"}
+
+          effect_policy = {
+              "type": "object",
+              "additionalProperties": False,
+              "properties": {
+                  "network_access": {"enum": ["NONE", "ALLOWLIST"]},
+                  "allowed_hosts": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 253}, "uniqueItems": True},
+                  "secret_access": {"type": "boolean"},
+                  "allowed_secret_ids": {"type": "array", "items": copy.deepcopy(ID), "uniqueItems": True},
+                  "filesystem_writes": {"enum": ["NONE", "TEMP_ONLY", "WORKTREE_AND_TEMP"]},
+                  "subprocess_execution": {"type": "boolean"},
+                  "authority_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 256},
+              },
+              "required": ["network_access", "allowed_hosts", "secret_access", "allowed_secret_ids", "filesystem_writes", "subprocess_execution", "authority_id"],
+              "allOf": [
+                  {"if": {"properties": {"network_access": {"const": "NONE"}}}, "then": {"properties": {"allowed_hosts": {"maxItems": 0}}}},
+                  {"if": {"properties": {"secret_access": {"const": False}}}, "then": {"properties": {"allowed_secret_ids": {"maxItems": 0}}}},
+                  {"if": {"properties": {"network_access": {"const": "ALLOWLIST"}}}, "then": {"properties": {"allowed_hosts": {"minItems": 1}, "authority_id": {"type": "string"}}}},
+                  {"if": {"properties": {"secret_access": {"const": True}}}, "then": {"properties": {"allowed_secret_ids": {"minItems": 1}, "authority_id": {"type": "string"}}}},
+              ],
+          }
+
+          resource_limits = {
+              "type": "object",
+              "additionalProperties": False,
+              "properties": {
+                  "wall_clock_seconds": {"type": "integer", "minimum": 1, "maximum": 86400},
+                  "memory_mib": {"type": "integer", "minimum": 64, "maximum": 1048576},
+                  "disk_mib": {"type": "integer", "minimum": 64, "maximum": 10485760},
+                  "process_count": {"type": "integer", "minimum": 1, "maximum": 4096},
+              },
+              "required": ["wall_clock_seconds", "memory_mib", "disk_mib", "process_count"],
+          }
+
+          environment_schema = {
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "$id": "https://mstr.local/schemas/mstr-environment-manifest-v0.json",
+              "title": "MSTR Environment Manifest v0",
+              "type": "object",
+              "additionalProperties": False,
+              "$defs": {"effect_policy": effect_policy, "resource_limits": resource_limits},
+              "properties": {
+                  "schema_version": {"const": "mstr.environment-manifest.v0"},
+                  "environment_id": copy.deepcopy(ID),
+                  "repository_identity": {
+                      "type": "object", "additionalProperties": False,
+                      "properties": {"repository_url": {"type": "string", "pattern": "^https://github\\.com/[^/]+/[^/]+(?:\\.git)?$"}, "revision_sha": copy.deepcopy(SHA), "tree_sha": copy.deepcopy(SHA)},
+                      "required": ["repository_url", "revision_sha", "tree_sha"],
+                  },
+                  "setup_manifest_id": copy.deepcopy(ID),
+                  "verifier_manifest_id": copy.deepcopy(ID),
+                  "reset_policy": {
+                      "type": "object", "additionalProperties": False,
+                      "properties": {"clean_checkout_required": {"const": True}, "mode": {"enum": ["FRESH_CLONE", "HARD_RESET_CLEAN"]}, "max_reset_seconds": {"type": "integer", "minimum": 1, "maximum": 3600}},
+                      "required": ["clean_checkout_required", "mode", "max_reset_seconds"],
+                  },
+                  "health_target_ids": {"type": "array", "items": copy.deepcopy(ID), "minItems": 1, "uniqueItems": True},
+                  "resource_limits": {"$ref": "#/$defs/resource_limits"},
+                  "effect_policy": {"$ref": "#/$defs/effect_policy"},
+                  "protected_paths": {"type": "array", "items": copy.deepcopy(RELPATH), "minItems": 1, "uniqueItems": True},
+              },
+              "required": ["schema_version", "environment_id", "repository_identity", "setup_manifest_id", "verifier_manifest_id", "reset_policy", "health_target_ids", "resource_limits", "effect_policy", "protected_paths"],
+          }
+
+          setup_schema = {
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "$id": "https://mstr.local/schemas/mstr-setup-manifest-v0.json",
+              "title": "MSTR Setup Manifest v0",
+              "type": "object",
+              "additionalProperties": False,
+              "$defs": {"effect_policy": effect_policy, "resource_limits": resource_limits},
+              "properties": {
+                  "schema_version": {"const": "mstr.setup-manifest.v0"},
+                  "setup_manifest_id": copy.deepcopy(ID),
+                  "environment_id": copy.deepcopy(ID),
+                  "clean_state_required": {"const": True},
+                  "max_attempts": {"type": "integer", "minimum": 1, "maximum": 8},
+                  "steps": {
+                      "type": "array", "minItems": 1,
+                      "items": {
+                          "type": "object", "additionalProperties": False,
+                          "properties": {
+                              "step_id": copy.deepcopy(ID),
+                              "argv": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 4096}, "minItems": 1},
+                              "working_directory": copy.deepcopy(RELPATH),
+                              "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 3600},
+                          },
+                          "required": ["step_id", "argv", "working_directory", "timeout_seconds"],
+                      },
+                  },
+                  "health_target_ids": {"type": "array", "items": copy.deepcopy(ID), "minItems": 1, "uniqueItems": True},
+                  "independent_checker_ids": {"type": "array", "items": copy.deepcopy(ID), "minItems": 1, "uniqueItems": True},
+                  "resource_limits": {"$ref": "#/$defs/resource_limits"},
+                  "effect_policy": {"$ref": "#/$defs/effect_policy"},
+              },
+              "required": ["schema_version", "setup_manifest_id", "environment_id", "clean_state_required", "max_attempts", "steps", "health_target_ids", "independent_checker_ids", "resource_limits", "effect_policy"],
+          }
+
+          verifier_schema = {
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "$id": "https://mstr.local/schemas/mstr-verifier-manifest-v0.json",
+              "title": "MSTR Verifier Manifest v0",
+              "type": "object",
+              "additionalProperties": False,
+              "$defs": {"effect_policy": effect_policy},
+              "properties": {
+                  "schema_version": {"const": "mstr.verifier-manifest.v0"},
+                  "verifier_manifest_id": copy.deepcopy(ID),
+                  "environment_id": copy.deepcopy(ID),
+                  "finalizer_contract_id": {"const": "A006_PROTECTED_FINALIZER"},
+                  "success_semantics": {"const": "VERIFIER_EVIDENCE_ONLY"},
+                  "verifiers": {
+                      "type": "array", "minItems": 1,
+                      "items": {
+                          "type": "object", "additionalProperties": False,
+                          "properties": {
+                              "verifier_id": copy.deepcopy(ID),
+                              "argv": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 4096}, "minItems": 1},
+                              "working_directory": copy.deepcopy(RELPATH),
+                              "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 3600},
+                              "required": {"type": "boolean"},
+                              "expected_exit_codes": {"type": "array", "items": {"type": "integer", "minimum": 0, "maximum": 255}, "minItems": 1, "uniqueItems": True},
+                              "source_identity": {
+                                  "type": "object", "additionalProperties": False,
+                                  "properties": {"path": copy.deepcopy(RELPATH), "sha256": copy.deepcopy(SHA256)},
+                                  "required": ["path", "sha256"],
+                              },
+                          },
+                          "required": ["verifier_id", "argv", "working_directory", "timeout_seconds", "required", "expected_exit_codes", "source_identity"],
+                      },
+                  },
+                  "fixture_contract": {
+                      "type": "object", "additionalProperties": False,
+                      "properties": {
+                          "known_good": {"type": "array", "items": copy.deepcopy(ID), "minItems": 1, "uniqueItems": True},
+                          "known_bad": {"type": "array", "items": copy.deepcopy(ID), "minItems": 1, "uniqueItems": True},
+                          "noop": {"type": "array", "items": copy.deepcopy(ID), "minItems": 1, "uniqueItems": True},
+                      },
+                      "required": ["known_good", "known_bad", "noop"],
+                  },
+                  "effect_policy": {"$ref": "#/$defs/effect_policy"},
+                  "protected_paths": {"type": "array", "items": copy.deepcopy(RELPATH), "minItems": 1, "uniqueItems": True},
+              },
+              "required": ["schema_version", "verifier_manifest_id", "environment_id", "finalizer_contract_id", "success_semantics", "verifiers", "fixture_contract", "effect_policy", "protected_paths"],
+          }
+
+          schemas = {
+              "mstr-environment-manifest-v0": environment_schema,
+              "mstr-setup-manifest-v0": setup_schema,
+              "mstr-verifier-manifest-v0": verifier_schema,
+          }
+          for name, schema in schemas.items():
+              payload = json.dumps(schema, indent=2, sort_keys=True) + "\n"
+              for path in (Path("schemas") / f"{name}.schema.json", Path("specs/001-agent-harness-verified-loop-foundation/contracts") / f"{name}.schema.json"):
+                  path.write_text(payload, encoding="utf-8")
+
+          no_effect = {"network_access": "NONE", "allowed_hosts": [], "secret_access": False, "allowed_secret_ids": [], "filesystem_writes": "WORKTREE_AND_TEMP", "subprocess_execution": True, "authority_id": None}
+          limits = {"wall_clock_seconds": 900, "memory_mib": 4096, "disk_mib": 8192, "process_count": 64}
+          env_valid = {
+              "schema_version": "mstr.environment-manifest.v0", "environment_id": "fixture.python-repo.v0",
+              "repository_identity": {"repository_url": "https://github.com/example/repository", "revision_sha": "1" * 40, "tree_sha": "2" * 40},
+              "setup_manifest_id": "fixture.setup.v0", "verifier_manifest_id": "fixture.verifier.v0",
+              "reset_policy": {"clean_checkout_required": True, "mode": "HARD_RESET_CLEAN", "max_reset_seconds": 60},
+              "health_target_ids": ["health.import", "health.tests"], "resource_limits": limits,
+              "effect_policy": no_effect, "protected_paths": ["tests", "schemas"],
+          }
+          setup_valid = {
+              "schema_version": "mstr.setup-manifest.v0", "setup_manifest_id": "fixture.setup.v0", "environment_id": "fixture.python-repo.v0", "clean_state_required": True, "max_attempts": 2,
+              "steps": [{"step_id": "install", "argv": ["python", "-m", "pip", "install", "-e", ".[dev]"], "working_directory": ".", "timeout_seconds": 300}],
+              "health_target_ids": ["health.import", "health.tests"], "independent_checker_ids": ["checker.import", "checker.tests"], "resource_limits": limits, "effect_policy": no_effect,
+          }
+          verifier_valid = {
+              "schema_version": "mstr.verifier-manifest.v0", "verifier_manifest_id": "fixture.verifier.v0", "environment_id": "fixture.python-repo.v0",
+              "finalizer_contract_id": "A006_PROTECTED_FINALIZER", "success_semantics": "VERIFIER_EVIDENCE_ONLY",
+              "verifiers": [{"verifier_id": "pytest", "argv": ["pytest", "-q"], "working_directory": ".", "timeout_seconds": 300, "required": True, "expected_exit_codes": [0], "source_identity": {"path": "tests", "sha256": "3" * 64}}],
+              "fixture_contract": {"known_good": ["fixture.good"], "known_bad": ["fixture.bad"], "noop": ["fixture.noop"]},
+              "effect_policy": no_effect, "protected_paths": ["tests", "schemas"],
+          }
+          invalids = {
+              "mstr-environment-manifest-v0": {**env_valid, "effect_policy": {**no_effect, "allowed_hosts": ["example.com"]}},
+              "mstr-setup-manifest-v0": {**setup_valid, "max_attempts": 0},
+              "mstr-verifier-manifest-v0": {**verifier_valid, "success_semantics": "MODEL_CAN_DECLARE_SUCCESS"},
+          }
+          valids = {"mstr-environment-manifest-v0": env_valid, "mstr-setup-manifest-v0": setup_valid, "mstr-verifier-manifest-v0": verifier_valid}
+          for name, payload in valids.items():
+              Path(f"tests/fixtures/schemas/valid/{name}.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          for name, payload in invalids.items():
+              Path(f"tests/fixtures/schemas/invalid/{name}.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+          registry = Path("src/mstr_qualify/schemas.py")
+          text = registry.read_text(encoding="utf-8")
+          marker = '    "mstr-capability-profile-v0": "mstr-capability-profile-v0.schema.json",\n'
+          insertion = marker + '    # MSTR-000A A011: environment/setup/verifier identities and effect boundaries.\n    "mstr-environment-manifest-v0": "mstr-environment-manifest-v0.schema.json",\n    "mstr-setup-manifest-v0": "mstr-setup-manifest-v0.schema.json",\n    "mstr-verifier-manifest-v0": "mstr-verifier-manifest-v0.schema.json",\n'
+          if text.count(marker) != 1:
+              raise SystemExit("schema registry marker mismatch")
+          registry.write_text(text.replace(marker, insertion, 1), encoding="utf-8")
+
+          test_path = Path("tests/contract/test_environment_verifier_contracts.py")
+          test_path.write_text('''from __future__ import annotations\n\nimport json\nfrom pathlib import Path\n\nimport pytest\n\nfrom mstr_qualify.errors import SchemaValidationError\nfrom mstr_qualify.schemas import load_schema, validate_instance\n\nROOT = Path(__file__).resolve().parents[2]\nNAMES = (\n    "mstr-environment-manifest-v0",\n    "mstr-setup-manifest-v0",\n    "mstr-verifier-manifest-v0",\n)\n\n\ndef _fixture(kind: str, name: str) -> dict[str, object]:\n    return json.loads((ROOT / "tests" / "fixtures" / "schemas" / kind / f"{name}.json").read_text(encoding="utf-8"))\n\n\n@pytest.mark.parametrize("name", NAMES)\ndef test_design_and_runtime_contracts_are_byte_identical(name: str) -> None:\n    runtime = ROOT / "schemas" / f"{name}.schema.json"\n    design = ROOT / "specs" / "001-agent-harness-verified-loop-foundation" / "contracts" / f"{name}.schema.json"\n    assert runtime.read_bytes() == design.read_bytes()\n\n\n@pytest.mark.parametrize("name", NAMES)\ndef test_known_good_contract_fixture_is_valid(name: str) -> None:\n    validate_instance(name, _fixture("valid", name))\n\n\n@pytest.mark.parametrize("name", NAMES)\ndef test_known_bad_contract_fixture_fails_closed(name: str) -> None:\n    with pytest.raises(SchemaValidationError):\n        validate_instance(name, _fixture("invalid", name))\n\n\ndef test_environment_contract_rejects_implicit_network_authority() -> None:\n    value = _fixture("valid", "mstr-environment-manifest-v0")\n    effect = value["effect_policy"]\n    assert isinstance(effect, dict)\n    effect["network_access"] = "ALLOWLIST"\n    effect["allowed_hosts"] = ["example.com"]\n    effect["authority_id"] = None\n    with pytest.raises(SchemaValidationError):\n        validate_instance("mstr-environment-manifest-v0", value)\n\n\ndef test_verifier_contract_cannot_replace_a006_success_authority() -> None:\n    schema = load_schema("mstr-verifier-manifest-v0")\n    assert schema["properties"]["finalizer_contract_id"]["const"] == "A006_PROTECTED_FINALIZER"\n    assert schema["properties"]["success_semantics"]["const"] == "VERIFIER_EVIDENCE_ONLY"\n''', encoding="utf-8")
+
+          evidence = Path("evidence/mstr-000a/A011-env-verifier-contracts.md")
+          evidence.write_text('''# A011 — Environment / Setup / Verifier Contract Freeze\n\n**Task:** `MSTR-000A / A011`\n**State:** `IMPLEMENTATION_ACTIVE`\n**Canonical base:** `17985cb7176bb99df6139c1d3fbc23c6de4e3bf0`\n\n## Contract boundary\n\nA011 freezes three repository-local Draft 2020-12 contracts: `mstr.environment-manifest.v0`, `mstr.setup-manifest.v0`, and `mstr.verifier-manifest.v0`. They bind exact repository revision/tree identity, clean-reset requirements, bounded setup attempts, health-target and independent-checker identities, verifier source identity, protected paths, resource ceilings, and explicit effect policy.\n\nThe effect policy is fail-closed: `network_access=NONE` requires an empty host allowlist; network allowlisting requires an explicit authority identity; secret access is independently declared and likewise requires exact secret identifiers plus authority. No contract field itself grants external-effect authority.\n\nVerifier manifests are evidence producers only. `finalizer_contract_id` is frozen to `A006_PROTECTED_FINALIZER`, and `success_semantics` is frozen to `VERIFIER_EVIDENCE_ONLY`; therefore A011 cannot create a second success authority. B022 verifier-health remains the health-record authority and is not duplicated here.\n\nKnown-good, known-bad, and no-op fixture identities are part of the verifier contract. Repository-owned synthetic fixtures validate contract behavior only; A011 does not execute setup, network calls, secrets, models, external verifiers, or production workloads.\n\n## Authority boundary\n\n```text\nMODEL_WEIGHT_ACCESS = NONE\nMODEL_EXECUTION = NONE\nNETWORK_EXECUTION = NONE\nSECRET_ACCESS = NONE\nPAID_COMPUTE = NONE\nLARGE_DATASET_INGESTION = NONE\nPRIVATE_USER_DATA_INGESTION = NONE\nPRODUCTION_TRACE_INGESTION = NONE\nWEIGHT_CHANGING_TRAINING = NONE\nPRODUCTION_RELEASE = NONE\nA011_AUTHORITY = CONTRACT_SCHEMA_AND_REPOSITORY_FIXTURES_ONLY\n```\n\nA011 remains non-canonical until exact-head qualification, review, mandatory premerge verification, guarded merge, post-merge proof, canonical closeout, and post-closeout proof succeed.\n''', encoding="utf-8")
+
+          expected = {
+              "schemas/mstr-environment-manifest-v0.schema.json", "schemas/mstr-setup-manifest-v0.schema.json", "schemas/mstr-verifier-manifest-v0.schema.json",
+              "specs/001-agent-harness-verified-loop-foundation/contracts/mstr-environment-manifest-v0.schema.json", "specs/001-agent-harness-verified-loop-foundation/contracts/mstr-setup-manifest-v0.schema.json", "specs/001-agent-harness-verified-loop-foundation/contracts/mstr-verifier-manifest-v0.schema.json",
+              "tests/fixtures/schemas/valid/mstr-environment-manifest-v0.json", "tests/fixtures/schemas/valid/mstr-setup-manifest-v0.json", "tests/fixtures/schemas/valid/mstr-verifier-manifest-v0.json",
+              "tests/fixtures/schemas/invalid/mstr-environment-manifest-v0.json", "tests/fixtures/schemas/invalid/mstr-setup-manifest-v0.json", "tests/fixtures/schemas/invalid/mstr-verifier-manifest-v0.json",
+              "src/mstr_qualify/schemas.py", "tests/contract/test_environment_verifier_contracts.py", "evidence/mstr-000a/A011-env-verifier-contracts.md",
+          }
+          paths = {line[3:] for line in subprocess.check_output(["git", "status", "--short"], text=True).splitlines()}
+          if paths != expected:
+              raise SystemExit(f"unexpected A011 scope: {sorted(paths)}")
+          PY
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 15
+      - name: Run A011 focused and frozen gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_environment_verifier_contracts.py tests/contract/test_schemas.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+      - name: Commit and publish exact A011 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          git diff --check
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add schemas specs/001-agent-harness-verified-loop-foundation/contracts src/mstr_qualify/schemas.py tests/contract/test_environment_verifier_contracts.py tests/fixtures/schemas evidence/mstr-000a/A011-env-verifier-contracts.md
+          git commit -m "feat(mstr-000a): freeze A011 environment verifier contracts"
+          TARGET_SHA="$(git rev-parse HEAD)"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_SHA"
+          echo "TARGET_SHA=$TARGET_SHA"
