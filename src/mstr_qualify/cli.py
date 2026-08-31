@@ -69,6 +69,8 @@ _SCHEMA_VERSION_TO_SCHEMA_NAME = {
     "mstr.interaction.v1": "interaction-contract",
     # T027 weight-access preflight manifest: preparation-only contract.
     "mstr.weight-access-manifest.v1": "weight-access-manifest",
+    # MSTR-000A A015 Direction-to-Done task contract.
+    "mstr.direction-task.v0": "mstr-direction-task-v0",
     # MSTR-000B B001 machine-task contracts.
     "mstr.task-node.v0": "mstr-task-node-v0",
     "mstr.task-eligibility.v0": "mstr-task-eligibility-v0",
