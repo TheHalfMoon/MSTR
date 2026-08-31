@@ -90,6 +90,13 @@ DESIGN_SCHEMA_OVERRIDES = {
         / "contracts"
         / "mstr-software-evolution-record-v0.schema.json"
     ),
+    "mstr-capability-profile-v0": (
+        ROOT
+        / "specs"
+        / "001-agent-harness-verified-loop-foundation"
+        / "contracts"
+        / "mstr-capability-profile-v0.schema.json"
+    ),
 }
 
 
