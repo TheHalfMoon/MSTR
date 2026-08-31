@@ -1,0 +1,1171 @@
+name: Build A017 trajectory contract candidate
+
+on:
+  push:
+    branches:
+      - automation/a017-contract-builder
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build exact A017 candidate on focused feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_BRANCH='feat/000a-a017-trajectory-contract'
+          EXPECTED_HEAD='0bd69861b987c616e1b9b25ef88a5d14f4762788'
+          git fetch origin "$TARGET_BRANCH" --quiet
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python - <<'PY'
+          from __future__ import annotations
+
+          import copy
+          import json
+          from pathlib import Path
+
+          ROOT = Path('.')
+          FAILURES = [
+              'WRONG_LOCALIZATION',
+              'BAD_ASSUMPTION',
+              'STALE_FILE',
+              'BAD_PATCH',
+              'SYNTAX_ERROR',
+              'TYPE_ERROR',
+              'BUILD_FAILURE',
+              'TEST_FAILURE',
+              'DEPENDENCY_FAILURE',
+              'TOOL_ERROR',
+              'TIMEOUT',
+              'INCOMPLETE_IMPLEMENTATION',
+              'OVEREDIT',
+              'REGRESSION',
+              'FAKE_COMPLETION',
+              'AUTHORITY_VIOLATION',
+              'ENVIRONMENT_FAILURE',
+              'VERIFIER_FAILURE',
+          ]
+          TERMINALS = [
+              'VERIFIED_SUCCESS',
+              'RECOVERED_SUCCESS',
+              'FAILED_VALID',
+              'TIMEOUT_VALID',
+              'INVALID_ENVIRONMENT',
+              'INVALID_VERIFIER',
+              'CONTAMINATED',
+              'LEAKAGE_DETECTED',
+              'AUTHORITY_VIOLATION',
+          ]
+          HEALTH_CLASSES = [
+              'HEALTHY',
+              'PARTIAL',
+              'DISAGREEMENT',
+              'BROKEN',
+              'LEAKED',
+              'TAMPERED',
+          ]
+          TRAINING_ADMISSIONS = [
+              'ADMITTED_SFT',
+              'ADMITTED_PREFERENCE',
+              'ADMITTED_RL_EVIDENCE',
+              'EVAL_ONLY',
+              'REJECTED',
+          ]
+
+          run_identity = {
+              'type': 'object',
+              'additionalProperties': False,
+              'required': [
+                  'run_id',
+                  'task_manifest_id',
+                  'repository_revision',
+                  'environment_manifest_id',
+                  'model_id',
+                  'model_revision',
+                  'artifact_sha256',
+                  'runtime_id',
+                  'interaction_contract_id',
+                  'loop_contract_id',
+                  'harness_profile_id',
+                  'verifier_manifest_id',
+                  'sampling_config',
+                  'seed',
+                  'timeout_seconds',
+                  'cache_state',
+                  'hardware_profile_id',
+              ],
+              'properties': {
+                  'run_id': {'type': 'string', 'minLength': 1, 'maxLength': 256},
+                  'task_manifest_id': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+                  'repository_revision': {'type': 'string', 'minLength': 1, 'maxLength': 256},
+                  'environment_manifest_id': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+                  'model_id': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+                  'model_revision': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+                  'artifact_sha256': {'type': 'string', 'pattern': '^[0-9a-f]{64}$'},
+                  'runtime_id': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+                  'interaction_contract_id': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+                  'loop_contract_id': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+                  'harness_profile_id': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+                  'verifier_manifest_id': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+                  'sampling_config': {'type': 'object'},
+                  'seed': {'type': ['integer', 'string']},
+                  'timeout_seconds': {'type': 'integer', 'minimum': 1, 'maximum': 86400},
+                  'cache_state': {'type': 'string', 'minLength': 1, 'maxLength': 128},
+                  'hardware_profile_id': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+              },
+          }
+
+          verifier_health_binding = {
+              'type': ['object', 'null'],
+              'oneOf': [
+                  {'type': 'null'},
+                  {
+                      'type': 'object',
+                      'additionalProperties': False,
+                      'required': [
+                          'schema_version',
+                          'verifier_health_id',
+                          'task_identity',
+                          'verifier_manifest_id',
+                          'health_class',
+                          'stage_id',
+                          'stage_admission_class',
+                      ],
+                      'properties': {
+                          'schema_version': {'const': 'mstr.verifier-health.v0'},
+                          'verifier_health_id': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+                          'task_identity': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+                          'verifier_manifest_id': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+                          'health_class': {'enum': HEALTH_CLASSES},
+                          'stage_id': {'type': 'string', 'minLength': 1, 'maxLength': 256},
+                          'stage_admission_class': {
+                              'enum': [
+                                  'CLEAN_POSITIVE_ELIGIBLE',
+                                  'RESEARCH_DIAGNOSTIC_ONLY',
+                                  'BLOCKED',
+                              ]
+                          },
+                      },
+                      'allOf': [
+                          {
+                              'if': {
+                                  'properties': {
+                                      'health_class': {'enum': ['PARTIAL', 'DISAGREEMENT']}
+                                  },
+                                  'required': ['health_class'],
+                              },
+                              'then': {
+                                  'properties': {
+                                      'stage_admission_class': {
+                                          'enum': ['RESEARCH_DIAGNOSTIC_ONLY', 'BLOCKED']
+                                      }
+                                  }
+                              },
+                          },
+                          {
+                              'if': {
+                                  'properties': {
+                                      'health_class': {'enum': ['BROKEN', 'LEAKED', 'TAMPERED']}
+                                  },
+                                  'required': ['health_class'],
+                              },
+                              'then': {
+                                  'properties': {'stage_admission_class': {'const': 'BLOCKED'}}
+                              },
+                          },
+                      ],
+                  },
+              ],
+          }
+
+          provenance = {
+              'type': 'object',
+              'additionalProperties': False,
+              'required': [
+                  'source_class',
+                  'source_identity',
+                  'provenance_status',
+                  'rights_status',
+                  'secret_scan_status',
+                  'contamination_evidence_identity',
+              ],
+              'properties': {
+                  'source_class': {
+                      'enum': [
+                          'PUBLIC_REPOSITORY',
+                          'SYNTHETIC_FIXTURE',
+                          'REPOSITORY_OWNED_FIXTURE',
+                          'PRIVATE_USER_REPOSITORY',
+                          'PRODUCTION_TRACE',
+                          'OTHER_GOVERNED',
+                      ]
+                  },
+                  'source_identity': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+                  'provenance_status': {'enum': ['COMPLETE', 'INCOMPLETE', 'UNRESOLVED']},
+                  'rights_status': {
+                      'enum': ['COMPATIBLE', 'INCOMPATIBLE', 'UNRESOLVED', 'NOT_APPLICABLE']
+                  },
+                  'secret_scan_status': {'enum': ['CLEAR', 'DETECTED', 'NOT_APPLICABLE']},
+                  'contamination_evidence_identity': {
+                      'type': 'string',
+                      'minLength': 1,
+                      'maxLength': 512,
+                  },
+              },
+          }
+
+          schema = {
+              '$schema': 'https://json-schema.org/draft/2020-12/schema',
+              '$id': 'https://mstr.local/schemas/mstr-trajectory-manifest-v0.json',
+              'title': 'MSTR Trajectory Manifest v0',
+              'type': 'object',
+              'additionalProperties': False,
+              'required': [
+                  'schema_version',
+                  'trajectory_id',
+                  'run_identity',
+                  'event_log_schema_version',
+                  'event_log_sha256',
+                  'event_count',
+                  'failure_taxonomy_version',
+                  'terminal_class',
+                  'verifier_result_identity',
+                  'verifier_health_binding',
+                  'failure_classes',
+                  'recovery_count',
+                  'authority_violations',
+                  'contamination_status',
+                  'training_admission',
+                  'admission_policy_version',
+                  'admission_reasons',
+                  'provenance',
+              ],
+              'properties': {
+                  'schema_version': {'const': 'mstr.trajectory-manifest.v0'},
+                  'trajectory_id': {'type': 'string', 'minLength': 1, 'maxLength': 512},
+                  'run_identity': run_identity,
+                  'event_log_schema_version': {'const': 'mstr.run-event.v0'},
+                  'event_log_sha256': {'type': 'string', 'pattern': '^[0-9a-f]{64}$'},
+                  'event_count': {'type': 'integer', 'minimum': 1},
+                  'failure_taxonomy_version': {'const': 'mstr.failure-taxonomy.v0'},
+                  'terminal_class': {'enum': TERMINALS},
+                  'verifier_result_identity': {
+                      'type': ['string', 'null'],
+                      'minLength': 1,
+                      'maxLength': 512,
+                  },
+                  'verifier_health_binding': verifier_health_binding,
+                  'failure_classes': {
+                      'type': 'array',
+                      'items': {'enum': FAILURES},
+                      'uniqueItems': True,
+                  },
+                  'recovery_count': {'type': 'integer', 'minimum': 0},
+                  'authority_violations': {
+                      'type': 'array',
+                      'items': {'type': 'string', 'minLength': 1, 'maxLength': 256},
+                      'uniqueItems': True,
+                  },
+                  'contamination_status': {'enum': ['CLEAR', 'SUSPECT', 'REJECTED']},
+                  'training_admission': {'enum': TRAINING_ADMISSIONS},
+                  'admission_policy_version': {'const': 'mstr.trajectory-admission.v0'},
+                  'admission_reasons': {
+                      'type': 'array',
+                      'items': {'type': 'string', 'minLength': 1, 'maxLength': 256},
+                      'uniqueItems': True,
+                  },
+                  'training_labels': {'type': 'object'},
+                  'provenance': provenance,
+              },
+              'allOf': [
+                  {
+                      'if': {
+                          'properties': {
+                              'terminal_class': {'enum': ['VERIFIED_SUCCESS', 'RECOVERED_SUCCESS']}
+                          },
+                          'required': ['terminal_class'],
+                      },
+                      'then': {
+                          'properties': {
+                              'contamination_status': {'const': 'CLEAR'},
+                              'verifier_result_identity': {
+                                  'type': 'string',
+                                  'minLength': 1,
+                                  'maxLength': 512,
+                              },
+                          }
+                      },
+                  },
+                  {
+                      'if': {
+                          'properties': {'terminal_class': {'const': 'VERIFIED_SUCCESS'}},
+                          'required': ['terminal_class'],
+                      },
+                      'then': {
+                          'properties': {
+                              'failure_classes': {'maxItems': 0},
+                              'recovery_count': {'const': 0},
+                          }
+                      },
+                  },
+                  {
+                      'if': {
+                          'properties': {'terminal_class': {'const': 'RECOVERED_SUCCESS'}},
+                          'required': ['terminal_class'],
+                      },
+                      'then': {
+                          'properties': {
+                              'failure_classes': {'minItems': 1},
+                              'recovery_count': {'minimum': 1},
+                          }
+                      },
+                  },
+                  {
+                      'if': {
+                          'properties': {'terminal_class': {'const': 'FAILED_VALID'}},
+                          'required': ['terminal_class'],
+                      },
+                      'then': {
+                          'properties': {
+                              'failure_classes': {'minItems': 1},
+                              'training_admission': {
+                                  'enum': [
+                                      'ADMITTED_PREFERENCE',
+                                      'ADMITTED_RL_EVIDENCE',
+                                      'EVAL_ONLY',
+                                      'REJECTED',
+                                  ]
+                              },
+                          }
+                      },
+                  },
+                  {
+                      'if': {
+                          'properties': {'terminal_class': {'const': 'TIMEOUT_VALID'}},
+                          'required': ['terminal_class'],
+                      },
+                      'then': {
+                          'properties': {
+                              'failure_classes': {
+                                  'contains': {'const': 'TIMEOUT'},
+                                  'minContains': 1,
+                              },
+                              'training_admission': {
+                                  'enum': [
+                                      'ADMITTED_PREFERENCE',
+                                      'ADMITTED_RL_EVIDENCE',
+                                      'EVAL_ONLY',
+                                      'REJECTED',
+                                  ]
+                              },
+                          }
+                      },
+                  },
+                  {
+                      'if': {
+                          'properties': {'terminal_class': {'const': 'INVALID_ENVIRONMENT'}},
+                          'required': ['terminal_class'],
+                      },
+                      'then': {
+                          'properties': {
+                              'failure_classes': {
+                                  'contains': {'const': 'ENVIRONMENT_FAILURE'},
+                                  'minContains': 1,
+                              },
+                              'training_admission': {'const': 'REJECTED'},
+                          }
+                      },
+                  },
+                  {
+                      'if': {
+                          'properties': {'terminal_class': {'const': 'INVALID_VERIFIER'}},
+                          'required': ['terminal_class'],
+                      },
+                      'then': {
+                          'properties': {
+                              'failure_classes': {
+                                  'contains': {'const': 'VERIFIER_FAILURE'},
+                                  'minContains': 1,
+                              },
+                              'training_admission': {'const': 'REJECTED'},
+                          }
+                      },
+                  },
+                  {
+                      'if': {
+                          'properties': {
+                              'terminal_class': {'enum': ['CONTAMINATED', 'LEAKAGE_DETECTED']}
+                          },
+                          'required': ['terminal_class'],
+                      },
+                      'then': {'properties': {'training_admission': {'const': 'REJECTED'}}},
+                  },
+                  {
+                      'if': {
+                          'properties': {'terminal_class': {'const': 'AUTHORITY_VIOLATION'}},
+                          'required': ['terminal_class'],
+                      },
+                      'then': {
+                          'properties': {
+                              'failure_classes': {
+                                  'contains': {'const': 'AUTHORITY_VIOLATION'},
+                                  'minContains': 1,
+                              },
+                              'authority_violations': {'minItems': 1},
+                              'training_admission': {'const': 'REJECTED'},
+                          }
+                      },
+                  },
+                  {
+                      'if': {
+                          'properties': {
+                              'contamination_status': {'enum': ['SUSPECT', 'REJECTED']}
+                          },
+                          'required': ['contamination_status'],
+                      },
+                      'then': {'properties': {'training_admission': {'const': 'REJECTED'}}},
+                  },
+                  {
+                      'if': {
+                          'properties': {'authority_violations': {'minItems': 1}},
+                          'required': ['authority_violations'],
+                      },
+                      'then': {'properties': {'training_admission': {'const': 'REJECTED'}}},
+                  },
+                  {
+                      'if': {
+                          'properties': {
+                              'provenance': {
+                                  'properties': {
+                                      'source_class': {
+                                          'enum': ['PRIVATE_USER_REPOSITORY', 'PRODUCTION_TRACE']
+                                      }
+                                  },
+                                  'required': ['source_class'],
+                              }
+                          },
+                          'required': ['provenance'],
+                      },
+                      'then': {'properties': {'training_admission': {'const': 'REJECTED'}}},
+                  },
+                  {
+                      'if': {
+                          'properties': {
+                              'provenance': {
+                                  'properties': {
+                                      'provenance_status': {'enum': ['INCOMPLETE', 'UNRESOLVED']}
+                                  },
+                                  'required': ['provenance_status'],
+                              }
+                          },
+                          'required': ['provenance'],
+                      },
+                      'then': {'properties': {'training_admission': {'const': 'REJECTED'}}},
+                  },
+                  {
+                      'if': {
+                          'properties': {
+                              'provenance': {
+                                  'properties': {
+                                      'rights_status': {'enum': ['INCOMPATIBLE', 'UNRESOLVED']}
+                                  },
+                                  'required': ['rights_status'],
+                              }
+                          },
+                          'required': ['provenance'],
+                      },
+                      'then': {'properties': {'training_admission': {'const': 'REJECTED'}}},
+                  },
+                  {
+                      'if': {
+                          'properties': {
+                              'provenance': {
+                                  'properties': {'secret_scan_status': {'const': 'DETECTED'}},
+                                  'required': ['secret_scan_status'],
+                              }
+                          },
+                          'required': ['provenance'],
+                      },
+                      'then': {'properties': {'training_admission': {'const': 'REJECTED'}}},
+                  },
+                  {
+                      'if': {
+                          'properties': {
+                              'training_admission': {
+                                  'enum': [
+                                      'ADMITTED_SFT',
+                                      'ADMITTED_PREFERENCE',
+                                      'ADMITTED_RL_EVIDENCE',
+                                  ]
+                              }
+                          },
+                          'required': ['training_admission'],
+                      },
+                      'then': {'properties': {'verifier_health_binding': {'type': 'object'}}},
+                  },
+                  {
+                      'if': {
+                          'properties': {'training_admission': {'const': 'ADMITTED_SFT'}},
+                          'required': ['training_admission'],
+                      },
+                      'then': {
+                          'properties': {
+                              'terminal_class': {'enum': ['VERIFIED_SUCCESS', 'RECOVERED_SUCCESS']},
+                              'contamination_status': {'const': 'CLEAR'},
+                              'verifier_result_identity': {
+                                  'type': 'string',
+                                  'minLength': 1,
+                                  'maxLength': 512,
+                              },
+                              'authority_violations': {'maxItems': 0},
+                              'verifier_health_binding': {
+                                  'type': 'object',
+                                  'properties': {
+                                      'health_class': {'const': 'HEALTHY'},
+                                      'stage_admission_class': {'const': 'CLEAN_POSITIVE_ELIGIBLE'},
+                                  },
+                                  'required': ['health_class', 'stage_admission_class'],
+                              },
+                              'provenance': {
+                                  'type': 'object',
+                                  'properties': {
+                                      'provenance_status': {'const': 'COMPLETE'},
+                                      'rights_status': {'enum': ['COMPATIBLE', 'NOT_APPLICABLE']},
+                                      'secret_scan_status': {'enum': ['CLEAR', 'NOT_APPLICABLE']},
+                                      'source_class': {
+                                          'enum': [
+                                              'PUBLIC_REPOSITORY',
+                                              'SYNTHETIC_FIXTURE',
+                                              'REPOSITORY_OWNED_FIXTURE',
+                                              'OTHER_GOVERNED',
+                                          ]
+                                      },
+                                  },
+                                  'required': [
+                                      'provenance_status',
+                                      'rights_status',
+                                      'secret_scan_status',
+                                      'source_class',
+                                  ],
+                              },
+                          }
+                      },
+                  },
+                  {
+                      'if': {
+                          'properties': {
+                              'training_admission': {
+                                  'enum': ['ADMITTED_PREFERENCE', 'ADMITTED_RL_EVIDENCE']
+                              }
+                          },
+                          'required': ['training_admission'],
+                      },
+                      'then': {
+                          'properties': {
+                              'verifier_health_binding': {
+                                  'type': 'object',
+                                  'properties': {
+                                      'stage_admission_class': {
+                                          'enum': [
+                                              'CLEAN_POSITIVE_ELIGIBLE',
+                                              'RESEARCH_DIAGNOSTIC_ONLY',
+                                          ]
+                                      }
+                                  },
+                                  'required': ['stage_admission_class'],
+                              }
+                          }
+                      },
+                  },
+              ],
+          }
+
+          base_run = {
+              'run_id': 'run-a017-001',
+              'task_manifest_id': 'direction-task-a017-fixture',
+              'repository_revision': '0bd69861b987c616e1b9b25ef88a5d14f4762788',
+              'environment_manifest_id': 'env-a017-fixture',
+              'model_id': 'N/A_CONTRACT_FIXTURE',
+              'model_revision': 'N/A_CONTRACT_FIXTURE',
+              'artifact_sha256': '0' * 64,
+              'runtime_id': 'N/A_CONTRACT_FIXTURE',
+              'interaction_contract_id': 'mstr.interaction.fixture.v0',
+              'loop_contract_id': 'mstr.loop-contract.v0',
+              'harness_profile_id': 'h0-neutral-fixture',
+              'verifier_manifest_id': 'verifier-a017-fixture',
+              'sampling_config': {'temperature': 0},
+              'seed': 0,
+              'timeout_seconds': 60,
+              'cache_state': 'EMPTY',
+              'hardware_profile_id': 'fixture-hardware',
+          }
+          health = {
+              'schema_version': 'mstr.verifier-health.v0',
+              'verifier_health_id': 'vh-a017-healthy',
+              'task_identity': 'direction-task-a017-fixture',
+              'verifier_manifest_id': 'verifier-a017-fixture',
+              'health_class': 'HEALTHY',
+              'stage_id': 'MSTR-002-SFT',
+              'stage_admission_class': 'CLEAN_POSITIVE_ELIGIBLE',
+          }
+          provenance_record = {
+              'source_class': 'REPOSITORY_OWNED_FIXTURE',
+              'source_identity': 'tests/fixtures/schemas/valid/mstr-trajectory-manifest-v0.json',
+              'provenance_status': 'COMPLETE',
+              'rights_status': 'NOT_APPLICABLE',
+              'secret_scan_status': 'NOT_APPLICABLE',
+              'contamination_evidence_identity': 'fixture-contamination-clear',
+          }
+          valid = {
+              'schema_version': 'mstr.trajectory-manifest.v0',
+              'trajectory_id': 'trajectory-a017-valid',
+              'run_identity': base_run,
+              'event_log_schema_version': 'mstr.run-event.v0',
+              'event_log_sha256': '1' * 64,
+              'event_count': 8,
+              'failure_taxonomy_version': 'mstr.failure-taxonomy.v0',
+              'terminal_class': 'VERIFIED_SUCCESS',
+              'verifier_result_identity': 'verifier-result-a017-valid',
+              'verifier_health_binding': health,
+              'failure_classes': [],
+              'recovery_count': 0,
+              'authority_violations': [],
+              'contamination_status': 'CLEAR',
+              'training_admission': 'ADMITTED_SFT',
+              'admission_policy_version': 'mstr.trajectory-admission.v0',
+              'admission_reasons': [],
+              'training_labels': {'label_kind': 'CLEAN_POSITIVE'},
+              'provenance': provenance_record,
+          }
+          invalid = copy.deepcopy(valid)
+          invalid['trajectory_id'] = 'trajectory-a017-invalid-partial-sft'
+          invalid['verifier_health_binding']['health_class'] = 'PARTIAL'
+          invalid['verifier_health_binding']['stage_admission_class'] = 'RESEARCH_DIAGNOSTIC_ONLY'
+
+          taxonomy = {
+              'schema_version': 'mstr.failure-taxonomy.v0',
+              'authority': 'MSTR-000A-A017',
+              'classes': [
+                  {'code': 'WRONG_LOCALIZATION', 'category': 'REASONING', 'meaning': 'Work targeted the wrong repository location or symbol.'},
+                  {'code': 'BAD_ASSUMPTION', 'category': 'REASONING', 'meaning': 'A material unsupported assumption caused incorrect work.'},
+                  {'code': 'STALE_FILE', 'category': 'EDIT', 'meaning': 'An edit was based on stale file state or failed stale-write protection.'},
+                  {'code': 'BAD_PATCH', 'category': 'EDIT', 'meaning': 'A proposed patch or deterministic edit could not be applied correctly.'},
+                  {'code': 'SYNTAX_ERROR', 'category': 'CODE', 'meaning': 'The resulting code or configuration was syntactically invalid.'},
+                  {'code': 'TYPE_ERROR', 'category': 'CODE', 'meaning': 'Type checking or typed contract validation failed.'},
+                  {'code': 'BUILD_FAILURE', 'category': 'VERIFICATION', 'meaning': 'The build or compile step failed.'},
+                  {'code': 'TEST_FAILURE', 'category': 'VERIFICATION', 'meaning': 'Required tests failed.'},
+                  {'code': 'DEPENDENCY_FAILURE', 'category': 'ENVIRONMENT', 'meaning': 'A required dependency or dependency operation failed within authority.'},
+                  {'code': 'TOOL_ERROR', 'category': 'TOOL', 'meaning': 'A tool action was invalid, failed, or returned unusable evidence.'},
+                  {'code': 'TIMEOUT', 'category': 'BUDGET', 'meaning': 'The admitted run exhausted its timeout before verified completion.'},
+                  {'code': 'INCOMPLETE_IMPLEMENTATION', 'category': 'RESULT', 'meaning': 'Required behavior remained incomplete at terminal evaluation.'},
+                  {'code': 'OVEREDIT', 'category': 'RESULT', 'meaning': 'The change exceeded the task scope or introduced unnecessary edits.'},
+                  {'code': 'REGRESSION', 'category': 'RESULT', 'meaning': 'Previously valid behavior regressed.'},
+                  {'code': 'FAKE_COMPLETION', 'category': 'INTEGRITY', 'meaning': 'Completion was claimed without satisfying independent finalizer evidence.'},
+                  {'code': 'AUTHORITY_VIOLATION', 'category': 'AUTHORITY', 'meaning': 'The run exceeded an allowed effect, access, or execution authority.'},
+                  {'code': 'ENVIRONMENT_FAILURE', 'category': 'ENVIRONMENT', 'meaning': 'The task environment was invalid or failed admission requirements.'},
+                  {'code': 'VERIFIER_FAILURE', 'category': 'VERIFIER', 'meaning': 'The verifier was invalid, unavailable, inconsistent, or otherwise unusable as authority.'},
+              ],
+              'terminal_classes': TERMINALS,
+              'training_policy': {
+                  'success_requires_independent_verifier': True,
+                  'failed_valid_and_timeout_may_be_labeled_evidence': True,
+                  'invalid_contaminated_leaked_or_authority_violating_runs_are_rejected': True,
+                  'clean_positive_requires_stage_eligible_healthy_verifier': True,
+                  'private_user_repository_training_admission': 'REJECTED_IN_V0',
+                  'production_trace_training_admission': 'REJECTED_IN_V0',
+              },
+          }
+
+          schema_text = json.dumps(schema, indent=2, sort_keys=True) + '\n'
+          for path in (
+              ROOT / 'schemas' / 'mstr-trajectory-manifest-v0.schema.json',
+              ROOT
+              / 'specs'
+              / '001-agent-harness-verified-loop-foundation'
+              / 'contracts'
+              / 'trajectory-manifest.schema.json',
+          ):
+              path.write_text(schema_text, encoding='utf-8')
+
+          (ROOT / 'artifacts' / 'manifests' / 'mstr-failure-taxonomy-v0.json').write_text(
+              json.dumps(taxonomy, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+          )
+          valid_path = ROOT / 'tests' / 'fixtures' / 'schemas' / 'valid' / 'mstr-trajectory-manifest-v0.json'
+          invalid_path = ROOT / 'tests' / 'fixtures' / 'schemas' / 'invalid' / 'mstr-trajectory-manifest-v0.json'
+          valid_path.write_text(json.dumps(valid, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          invalid_path.write_text(json.dumps(invalid, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+
+          test_text = '''from __future__ import annotations
+
+import copy
+import json
+from pathlib import Path
+
+import pytest
+
+from mstr_qualify.schemas import load_schema, validate_instance
+
+ROOT = Path(__file__).resolve().parents[2]
+SCHEMA_NAME = "mstr-trajectory-manifest-v0"
+RUNTIME_SCHEMA = ROOT / "schemas" / "mstr-trajectory-manifest-v0.schema.json"
+DESIGN_SCHEMA = (
+    ROOT
+    / "specs"
+    / "001-agent-harness-verified-loop-foundation"
+    / "contracts"
+    / "trajectory-manifest.schema.json"
+)
+TAXONOMY = ROOT / "artifacts" / "manifests" / "mstr-failure-taxonomy-v0.json"
+VALID = ROOT / "tests" / "fixtures" / "schemas" / "valid" / f"{SCHEMA_NAME}.json"
+
+EXPECTED_TERMINAL_CLASSES = {
+    "VERIFIED_SUCCESS",
+    "RECOVERED_SUCCESS",
+    "FAILED_VALID",
+    "TIMEOUT_VALID",
+    "INVALID_ENVIRONMENT",
+    "INVALID_VERIFIER",
+    "CONTAMINATED",
+    "LEAKAGE_DETECTED",
+    "AUTHORITY_VIOLATION",
+}
+
+EXPECTED_FAILURE_CLASSES = {
+    "WRONG_LOCALIZATION",
+    "BAD_ASSUMPTION",
+    "STALE_FILE",
+    "BAD_PATCH",
+    "SYNTAX_ERROR",
+    "TYPE_ERROR",
+    "BUILD_FAILURE",
+    "TEST_FAILURE",
+    "DEPENDENCY_FAILURE",
+    "TOOL_ERROR",
+    "TIMEOUT",
+    "INCOMPLETE_IMPLEMENTATION",
+    "OVEREDIT",
+    "REGRESSION",
+    "FAKE_COMPLETION",
+    "AUTHORITY_VIOLATION",
+    "ENVIRONMENT_FAILURE",
+    "VERIFIER_FAILURE",
+}
+
+
+def _valid() -> dict[str, object]:
+    return json.loads(VALID.read_text(encoding="utf-8"))
+
+
+def _assert_rejected(candidate: dict[str, object]) -> None:
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance(SCHEMA_NAME, candidate, schema_dir=ROOT / "schemas")
+
+
+def test_runtime_and_design_trajectory_schemas_are_byte_identical() -> None:
+    assert RUNTIME_SCHEMA.read_bytes() == DESIGN_SCHEMA.read_bytes()
+
+
+def test_failure_taxonomy_is_exact_and_bound_into_schema() -> None:
+    schema = load_schema(SCHEMA_NAME, schema_dir=ROOT / "schemas")
+    taxonomy = json.loads(TAXONOMY.read_text(encoding="utf-8"))
+    taxonomy_codes = {item["code"] for item in taxonomy["classes"]}
+    schema_codes = set(schema["properties"]["failure_classes"]["items"]["enum"])
+    terminal_codes = set(schema["properties"]["terminal_class"]["enum"])
+    assert taxonomy["schema_version"] == "mstr.failure-taxonomy.v0"
+    assert taxonomy_codes == EXPECTED_FAILURE_CLASSES == schema_codes
+    assert set(taxonomy["terminal_classes"]) == EXPECTED_TERMINAL_CLASSES == terminal_codes
+
+
+def test_clean_positive_sft_requires_healthy_stage_eligible_verifier() -> None:
+    candidate = _valid()
+    validate_instance(SCHEMA_NAME, candidate, schema_dir=ROOT / "schemas")
+
+    partial = copy.deepcopy(candidate)
+    partial_binding = partial["verifier_health_binding"]
+    assert isinstance(partial_binding, dict)
+    partial_binding["health_class"] = "PARTIAL"
+    partial_binding["stage_admission_class"] = "RESEARCH_DIAGNOSTIC_ONLY"
+    _assert_rejected(partial)
+
+    missing_health = copy.deepcopy(candidate)
+    missing_health["verifier_health_binding"] = None
+    _assert_rejected(missing_health)
+
+
+def test_verifier_health_binding_must_match_run_identity() -> None:
+    candidate = _valid()
+    binding = candidate["verifier_health_binding"]
+    assert isinstance(binding, dict)
+    binding["verifier_manifest_id"] = "other-verifier"
+    _assert_rejected(candidate)
+
+    candidate = _valid()
+    binding = candidate["verifier_health_binding"]
+    assert isinstance(binding, dict)
+    binding["task_identity"] = "other-task"
+    _assert_rejected(candidate)
+
+
+def test_failed_valid_preference_evidence_may_use_diagnostic_verifier_health() -> None:
+    candidate = _valid()
+    candidate["trajectory_id"] = "trajectory-a017-failed-preference"
+    candidate["terminal_class"] = "FAILED_VALID"
+    candidate["failure_classes"] = ["BAD_ASSUMPTION", "TEST_FAILURE"]
+    candidate["training_admission"] = "ADMITTED_PREFERENCE"
+    candidate["training_labels"] = {"label_kind": "FAILURE_PREFERENCE_EVIDENCE"}
+    binding = candidate["verifier_health_binding"]
+    assert isinstance(binding, dict)
+    binding["health_class"] = "PARTIAL"
+    binding["stage_id"] = "MSTR-002-PREFERENCE"
+    binding["stage_admission_class"] = "RESEARCH_DIAGNOSTIC_ONLY"
+    validate_instance(SCHEMA_NAME, candidate, schema_dir=ROOT / "schemas")
+
+
+def test_blocked_verifier_health_cannot_enter_training_admission() -> None:
+    candidate = _valid()
+    candidate["terminal_class"] = "FAILED_VALID"
+    candidate["failure_classes"] = ["TEST_FAILURE"]
+    candidate["training_admission"] = "ADMITTED_PREFERENCE"
+    binding = candidate["verifier_health_binding"]
+    assert isinstance(binding, dict)
+    binding["health_class"] = "BROKEN"
+    binding["stage_id"] = "MSTR-002-PREFERENCE"
+    binding["stage_admission_class"] = "BLOCKED"
+    _assert_rejected(candidate)
+
+
+@pytest.mark.parametrize("source_class", ["PRIVATE_USER_REPOSITORY", "PRODUCTION_TRACE"])
+def test_private_or_production_trace_training_admission_is_rejected_in_v0(
+    source_class: str,
+) -> None:
+    candidate = _valid()
+    provenance = candidate["provenance"]
+    assert isinstance(provenance, dict)
+    provenance["source_class"] = source_class
+    _assert_rejected(candidate)
+
+
+def test_timeout_and_invalid_authority_semantics_fail_closed() -> None:
+    timeout = _valid()
+    timeout["terminal_class"] = "TIMEOUT_VALID"
+    timeout["training_admission"] = "EVAL_ONLY"
+    timeout["failure_classes"] = ["TEST_FAILURE"]
+    _assert_rejected(timeout)
+
+    authority = _valid()
+    authority["terminal_class"] = "AUTHORITY_VIOLATION"
+    authority["training_admission"] = "REJECTED"
+    authority["failure_classes"] = ["AUTHORITY_VIOLATION"]
+    authority["authority_violations"] = []
+    _assert_rejected(authority)
+
+
+def test_verified_success_cannot_hide_failures_or_recovery() -> None:
+    candidate = _valid()
+    candidate["failure_classes"] = ["TEST_FAILURE"]
+    _assert_rejected(candidate)
+
+    candidate = _valid()
+    candidate["recovery_count"] = 1
+    _assert_rejected(candidate)
+
+
+def test_recovered_success_requires_failure_and_recovery_evidence() -> None:
+    candidate = _valid()
+    candidate["terminal_class"] = "RECOVERED_SUCCESS"
+    candidate["failure_classes"] = ["TEST_FAILURE"]
+    candidate["recovery_count"] = 1
+    validate_instance(SCHEMA_NAME, candidate, schema_dir=ROOT / "schemas")
+
+    missing_failure = copy.deepcopy(candidate)
+    missing_failure["failure_classes"] = []
+    _assert_rejected(missing_failure)
+
+
+def test_trajectory_schema_has_no_remote_refs() -> None:
+    schema = load_schema(SCHEMA_NAME, schema_dir=ROOT / "schemas")
+
+    def walk(value: object) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key == "$ref":
+                    assert isinstance(child, str)
+                    assert child.startswith("#")
+                walk(child)
+        elif isinstance(value, list):
+            for child in value:
+                walk(child)
+
+    walk(schema)
+'''
+          (ROOT / 'tests' / 'contract' / 'test_trajectory_contract.py').write_text(
+              test_text, encoding='utf-8'
+          )
+
+          evidence = '''# A017 — Failure Taxonomy and Training Trajectory Contract
+
+**Task:** `A017`
+**State:** IMPLEMENTATION_CANDIDATE
+**Canonical base:** `0bd69861b987c616e1b9b25ef88a5d14f4762788`
+**Feature branch:** `feat/000a-a017-trajectory-contract`
+
+## Scope
+
+A017 freezes `mstr.trajectory-manifest.v0`, `mstr.failure-taxonomy.v0`, and the
+training-admission boundary consumed later by A018 and MSTR-000B B023. It does
+not record trajectories, replay event logs, execute verifiers, derive verifier
+health classes, run a model, or train weights.
+
+The trajectory contract binds exact run identity, event-log schema/hash/count,
+terminal class, verifier result identity, verifier-health input, failure taxonomy,
+recovery count, authority violations, contamination state, admission label, and
+provenance/privacy posture.
+
+## Terminal classes
+
+```text
+VERIFIED_SUCCESS
+RECOVERED_SUCCESS
+FAILED_VALID
+TIMEOUT_VALID
+INVALID_ENVIRONMENT
+INVALID_VERIFIER
+CONTAMINATED
+LEAKAGE_DETECTED
+AUTHORITY_VIOLATION
+```
+
+Verified success cannot hide failure/recovery evidence. Recovered success requires
+both a recorded failure class and at least one recovery. Timeout, invalid
+environment, invalid verifier, and authority-violation terminal states bind their
+corresponding failure evidence. Invalid/contaminated/leaked/authority-violating
+runs are rejected from training admission.
+
+## Failure taxonomy
+
+`mstr.failure-taxonomy.v0` freezes the 18 classes required by FR-A024:
+
+```text
+WRONG_LOCALIZATION
+BAD_ASSUMPTION
+STALE_FILE
+BAD_PATCH
+SYNTAX_ERROR
+TYPE_ERROR
+BUILD_FAILURE
+TEST_FAILURE
+DEPENDENCY_FAILURE
+TOOL_ERROR
+TIMEOUT
+INCOMPLETE_IMPLEMENTATION
+OVEREDIT
+REGRESSION
+FAKE_COMPLETION
+AUTHORITY_VIOLATION
+ENVIRONMENT_FAILURE
+VERIFIER_FAILURE
+```
+
+Failed and timeout trajectories remain representable as evidence and may enter
+explicit preference/RL-evidence lanes only when the declared verifier-health stage
+posture permits it. They cannot become clean-positive SFT examples.
+
+## Verifier-health binding
+
+A017 consumes the canonical B022 `mstr.verifier-health.v0` record boundary without
+implementing the B023 evaluator/classifier.
+
+```text
+B022_STATE = COMPLETE_CANONICAL
+B022_IMPLEMENTATION_MERGE = 97bf66a98bad51ff0d574d90a04fa47b802708ee
+A017_DERIVES_HEALTH_CLASS = NO
+B023_HEALTH_CLASSIFIER_AUTHORITY = PRESERVED
+```
+
+Any training-admitted trajectory requires a `verifier_health_binding` whose task
+and verifier-manifest identities match the exact run identity. Clean-positive SFT
+requires:
+
+```text
+health_class = HEALTHY
+stage_admission_class = CLEAN_POSITIVE_ELIGIBLE
+terminal_class = VERIFIED_SUCCESS | RECOVERED_SUCCESS
+contamination_status = CLEAR
+authority_violations = []
+```
+
+`PARTIAL` and `DISAGREEMENT` cannot claim clean-positive eligibility. `BROKEN`,
+`LEAKED`, and `TAMPERED` are blocked from training admission. The binding records
+B022/B023 output; A017 does not manufacture or recalculate it.
+
+## Privacy, provenance, and authority
+
+The v0 contract fails closed for incomplete/unresolved provenance, incompatible or
+unresolved rights, detected secrets, contamination, and authority violations.
+`PRIVATE_USER_REPOSITORY` and `PRODUCTION_TRACE` sources are rejected from training
+admission in v0; a future governed opt-in policy would require an explicit contract
+migration rather than an inferred exception.
+
+## Candidate outputs
+
+```text
+schemas/mstr-trajectory-manifest-v0.schema.json
+specs/001-agent-harness-verified-loop-foundation/contracts/trajectory-manifest.schema.json
+artifacts/manifests/mstr-failure-taxonomy-v0.json
+tests/fixtures/schemas/valid/mstr-trajectory-manifest-v0.json
+tests/fixtures/schemas/invalid/mstr-trajectory-manifest-v0.json
+tests/contract/test_trajectory_contract.py
+src/mstr_qualify/schemas.py
+tests/contract/test_schemas.py
+evidence/mstr-000a/A017-trajectory-contract.md
+```
+
+`tasks.md` is intentionally unchanged in the implementation candidate. A017 may
+be marked complete only after governed implementation merge, successful post-merge
+proof, and a separate closeout.
+
+## Prior canonical prerequisite
+
+A016 is `COMPLETE_CANONICAL` on the entry main. Its first post-closeout proof run
+`33438200600` failed because the evidence workflow asserted a stale text spelling;
+that failure remains preserved. The repaired fresh proof run `33438264767` is
+`SUCCESS` across identity, quality, and immutable complete recheck.
+
+## Authority containment
+
+```text
+MODEL_WEIGHT_ACCESS = NONE
+MODEL_EXECUTION = NONE
+VERIFIER_EVALUATOR_EXECUTION = NONE
+NETWORK_EXECUTION = NONE
+SECRET_ACCESS = NONE
+PAID_MODEL_API = NONE
+PAID_COMPUTE = NONE
+LARGE_DATASET_INGESTION = NONE
+PRIVATE_USER_DATA_INGESTION = NONE
+PRODUCTION_TRACE_INGESTION = NONE
+WEIGHT_CHANGING_TRAINING = NONE
+LARGE_SCALE_RL = NONE
+PRODUCTION_RELEASE = NONE
+A018_TRAJECTORY_RECORDER_REPLAY_ADMISSION = NOT_IMPLEMENTED_BY_A017
+B023_VERIFIER_HEALTH_EVALUATOR = NOT_IMPLEMENTED_BY_A017
+```
+'''
+          (ROOT / 'evidence' / 'mstr-000a' / 'A017-trajectory-contract.md').write_text(
+              evidence, encoding='utf-8'
+          )
+
+          schemas_path = ROOT / 'src' / 'mstr_qualify' / 'schemas.py'
+          schemas_text = schemas_path.read_text(encoding='utf-8')
+          registration_needle = (
+              '    # MSTR-000A A015: Direction-to-Done task identity and hidden acceptance boundary.\n'
+              '    "mstr-direction-task-v0": "mstr-direction-task-v0.schema.json",\n'
+          )
+          registration_insert = registration_needle + (
+              '    # MSTR-000A A017: failure-inclusive trajectory and training-admission contract.\n'
+              '    "mstr-trajectory-manifest-v0": "mstr-trajectory-manifest-v0.schema.json",\n'
+          )
+          if schemas_text.count(registration_needle) != 1:
+              raise SystemExit('unexpected schemas.py registration surface')
+          schemas_text = schemas_text.replace(registration_needle, registration_insert, 1)
+
+          semantic_function = '''\n\ndef _trajectory_manifest_semantic_errors(instance: Any) -> tuple[str, ...]:
+    """Enforce A017 identity bindings without implementing A018 admission execution."""
+
+    if not isinstance(instance, dict):
+        return ()
+
+    errors: list[str] = []
+    run_identity = instance.get("run_identity")
+    verifier_health = instance.get("verifier_health_binding")
+    if isinstance(run_identity, dict) and isinstance(verifier_health, dict):
+        if verifier_health.get("task_identity") != run_identity.get("task_manifest_id"):
+            errors.append(
+                "$.verifier_health_binding.task_identity: must match run_identity.task_manifest_id"
+            )
+        if verifier_health.get("verifier_manifest_id") != run_identity.get(
+            "verifier_manifest_id"
+        ):
+            errors.append(
+                "$.verifier_health_binding.verifier_manifest_id: must match "
+                "run_identity.verifier_manifest_id"
+            )
+
+    return tuple(sorted(errors))
+'''
+          validation_needle = '\n\ndef validation_errors(\n'
+          if schemas_text.count(validation_needle) != 1:
+              raise SystemExit('unexpected validation_errors insertion surface')
+          schemas_text = schemas_text.replace(
+              validation_needle,
+              semantic_function + validation_needle,
+              1,
+          )
+
+          dispatch_needle = (
+              '    if name == "mstr-difficulty-calibration-v0":\n'
+              '        formatted.extend(_difficulty_calibration_semantic_errors(instance))\n'
+          )
+          dispatch_insert = dispatch_needle + (
+              '    if name == "mstr-trajectory-manifest-v0":\n'
+              '        formatted.extend(_trajectory_manifest_semantic_errors(instance))\n'
+          )
+          if schemas_text.count(dispatch_needle) != 1:
+              raise SystemExit('unexpected semantic dispatch surface')
+          schemas_text = schemas_text.replace(dispatch_needle, dispatch_insert, 1)
+          schemas_path.write_text(schemas_text, encoding='utf-8')
+
+          schema_tests_path = ROOT / 'tests' / 'contract' / 'test_schemas.py'
+          schema_tests_text = schema_tests_path.read_text(encoding='utf-8')
+          override_needle = '''    "mstr-direction-task-v0": (
+        ROOT
+        / "specs"
+        / "001-agent-harness-verified-loop-foundation"
+        / "contracts"
+        / "mstr-direction-task-v0.schema.json"
+    ),
+}'''
+          override_insert = '''    "mstr-direction-task-v0": (
+        ROOT
+        / "specs"
+        / "001-agent-harness-verified-loop-foundation"
+        / "contracts"
+        / "mstr-direction-task-v0.schema.json"
+    ),
+    "mstr-trajectory-manifest-v0": (
+        ROOT
+        / "specs"
+        / "001-agent-harness-verified-loop-foundation"
+        / "contracts"
+        / "trajectory-manifest.schema.json"
+    ),
+}'''
+          if schema_tests_text.count(override_needle) != 1:
+              raise SystemExit('unexpected test_schemas.py override surface')
+          schema_tests_text = schema_tests_text.replace(override_needle, override_insert, 1)
+          schema_tests_path.write_text(schema_tests_text, encoding='utf-8')
+          PY
+          git diff --check
+          git status --short
+          git add \
+            schemas/mstr-trajectory-manifest-v0.schema.json \
+            specs/001-agent-harness-verified-loop-foundation/contracts/trajectory-manifest.schema.json \
+            artifacts/manifests/mstr-failure-taxonomy-v0.json \
+            tests/fixtures/schemas/valid/mstr-trajectory-manifest-v0.json \
+            tests/fixtures/schemas/invalid/mstr-trajectory-manifest-v0.json \
+            tests/contract/test_trajectory_contract.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_schemas.py \
+            evidence/mstr-000a/A017-trajectory-contract.md
+          test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = '9'
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git commit -m 'feat(000a): freeze A017 trajectory contract'
+          git push origin HEAD:"$TARGET_BRANCH"
