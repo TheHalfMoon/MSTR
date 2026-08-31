@@ -63,7 +63,8 @@ jobs:
           grep -F -- '- [ ] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
           grep -F -- '- [ ] **A012 Implement clean-checkout environment reset/setup abstraction.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
           grep -F -- '**State:** `IMPLEMENTATION_ACTIVE`' evidence/mstr-000a/A011-env-verifier-contracts.md
-          grep -F -- 'A006 remains the protected final success authority.' evidence/mstr-000a/A011-env-verifier-contracts.md
+          grep -F -- '`finalizer_contract_id` is frozen to `A006_PROTECTED_FINALIZER`' evidence/mstr-000a/A011-env-verifier-contracts.md
+          grep -F -- 'A011 cannot create a second success authority.' evidence/mstr-000a/A011-env-verifier-contracts.md
           git diff --check "$CANONICAL_BASE" "$TARGET_HEAD"
 
   quality:
