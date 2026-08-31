@@ -1,0 +1,75 @@
+name: Repair A017 generated indentation
+
+on:
+  push:
+    branches:
+      - automation/a017-contract-builder
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reconstruct generator without modifying embedded string indentation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path('.github/workflows/automation-a017-contract-builder.yml').read_text(
+              encoding='utf-8'
+          )
+          marker_start = "          python - <<'PY'\n"
+          marker_end = "          PY\n"
+          start = source.index(marker_start) + len(marker_start)
+          end = source.index(marker_end, start)
+          raw = source[start:end]
+          lines = []
+          in_triple = False
+          for line in raw.splitlines():
+              processed = line
+              if not in_triple and processed.startswith('          '):
+                  processed = processed[10:]
+              lines.append(processed)
+              if processed.count("'''") % 2 == 1:
+                  in_triple = not in_triple
+          if in_triple:
+              raise SystemExit('unterminated triple-quoted generator string')
+          script = '\n'.join(lines) + '\n'
+          compile(script, '/tmp/build_a017_candidate_correct.py', 'exec')
+          Path('/tmp/build_a017_candidate_correct.py').write_text(script, encoding='utf-8')
+          PY
+      - name: Generate clean reference from canonical base and repair feature
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='0bd69861b987c616e1b9b25ef88a5d14f4762788'
+          TARGET_BRANCH='feat/000a-a017-trajectory-contract'
+          EXPECTED_HEAD='760c1198d9ad95930180c8f7501506ad65c32e6b'
+          git fetch origin main "$TARGET_BRANCH" --quiet
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          git worktree add --detach /tmp/a017-reference "$BASE"
+          (cd /tmp/a017-reference && python /tmp/build_a017_candidate_correct.py)
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          cp /tmp/a017-reference/src/mstr_qualify/schemas.py src/mstr_qualify/schemas.py
+          cp /tmp/a017-reference/tests/contract/test_trajectory_contract.py tests/contract/test_trajectory_contract.py
+          git diff --check
+          expected="$(cat <<'EOF'
+          src/mstr_qualify/schemas.py
+          tests/contract/test_trajectory_contract.py
+          EOF
+          )"
+          actual="$(git diff --name-only)"
+          test "$actual" = "$expected"
+          python -m py_compile src/mstr_qualify/schemas.py tests/contract/test_trajectory_contract.py
+          git add src/mstr_qualify/schemas.py tests/contract/test_trajectory_contract.py
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git commit -m 'fix(000a): repair A017 contract test indentation'
+          git push origin HEAD:"$TARGET_BRANCH"
