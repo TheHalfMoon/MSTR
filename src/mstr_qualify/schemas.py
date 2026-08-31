@@ -449,16 +449,16 @@ def _trajectory_manifest_semantic_errors(instance: Any) -> tuple[str, ...]:
     verifier_health = instance.get("verifier_health_binding")
     if isinstance(run_identity, dict) and isinstance(verifier_health, dict):
         if verifier_health.get("task_identity") != run_identity.get("task_manifest_id"):
-  errors.append(
-      "$.verifier_health_binding.task_identity: must match run_identity.task_manifest_id"
-  )
+            errors.append(
+                "$.verifier_health_binding.task_identity: must match run_identity.task_manifest_id"
+            )
         if verifier_health.get("verifier_manifest_id") != run_identity.get(
-  "verifier_manifest_id"
+            "verifier_manifest_id"
         ):
-  errors.append(
-      "$.verifier_health_binding.verifier_manifest_id: must match "
-      "run_identity.verifier_manifest_id"
-  )
+            errors.append(
+                "$.verifier_health_binding.verifier_manifest_id: must match "
+                "run_identity.verifier_manifest_id"
+            )
 
     return tuple(sorted(errors))
 

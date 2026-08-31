@@ -190,13 +190,13 @@ def test_trajectory_schema_has_no_remote_refs() -> None:
 
     def walk(value: object) -> None:
         if isinstance(value, dict):
-  for key, child in value.items():
-      if key == "$ref":
-          assert isinstance(child, str)
-          assert child.startswith("#")
-      walk(child)
+            for key, child in value.items():
+                if key == "$ref":
+                    assert isinstance(child, str)
+                    assert child.startswith("#")
+                walk(child)
         elif isinstance(value, list):
-  for child in value:
-      walk(child)
+            for child in value:
+                walk(child)
 
     walk(schema)
