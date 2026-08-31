@@ -1,0 +1,79 @@
+name: Build A011 environment verifier contracts v5
+
+on:
+  push:
+    branches:
+      - evidence/a011-build5-17985cb
+
+permissions:
+  contents: write
+
+env:
+  CANONICAL_MAIN: 17985cb7176bb99df6139c1d3fbc23c6de4e3bf0
+  TARGET_BRANCH: feat/000a-a011-env-verifier-contracts
+  SOURCE_WORKFLOW_BRANCH: evidence/a011-build-17985cb
+  SOURCE_WORKFLOW_PATH: .github/workflows/evidence-a011-build-17985cb.yml
+  EVIDENCE_BRANCH: evidence/a011-build5-17985cb
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANONICAL_MAIN }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify exact A011 entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          if git ls-remote --exit-code --heads origin "refs/heads/$TARGET_BRANCH" >/dev/null 2>&1; then
+            echo "target A011 branch already exists" >&2
+            exit 1
+          fi
+          grep -F -- '- [x] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A012 Implement clean-checkout environment reset/setup abstraction.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+      - name: Materialize exact A011 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$SOURCE_WORKFLOW_BRANCH:refs/remotes/origin/$SOURCE_WORKFLOW_BRANCH"
+          git fetch origin "$EVIDENCE_BRANCH:refs/remotes/origin/$EVIDENCE_BRANCH"
+          git show "refs/remotes/origin/$SOURCE_WORKFLOW_BRANCH:$SOURCE_WORKFLOW_PATH" > /tmp/a011-source.yml
+          git show "refs/remotes/origin/$EVIDENCE_BRANCH:.github/evidence/a011_build5.py" > /tmp/a011-build5.py
+          git checkout -b "$TARGET_BRANCH"
+          python /tmp/a011-build5.py
+          git diff --check
+      - name: Run A011 focused and frozen gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/contract/test_environment_verifier_contracts.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py::test_validate_self_checks_schemas_and_fixtures
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+      - name: Commit and publish exact A011 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          git diff --check
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add schemas specs/001-agent-harness-verified-loop-foundation/contracts src/mstr_qualify/schemas.py tests/contract/test_environment_verifier_contracts.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py tests/fixtures/schemas evidence/mstr-000a/A011-env-verifier-contracts.md
+          git commit -m "feat(mstr-000a): freeze A011 environment verifier contracts"
+          TARGET_SHA="$(git rev-parse HEAD)"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_SHA"
+          test -z "$(git status --porcelain)"
+          echo "TARGET_SHA=$TARGET_SHA"
