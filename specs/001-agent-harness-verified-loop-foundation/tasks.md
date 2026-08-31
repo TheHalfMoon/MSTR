@@ -74,9 +74,10 @@ This reconciliation does not infer completion for A005+ and grants no external-e
   Outputs: neutral harness profile/config + tests + `evidence/mstr-000a/A007-neutral-harness.md`.
   Canonical implementation: PR #98 / final head `65071b8469bc759d0951dc9b853c571013f6c295` / merge `e28fea9132bc65fc6ba0cfdf13afc645d9fdd441`.
 
-- [ ] **A008 Implement H1 MSTR-native typed harness.**  
-  Adds typed tools/results, stale-safe edits, selective context, recovery cadence, compact state, and measured cache/prefix semantics where applicable.  
+- [x] **A008 Implement H1 MSTR-native typed harness.**
+  Adds typed tools/results, stale-safe edits, selective context, recovery cadence, compact state, and measured cache/prefix semantics where applicable.
   Outputs: native harness profile/config + tests + `evidence/mstr-000a/A008-mstr-harness.md`.
+  Canonical implementation: PR #100 / final head `79af1ad6c68bbd6026037e49851428be4e650e5c` / merge `d6a2c83227be09b8cd37f62de0d8e841eba9854d`.
 
 - [ ] **A009 Implement H2 WePLD-native adapter.**  
   Map WePLD goal/spec/task/effect/verifier state into MSTR loop contracts without making WePLD mandatory for standalone MSTR.  
