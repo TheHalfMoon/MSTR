@@ -65,7 +65,9 @@ known_bad  -> REJECT/FAIL
 noop       -> REJECT/FAIL
 ```
 
-Controlled security fixtures exercise evaluator deletion, in-execution assertion weakening, protected-path mutation, failing-exit stdout spoofing, cached/future read observation, network observation, and hardcoded/no-op failure behavior. A missing shortcut class is itself a hard failure.
+Every declared shortcut class is bound to an allowlisted detection mechanism. A shortcut case cannot be marked expected-pass, and a rejection caused by an unrelated error does not satisfy the declared shortcut class. Cached/future leakage requires an observed `verifier.solution_leakage` signal; prohibited network requires `verifier.prohibited_network`; evaluator/protected-path attacks require matching integrity/tamper evidence; hardcoding and output-spoof fixtures require an actual verifier failure rather than claimed stdout success.
+
+Controlled security fixtures exercise evaluator deletion, in-execution assertion weakening, protected-path mutation, failing-exit stdout spoofing, cached/future read observation, network observation, and hardcoded/no-op failure behavior. A missing shortcut class, mismatched detection mechanism, or shortcut fixture declared as expected-pass is a hard failure.
 
 ## Security and authority containment
 

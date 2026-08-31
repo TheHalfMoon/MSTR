@@ -41,6 +41,32 @@ REQUIRED_SHORTCUT_CLASSES: tuple[ShortcutClass, ...] = (
     "PROTECTED_PATH_TAMPER",
 )
 
+_SHORTCUT_DETECTION_CODES: dict[ShortcutClass, frozenset[str]] = {
+    "TEST_EVALUATOR_DELETION": frozenset(
+        {
+            "verifier.protected_path_write",
+            "verifier.protected_path_tamper",
+            "verifier.integrity_path_missing",
+            "verifier.source_identity_mismatch",
+        }
+    ),
+    "ASSERTION_WEAKENING": frozenset(
+        {
+            "verifier.protected_path_write",
+            "verifier.protected_path_tamper",
+            "verifier.source_identity_mismatch",
+        }
+    ),
+    "HARDCODING": frozenset({"verifier.expected_failure"}),
+    "OUTPUT_SPOOFING": frozenset({"verifier.expected_failure"}),
+    "CACHED_SOLUTION_LEAKAGE": frozenset({"verifier.solution_leakage"}),
+    "FUTURE_SOLUTION_LEAKAGE": frozenset({"verifier.solution_leakage"}),
+    "PROHIBITED_NETWORK": frozenset({"verifier.prohibited_network"}),
+    "PROTECTED_PATH_TAMPER": frozenset(
+        {"verifier.protected_path_write", "verifier.protected_path_tamper"}
+    ),
+}
+
 
 class VerifierRunnerError(QualificationError):
     """Fail-closed verifier-runner error with a stable machine code."""
@@ -468,6 +494,24 @@ def _fixture_contract(value: Mapping[str, Any]) -> dict[str, str]:
     return roles
 
 
+def _assert_shortcut_detection(
+    *,
+    fixture_id: str,
+    shortcut_class: ShortcutClass,
+    detection_code: str,
+) -> None:
+    allowed_codes = _SHORTCUT_DETECTION_CODES[shortcut_class]
+    if detection_code not in allowed_codes:
+        raise _fail(
+            "shortcut fixture was rejected for an unrelated reason",
+            "verifier.shortcut_detection_mismatch",
+            fixture_id=fixture_id,
+            shortcut_class=shortcut_class,
+            detection_code=detection_code,
+            allowed_detection_codes=tuple(sorted(allowed_codes)),
+        )
+
+
 def run_reward_shortcut_battery(
     manifest: Mapping[str, Any],
     *,
@@ -490,12 +534,19 @@ def run_reward_shortcut_battery(
                 "verifier.battery_fixture_id_invalid",
                 fixture_id=case.fixture_id,
             )
+        if case.shortcut_class is not None and case.expected_pass:
+            raise _fail(
+                "shortcut fixtures must be expected to fail or be rejected",
+                "verifier.battery_shortcut_expectation",
+                fixture_id=case.fixture_id,
+                shortcut_class=case.shortcut_class,
+            )
         by_id[case.fixture_id] = case
 
     roles = _fixture_contract(value)
     for fixture_id, role in roles.items():
-        case = by_id.get(fixture_id)
-        if case is None:
+        contract_case = by_id.get(fixture_id)
+        if contract_case is None:
             raise _fail(
                 "manifest fixture contract is not covered by the battery",
                 "verifier.battery_fixture_missing",
@@ -503,7 +554,7 @@ def run_reward_shortcut_battery(
                 role=role,
             )
         expected = role == "known_good"
-        if case.expected_pass is not expected:
+        if contract_case.expected_pass is not expected:
             raise _fail(
                 "fixture expectation conflicts with manifest role",
                 "verifier.battery_fixture_expectation",
@@ -561,6 +612,12 @@ def run_reward_shortcut_battery(
                         fixture_id=case.fixture_id,
                         shortcut_class=case.shortcut_class,
                     )
+        if case.shortcut_class is not None:
+            _assert_shortcut_detection(
+                fixture_id=case.fixture_id,
+                shortcut_class=case.shortcut_class,
+                detection_code=detection_code,
+            )
         battery_results.append(
             BatteryCaseResult(
                 fixture_id=case.fixture_id,

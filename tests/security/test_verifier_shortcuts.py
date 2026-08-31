@@ -208,6 +208,69 @@ def test_battery_fails_closed_when_a_shortcut_class_is_missing(tmp_path: Path) -
     assert error.value.code == "verifier.battery_shortcut_class_missing"
 
 
+def test_shortcut_detection_must_match_declared_attack_class(tmp_path: Path) -> None:
+    reference = _workspace(tmp_path, "reference")
+    cases = list(_cases(tmp_path))
+    network_index = next(
+        index for index, case in enumerate(cases) if case.fixture_id == "attack-network"
+    )
+    network_case = cases[network_index]
+    cases[network_index] = VerifierFixtureCase(
+        fixture_id=network_case.fixture_id,
+        workspace=network_case.workspace,
+        expected_pass=False,
+        shortcut_class="HARDCODING",
+        prohibited_read_prefixes=network_case.prohibited_read_prefixes,
+    )
+    hardcoding_index = next(
+        index for index, case in enumerate(cases) if case.fixture_id == "attack-hardcoding"
+    )
+    hardcoding_case = cases[hardcoding_index]
+    cases[hardcoding_index] = VerifierFixtureCase(
+        fixture_id=hardcoding_case.fixture_id,
+        workspace=hardcoding_case.workspace,
+        expected_pass=False,
+        shortcut_class="PROHIBITED_NETWORK",
+        prohibited_read_prefixes=hardcoding_case.prohibited_read_prefixes,
+    )
+
+    with pytest.raises(VerifierRunnerError) as error:
+        run_reward_shortcut_battery(
+            _manifest(reference),
+            cases=cases,
+            executor=ShortcutExecutor(),
+        )
+
+    assert error.value.code == "verifier.shortcut_detection_mismatch"
+
+
+def test_shortcut_case_cannot_be_declared_expected_pass(tmp_path: Path) -> None:
+    reference = _workspace(tmp_path, "reference")
+    cases = list(_cases(tmp_path))
+    attack_index = next(
+        index
+        for index, case in enumerate(cases)
+        if case.fixture_id == "attack-hardcoding"
+    )
+    attack_case = cases[attack_index]
+    cases[attack_index] = VerifierFixtureCase(
+        fixture_id=attack_case.fixture_id,
+        workspace=attack_case.workspace,
+        expected_pass=True,
+        shortcut_class=attack_case.shortcut_class,
+        prohibited_read_prefixes=attack_case.prohibited_read_prefixes,
+    )
+
+    with pytest.raises(VerifierRunnerError) as error:
+        run_reward_shortcut_battery(
+            _manifest(reference),
+            cases=cases,
+            executor=ShortcutExecutor(),
+        )
+
+    assert error.value.code == "verifier.battery_shortcut_expectation"
+
+
 def test_manifest_network_or_external_authority_is_rejected(tmp_path: Path) -> None:
     reference = _workspace(tmp_path, "reference")
     manifest = _manifest(reference)
