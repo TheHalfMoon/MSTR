@@ -88,8 +88,9 @@ IMPLEMENTATION_PR = 112
 IMPLEMENTATION_MERGE = 1f22a4d91c1874cd18454e63cc87d92e18f9e14a
 IMPLEMENTATION_MERGE_TREE = e2abf8332c6149b0d3fac5ed82e7a494f5068783
 POST_MERGE_VERIFICATION_RUN = 33417713420 / SUCCESS
+INITIAL_CLOSEOUT_QUALIFICATION = 33418142861 / FAILURE / IDENTITY_SCOPE_BEFORE_QUALITY / SUPERSEDED_AFTER_CHECKLIST_FORMATTING_REPAIR
 A013_STATE = COMPLETE_CANONICAL_CANDIDATE
 A014_STATE = PENDING
 ```
 
-The exact implementation head was qualified before PR creation, independently reviewed on that immutable head, mandatory-premerge verified, guarded-merged with the expected head SHA, and then re-proven on canonical `main`. This closeout does not widen A013 beyond the repository-controlled local-fixture boundary and grants no A014, real-environment, network, secret, model, model-weight, paid-compute, large-dataset, weight-changing-training, or production-release authority. A006 remains the protected terminal-success authority, and A014 remains independently gated.
+The failed initial closeout qualification remains preserved as negative evidence and is not represented as passing. The exact implementation head was qualified before PR creation, independently reviewed on that immutable head, mandatory-premerge verified, guarded-merged with the expected head SHA, and then re-proven on canonical `main`. This closeout does not widen A013 beyond the repository-controlled local-fixture boundary and grants no A014, real-environment, network, secret, model, model-weight, paid-compute, large-dataset, weight-changing-training, or production-release authority. A006 remains the protected terminal-success authority, and A014 remains independently gated.
