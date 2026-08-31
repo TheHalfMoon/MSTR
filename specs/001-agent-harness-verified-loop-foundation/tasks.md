@@ -69,9 +69,10 @@ This reconciliation does not infer completion for A005+ and grants no external-e
   Outputs: finalizer/verifier interface, contract/security tests, `evidence/mstr-000a/A006-finalizer.md`.  
   Canonical implementation: PR #94 / final head `3efd9f902746a1e6248f8bfee21bbe4a4f4db76b` / merge `1fc07252dcad95c7f1377c76fa8ab9f9da3dd7f2`.
 
-- [ ] **A007 Implement H0 neutral-minimal harness.**  
-  Minimum repository read/search, shell, one deterministic edit/apply path, verifier invocation, bounded state.  
+- [x] **A007 Implement H0 neutral-minimal harness.**
+  Minimum repository read/search, shell, one deterministic edit/apply path, verifier invocation, bounded state.
   Outputs: neutral harness profile/config + tests + `evidence/mstr-000a/A007-neutral-harness.md`.
+  Canonical implementation: PR #98 / final head `65071b8469bc759d0951dc9b853c571013f6c295` / merge `e28fea9132bc65fc6ba0cfdf13afc645d9fdd441`.
 
 - [ ] **A008 Implement H1 MSTR-native typed harness.**  
   Adds typed tools/results, stale-safe edits, selective context, recovery cadence, compact state, and measured cache/prefix semantics where applicable.  
