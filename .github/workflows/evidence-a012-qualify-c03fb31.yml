@@ -1,0 +1,92 @@
+name: Qualify A012 environment reset exact head
+
+on:
+  push:
+    branches:
+      - evidence/a012-qualify-c03fb31
+
+permissions:
+  contents: read
+
+env:
+  CANONICAL_BASE: 3cb9f44569a7469e785ed8ffc4ea88080663adda
+  TARGET_BRANCH: feat/000a-a012-environment-reset
+  TARGET_HEAD: c03fb31f48665099e6c3f6612193a48557064d17
+  TARGET_TREE: ceecb8467861bcaadceceb2c88a89f74a3ddbe30
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - name: Verify exact A012 identity and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$CANONICAL_BASE" "$TARGET_HEAD")" = "$CANONICAL_BASE"
+          test "$(git rev-list --count "$TARGET_HEAD..$CANONICAL_BASE")" = "0"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_BASE"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_HEAD"
+          mapfile -t actual < <(git diff --name-only "$CANONICAL_BASE" "$TARGET_HEAD" | sort)
+          expected=(
+            evidence/mstr-000a/A012-environment-reset.md
+            src/mstr_qualify/environment/__init__.py
+            src/mstr_qualify/environment/reset.py
+            tests/integration/test_environment_reset.py
+            tests/security/test_environment_reset_boundary.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq "${#expected_sorted[@]}"
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual[@]}")
+          grep -F -- '- [x] **A011 Freeze environment/setup/verifier manifest schemas and effect boundaries.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A012 Implement clean-checkout environment reset/setup abstraction.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '**State:** `IMPLEMENTATION_CANDIDATE`' evidence/mstr-000a/A012-environment-reset.md
+          grep -F -- 'admission_status=NOT_EVALUATED_A013' evidence/mstr-000a/A012-environment-reset.md
+          grep -F -- 'NETWORK_EXECUTION = NONE' evidence/mstr-000a/A012-environment-reset.md
+          grep -F -- 'WEIGHT_CHANGING_TRAINING = NONE' evidence/mstr-000a/A012-environment-reset.md
+          git diff --check "$CANONICAL_BASE" "$TARGET_HEAD"
+
+  quality:
+    needs: identity_scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run independent exact-head quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          pytest -q tests/integration/test_environment_reset.py tests/security/test_environment_reset_boundary.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+
+  complete:
+    needs: [identity_scope, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - name: Final immutable exact-head recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_BASE"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_HEAD"
