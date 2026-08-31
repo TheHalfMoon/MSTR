@@ -1,0 +1,54 @@
+{
+  "contract_id": "mstr.wepld-adapter.v0",
+  "goal": {
+    "goal_id": "GOAL-12",
+    "direction": "Implement the bounded import command.",
+    "acceptance_criteria": [
+      "Import validates before write."
+    ],
+    "constraints": [
+      "Keep standalone MSTR behavior available."
+    ],
+    "non_goals": [
+      "Do not add remote orchestration."
+    ]
+  },
+  "spec": {
+    "spec_id": "SPEC-42",
+    "revision": "rev-7",
+    "requirements": [
+      "Spec behavior remains backwards compatible."
+    ],
+    "constraints": [
+      "Use the canonical MSTR loop contract."
+    ]
+  },
+  "task": {
+    "task_id": "TASK-9",
+    "revision": "rev-3",
+    "acceptance_criteria": [
+      "Task verifier remains independently authoritative."
+    ],
+    "constraints": [
+      "Use bounded local repository effects only."
+    ]
+  },
+  "effects": {
+    "effect_envelope_id": "effects.local-repository-only",
+    "allowed_effects": [
+      "READ_REPOSITORY",
+      "WRITE_REPOSITORY"
+    ],
+    "prohibited_effects": [
+      "NETWORK",
+      "MODEL_WEIGHT_ACCESS"
+    ]
+  },
+  "verifier": {
+    "required_verifier_ids": [
+      "types",
+      "tests"
+    ],
+    "policy_id": "wepld.verifier-policy.fixture.v0"
+  }
+}
