@@ -1,0 +1,51 @@
+name: Verify A008 post-closeout canonical state
+
+on:
+  push:
+    branches:
+      - evidence/a008-postcloseout-5416494
+
+permissions:
+  contents: read
+
+env:
+  CLOSEOUT_MERGE: 5416494b60590c0b9a3f6178c58224f4edb01dd7
+  IMPLEMENTATION_MERGE: d6a2c83227be09b8cd37f62de0d8e841eba9854d
+  CLOSEOUT_HEAD: 6ee0b3f60721951e23c90759c8efff7a7bc19140
+  EXPECTED_TREE: 008ee388319ecdf224eea724d7cc1da9dcd9e482
+
+jobs:
+  canonical_state:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5416494b60590c0b9a3f6178c58224f4edb01dd7
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify closeout merge identity, ledger, quality, and next frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CLOSEOUT_MERGE"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CLOSEOUT_MERGE"
+          read -r commit parent1 parent2 < <(git rev-list --parents -n 1 HEAD)
+          test "$commit" = "$CLOSEOUT_MERGE"
+          test "$parent1" = "$IMPLEMENTATION_MERGE"
+          test "$parent2" = "$CLOSEOUT_HEAD"
+          grep -Fq -- '- [x] **A008 Implement H1 MSTR-native typed harness.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -Fq '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000a/A008-mstr-harness.md
+          grep -Fq -- '- [ ] **A009 Implement H2 WePLD-native adapter.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/harness/test_native.py tests/security/test_native_harness_boundary.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CLOSEOUT_MERGE"
+          echo "A008_COMPLETE_CANONICAL=YES"
+          echo "NEXT_ELIGIBLE=A009"
+          echo "EXTERNAL_EFFECT=NONE"
