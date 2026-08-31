@@ -20,11 +20,9 @@ jobs:
         with:
           ref: ${{ env.CANONICAL_MAIN }}
           fetch-depth: 0
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
       - name: Verify immutable entry and target absence
         shell: bash
         run: |
@@ -37,280 +35,34 @@ jobs:
           fi
           grep -F -- '- [x] **A009 Implement H2 WePLD-native adapter.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
           grep -F -- '- [ ] **A010 Freeze evidence-derived `CapabilityProfile` contract for WePLD routing.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
-
       - name: Materialize exact A010 candidate
         shell: bash
+        env:
+          SCHEMA_B64: ewogICIkZGVmcyI6IHsKICAgICJldmlkZW5jZV9yZWYiOiB7CiAgICAgICJhZGRpdGlvbmFsUHJvcGVydGllcyI6IGZhbHNlLAogICAgICAicHJvcGVydGllcyI6IHsKICAgICAgICAiYXJ0aWZhY3Rfc2hhMjU2IjogewogICAgICAgICAgInBhdHRlcm4iOiAiXlswLTlhLWZdezY0fSQiLAogICAgICAgICAgInR5cGUiOiBbCiAgICAgICAgICAgICJzdHJpbmciLAogICAgICAgICAgICAibnVsbCIKICAgICAgICAgIF0KICAgICAgICB9LAogICAgICAgICJldmlkZW5jZV9pZCI6IHsKICAgICAgICAgICJtYXhMZW5ndGgiOiA1MTIsCiAgICAgICAgICAibWluTGVuZ3RoIjogMSwKICAgICAgICAgICJ0eXBlIjogInN0cmluZyIKICAgICAgICB9LAogICAgICAgICJsb2NhdG9yIjogewogICAgICAgICAgIm1heExlbmd0aCI6IDEwMjQsCiAgICAgICAgICAibWluTGVuZ3RoIjogMSwKICAgICAgICAgICJ0eXBlIjogInN0cmluZyIKICAgICAgICB9LAogICAgICAgICJzb3VyY2VfY2xhc3MiOiB7CiAgICAgICAgICAiZW51bSI6IFsKICAgICAgICAgICAgIk1TVFJfUlVOIiwKICAgICAgICAgICAgIk1TVFJfUkVTVUxUIiwKICAgICAgICAgICAgIlJFUE9TSVRPUllfRklYVFVSRSIsCiAgICAgICAgICAgICJDQU5PTklDQUxfREVDSVNJT04iCiAgICAgICAgICBdCiAgICAgICAgfQogICAgICB9LAogICAgICAicmVxdWlyZWQiOiBbCiAgICAgICAgImV2aWRlbmNlX2lkIiwKICAgICAgICAic291cmNlX2NsYXNzIiwKICAgICAgICAibG9jYXRvciIsCiAgICAgICAgImFydGlmYWN0X3NoYTI1NiIKICAgICAgXSwKICAgICAgInR5cGUiOiAib2JqZWN0IgogICAgfSwKICAgICJpbnRlZ2VyX2NhcGFiaWxpdHkiOiB7CiAgICAgICJvbmVPZiI6IFsKICAgICAgICB7CiAgICAgICAgICAiJHJlZiI6ICIjLyRkZWZzL21lYXN1cmVkX2ludGVnZXIiCiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiJHJlZiI6ICIjLyRkZWZzL3VubWVhc3VyZWQiCiAgICAgICAgfQogICAgICBdCiAgICB9LAogICAgIm1lYXN1cmVkX2ludGVnZXIiOiB7CiAgICAgICJhZGRpdGlvbmFsUHJvcGVydGllcyI6IGZhbHNlLAogICAgICAicHJvcGVydGllcyI6IHsKICAgICAgICAiZXZpZGVuY2VfcmVmcyI6IHsKICAgICAgICAgICJpdGVtcyI6IHsKICAgICAgICAgICAgIiRyZWYiOiAiIy8kZGVmcy9ldmlkZW5jZV9yZWYiCiAgICAgICAgICB9LAogICAgICAgICAgIm1pbkl0ZW1zIjogMSwKICAgICAgICAgICJ0eXBlIjogImFycmF5IiwKICAgICAgICAgICJ1bmlxdWVJdGVtcyI6IHRydWUKICAgICAgICB9LAogICAgICAgICJzdGF0dXMiOiB7CiAgICAgICAgICAiY29uc3QiOiAiTUVBU1VSRUQiCiAgICAgICAgfSwKICAgICAgICAidmFsdWUiOiB7CiAgICAgICAgICAibWluaW11bSI6IDAsCiAgICAgICAgICAidHlwZSI6ICJpbnRlZ2VyIgogICAgICAgIH0KICAgICAgfSwKICAgICAgInJlcXVpcmVkIjogWwogICAgICAgICJzdGF0dXMiLAogICAgICAgICJ2YWx1ZSIsCiAgICAgICAgImV2aWRlbmNlX3JlZnMiCiAgICAgIF0sCiAgICAgICJ0eXBlIjogIm9iamVjdCIKICAgIH0sCiAgICAibWVhc3VyZWRfcG9zaXRpdmVfaW50ZWdlciI6IHsKICAgICAgImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjogZmFsc2UsCiAgICAgICJwcm9wZXJ0aWVzIjogewogICAgICAgICJldmlkZW5jZV9yZWZzIjogewogICAgICAgICAgIml0ZW1zIjogewogICAgICAgICAgICAiJHJlZiI6ICIjLyRkZWZzL2V2aWRlbmNlX3JlZiIKICAgICAgICAgIH0sCiAgICAgICAgICAibWluSXRlbXMiOiAxLAogICAgICAgICAgInR5cGUiOiAiYXJyYXkiLAogICAgICAgICAgInVuaXF1ZUl0ZW1zIjogdHJ1ZQogICAgICAgIH0sCiAgICAgICAgInN0YXR1cyI6IHsKICAgICAgICAgICJjb25zdCI6ICJNRUFTVVJFRCIKICAgICAgICB9LAogICAgICAgICJ2YWx1ZSI6IHsKICAgICAgICAgICJtaW5pbXVtIjogMSwKICAgICAgICAgICJ0eXBlIjogImludGVnZXIiCiAgICAgICAgfQogICAgICB9LAogICAgICAicmVxdWlyZWQiOiBbCiAgICAgICAgInN0YXR1cyIsCiAgICAgICAgInZhbHVlIiwKICAgICAgICAiZXZpZGVuY2VfcmVmcyIKICAgICAgXSwKICAgICAgInR5cGUiOiAib2JqZWN0IgogICAgfSwKICAgICJtZWFzdXJlZF9yYXRpbyI6IHsKICAgICAgImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjogZmFsc2UsCiAgICAgICJwcm9wZXJ0aWVzIjogewogICAgICAgICJldmlkZW5jZV9yZWZzIjogewogICAgICAgICAgIml0ZW1zIjogewogICAgICAgICAgICAiJHJlZiI6ICIjLyRkZWZzL2V2aWRlbmNlX3JlZiIKICAgICAgICAgIH0sCiAgICAgICAgICAibWluSXRlbXMiOiAxLAogICAgICAgICAgInR5cGUiOiAiYXJyYXkiLAogICAgICAgICAgInVuaXF1ZUl0ZW1zIjogdHJ1ZQogICAgICAgIH0sCiAgICAgICAgInN0YXR1cyI6IHsKICAgICAgICAgICJjb25zdCI6ICJNRUFTVVJFRCIKICAgICAgICB9LAogICAgICAgICJ2YWx1ZSI6IHsKICAgICAgICAgICJtYXhpbXVtIjogMSwKICAgICAgICAgICJtaW5pbXVtIjogMCwKICAgICAgICAgICJ0eXBlIjogIm51bWJlciIKICAgICAgICB9CiAgICAgIH0sCiAgICAgICJyZXF1aXJlZCI6IFsKICAgICAgICAic3RhdHVzIiwKICAgICAgICAidmFsdWUiLAogICAgICAgICJldmlkZW5jZV9yZWZzIgogICAgICBdLAogICAgICAidHlwZSI6ICJvYmplY3QiCiAgICB9LAogICAgIm1lYXN1cmVkX3N0cmluZyI6IHsKICAgICAgImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjogZmFsc2UsCiAgICAgICJwcm9wZXJ0aWVzIjogewogICAgICAgICJldmlkZW5jZV9yZWZzIjogewogICAgICAgICAgIml0ZW1zIjogewogICAgICAgICAgICAiJHJlZiI6ICIjLyRkZWZzL2V2aWRlbmNlX3JlZiIKICAgICAgICAgIH0sCiAgICAgICAgICAibWluSXRlbXMiOiAxLAogICAgICAgICAgInR5cGUiOiAiYXJyYXkiLAogICAgICAgICAgInVuaXF1ZUl0ZW1zIjogdHJ1ZQogICAgICAgIH0sCiAgICAgICAgInN0YXR1cyI6IHsKICAgICAgICAgICJjb25zdCI6ICJNRUFTVVJFRCIKICAgICAgICB9LAogICAgICAgICJ2YWx1ZSI6IHsKICAgICAgICAgICJtYXhMZW5ndGgiOiA1MTIsCiAgICAgICAgICAibWluTGVuZ3RoIjogMSwKICAgICAgICAgICJ0eXBlIjogInN0cmluZyIKICAgICAgICB9CiAgICAgIH0sCiAgICAgICJyZXF1aXJlZCI6IFsKICAgICAgICAic3RhdHVzIiwKICAgICAgICAidmFsdWUiLAogICAgICAgICJldmlkZW5jZV9yZWZzIgogICAgICBdLAogICAgICAidHlwZSI6ICJvYmplY3QiCiAgICB9LAogICAgIm1vZGVsX2FydGlmYWN0X2lkZW50aXR5IjogewogICAgICAiYWRkaXRpb25hbFByb3BlcnRpZXMiOiBmYWxzZSwKICAgICAgInByb3BlcnRpZXMiOiB7CiAgICAgICAgImFydGlmYWN0X3NoYTI1NiI6IHsKICAgICAgICAgICJwYXR0ZXJuIjogIl5bMC05YS1mXXs2NH0kIiwKICAgICAgICAgICJ0eXBlIjogInN0cmluZyIKICAgICAgICB9LAogICAgICAgICJtb2RlbF9pZCI6IHsKICAgICAgICAgICJtYXhMZW5ndGgiOiA1MTIsCiAgICAgICAgICAibWluTGVuZ3RoIjogMSwKICAgICAgICAgICJ0eXBlIjogInN0cmluZyIKICAgICAgICB9LAogICAgICAgICJtb2RlbF9yZXZpc2lvbiI6IHsKICAgICAgICAgICJtYXhMZW5ndGgiOiA1MTIsCiAgICAgICAgICAibWluTGVuZ3RoIjogMSwKICAgICAgICAgICJ0eXBlIjogInN0cmluZyIKICAgICAgICB9LAogICAgICAgICJxdWFudGl6YXRpb25faWRlbnRpdHkiOiB7CiAgICAgICAgICAibWF4TGVuZ3RoIjogNTEyLAogICAgICAgICAgInR5cGUiOiBbCiAgICAgICAgICAgICJzdHJpbmciLAogICAgICAgICAgICAibnVsbCIKICAgICAgICAgIF0KICAgICAgICB9LAogICAgICAgICJ0b2tlbml6ZXJfcmV2aXNpb24iOiB7CiAgICAgICAgICAibWF4TGVuZ3RoIjogNTEyLAogICAgICAgICAgIm1pbkxlbmd0aCI6IDEsCiAgICAgICAgICAidHlwZSI6ICJzdHJpbmciCiAgICAgICAgfQogICAgICB9LAogICAgICAicmVxdWlyZWQiOiBbCiAgICAgICAgIm1vZGVsX2lkIiwKICAgICAgICAibW9kZWxfcmV2aXNpb24iLAogICAgICAgICJhcnRpZmFjdF9zaGEyNTYiLAogICAgICAgICJ0b2tlbml6ZXJfcmV2aXNpb24iLAogICAgICAgICJxdWFudGl6YXRpb25faWRlbnRpdHkiCiAgICAgIF0sCiAgICAgICJ0eXBlIjogIm9iamVjdCIKICAgIH0sCiAgICAicG9zaXRpdmVfaW50ZWdlcl9jYXBhYmlsaXR5IjogewogICAgICAib25lT2YiOiBbCiAgICAgICAgewogICAgICAgICAgIiRyZWYiOiAiIy8kZGVmcy9tZWFzdXJlZF9wb3NpdGl2ZV9pbnRlZ2VyIgogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgIiRyZWYiOiAiIy8kZGVmcy91bm1lYXN1cmVkIgogICAgICAgIH0KICAgICAgXQogICAgfSwKICAgICJyYXRpb19jYXBhYmlsaXR5IjogewogICAgICAib25lT2YiOiBbCiAgICAgICAgewogICAgICAgICAgIiRyZWYiOiAiIy8kZGVmcy9tZWFzdXJlZF9yYXRpbyIKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICIkcmVmIjogIiMvJGRlZnMvdW5tZWFzdXJlZCIKICAgICAgICB9CiAgICAgIF0KICAgIH0sCiAgICAic3RyaW5nX2NhcGFiaWxpdHkiOiB7CiAgICAgICJvbmVPZiI6IFsKICAgICAgICB7CiAgICAgICAgICAiJHJlZiI6ICIjLyRkZWZzL21lYXN1cmVkX3N0cmluZyIKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICIkcmVmIjogIiMvJGRlZnMvdW5tZWFzdXJlZCIKICAgICAgICB9CiAgICAgIF0KICAgIH0sCiAgICAidW5tZWFzdXJlZCI6IHsKICAgICAgImFkZGl0aW9uYWxQcm9wZXJ0aWVzIjogZmFsc2UsCiAgICAgICJwcm9wZXJ0aWVzIjogewogICAgICAgICJldmlkZW5jZV9yZWZzIjogewogICAgICAgICAgIm1heEl0ZW1zIjogMCwKICAgICAgICAgICJ0eXBlIjogImFycmF5IgogICAgICAgIH0sCiAgICAgICAgInN0YXR1cyI6IHsKICAgICAgICAgICJjb25zdCI6ICJVTk1FQVNVUkVEIgogICAgICAgIH0sCiAgICAgICAgInZhbHVlIjogewogICAgICAgICAgInR5cGUiOiAibnVsbCIKICAgICAgICB9CiAgICAgIH0sCiAgICAgICJyZXF1aXJlZCI6IFsKICAgICAgICAic3RhdHVzIiwKICAgICAgICAidmFsdWUiLAogICAgICAgICJldmlkZW5jZV9yZWZzIgogICAgICBdLAogICAgICAidHlwZSI6ICJvYmplY3QiCiAgICB9CiAgfSwKICAiJGlkIjogImh0dHBzOi8vbXN0ci5sb2NhbC9zY2hlbWFzL21zdHItY2FwYWJpbGl0eS1wcm9maWxlLXYwLmpzb24iLAogICIkc2NoZW1hIjogImh0dHBzOi8vanNvbi1zY2hlbWEub3JnL2RyYWZ0LzIwMjAtMTIvc2NoZW1hIiwKICAiYWRkaXRpb25hbFByb3BlcnRpZXMiOiBmYWxzZSwKICAicHJvcGVydGllcyI6IHsKICAgICJjb250ZXh0X2NvbXBhY3Rpb25fc3RyZW5ndGgiOiB7CiAgICAgICIkcmVmIjogIiMvJGRlZnMvcmF0aW9fY2FwYWJpbGl0eSIKICAgIH0sCiAgICAiZmltX3N0cmVuZ3RoIjogewogICAgICAiJHJlZiI6ICIjLyRkZWZzL3JhdGlvX2NhcGFiaWxpdHkiCiAgICB9LAogICAgImdlbmVyYXRlZF9hdCI6IHsKICAgICAgInBhdHRlcm4iOiAiXlxkIzR9LVxkIzJ9LVxkIzJ9VFxkIzJ9OlxkIzJ9OlxkIzJ9WiQiLAogICAgICAidHlwZSI6ICJzdHJpbmciCiAgICB9LAogICAgImxvY2FsaXphdGlvbl9zdHJlbmd0aCI6IHsKICAgICAgIiRyZWYiOiAiIy8kZGVmcy9yYXRpb19jYXBhYmlsaXR5IgogICAgfSwKICAgICJtYXhfcmVwYWlyX2RlcHRoIjogewogICAgICAiJHJlZiI6ICIjLyRkZWZzL2ludGVnZXJfY2FwYWJpbGl0eSIKICAgIH0sCiAgICAibW9kZWxfYXJ0aWZhY3RfaWRlbnRpdHkiOiB7CiAgICAgICIkcmVmIjogIiMvJGRlZnMvbW9kZWxfYXJ0aWZhY3RfaWRlbnRpdHkiCiAgICB9LAogICAgIm5vdGVzIjogewogICAgICAiaXRlbXMiOiB7CiAgICAgICAgIm1heExlbmd0aCI6IDEwMjQsCiAgICAgICAgIm1pbkxlbmd0aCI6IDEsCiAgICAgICAgInR5cGUiOiAic3RyaW5nIgogICAgICB9LAogICAgICAidHlwZSI6ICJhcnJheSIsCiAgICAgICJ1bmlxdWVJdGVtcyI6IHRydWUKICAgIH0sCiAgICAicGxhbm5pbmdfZGVwdGgiOiB7CiAgICAgICIkcmVmIjogIiMvJGRlZnMvaW50ZWdlcl9jYXBhYmlsaXR5IgogICAgfSwKICAgICJwcmVmZXJyZWRfZWRpdF9hcm0iOiB7CiAgICAgICIkcmVmIjogIiMvJGRlZnMvc3RyaW5nX2NhcGFiaWxpdHkiCiAgICB9LAogICAgInByb2ZpbGVfZXZpZGVuY2VfcmVmcyI6IHsKICAgICAgIml0ZW1zIjogewogICAgICAgICIkcmVmIjogIiMvJGRlZnMvZXZpZGVuY2VfcmVmIgogICAgICB9LAogICAgICAibWluSXRlbXMiOiAxLAogICAgICAidHlwZSI6ICJhcnJheSIsCiAgICAgICJ1bmlxdWVJdGVtcyI6IHRydWUKICAgIH0sCiAgICAicHJvZmlsZV9pZCI6IHsKICAgICAgIm1heExlbmd0aCI6IDUxMiwKICAgICAgIm1pbkxlbmd0aCI6IDEsCiAgICAgICJ0eXBlIjogInN0cmluZyIKICAgIH0sCiAgICAicmVjb21tZW5kZWRfdmVyaWZpZXJfY2FkZW5jZSI6IHsKICAgICAgIiRyZWYiOiAiIy8kZGVmcy9zdHJpbmdfY2FwYWJpbGl0eSIKICAgIH0sCiAgICAicmVsaWFibGVfY29udGV4dF9idWRnZXQiOiB7CiAgICAgICIkcmVmIjogIiMvJGRlZnMvcG9zaXRpdmVfaW50ZWdlcl9jYXBhYmlsaXR5IgogICAgfSwKICAgICJzY2hlbWFfdmVyc2lvbiI6IHsKICAgICAgImNvbnN0IjogIm1zdHIuY2FwYWJpbGl0eS1wcm9maWxlLnYwIgogICAgfSwKICAgICJzaGVsbF9yZWxpYWJpbGl0eSI6IHsKICAgICAgIiRyZWYiOiAiIy8kZGVmcy9yYXRpb19jYXBhYmlsaXR5IgogICAgfSwKICAgICJ0b29sX2NhbGxfcmVsaWFiaWxpdHkiOiB7CiAgICAgICIkcmVmIjogIiMvJGRlZnMvcmF0aW9fY2FwYWJpbGl0eSIKICAgIH0KICB9LAogICJyZXF1aXJlZCI6IFsKICAgICJzY2hlbWFfdmVyc2lvbiIsCiAgICAicHJvZmlsZV9pZCIsCiAgICAibW9kZWxfYXJ0aWZhY3RfaWRlbnRpdHkiLAogICAgInJlbGlhYmxlX2NvbnRleHRfYnVkZ2V0IiwKICAgICJwcmVmZXJyZWRfZWRpdF9hcm0iLAogICAgInRvb2xfY2FsbF9yZWxpYWJpbGl0eSIsCiAgICAibG9jYWxpemF0aW9uX3N0cmVuZ3RoIiwKICAgICJwbGFubmluZ19kZXB0aCIsCiAgICAicmVjb21tZW5kZWRfdmVyaWZpZXJfY2FkZW5jZSIsCiAgICAibWF4X3JlcGFpcl9kZXB0aCIsCiAgICAiZmltX3N0cmVuZ3RoIiwKICAgICJzaGVsbF9yZWxpYWJpbGl0eSIsCiAgICAiY29udGV4dF9jb21wYWN0aW9uX3N0cmVuZ3RoIiwKICAgICJwcm9maWxlX2V2aWRlbmNlX3JlZnMiLAogICAgImdlbmVyYXRlZF9hdCIsCiAgICAibm90ZXMiCiAgXSwKICAidGl0bGUiOiAiTVNUUiBDYXBhYmlsaXR5IFByb2ZpbGUgdjAiLAogICJ0eXBlIjogIm9iamVjdCIKfQo=
+          VALID_B64: ewogICJjb250ZXh0X2NvbXBhY3Rpb25fc3RyZW5ndGgiOiB7CiAgICAiZXZpZGVuY2VfcmVmcyI6IFsKICAgICAgewogICAgICAgICJhcnRpZmFjdF9zaGEyNTYiOiAiMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMyIsCiAgICAgICAgImV2aWRlbmNlX2lkIjogImZpeHR1cmUtY29tcGFjdGlvbiIsCiAgICAgICAgImxvY2F0b3IiOiAidGVzdHMvZml4dHVyZXMvY2FwYWJpbGl0eS9jb21wYWN0aW9uLmpzb24iLAogICAgICAgICJzb3VyY2VfY2xhc3MiOiAiUkVQT1NJVE9SWV9GSVhUVVJFIgogICAgICB9CiAgICBdLAogICAgInN0YXR1cyI6ICJNRUFTVVJFRCIsCiAgICAidmFsdWUiOiAwLjg1CiAgfSwKICAiZmltX3N0cmVuZ3RoIjogewogICAgImV2aWRlbmNlX3JlZnMiOiBbXSwKICAgICJzdGF0dXMiOiAiVU5NRUFTVVJFRCIsCiAgICAidmFsdWUiOiBudWxsCiAgfSwKICAiZ2VuZXJhdGVkX2F0IjogIjIwMjYtMDgtMzFUMDY6MDA6MDBaIiwKICAibG9jYWxpemF0aW9uX3N0cmVuZ3RoIjogewogICAgImV2aWRlbmNlX3JlZnMiOiBbXSwKICAgICJzdGF0dXMiOiAiVU5NRUFTVVJFRCIsCiAgICAidmFsdWUiOiBudWxsCiAgfSwKICAibWF4X3JlcGFpcl9kZXB0aCI6IHsKICAgICJldmlkZW5jZV9yZWZzIjogWwogICAgICB7CiAgICAgICAgImFydGlmYWN0X3NoYTI1NiI6ICIxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwKICAgICAgICAiZXZpZGVuY2VfaWQiOiAiZml4dHVyZS1yZXBhaXIiLAogICAgICAgICJsb2NhdG9yIjogInRlc3RzL2ZpeHR1cmVzL2NhcGFiaWxpdHkvcmVwYWlyLmpzb24iLAogICAgICAgICJzb3VyY2VfY2xhc3MiOiAiUkVQT1NJVE9SWV9GSVhUVVJFIgogICAgICB9CiAgICBdLAogICAgInN0YXR1cyI6ICJNRUFTVVJFRCIsCiAgICAidmFsdWUiOiAyCiAgfSwKICAibW9kZWxfYXJ0aWZhY3RfaWRlbnRpdHkiOiB7CiAgICAiYXJ0aWZhY3Rfc2hhMjU2IjogImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLAogICAgIm1vZGVsX2lkIjogImZpeHR1cmUvbW9kZWwiLAogICAgIm1vZGVsX3JldmlzaW9uIjogImZpeHR1cmUtcmV2IiwKICAgICJxdWFudGl6YXRpb25faWRlbnRpdHkiOiAiZml4dHVyZS1xNCIsCiAgICAidG9rZW5pemVyX3JldmlzaW9uIjogImZpeHR1cmUtdG9rZW5pemVyLXJldiIKICB9LAogICJub3RlcyI6IFsKICAgICJSZXBvc2l0b3J5LW93bmVkIGZpeHR1cmUgb25seTsgbm90IGEgcmVhbCBtb2RlbCBjYXBhYmlsaXR5IGNsYWltLiIKICBdLAogICJwbGFubmluZ19kZXB0aCI6IHsKICAgICJldmlkZW5jZV9yZWZzIjogWwogICAgICB7CiAgICAgICAgImFydGlmYWN0X3NoYTI1NiI6ICJlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlIiwKICAgICAgICAiZXZpZGVuY2VfaWQiOiAiZml4dHVyZS1wbGFuIiwKICAgICAgICAibG9jYXRvciI6ICJ0ZXN0cy9maXh0dXJlcy9jYXBhYmlsaXR5L3BsYW4uanNvbiIsCiAgICAgICAgInNvdXJjZV9jbGFzcyI6ICJSRVBPU0lUT1JZX0ZJWFRVUkUiCiAgICAgIH0KICAgIF0sCiAgICAic3RhdHVzIjogIk1FQVNVUkVEIiwKICAgICJ2YWx1ZSI6IDIKICB9LAogICJwcmVmZXJyZWRfZWRpdF9hcm0iOiB7CiAgICAiZXZpZGVuY2VfcmVmcyI6IFsKICAgICAgewogICAgICAgICJhcnRpZmFjdF9zaGEyNTYiOiAiY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjYyIsCiAgICAgICAgImV2aWRlbmNlX2lkIjogImZpeHR1cmUtZWRpdCIsCiAgICAgICAgImxvY2F0b3IiOiAidGVzdHMvZml4dHVyZXMvY2FwYWJpbGl0eS9lZGl0Lmpzb24iLAogICAgICAgICJzb3VyY2VfY2xhc3MiOiAiUkVQT1NJVE9SWV9GSVhUVVJFIgogICAgICB9CiAgICBdLAogICAgInN0YXR1cyI6ICJNRUFTVVJFRCIsCiAgICAidmFsdWUiOiAiZGV0ZXJtaW5pc3RpYy1hbmNob3JlZC1lZGl0IgogIH0sCiAgInByb2ZpbGVfZXZpZGVuY2VfcmVmcyI6IFsKICAgIHsKICAgICAgImFydGlmYWN0X3NoYTI1NiI6IG51bGwsCiAgICAgICJldmlkZW5jZV9pZCI6ICJmaXh0dXJlLXByb2ZpbGUiLAogICAgICAibG9jYXRvciI6ICJldmlkZW5jZS9tc3RyLTAwMGEvQTAxMC1jYXBhYmlsaXR5LXByb2ZpbGUubWQiLAogICAgICAic291cmNlX2NsYXNzIjogIkNBTk9OSUNBTF9ERUNJU0lPTiIKICAgIH0KICBdLAogICJwcm9maWxlX2lkIjogImZpeHR1cmUtY2FwYWJpbGl0eS1wcm9maWxlLXYwIiwKICAicmVjb21tZW5kZWRfdmVyaWZpZXJfY2FkZW5jZSI6IHsKICAgICJldmlkZW5jZV9yZWZzIjogWwogICAgICB7CiAgICAgICAgImFydGlmYWN0X3NoYTI1NiI6ICJmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZiIsCiAgICAgICAgImV2aWRlbmNlX2lkIjogImZpeHR1cmUtdmVyaWZpZXIiLAogICAgICAgICJsb2NhdG9yIjogInRlc3RzL2ZpeHR1cmVzL2NhcGFiaWxpdHkvdmVyaWZpZXIuanNvbiIsCiAgICAgICAgInNvdXJjZV9jbGFzcyI6ICJSRVBPU0lUT1JZX0ZJWFRVUkUiCiAgICAgIH0KICAgIF0sCiAgICAic3RhdHVzIjogIk1FQVNVUkVEIiwKICAgICJ2YWx1ZSI6ICJyaXNrLWFkYXB0aXZlIgogIH0sCiAgInJlbGlhYmxlX2NvbnRleHRfYnVkZ2V0IjogewogICAgImV2aWRlbmNlX3JlZnMiOiBbCiAgICAgIHsKICAgICAgICAiYXJ0aWZhY3Rfc2hhMjU2IjogImJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmIiLAogICAgICAgICJldmlkZW5jZV9pZCI6ICJmaXh0dXJlLWNvbnRleHQiLAogICAgICAgICJsb2NhdG9yIjogInRlc3RzL2ZpeHR1cmVzL2NhcGFiaWxpdHkvY29udGV4dC5qc29uIiwKICAgICAgICAic291cmNlX2NsYXNzIjogIlJFUE9TSVRPUllfRklYVFVSRSIKICAgICAgfQogICAgXSwKICAgICJzdGF0dXMiOiAiTUVBU1VSRUQiLAogICAgInZhbHVlIjogODE5MgogIH0sCiAgInNjaGVtYV92ZXJzaW9uIjogIm1zdHIuY2FwYWJpbGl0eS1wcm9maWxlLnYwIiwKICAic2hlbGxfcmVsaWFiaWxpdHkiOiB7CiAgICAiZXZpZGVuY2VfcmVmcyI6IFsKICAgICAgewogICAgICAgICJhcnRpZmFjdF9zaGEyNTYiOiAiMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMiIsCiAgICAgICAgImV2aWRlbmNlX2lkIjogImZpeHR1cmUtc2hlbGwiLAogICAgICAgICJsb2NhdG9yIjogInRlc3RzL2ZpeHR1cmVzL2NhcGFiaWxpdHkvc2hlbGwuanNvbiIsCiAgICAgICAgInNvdXJjZV9jbGFzcyI6ICJSRVBPU0lUT1JZX0ZJWFRVUkUiCiAgICAgIH0KICAgIF0sCiAgICAic3RhdHVzIjogIk1FQVNVUkVEIiwKICAgICJ2YWx1ZSI6IDAuOQogIH0sCiAgInRvb2xfY2FsbF9yZWxpYWJpbGl0eSI6IHsKICAgICJldmlkZW5jZV9yZWZzIjogWwogICAgICB7CiAgICAgICAgImFydGlmYWN0X3NoYTI1NiI6ICJkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkIiwKICAgICAgICAiZXZpZGVuY2VfaWQiOiAiZml4dHVyZS10b29sIiwKICAgICAgICAibG9jYXRvciI6ICJ0ZXN0cy9maXh0dXJlcy9jYXBhYmlsaXR5L3Rvb2wuanNvbiIsCiAgICAgICAgInNvdXJjZV9jbGFzcyI6ICJSRVBPU0lUT1JZX0ZJWFRVUkUiCiAgICAgIH0KICAgIF0sCiAgICAic3RhdHVzIjogIk1FQVNVUkVEIiwKICAgICJ2YWx1ZSI6IDAuOTUKICB9Cn0K
+          INVALID_B64: ewogICJjb250ZXh0X2NvbXBhY3Rpb25fc3RyZW5ndGgiOiB7CiAgICAiZXZpZGVuY2VfcmVmcyI6IFsKICAgICAgewogICAgICAgICJhcnRpZmFjdF9zaGEyNTYiOiAiMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMyIsCiAgICAgICAgImV2aWRlbmNlX2lkIjogImZpeHR1cmUtY29tcGFjdGlvbiIsCiAgICAgICAgImxvY2F0b3IiOiAidGVzdHMvZml4dHVyZXMvY2FwYWJpbGl0eS9jb21wYWN0aW9uLmpzb24iLAogICAgICAgICJzb3VyY2VfY2xhc3MiOiAiUkVQT1NJVE9SWV9GSVhUVVJFIgogICAgICB9CiAgICBdLAogICAgInN0YXR1cyI6ICJNRUFTVVJFRCIsCiAgICAidmFsdWUiOiAwLjg1CiAgfSwKICAiZmltX3N0cmVuZ3RoIjogewogICAgImV2aWRlbmNlX3JlZnMiOiBbXSwKICAgICJzdGF0dXMiOiAiVU5NRUFTVVJFRCIsCiAgICAidmFsdWUiOiBudWxsCiAgfSwKICAiZ2VuZXJhdGVkX2F0IjogIjIwMjYtMDgtMzFUMDY6MDA6MDBaIiwKICAibG9jYWxpemF0aW9uX3N0cmVuZ3RoIjogewogICAgImV2aWRlbmNlX3JlZnMiOiBbXSwKICAgICJzdGF0dXMiOiAiVU5NRUFTVVJFRCIsCiAgICAidmFsdWUiOiBudWxsCiAgfSwKICAibWF4X3JlcGFpcl9kZXB0aCI6IHsKICAgICJldmlkZW5jZV9yZWZzIjogWwogICAgICB7CiAgICAgICAgImFydGlmYWN0X3NoYTI1NiI6ICIxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwKICAgICAgICAiZXZpZGVuY2VfaWQiOiAiZml4dHVyZS1yZXBhaXIiLAogICAgICAgICJsb2NhdG9yIjogInRlc3RzL2ZpeHR1cmVzL2NhcGFiaWxpdHkvcmVwYWlyLmpzb24iLAogICAgICAgICJzb3VyY2VfY2xhc3MiOiAiUkVQT1NJVE9SWV9GSVhUVVJFIgogICAgICB9CiAgICBdLAogICAgInN0YXR1cyI6ICJNRUFTVVJFRCIsCiAgICAidmFsdWUiOiAyCiAgfSwKICAibW9kZWxfYXJ0aWZhY3RfaWRlbnRpdHkiOiB7CiAgICAiYXJ0aWZhY3Rfc2hhMjU2IjogImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLAogICAgIm1vZGVsX2lkIjogImZpeHR1cmUvbW9kZWwiLAogICAgIm1vZGVsX3JldmlzaW9uIjogImZpeHR1cmUtcmV2IiwKICAgICJxdWFudGl6YXRpb25faWRlbnRpdHkiOiAiZml4dHVyZS1xNCIsCiAgICAidG9rZW5pemVyX3JldmlzaW9uIjogImZpeHR1cmUtdG9rZW5pemVyLXJldiIKICB9LAogICJub3RlcyI6IFsKICAgICJSZXBvc2l0b3J5LW93bmVkIGZpeHR1cmUgb25seTsgbm90IGEgcmVhbCBtb2RlbCBjYXBhYmlsaXR5IGNsYWltLiIKICBdLAogICJwbGFubmluZ19kZXB0aCI6IHsKICAgICJldmlkZW5jZV9yZWZzIjogWwogICAgICB7CiAgICAgICAgImFydGlmYWN0X3NoYTI1NiI6ICJlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlIiwKICAgICAgICAiZXZpZGVuY2VfaWQiOiAiZml4dHVyZS1wbGFuIiwKICAgICAgICAibG9jYXRvciI6ICJ0ZXN0cy9maXh0dXJlcy9jYXBhYmlsaXR5L3BsYW4uanNvbiIsCiAgICAgICAgInNvdXJjZV9jbGFzcyI6ICJSRVBPU0lUT1JZX0ZJWFRVUkUiCiAgICAgIH0KICAgIF0sCiAgICAic3RhdHVzIjogIk1FQVNVUkVEIiwKICAgICJ2YWx1ZSI6IDIKICB9LAogICJwcmVmZXJyZWRfZWRpdF9hcm0iOiB7CiAgICAiZXZpZGVuY2VfcmVmcyI6IFsKICAgICAgewogICAgICAgICJhcnRpZmFjdF9zaGEyNTYiOiAiY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjYyIsCiAgICAgICAgImV2aWRlbmNlX2lkIjogImZpeHR1cmUtZWRpdCIsCiAgICAgICAgImxvY2F0b3IiOiAidGVzdHMvZml4dHVyZXMvY2FwYWJpbGl0eS9lZGl0Lmpzb24iLAogICAgICAgICJzb3VyY2VfY2xhc3MiOiAiUkVQT1NJVE9SWV9GSVhUVVJFIgogICAgICB9CiAgICBdLAogICAgInN0YXR1cyI6ICJNRUFTVVJFRCIsCiAgICAidmFsdWUiOiAiZGV0ZXJtaW5pc3RpYy1hbmNob3JlZC1lZGl0IgogIH0sCiAgInByb2ZpbGVfZXZpZGVuY2VfcmVmcyI6IFsKICAgIHsKICAgICAgImFydGlmYWN0X3NoYTI1NiI6IG51bGwsCiAgICAgICJldmlkZW5jZV9pZCI6ICJmaXh0dXJlLXByb2ZpbGUiLAogICAgICAibG9jYXRvciI6ICJldmlkZW5jZS9tc3RyLTAwMGEvQTAxMC1jYXBhYmlsaXR5LXByb2ZpbGUubWQiLAogICAgICAic291cmNlX2NsYXNzIjogIkNBTk9OSUNBTF9ERUNJU0lPTiIKICAgIH0KICBdLAogICJwcm9maWxlX2lkIjogImZpeHR1cmUtY2FwYWJpbGl0eS1wcm9maWxlLXYwIiwKICAicmVjb21tZW5kZWRfdmVyaWZpZXJfY2FkZW5jZSI6IHsKICAgICJldmlkZW5jZV9yZWZzIjogWwogICAgICB7CiAgICAgICAgImFydGlmYWN0X3NoYTI1NiI6ICJmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZiIsCiAgICAgICAgImV2aWRlbmNlX2lkIjogImZpeHR1cmUtdmVyaWZpZXIiLAogICAgICAgICJsb2NhdG9yIjogInRlc3RzL2ZpeHR1cmVzL2NhcGFiaWxpdHkvdmVyaWZpZXIuanNvbiIsCiAgICAgICAgInNvdXJjZV9jbGFzcyI6ICJSRVBPU0lUT1JZX0ZJWFRVUkUiCiAgICAgIH0KICAgIF0sCiAgICAic3RhdHVzIjogIk1FQVNVUkVEIiwKICAgICJ2YWx1ZSI6ICJyaXNrLWFkYXB0aXZlIgogIH0sCiAgInJlbGlhYmxlX2NvbnRleHRfYnVkZ2V0IjogewogICAgImV2aWRlbmNlX3JlZnMiOiBbCiAgICAgIHsKICAgICAgICAiYXJ0aWZhY3Rfc2hhMjU2IjogImJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmIiLAogICAgICAgICJldmlkZW5jZV9pZCI6ICJmaXh0dXJlLWNvbnRleHQiLAogICAgICAgICJsb2NhdG9yIjogInRlc3RzL2ZpeHR1cmVzL2NhcGFiaWxpdHkvY29udGV4dC5qc29uIiwKICAgICAgICAic291cmNlX2NsYXNzIjogIlJFUE9TSVRPUllfRklYVFVSRSIKICAgICAgfQogICAgXSwKICAgICJzdGF0dXMiOiAiTUVBU1VSRUQiLAogICAgInZhbHVlIjogODE5MgogIH0sCiAgInNjaGVtYV92ZXJzaW9uIjogIm1zdHIuY2FwYWJpbGl0eS1wcm9maWxlLnYwIiwKICAic2hlbGxfcmVsaWFiaWxpdHkiOiB7CiAgICAiZXZpZGVuY2VfcmVmcyI6IFsKICAgICAgewogICAgICAgICJhcnRpZmFjdF9zaGEyNTYiOiAiMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMiIsCiAgICAgICAgImV2aWRlbmNlX2lkIjogImZpeHR1cmUtc2hlbGwiLAogICAgICAgICJsb2NhdG9yIjogInRlc3RzL2ZpeHR1cmVzL2NhcGFiaWxpdHkvc2hlbGwuanNvbiIsCiAgICAgICAgInNvdXJjZV9jbGFzcyI6ICJSRVBPU0lUT1JZX0ZJWFRVUkUiCiAgICAgIH0KICAgIF0sCiAgICAic3RhdHVzIjogIk1FQVNVUkVEIiwKICAgICJ2YWx1ZSI6IDAuOQogIH0sCiAgInRvb2xfY2FsbF9yZWxpYWJpbGl0eSI6IHsKICAgICJldmlkZW5jZV9yZWZzIjogWwogICAgICB7CiAgICAgICAgImFydGlmYWN0X3NoYTI1NiI6ICJkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkIiwKICAgICAgICAiZXZpZGVuY2VfaWQiOiAiZml4dHVyZS10b29sIiwKICAgICAgICAibG9jYXRvciI6ICJ0ZXN0cy9maXh0dXJlcy9jYXBhYmlsaXR5L3Rvb2wuanNvbiIsCiAgICAgICAgInNvdXJjZV9jbGFzcyI6ICJWTkRPUl9DTEFJTV9PTkxZIiAKICAgICAgfQogICAgXSwKICAgICJzdGF0dXMiOiAiTUVBU1VSRUQiLAogICAgInZhbHVlIjogMC45NQogIH0KfQo=
+          TEST_B64: ZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IGNvcHkKaW1wb3J0IGpzb24KZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgppbXBvcnQgcHl0ZXN0Cgpmcm9tIG1zdHJfcXVhbGlmeS5zY2hlbWFzIGltcG9ydCB2YWxpZGF0ZV9pbnN0YW5jZQoKUk9PVCA9IFBhdGgoX19maWxlX18pLnJlc29sdmUoKS5wYXJlbnRzWzJdClZBTElEID0gUk9PVCAvICJ0ZXN0cyIgLyAiZml4dHVyZXMiIC8gInNjaGVtYXMiIC8gInZhbGlkIiAvICJtc3RyLWNhcGFiaWxpdHktcHJvZmlsZS12MC5qc29uIgpJTlZBTElEID0gUk9PVCAvICJ0ZXN0cyIgLyAiZml4dHVyZXMiIC8gInNjaGVtYXMiIC8gImludmFsaWQiIC8gIm1zdHItY2FwYWJpbGl0eS1wcm9maWxlLXYwLmpzb24iCgoKZGVmIF9sb2FkKHBhdGg6IFBhdGgpIC0+IGRpY3Rbc3RyLCBvYmplY3RdOgogICAgZGF0YSA9IGpzb24ubG9hZHMocGF0aC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikpCiAgICBhc3NlcnQgaXNpbnN0YW5jZShkYXRhLCBkaWN0KQogICAgcmV0dXJuIGRhdGEKCgpkZWYgdGVzdF92YWxpZF9jYXBhYmlsaXR5X3Byb2ZpbGVfcGFzc2VzKCkgLT4gTm9uZToKICAgIHZhbGlkYXRlX2luc3RhbmNlKCJtc3RyLWNhcGFiaWxpdHktcHJvZmlsZS12MCIsIF9sb2FkKFZBTElEKSkKCgpkZWYgdGVzdF92ZW5kb3JfY2xhaW1fb25seV9ldmlkZW5jZV9mYWlsc19jbG9zZWQoKSAtPiBOb25lOgogICAgd2l0aCBweXRlc3QucmFpc2VzKFZhbHVlRXJyb3IsIG1hdGNoPSJ2YWxpZGF0aW9uIGZhaWxlZCIpOgogICAgICAgIHZhbGlkYXRlX2luc3RhbmNlKCJtc3RyLWNhcGFiaWxpdHktcHJvZmlsZS12MCIsIF9sb2FkKElOVkFMSUQpKQoKCmRlZiB0ZXN0X21lYXN1cmVkX2NhcGFiaWxpdHlfcmVxdWlyZXNfZXZpZGVuY2UoKSAtPiBOb25lOgogICAgcHJvZmlsZSA9IGNvcHkuZGVlcGNvcHkoX2xvYWQoVkFMSUQpKQogICAgcHJvZmlsZVsic2hlbGxfcmVsaWFiaWxpdHkiXVsiZXZpZGVuY2VfcmVmcyJdID0gW10KICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhWYWx1ZUVycm9yLCBtYXRjaD0idmFsaWRhdGlvbiBmYWlsZWQiKToKICAgICAgICB2YWxpZGF0ZV9pbnN0YW5jZSgibXN0ci1jYXBhYmlsaXR5LXByb2ZpbGUtdjAiLCBwcm9maWxlKQoKCmRlZiB0ZXN0X3VubWVhc3VyZWRfY2FwYWJpbGl0eV9jYW5ub3RfcHVibGlzaF92YWx1ZSgpIC0+IE5vbmU6CiAgICBwcm9maWxlID0gY29weS5kZWVwY29weShfbG9hZChWQUxJRCkpCiAgICBwcm9maWxlWyJmaW1fc3RyZW5ndGgiXVsidmFsdWUiXSA9IDAuNQogICAgd2l0aCBweXRlc3QucmFpc2VzKFZhbHVlRXJyb3IsIG1hdGNoPSJ2YWxpZGF0aW9uIGZhaWxlZCIpOgogICAgICAgIHZhbGlkYXRlX2luc3RhbmNlKCJtc3RyLWNhcGFiaWxpdHktcHJvZmlsZS12MCIsIHByb2ZpbGUpCgoKZGVmIHRlc3RfcmVsaWFiaWxpdHlfcmF0aW9faXNfYm91bmRlZCgpIC0+IE5vbmU6CiAgICBwcm9maWxlID0gY29weS5kZWVwY29weShfbG9hZChWQUxJRCkpCiAgICBwcm9maWxlWyJ0b29sX2NhbGxfcmVsaWFiaWxpdHkiXVsidmFsdWUiXSA9IDEuMDEKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhWYWx1ZUVycm9yLCBtYXRjaD0idmFsaWRhdGlvbiBmYWlsZWQiKToKICAgICAgICB2YWxpZGF0ZV9pbnN0YW5jZSgibXN0ci1jYXBhYmlsaXR5LXByb2ZpbGUtdjAiLCBwcm9maWxlKQoKCmRlZiB0ZXN0X2NvbnRleHRfYnVkZ2V0X211c3RfYmVfcG9zaXRpdmVfd2hlbl9tZWFzdXJlZCgpIC0+IE5vbmU6CiAgICBwcm9maWxlID0gY29weS5kZWVwY29weShfbG9hZChWQUxJRCkpCiAgICBwcm9maWxlWyJyZWxpYWJsZV9jb250ZXh0X2J1ZGdldCJdWyJ2YWx1ZSJdID0gMAogICAgd2l0aCBweXRlc3QucmFpc2VzKFZhbHVlRXJyb3IsIG1hdGNoPSJ2YWxpZGF0aW9uIGZhaWxlZCIpOgogICAgICAgIHZhbGlkYXRlX2luc3RhbmNlKCJtc3RyLWNhcGFiaWxpdHktcHJvZmlsZS12MCIsIHByb2ZpbGUpCg==
+          EVIDENCE_B64: IyBBMDEwIOKAlCBFdmlkZW5jZS1EZXJpdmVkIENhcGFiaWxpdHlQcm9maWxlIENvbnRyYWN0CgoqKlRhc2s6KiogYE1TVFItMDAwQSAvIEEwMTBgICAKKipTdGF0ZToqKiBgSU1QTEVNRU5UQVRJT05fQUNUSVZFYCAgCioqQ2Fub25pY2FsIGJhc2U6KiogYGNkZjVlODk4ODY5MTlhMDUxNzNhMjkyMWMwM2QyMTNlZTU5OTIxMjZgICAKKipBdXRob3JpdHk6KiogY29udHJhY3Qvc2NoZW1hL2ZpeHR1cmUgd29yayBvbmx5OyBubyBtb2RlbCBleGVjdXRpb24gb3IgZXh0ZXJuYWwgZWZmZWN0LgoKIyMgT2JqZWN0aXZlCgpGcmVlemUgYG1zdHIuY2FwYWJpbGl0eS1wcm9maWxlLnYwYCwgdGhlIGV2aWRlbmNlLWRlcml2ZWQgY2FwYWJpbGl0eSBkZXNjcmlwdGlvbiBjb25zdW1lZCBieSBXZVBMRCByb3V0aW5nIGFuZCBvdGhlciBoYXJuZXNzIHBvbGljeS4gVGhlIGNvbnRyYWN0IHJlY29yZHMgbWVhc3VyZWQgY2FwYWJpbGl0eSB3aXRob3V0IGNvbnZlcnRpbmcgdmVuZG9yIGNsYWltcywgbW9kZWwtY2FyZCBzdGF0ZW1lbnRzLCBvciB1bmV2YWx1YXRlZCBleHBlY3RhdGlvbnMgaW50byBwcm9qZWN0IHRydXRoLgoKIyMgRnJvemVuIGZpZWxkcwoKVGhlIHByb2ZpbGUgaW5jbHVkZXMgdGhlIGV4YWN0IEEwMTAgcm91dGluZyBzdXJmYWNlczoKCmBgYHRleHQKcmVsaWFibGVfY29udGV4dF9idWRnZXRcbnByZWZlcnJlZF9lZGl0X2FybVxudG9vbF9jYWxsX3JlbGlhYmlsaXR5XG5sb2NhbGl6YXRpb25fc3RyZW5ndGhcbnBsYW5uaW5nX2RlcHRoXG5yZWNvbW1lbmRlZF92ZXJpZmllcl9jYWRlbmNlXG5tYXhfcmVwYWlyX2RlcHRoXG5maW1fc3RyZW5ndGhcbnNoZWxsX3JlbGlhYmlsaXR5XG5jb250ZXh0X2NvbXBhY3Rpb25fc3RyZW5ndGgKYGBgCgpFdmVyeSBjYXBhYmlsaXR5IGZpZWxkIGlzIGV4cGxpY2l0bHkgb25lIG9mOgoKYGBgdGV4dApNRUFTVVJFRFxuVU5NRUFTVVJFRAppYGAKCkEgYE1FQVNVUkVEYCBmaWVsZCByZXF1aXJlcyBhIHR5cGVkIHZhbHVlIGFuZCBhdCBsZWFzdCBvbmUgYWRtaXNzaWJsZSBldmlkZW5jZSByZWZlcmVuY2UuIEFuIGBVTk1FQVNVUkVEYCBmaWVsZCBjYXJyaWVzIGB2YWx1ZT1udWxsYCBhbmQgbm8gZmllbGQtbGV2ZWwgZXZpZGVuY2UgcmVmZXJlbmNlcywgcHJldmVudGluZyBwbGFjZWhvbGRlciB2YWx1ZXMgZnJvbSBiZWNvbWluZyByb3V0aW5nIGF1dGhvcml0eS4KCiMjIEV2aWRlbmNlIGJvdW5kYXJ5CgpBZG1pc3NpYmxlIGV2aWRlbmNlIHNvdXJjZSBjbGFzc2VzIGFyZSBleGFjdGx5OgoKYGBgdGV4dApNU1RSX1JVTlxuTVNUUl9SRVNVTFNcbkJFUE9TSVRPUllfRklYVFVSRVxuQ0FOT05JQ0FMX0RFQ0lTSU9OCmBgYAoKYFZFTkRPUl9DTEFJTV9PTkxZYCAtIGFuZCBvdGhlciBjbGFpbS1vbmx5IGNsYXNzZXMgLSBhcmUgaW50ZW50aW9uYWxseSBub3QgdmFsaWQuIFZlbmRvciBvciBtb2RlbC1jYXJkIG1hdGVyaWFsIG1heSBtb3RpdmF0ZSBmdXR1cmUgbWVhc3VyZW1lbnQsIGJ1dCBjYW5ub3QgYnMgaXRzZWxmIHBvcHVsYXRlIGEgbWVhc3VyZWQgY2FwYWJpbGl0eSBmaWVsZC4KCkEgcmVhbCBwcm9maWxlIGFsc28gYmluZHMgYW4gZXhhY3QgbW9kZWwvYXJ0aWZhY3QgaWRlbnRpdHk6CgpgYGB0ZXh0Cm1vZGVsX2lkXG5tb2RlbF9yZXZpc2lvblxuYXJ0aWZhY3Rfc2hhMjU2XG50b2tlbml6ZXJfcmV2aXNpb25cbnF1YW50aXphdGlvbl9pZGVudGl0eQpgYGAKClRoZSBmaXh0dXJlIGluIHRoaXMgdGFzayBpcyByZXBvc2l0b3J5LW93bmVkIHN5bnRoZXRpYyBldmlkZW5jZSBvbmx5IGFuZCBpcyBleHBsaWNpdGx5IG5vdCBhIHJlYWwgbW9kZWwgY2FwYWJpbGl0eSBjbGFpbS4KCiMjIFZhbGlkYXRpb24KClRoZSB0YXNrIHJlZ2lzdGVycyB0aGUgc2NoZW1hIGluIHRoZSByZXBvc2l0b3J5LWxvY2FsIHNjaGVtYSByZWdpc3RyeSBhbmQgYWRkczoKCi0gYnl0ZS1pZGVudGljYWwgZGVzaWduL3J1bnRpbWUgc2NoZW1hczsKLSBvbmUgY2Fub25pY2FsIHZhbGlkIGZpeHR1cmU7Ci0gb25lIGNhbm9uaWNhbCBpbnZhbGlkIGZpeHR1cmUgcHJvdmluZyB2ZW5kb3ItY2xhaW0tb25seSBldmlkZW5jZSBpcyByZWplY3RlZDsKLSBjb250cmFjdCB0ZXN0cyBmb3IgZXZpZGVuY2UgcmVxdWlyZW1lbnRzLCB1bm1lYXN1cmVkLXZhbHVlIHJlamVjdGlvbiwgYm91bmRlZCByZWxpYWJpbGl0eSByYXRpb3MsIGFuZCBwb3NpdGl2ZSBtZWFzdXJlZCBjb250ZXh0IGJ1ZGdldDsKLSByZXBvc2l0b3J5IHNjaGVtYS1yZWdpc3RyeSBhbmQgb2ZmbGluZS12YWxpZGF0aW9uIHJlZ3Jlc3Npb24gY292ZXJhZ2UuCgojIyBBdXRob3JpdHkgYm91bmRhcnkKCmBgYHRleHQKTU9ERUxfV0VJR0hUX0FDQ0VTUyA9IE5PTkVcbk1PREVMX0VYRUNVVElPTiA9IE5PTkVcblJFQUxfQ0FQQUJJTElUWV9NRUFTVVJFTUVOVCA9IE5PTkVcbk5FVFdPUktfTU9ERUxfT1JfUFJPVklERVJfQ0FMTCA9IE5PTkVcblBBSURfTU9ERUxfQVBJID0gTk9ORVxuUEFJRF9DT01QVVRFID0gTk9ORVxuTEFSR0VfREFUQVNFVF9JTkdFU1RJT04gPSBOT05FXG5QUklWQVRFX1VTRVJfREFUQV9JTkdFU1RJT04gPSBOT05FXG5QUk9EVUNUSU9OX1RSQUNFX0lOR0VTVElPTiA9IE5PTkVcbldFSUdIVF9DSEFOR0lOR19UUkFJTklORyA9IE5PTkVcbiBMQVJHRV9TQ0FMRV9STCA9IE5PTkVcblBST0RVQ1RJT05fUkVMRUFTRSA9IE5PTkVcblEwMTBfQVVUSE9SSVRZID0gQ0FQQUJJTElUWV9QUk9GSUxFX0NPTlRSQUNUX0FORF9SRVBPU0lUT1JZX0ZJWFRVUkVTX09OTFkKYGBgCgpBMDEwIHJlbWFpbnMgbm9uLWNhbm9uaWNhbCB1bnRpbCBleGFjdC1oZWFkIHF1YWxpZmljYXRpb24sIHJldmlldywgbWFuZGF0b3J5IHByZW1lcmdlIHZlcmlmaWNhdGlvbiwgZ3VhcmRlZCBtZXJnZSwgcG9zdC1tZXJnZSBwcm9vZiwgY2Fub25pY2FsIGNsb3Nlb3V0LCBhbmQgcG9zdC1jbG9zZW91dCBwcm9vZiBzdWNjZWVkLgo=
         run: |
           set -euo pipefail
           git checkout -b "$TARGET_BRANCH"
           python - <<'PY'
-          import json
+          import base64
+          import os
           import subprocess
           from pathlib import Path
 
-          schema = {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://mstr.local/schemas/mstr-capability-profile-v0.json",
-            "title": "MSTR Capability Profile v0",
-            "type": "object",
-            "additionalProperties": False,
-            "$defs": {
-              "evidence_ref": {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
-                  "evidence_id": {"type": "string", "minLength": 1, "maxLength": 512},
-                  "source_class": {"enum": ["MSTR_RUN", "MSTR_RESULT", "REPOSITORY_FIXTURE", "CANONICAL_DECISION"]},
-                  "locator": {"type": "string", "minLength": 1, "maxLength": 1024},
-                  "artifact_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}
-                },
-                "required": ["evidence_id", "source_class", "locator", "artifact_sha256"]
-              },
-              "unmeasured": {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
-                  "status": {"const": "UNMEASURED"},
-                  "value": {"type": "null"},
-                  "evidence_refs": {"type": "array", "maxItems": 0}
-                },
-                "required": ["status", "value", "evidence_refs"]
-              },
-              "measured_positive_integer": {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
-                  "status": {"const": "MEASURED"},
-                  "value": {"type": "integer", "minimum": 1},
-                  "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"$ref": "#/$defs/evidence_ref"}}
-                },
-                "required": ["status", "value", "evidence_refs"]
-              },
-              "measured_integer": {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
-                  "status": {"const": "MEASURED"},
-                  "value": {"type": "integer", "minimum": 0},
-                  "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"$ref": "#/$defs/evidence_ref"}}
-                },
-                "required": ["status", "value", "evidence_refs"]
-              },
-              "measured_ratio": {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
-                  "status": {"const": "MEASURED"},
-                  "value": {"type": "number", "minimum": 0, "maximum": 1},
-                  "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"$ref": "#/$defs/evidence_ref"}}
-                },
-                "required": ["status", "value", "evidence_refs"]
-              },
-              "measured_string": {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
-                  "status": {"const": "MEASURED"},
-                  "value": {"type": "string", "minLength": 1, "maxLength": 512},
-                  "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"$ref": "#/$defs/evidence_ref"}}
-                },
-                "required": ["status", "value", "evidence_refs"]
-              },
-              "positive_integer_capability": {"oneOf": [{"$ref": "#/$defs/measured_positive_integer"}, {"$ref": "#/$defs/unmeasured"}]},
-              "integer_capability": {"oneOf": [{"$ref": "#/$defs/measured_integer"}, {"$ref": "#/$defs/unmeasured"}]},
-              "ratio_capability": {"oneOf": [{"$ref": "#/$defs/measured_ratio"}, {"$ref": "#/$defs/unmeasured"}]},
-              "string_capability": {"oneOf": [{"$ref": "#/$defs/measured_string"}, {"$ref": "#/$defs/unmeasured"}]},
-              "model_artifact_identity": {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
-                  "model_id": {"type": "string", "minLength": 1, "maxLength": 512},
-                  "model_revision": {"type": "string", "minLength": 1, "maxLength": 512},
-                  "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-                  "tokenizer_revision": {"type": "string", "minLength": 1, "maxLength": 512},
-                  "quantization_identity": {"type": ["string", "null"], "maxLength": 512}
-                },
-                "required": ["model_id", "model_revision", "artifact_sha256", "tokenizer_revision", "quantization_identity"]
-              }
-            },
-            "properties": {
-              "schema_version": {"const": "mstr.capability-profile.v0"},
-              "profile_id": {"type": "string", "minLength": 1, "maxLength": 512},
-              "model_artifact_identity": {"$ref": "#/$defs/model_artifact_identity"},
-              "reliable_context_budget": {"$ref": "#/$defs/positive_integer_capability"},
-              "preferred_edit_arm": {"$ref": "#/$defs/string_capability"},
-              "tool_call_reliability": {"$ref": "#/$defs/ratio_capability"},
-              "localization_strength": {"$ref": "#/$defs/ratio_capability"},
-              "planning_depth": {"$ref": "#/$defs/integer_capability"},
-              "recommended_verifier_cadence": {"$ref": "#/$defs/string_capability"},
-              "max_repair_depth": {"$ref": "#/$defs/integer_capability"},
-              "fim_strength": {"$ref": "#/$defs/ratio_capability"},
-              "shell_reliability": {"$ref": "#/$defs/ratio_capability"},
-              "context_compaction_strength": {"$ref": "#/$defs/ratio_capability"},
-              "profile_evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"$ref": "#/$defs/evidence_ref"}},
-              "generated_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"},
-              "notes": {"type": "array", "uniqueItems": True, "items": {"type": "string", "minLength": 1, "maxLength": 1024}}
-            },
-            "required": [
-              "schema_version", "profile_id", "model_artifact_identity", "reliable_context_budget",
-              "preferred_edit_arm", "tool_call_reliability", "localization_strength", "planning_depth",
-              "recommended_verifier_cadence", "max_repair_depth", "fim_strength", "shell_reliability",
-              "context_compaction_strength", "profile_evidence_refs", "generated_at", "notes"
-            ]
-          }
+          def write_b64(path: str, env_name: str) -> None:
+              target = Path(path)
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_bytes(base64.b64decode(os.environ[env_name]))
 
-          def evidence_ref(eid: str, locator: str, sha: str | None = None) -> dict[str, object]:
-              return {"evidence_id": eid, "source_class": "REPOSITORY_FIXTURE", "locator": locator, "artifact_sha256": sha}
-
-          valid = {
-            "schema_version": "mstr.capability-profile.v0",
-            "profile_id": "fixture-capability-profile-v0",
-            "model_artifact_identity": {
-              "model_id": "fixture/model",
-              "model_revision": "fixture-rev",
-              "artifact_sha256": "a" * 64,
-              "tokenizer_revision": "fixture-tokenizer-rev",
-              "quantization_identity": "fixture-q4"
-            },
-            "reliable_context_budget": {"status": "MEASURED", "value": 8192, "evidence_refs": [evidence_ref("fixture-context", "tests/fixtures/capability/context.json", "b" * 64)]},
-            "preferred_edit_arm": {"status": "MEASURED", "value": "deterministic-anchored-edit", "evidence_refs": [evidence_ref("fixture-edit", "tests/fixtures/capability/edit.json", "c" * 64)]},
-            "tool_call_reliability": {"status": "MEASURED", "value": 0.95, "evidence_refs": [evidence_ref("fixture-tool", "tests/fixtures/capability/tool.json", "d" * 64)]},
-            "localization_strength": {"status": "UNMEASURED", "value": None, "evidence_refs": []},
-            "planning_depth": {"status": "MEASURED", "value": 2, "evidence_refs": [evidence_ref("fixture-plan", "tests/fixtures/capability/plan.json", "e" * 64)]},
-            "recommended_verifier_cadence": {"status": "MEASURED", "value": "risk-adaptive", "evidence_refs": [evidence_ref("fixture-verifier", "tests/fixtures/capability/verifier.json", "f" * 64)]},
-            "max_repair_depth": {"status": "MEASURED", "value": 2, "evidence_refs": [evidence_ref("fixture-repair", "tests/fixtures/capability/repair.json", "1" * 64)]},
-            "fim_strength": {"status": "UNMEASURED", "value": None, "evidence_refs": []},
-            "shell_reliability": {"status": "MEASURED", "value": 0.9, "evidence_refs": [evidence_ref("fixture-shell", "tests/fixtures/capability/shell.json", "2" * 64)]},
-            "context_compaction_strength": {"status": "MEASURED", "value": 0.85, "evidence_refs": [evidence_ref("fixture-compaction", "tests/fixtures/capability/compaction.json", "3" * 64)]},
-            "profile_evidence_refs": [{"evidence_id": "fixture-profile", "source_class": "CANONICAL_DECISION", "locator": "evidence/mstr-000a/A010-capability-profile.md", "artifact_sha256": None}],
-            "generated_at": "2026-08-31T06:00:00Z",
-            "notes": ["Repository-owned fixture only; not a real model capability claim."]
-          }
-          invalid = json.loads(json.dumps(valid))
-          invalid["tool_call_reliability"]["evidence_refs"][0]["source_class"] = "VENDOR_CLAIM_ONLY"
-
-          schema_text = json.dumps(schema, indent=2, sort_keys=True) + "\n"
-          for path in [
-              Path("schemas/mstr-capability-profile-v0.schema.json"),
-              Path("specs/001-agent-harness-verified-loop-foundation/contracts/mstr-capability-profile-v0.schema.json"),
-          ]:
-              path.parent.mkdir(parents=True, exist_ok=True)
-              path.write_text(schema_text, encoding="utf-8")
-          Path("tests/fixtures/schemas/valid/mstr-capability-profile-v0.json").write_text(json.dumps(valid, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-          Path("tests/fixtures/schemas/invalid/mstr-capability-profile-v0.json").write_text(json.dumps(invalid, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
-          Path("evidence/mstr-000a/A010-capability-profile.md").write_text('''# A010 — Evidence-Derived CapabilityProfile Contract
-
-**Task:** `MSTR-000A / A010`  
-**State:** `IMPLEMENTATION_ACTIVE`  
-**Canonical base:** `cdf5e89886919a05173a2921c03d213ee5992126`  
-**Authority:** contract/schema/fixture work only; no model execution or external effect.
-
-## Objective
-
-Freeze `mstr.capability-profile.v0`, the evidence-derived capability description consumed by WePLD routing and other harness policy. The contract records measured capability without converting vendor claims, model-card statements, or unevaluated expectations into project truth.
-
-## Frozen fields
-
-```text
-reliable_context_budget
-preferred_edit_arm
-tool_call_reliability
-localization_strength
-planning_depth
-recommended_verifier_cadence
-max_repair_depth
-fim_strength
-shell_reliability
-context_compaction_strength
-```
-
-Every capability field is explicitly `MEASURED` or `UNMEASURED`. A measured field requires a typed value and at least one admissible evidence reference. An unmeasured field carries `value=null` and no field-level evidence references.
-
-## Evidence boundary
-
-Admissible evidence source classes are exactly `MSTR_RUN`, `MSTR_RESULT`, `REPOSITORY_FIXTURE`, and `CANONICAL_DECISION`. `VENDOR_CLAIM_ONLY` is intentionally invalid. Vendor/model-card material may motivate measurement but cannot itself populate a measured routing field.
-
-A real profile binds exact `model_id`, `model_revision`, `artifact_sha256`, `tokenizer_revision`, and `quantization_identity`. This task's fixture is repository-owned synthetic evidence only and is not a real model capability claim.
-
-## Authority boundary
-
-```text
-MODEL_WEIGHT_ACCESS = NONE
-MODEL_EXECUTION = NONE
-REAL_CAPABILITY_MEASUREMENT = NONE
-NETWORK_MODEL_OR_PROVIDER_CALL = NONE
-PAID_MODEL_API = NONE
-PAID_COMPUTE = NONE
-LARGE_DATASET_INGESTION = NONE
-PRIVATE_USER_DATA_INGESTION = NONE
-PRODUCTION_TRACE_INGESTION = NONE
-WEIGHT_CHANGING_TRAINING = NONE
-LARGE_SCALE_RL = NONE
-PRODUCTION_RELEASE = NONE
-A010_AUTHORITY = CAPABILITY_PROFILE_CONTRACT_AND_REPOSITORY_FIXTURES_ONLY
-```
-
-A010 remains non-canonical until exact-head qualification, review, mandatory premerge verification, guarded merge, post-merge proof, canonical closeout, and post-closeout proof succeed.
-''', encoding="utf-8")
-
-          Path("tests/contract/test_capability_profile_contract.py").write_text('''from __future__ import annotations
-
-import copy
-import json
-from pathlib import Path
-
-import pytest
-
-from mstr_qualify.schemas import validate_instance
-
-ROOT = Path(__file__).resolve().parents[2]
-VALID = ROOT / "tests" / "fixtures" / "schemas" / "valid" / "mstr-capability-profile-v0.json"
-INVALID = ROOT / "tests" / "fixtures" / "schemas" / "invalid" / "mstr-capability-profile-v0.json"
-
-
-def _load(path: Path) -> dict[str, object]:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    assert isinstance(data, dict)
-    return data
-
-
-def test_valid_capability_profile_passes() -> None:
-    validate_instance("mstr-capability-profile-v0", _load(VALID))
-
-
-def test_vendor_claim_only_evidence_fails_closed() -> None:
-    with pytest.raises(ValueError, match="validation failed"):
-        validate_instance("mstr-capability-profile-v0", _load(INVALID))
-
-
-def test_measured_capability_requires_evidence() -> None:
-    profile = copy.deepcopy(_load(VALID))
-    profile["shell_reliability"]["evidence_refs"] = []
-    with pytest.raises(ValueError, match="validation failed"):
-        validate_instance("mstr-capability-profile-v0", profile)
-
-
-def test_unmeasured_capability_cannot_publish_value() -> None:
-    profile = copy.deepcopy(_load(VALID))
-    profile["fim_strength"]["value"] = 0.5
-    with pytest.raises(ValueError, match="validation failed"):
-        validate_instance("mstr-capability-profile-v0", profile)
-
-
-def test_reliability_ratio_is_bounded() -> None:
-    profile = copy.deepcopy(_load(VALID))
-    profile["tool_call_reliability"]["value"] = 1.01
-    with pytest.raises(ValueError, match="validation failed"):
-        validate_instance("mstr-capability-profile-v0", profile)
-
-
-def test_context_budget_must_be_positive_when_measured() -> None:
-    profile = copy.deepcopy(_load(VALID))
-    profile["reliable_context_budget"]["value"] = 0
-    with pytest.raises(ValueError, match="validation failed"):
-        validate_instance("mstr-capability-profile-v0", profile)
-''', encoding="utf-8")
+          write_b64("schemas/mstr-capability-profile-v0.schema.json", "SCHEMA_B64")
+          write_b64("specs/001-agent-harness-verified-loop-foundation/contracts/mstr-capability-profile-v0.schema.json", "SCHEMA_B64")
+          write_b64("tests/fixtures/schemas/valid/mstr-capability-profile-v0.json", "VALID_B64")
+          write_b64("tests/fixtures/schemas/invalid/mstr-capability-profile-v0.json", "INVALID_B64")
+          write_b64("tests/contract/test_capability_profile_contract.py", "TEST_B64")
+          write_b64("evidence/mstr-000a/A010-capability-profile.md", "EVIDENCE_B64")
 
           schemas_path = Path("src/mstr_qualify/schemas.py")
           schemas_text = schemas_path.read_text(encoding="utf-8")
@@ -353,7 +105,6 @@ def test_context_budget_must_be_positive_when_measured() -> None:
               raise SystemExit(f"unexpected A010 scope: {sorted(paths)}")
           PY
           git diff --check
-
       - name: Run A010 focused and frozen quality gates
         shell: bash
         run: |
@@ -365,7 +116,6 @@ def test_context_budget_must_be_positive_when_measured() -> None:
           pytest -q
           ruff check src tests
           mypy src
-
       - name: Commit and publish exact candidate
         shell: bash
         run: |
