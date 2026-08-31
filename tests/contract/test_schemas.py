@@ -125,6 +125,13 @@ DESIGN_SCHEMA_OVERRIDES = {
         / "contracts"
         / "mstr-direction-task-v0.schema.json"
     ),
+    "mstr-trajectory-manifest-v0": (
+        ROOT
+        / "specs"
+        / "001-agent-harness-verified-loop-foundation"
+        / "contracts"
+        / "trajectory-manifest.schema.json"
+    ),
 }
 
 

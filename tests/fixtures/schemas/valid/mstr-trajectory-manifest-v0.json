@@ -1,0 +1,58 @@
+{
+  "admission_policy_version": "mstr.trajectory-admission.v0",
+  "admission_reasons": [],
+  "authority_violations": [],
+  "contamination_status": "CLEAR",
+  "event_count": 8,
+  "event_log_schema_version": "mstr.run-event.v0",
+  "event_log_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "failure_classes": [],
+  "failure_taxonomy_version": "mstr.failure-taxonomy.v0",
+  "provenance": {
+    "contamination_evidence_identity": "fixture-contamination-clear",
+    "provenance_status": "COMPLETE",
+    "rights_status": "NOT_APPLICABLE",
+    "secret_scan_status": "NOT_APPLICABLE",
+    "source_class": "REPOSITORY_OWNED_FIXTURE",
+    "source_identity": "tests/fixtures/schemas/valid/mstr-trajectory-manifest-v0.json"
+  },
+  "recovery_count": 0,
+  "run_identity": {
+    "artifact_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "cache_state": "EMPTY",
+    "environment_manifest_id": "env-a017-fixture",
+    "hardware_profile_id": "fixture-hardware",
+    "harness_profile_id": "h0-neutral-fixture",
+    "interaction_contract_id": "mstr.interaction.fixture.v0",
+    "loop_contract_id": "mstr.loop-contract.v0",
+    "model_id": "N/A_CONTRACT_FIXTURE",
+    "model_revision": "N/A_CONTRACT_FIXTURE",
+    "repository_revision": "0bd69861b987c616e1b9b25ef88a5d14f4762788",
+    "run_id": "run-a017-001",
+    "runtime_id": "N/A_CONTRACT_FIXTURE",
+    "sampling_config": {
+      "temperature": 0
+    },
+    "seed": 0,
+    "task_manifest_id": "direction-task-a017-fixture",
+    "timeout_seconds": 60,
+    "verifier_manifest_id": "verifier-a017-fixture"
+  },
+  "schema_version": "mstr.trajectory-manifest.v0",
+  "terminal_class": "VERIFIED_SUCCESS",
+  "training_admission": "ADMITTED_SFT",
+  "training_labels": {
+    "label_kind": "CLEAN_POSITIVE"
+  },
+  "trajectory_id": "trajectory-a017-valid",
+  "verifier_health_binding": {
+    "health_class": "HEALTHY",
+    "schema_version": "mstr.verifier-health.v0",
+    "stage_admission_class": "CLEAN_POSITIVE_ELIGIBLE",
+    "stage_id": "MSTR-002-SFT",
+    "task_identity": "direction-task-a017-fixture",
+    "verifier_health_id": "vh-a017-healthy",
+    "verifier_manifest_id": "verifier-a017-fixture"
+  },
+  "verifier_result_identity": "verifier-result-a017-valid"
+}
