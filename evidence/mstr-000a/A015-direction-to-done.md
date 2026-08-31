@@ -63,8 +63,28 @@ status_after_validation_integration = STALE_SUCCESS / NOT_REUSED_FOR_NEW_HEAD
 ```
 
 That run remains valid historical evidence for its exact head, but it is not
-reused as qualification evidence after the validation-integration repair. A fresh
-qualification is required for the repaired candidate.
+reused as qualification evidence after the validation-integration repair.
+
+The first qualification after validation integration then exposed one stale
+full-suite expectation and is preserved as negative evidence:
+
+```text
+33428444420 = FAILURE / quality
+identity_scope = SUCCESS
+focused_contract_and_schema_tests = 111 PASSED
+registered_offline_validate = PASS / 24 valid accepted / 24 invalid rejected
+explicit_direction_task_validate = PASS
+full_pytest = 1025 PASSED / 1 FAILED
+failure = tests/integration/test_cli_offline.py::test_validate_self_checks_schemas_and_fixtures
+reason = STALE_HARD_CODED_SCHEMA_INVENTORY_MISSING_MSTR_DIRECTION_TASK_V0
+ruff = NOT_REACHED
+mypy = NOT_REACHED
+complete = SKIPPED
+```
+
+The failure was repaired by adding `mstr-direction-task-v0` to the expected
+sorted offline schema inventory. No production behavior or authority boundary was
+weakened. A fresh exact-head qualification is required after this repair.
 
 ## B025 reconciliation
 
@@ -107,6 +127,7 @@ specs/001-agent-harness-verified-loop-foundation/contracts/mstr-direction-task-v
 src/mstr_qualify/schemas.py
 src/mstr_qualify/cli.py
 tests/contract/test_schemas.py
+tests/integration/test_cli_offline.py
 tests/fixtures/schemas/valid/mstr-direction-task-v0.json
 tests/fixtures/schemas/invalid/mstr-direction-task-v0.json
 tests/contract/test_direction_task_contract.py
