@@ -1,0 +1,89 @@
+name: Qualify A009 WePLD adapter exact head
+
+on:
+  push:
+    branches:
+      - evidence/a009-qualify-d9ed5ca
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_BASE: 5416494b60590c0b9a3f6178c58224f4edb01dd7
+  EXPECTED_HEAD: d9ed5caa78c51cc3ac923e47855327971349b8b7
+  EXPECTED_TREE: 821b3be332d577a6ad49360b480c6b7cd086feb1
+  TARGET_BRANCH: feat/000a-a009-wepld-adapter
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d9ed5caa78c51cc3ac923e47855327971349b8b7
+          fetch-depth: 0
+      - name: Verify exact A009 candidate identity and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          mapfile -t actual < <(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" | sort)
+          expected=(
+            configs/harness/wepld-native-v0.json
+            evidence/mstr-000a/A009-wepld-adapter.md
+            src/mstr_qualify/harness/wepld.py
+            tests/fixtures/harness/a009-wepld-state.json
+            tests/security/test_wepld_adapter_boundary.py
+            tests/unit/harness/test_wepld.py
+          )
+          diff -u <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${actual[@]}" | sort)
+          test -z "$(git diff --name-only "$EXPECTED_BASE" "$EXPECTED_HEAD" -- AGENTS.md .specify/memory/constitution.md specs schemas configs/task-gate)"
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d9ed5caa78c51cc3ac923e47855327971349b8b7
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove focused H2/H1 boundaries and frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          pytest -q tests/unit/harness/test_wepld.py tests/security/test_wepld_adapter_boundary.py tests/unit/harness/test_native.py tests/security/test_native_harness_boundary.py
+          mstr-qualify validate
+          pytest -q
+          ruff check src tests
+          mypy src
+          grep -Fq 'WEPLD_RUNTIME_DEPENDENCY = NONE' evidence/mstr-000a/A009-wepld-adapter.md
+          grep -Fq 'CANONICAL_SUCCESS_AUTHORITY = A006 protected finalizer only' evidence/mstr-000a/A009-wepld-adapter.md
+          grep -Fq '"wepld_runtime_dependency": false' configs/harness/wepld-native-v0.json
+          grep -Fq '"wepld_can_author_canonical_success": false' configs/harness/wepld-native-v0.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+
+  complete:
+    needs: [identity_scope, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d9ed5caa78c51cc3ac923e47855327971349b8b7
+          fetch-depth: 0
+      - name: Final immutable exact-head recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          echo "A009_IMPLEMENTATION_HEAD=$EXPECTED_HEAD"
+          echo "EXTERNAL_EFFECT=NONE"
