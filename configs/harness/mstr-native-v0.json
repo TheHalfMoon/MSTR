@@ -1,0 +1,54 @@
+{
+  "profile_id": "mstr.harness.h1-native.v0",
+  "harness_class": "H1",
+  "purpose": "Typed MSTR-native repository harness with bounded evidence-backed optimizations",
+  "extends": "mstr.harness.h0-neutral-minimal.v0",
+  "tool_surface": [
+    "repository.read_typed",
+    "repository.search_typed",
+    "shell.argv_typed_no_shell",
+    "edit.stale_safe_whole_file",
+    "context.explicit_selective_or_none",
+    "verifier.callback",
+    "recovery.bounded_cadence",
+    "state.compact",
+    "prefix_cache.measured_observation"
+  ],
+  "context_policy": {
+    "modes": ["NO_RETRIEVAL", "EXPLICIT_PATHS"],
+    "default_max_files": 8,
+    "default_max_chars": 8192,
+    "ranking_or_implicit_retrieval": false
+  },
+  "edit_policy": {
+    "compare_before_apply": true,
+    "expected_identity": "SHA256_OR_ABSENT",
+    "silent_stale_overwrite": false
+  },
+  "recovery_policy": {
+    "default_max_consecutive_failures": 2,
+    "recovery_consumes_repair_budget": true,
+    "recovery_evidence_required": true
+  },
+  "state_policy": {
+    "projection": "A004",
+    "compaction": "A004_FAIL_CLOSED_BOUNDED_COMPACTION"
+  },
+  "prefix_cache_policy": {
+    "measurement_source": "MEASURED_RUNTIME_ONLY",
+    "unmeasured_state": "UNMEASURED",
+    "optimization_claim_without_measurement": false
+  },
+  "shared_authority": {
+    "loop_contract": "mstr.loop-contract.v0",
+    "event_contract": "mstr.run-event.v0",
+    "canonical_success": "A006 protected finalizer only"
+  },
+  "execution_boundary": {
+    "model_access": false,
+    "model_execution": false,
+    "network_authority_granted": false,
+    "training_authority_granted": false,
+    "paid_compute_authority_granted": false
+  }
+}
