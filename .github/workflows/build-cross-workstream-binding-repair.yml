@@ -1,0 +1,153 @@
+name: Build cross-workstream binding repair
+
+on:
+  push:
+    branches:
+      - fix/000b-cross-workstream-prerequisite-bindings
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_BASE: db12d1467bb81185a9affffb4d470626ceceddfa
+  BRANCH: fix/000b-cross-workstream-prerequisite-bindings
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.BRANCH }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify immutable base
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_BASE"
+          test "$(git rev-list --count "$EXPECTED_BASE"..HEAD)" -eq 1
+      - name: Apply bounded maintenance repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          gate = Path('src/mstr_qualify/task_gate.py')
+          text = gate.read_text(encoding='utf-8')
+
+          old = '''    checked: dict[str, bool]\n    unresolved_bindings: dict[str, str]\n'''
+          new = '''    checked: dict[str, bool]\n    unresolved_bindings: dict[str, str]\n    external_prerequisites: dict[str, dict[str, Any]]\n'''
+          if old not in text:
+              raise SystemExit('TaskCatalog field anchor missing')
+          text = text.replace(old, new, 1)
+
+          old = '''    tasks = raw.get("tasks")\n    unresolved = raw.get("unresolved_bindings", {})\n'''
+          new = '''    tasks = raw.get("tasks")\n    unresolved = raw.get("unresolved_bindings", {})\n    external_prerequisites = raw.get("external_prerequisites", {})\n'''
+          if old not in text:
+              raise SystemExit('catalog decode anchor missing')
+          text = text.replace(old, new, 1)
+
+          old = '''    if not isinstance(unresolved, dict) or any(\n        not isinstance(key, str) or not isinstance(value, str) for key, value in unresolved.items()\n    ):\n        raise QualificationError(\n            "catalog unresolved_bindings must map task ids to explanations",\n            code="task_gate.catalog_unresolved_shape",\n        )\n\n    tasks_file = _repository_path(root, tasks_file_raw, field="tasks_file")\n'''
+          new = '''    if not isinstance(unresolved, dict) or any(\n        not isinstance(key, str) or not isinstance(value, str) for key, value in unresolved.items()\n    ):\n        raise QualificationError(\n            "catalog unresolved_bindings must map task ids to explanations",\n            code="task_gate.catalog_unresolved_shape",\n        )\n    if not isinstance(external_prerequisites, dict):\n        raise QualificationError(\n            "catalog external_prerequisites must be an object",\n            code="task_gate.catalog_external_shape",\n        )\n    for external_task_id, binding in external_prerequisites.items():\n        if not isinstance(external_task_id, str) or not re.fullmatch(r"[A-Z][0-9]{3}", external_task_id):\n            raise QualificationError(\n                "external prerequisite id is invalid",\n                code="task_gate.catalog_external_id",\n                details={"task_id": external_task_id},\n            )\n        if external_task_id in tasks:\n            raise QualificationError(\n                "external prerequisite cannot shadow a catalog task",\n                code="task_gate.catalog_external_shadow",\n                details={"task_id": external_task_id},\n            )\n        if not isinstance(binding, dict):\n            raise QualificationError(\n                "external prerequisite binding must be an object",\n                code="task_gate.catalog_external_binding",\n                details={"task_id": external_task_id},\n            )\n        workstream = binding.get("workstream_id")\n        external_tasks_file = binding.get("tasks_file")\n        state_evidence = binding.get("state_evidence")\n        evidence_outputs = binding.get("evidence_outputs")\n        required_state = binding.get("required_state")\n        if not isinstance(workstream, str) or not workstream:\n            raise QualificationError(\n                "external prerequisite workstream_id is invalid",\n                code="task_gate.catalog_external_workstream",\n                details={"task_id": external_task_id},\n            )\n        if not isinstance(external_tasks_file, str) or not external_tasks_file:\n            raise QualificationError(\n                "external prerequisite tasks_file is invalid",\n                code="task_gate.catalog_external_tasks_file",\n                details={"task_id": external_task_id},\n            )\n        if not isinstance(state_evidence, str) or not state_evidence:\n            raise QualificationError(\n                "external prerequisite state_evidence is invalid",\n                code="task_gate.catalog_external_state_evidence",\n                details={"task_id": external_task_id},\n            )\n        if (\n            not isinstance(evidence_outputs, list)\n            or not evidence_outputs\n            or any(not isinstance(item, str) or not item for item in evidence_outputs)\n            or state_evidence not in evidence_outputs\n        ):\n            raise QualificationError(\n                "external prerequisite evidence_outputs are invalid",\n                code="task_gate.catalog_external_evidence",\n                details={"task_id": external_task_id},\n            )\n        if required_state != "COMPLETE_CANONICAL":\n            raise QualificationError(\n                "external prerequisite v0 requires COMPLETE_CANONICAL",\n                code="task_gate.catalog_external_state",\n                details={"task_id": external_task_id, "required_state": required_state},\n            )\n        _repository_path(root, external_tasks_file, field="external prerequisite tasks_file")\n        _repository_path(root, state_evidence, field="external prerequisite state_evidence")\n        for evidence_output in evidence_outputs:\n            _repository_path(root, evidence_output, field="external prerequisite evidence")\n\n    tasks_file = _repository_path(root, tasks_file_raw, field="tasks_file")\n'''
+          if old not in text:
+              raise SystemExit('external validation anchor missing')
+          text = text.replace(old, new, 1)
+
+          old = '''    return TaskCatalog(root, tasks_file, nodes, checked, dict(unresolved))\n'''
+          new = '''    return TaskCatalog(\n        root,\n        tasks_file,\n        nodes,\n        checked,\n        dict(unresolved),\n        {key: dict(value) for key, value in external_prerequisites.items()},\n    )\n'''
+          if old not in text:
+              raise SystemExit('TaskCatalog return anchor missing')
+          text = text.replace(old, new, 1)
+
+          old = '''def _prerequisite_result(catalog: TaskCatalog, task_id: str) -> dict[str, Any]:\n    node = catalog.nodes.get(task_id)\n    if node is None:\n        return {\n            "task_id": task_id,\n            "required_state": "COMPLETE_CANONICAL",\n            "observed_state": None,\n            "evidence_present": False,\n            "satisfied": False,\n            "reasons": ["prerequisite.missing_task_binding"],\n        }\n'''
+          new = '''def _external_task_checked(\n    catalog: TaskCatalog, task_id: str, binding: dict[str, Any]\n) -> bool | None:\n    raw = binding["tasks_file"]\n    path = _repository_path(catalog.repository_root, raw, field="external prerequisite tasks_file")\n    resolved = _contained_existing_path(catalog.repository_root, path)\n    if resolved is None or not resolved.is_file():\n        return None\n    try:\n        text = resolved.read_text(encoding="utf-8")\n    except OSError:\n        return None\n    pattern = re.compile(\n        rf"^- \\[(?P<mark>[ xX])\\] \\*\\*{re.escape(task_id)} .+?\\.\\*\\*",\n        re.MULTILINE,\n    )\n    matches = list(pattern.finditer(text))\n    if len(matches) != 1:\n        return None\n    return matches[0].group("mark").lower() == "x"\n\n\ndef _external_state_declared(\n    catalog: TaskCatalog, binding: dict[str, Any]\n) -> bool:\n    raw = binding["state_evidence"]\n    path = _repository_path(catalog.repository_root, raw, field="external prerequisite state_evidence")\n    resolved = _contained_existing_path(catalog.repository_root, path)\n    if resolved is None or not resolved.is_file():\n        return False\n    try:\n        text = resolved.read_text(encoding="utf-8")\n    except OSError:\n        return False\n    required_state = binding["required_state"]\n    return bool(\n        re.search(\n            rf"^\\*\\*State:\\*\\*\\s*`{re.escape(required_state)}`\\s*$",\n            text,\n            re.MULTILINE,\n        )\n    )\n\n\ndef _external_prerequisite_result(\n    catalog: TaskCatalog, task_id: str, binding: dict[str, Any]\n) -> dict[str, Any]:\n    checked = _external_task_checked(catalog, task_id, binding)\n    required_state = binding["required_state"]\n    state_declared = _external_state_declared(catalog, binding)\n    missing = [\n        raw\n        for raw in binding["evidence_outputs"]\n        if not _path_pattern_present(catalog.repository_root, raw)\n    ]\n    evidence_present = not missing and state_declared\n    reasons: list[str] = []\n    if checked is not True:\n        reasons.append("prerequisite.state_checkbox_conflict")\n    if not state_declared:\n        reasons.append("prerequisite.external_state_unproven")\n    if missing:\n        reasons.append("prerequisite.required_artifact_missing")\n    satisfied = checked is True and evidence_present\n    return {\n        "task_id": task_id,\n        "required_state": required_state,\n        "observed_state": required_state if state_declared else None,\n        "evidence_present": evidence_present,\n        "satisfied": satisfied,\n        "reasons": reasons + [f"missing:{item}" for item in missing],\n    }\n\n\ndef _prerequisite_result(catalog: TaskCatalog, task_id: str) -> dict[str, Any]:\n    node = catalog.nodes.get(task_id)\n    if node is None:\n        external = catalog.external_prerequisites.get(task_id)\n        if external is not None:\n            return _external_prerequisite_result(catalog, task_id, external)\n        return {\n            "task_id": task_id,\n            "required_state": "COMPLETE_CANONICAL",\n            "observed_state": None,\n            "evidence_present": False,\n            "satisfied": False,\n            "reasons": ["prerequisite.missing_task_binding"],\n        }\n'''
+          if old not in text:
+              raise SystemExit('prerequisite resolver anchor missing')
+          text = text.replace(old, new, 1)
+
+          old = '''    prerequisite_set_complete = all(\n        predecessor in catalog.nodes for predecessor in node["prerequisites"]\n    )\n'''
+          new = '''    prerequisite_set_complete = all(\n        predecessor in catalog.nodes or predecessor in catalog.external_prerequisites\n        for predecessor in node["prerequisites"]\n    )\n'''
+          if old not in text:
+              raise SystemExit('prerequisite completeness anchor missing')
+          text = text.replace(old, new, 1)
+          gate.write_text(text, encoding='utf-8')
+
+          catalog_path = Path('configs/task-gate/mstr-000b.json')
+          catalog = json.loads(catalog_path.read_text(encoding='utf-8'))
+          catalog.setdefault('external_prerequisites', {})
+          catalog['external_prerequisites'].update({
+              'A006': {
+                  'workstream_id': 'MSTR-000A',
+                  'tasks_file': 'specs/001-agent-harness-verified-loop-foundation/tasks.md',
+                  'state_evidence': 'evidence/mstr-000a/A006-finalizer.md',
+                  'evidence_outputs': ['evidence/mstr-000a/A006-finalizer.md'],
+                  'required_state': 'COMPLETE_CANONICAL',
+              },
+              'A014': {
+                  'workstream_id': 'MSTR-000A',
+                  'tasks_file': 'specs/001-agent-harness-verified-loop-foundation/tasks.md',
+                  'state_evidence': 'evidence/mstr-000a/A014-verifier-shortcuts.md',
+                  'evidence_outputs': ['evidence/mstr-000a/A014-verifier-shortcuts.md'],
+                  'required_state': 'COMPLETE_CANONICAL',
+              },
+          })
+          removed = catalog.get('unresolved_bindings', {}).pop('B023', None)
+          if removed is None:
+              raise SystemExit('B023 unresolved binding anchor missing')
+          catalog_path.write_text(json.dumps(catalog, indent=2) + '\n', encoding='utf-8')
+
+          tests = Path('tests/contract/test_task_gate.py')
+          test_text = tests.read_text(encoding='utf-8')
+          old = '''def test_b022_closeout_satisfies_only_its_b023_prerequisite() -> None:\n    result = evaluate_task_snapshot("B023", canonical_main=_CANONICAL_MAIN)\n\n    assert result["eligible"] is False\n    assert result["state_consistency_result"]["observed_state"] == "PENDING"\n    assert "prerequisite.unsatisfied:B022" not in result["reasons"]\n    assert "prerequisite.unsatisfied:A006" in result["reasons"]\n    assert "prerequisite.unsatisfied:A014" in result["reasons"]\n    predecessor = next(item for item in result["prerequisite_results"] if item["task_id"] == "B022")\n    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"\n    assert predecessor["evidence_present"] is True\n    assert predecessor["satisfied"] is True\n    validate_instance("mstr-task-eligibility-v0", result)\n'''
+          new = '''def test_b023_cross_workstream_prerequisites_are_canonically_bound() -> None:\n    result = evaluate_task_snapshot("B023", canonical_main=_CANONICAL_MAIN)\n\n    assert result["eligible"] is True\n    assert result["state_consistency_result"]["observed_state"] == "PENDING"\n    assert result["reasons"] == []\n    assert result["semantic_checks"]["prerequisite_set_complete"] is True\n    assert result["semantic_checks"]["prerequisite_states_satisfied"] is True\n    assert {item["task_id"] for item in result["prerequisite_results"]} == {\n        "A006",\n        "A014",\n        "B002",\n        "B022",\n    }\n    for task_id in ("A006", "A014"):\n        predecessor = next(\n            item for item in result["prerequisite_results"] if item["task_id"] == task_id\n        )\n        assert predecessor["observed_state"] == "COMPLETE_CANONICAL"\n        assert predecessor["evidence_present"] is True\n        assert predecessor["satisfied"] is True\n        assert predecessor["reasons"] == []\n    validate_instance("mstr-task-eligibility-v0", result)\n'''
+          if old not in test_text:
+              raise SystemExit('B023 regression anchor missing')
+          test_text = test_text.replace(old, new, 1)
+
+          addition = r'''\n\ndef test_external_prerequisite_missing_state_evidence_fails_closed(tmp_path: Path) -> None:\n    tasks_dir = tmp_path / "specs" / "002-code-model-supremacy-foundation"\n    tasks_dir.mkdir(parents=True)\n    (tasks_dir / "tasks.md").write_text("- [ ] **B001 Target task.**\\n", encoding="utf-8")\n    a_tasks = tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"\n    a_tasks.parent.mkdir(parents=True)\n    a_tasks.write_text("- [x] **A006 External task.**\\n", encoding="utf-8")\n    evidence = tmp_path / "evidence" / "mstr-000a" / "A006-finalizer.md"\n    evidence.parent.mkdir(parents=True)\n    evidence.write_text("# A006\\n\\n**State:** `PENDING`\\n", encoding="utf-8")\n    payload = {\n        "catalog_version": "mstr.task-catalog.v0",\n        "workstream_id": "MSTR-000B",\n        "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",\n        "defaults": {\n            "outputs": [],\n            "candidate_dependent": False,\n            "external_effect_class": "NO_EXTERNAL_EFFECT",\n            "parallel_safe": False,\n            "supersedes": [],\n            "superseded_by": [],\n            "closeout_rule": {\n                "terminal_states": ["COMPLETE_CANONICAL"],\n                "require_all_outputs": False,\n                "require_all_evidence_outputs": True,\n                "completion_requires_merge": True,\n            },\n        },\n        "tasks": {\n            "B001": {\n                "canonical_state": "PENDING",\n                "prerequisites": ["A006"],\n                "evidence_outputs": [],\n            }\n        },\n        "external_prerequisites": {\n            "A006": {\n                "workstream_id": "MSTR-000A",\n                "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",\n                "state_evidence": "evidence/mstr-000a/A006-finalizer.md",\n                "evidence_outputs": ["evidence/mstr-000a/A006-finalizer.md"],\n                "required_state": "COMPLETE_CANONICAL",\n            }\n        },\n    }\n    catalog_path = tmp_path / "configs" / "task-gate" / "mstr-000b.json"\n    catalog_path.parent.mkdir(parents=True)\n    catalog_path.write_text(json.dumps(payload), encoding="utf-8")\n\n    result = evaluate_task_snapshot(\n        "B001", repository_root=tmp_path, catalog_path=catalog_path, canonical_main=_CANONICAL_MAIN\n    )\n\n    assert result["eligible"] is False\n    assert result["semantic_checks"]["prerequisite_set_complete"] is True\n    predecessor = result["prerequisite_results"][0]\n    assert predecessor["task_id"] == "A006"\n    assert predecessor["observed_state"] is None\n    assert predecessor["evidence_present"] is False\n    assert predecessor["satisfied"] is False\n    assert "prerequisite.external_state_unproven" in predecessor["reasons"]\n\n\ndef test_unknown_external_prerequisite_still_fails_closed(tmp_path: Path) -> None:\n    catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)\n    data = json.loads(catalog_path.read_text(encoding="utf-8"))\n    data["tasks"]["B002"]["prerequisites"] = ["A999"]\n    catalog_path.write_text(json.dumps(data), encoding="utf-8")\n\n    result = evaluate_task_snapshot(\n        "B002", repository_root=tmp_path, catalog_path=catalog_path, canonical_main=_CANONICAL_MAIN\n    )\n\n    assert result["eligible"] is False\n    assert result["semantic_checks"]["prerequisite_set_complete"] is False\n    predecessor = result["prerequisite_results"][0]\n    assert predecessor["reasons"] == ["prerequisite.missing_task_binding"]\n'''
+          if 'test_external_prerequisite_missing_state_evidence_fails_closed' in test_text:
+              raise SystemExit('cross-workstream tests already present')
+          test_text += addition
+          tests.write_text(test_text, encoding='utf-8')
+
+          evidence = Path('evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md')
+          evidence.write_text('''# B023 Cross-Workstream Prerequisite Binding Reconciliation\n\n**State:** `IMPLEMENTATION_ACTIVE`\n\n## Purpose\n\nReconcile the machine task gate with already-canonical MSTR-000A prerequisites A006 and A014 without granting B023 implementation authority by assertion. The repair remains repository-local, read-only, and fail-closed.\n\n## Canonical diagnostic\n\nOn exact canonical `main=db12d1467bb81185a9affffb4d470626ceceddfa`, diagnostic run `33499263750` observed `task drift = clean` and `B023 eligible=false` because A006 and A014 returned `prerequisite.missing_task_binding`. B002 and B022 were independently recognized as `COMPLETE_CANONICAL`.\n\n## Binding rule\n\nThe maintenance repair may satisfy an external prerequisite only when all of the following hold:\n\n1. the prerequisite has an explicit repository-local cross-workstream binding;\n2. the exact bound canonical task checklist contains one checked task entry;\n3. the exact bound state evidence is repository-contained and declares `**State:** `COMPLETE_CANONICAL``;\n4. every required evidence path exists inside the repository;\n5. the target task has no remaining unresolved binding and all other ordinary task-gate checks pass.\n\nUnknown external prerequisite ids remain fail-closed as `prerequisite.missing_task_binding`. No external authority, candidate-pool decision, task completion state, model access, model execution, paid compute, training, large dataset ingestion, or production release is created by this repair.\n''', encoding='utf-8')
+
+          workflow = Path('.github/workflows/build-cross-workstream-binding-repair.yml')
+          workflow.unlink()
+          PY
+      - name: Run frozen gates on repaired workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git diff --check "$EXPECTED_BASE"
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy
+          python -m mstr_qualify task drift
+          git update-ref refs/heads/main HEAD
+          git update-ref refs/remotes/origin/main HEAD
+          mstr-qualify task eligible B023 > /tmp/b023.json
+          jq -e '.task_id == "B023" and .eligible == true and (.reasons | length) == 0' /tmp/b023.json
+          cat /tmp/b023.json
+      - name: Commit exact repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add -A
+          git diff --cached --check
+          git diff --cached --name-only
+          test "$(git diff --cached --name-only | wc -l)" -eq 4
+          git commit -m 'fix(task-gate): bind cross-workstream prerequisites'
+          git push origin HEAD:"$BRANCH"
