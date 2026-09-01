@@ -62,7 +62,7 @@ jobs:
             tests/fixtures/schemas/invalid/mstr-research-experiment-v2.json \
             tests/fixtures/schemas/valid/mstr-material-result-identity-v0.json \
             tests/fixtures/schemas/valid/mstr-research-experiment-v2.json | sort > /tmp/expected
-          git diff --name-only | sort > /tmp/actual
+          (git diff --name-only; git ls-files --others --exclude-standard) | sort -u > /tmp/actual
           diff -u /tmp/expected /tmp/actual
           git diff --check
           test -z "$(git diff --name-only -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json)"
