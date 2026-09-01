@@ -108,3 +108,23 @@ The initial Codex review also identified that `FAIL_BEFORE_PASS_AFTER` could des
 ### Stage-eligibility review remediation
 
 Codex review `5081306167` on intermediate head `639c263b2c349f21dddc2539d46748f67e544a0e` identified that global `HEALTHY` verifier status could still be admitted when the referenced training stage was diagnostic-only or blocked. This repair mirrors the canonical trajectory binding: every verifier-health binding carries exact `stage_id` and `stage_admission_class`, and clean-positive `ADMIT` requires `CLEAN_POSITIVE_ELIGIBLE`. `PARTIAL`/`DISAGREEMENT` cannot claim clean-positive stage eligibility, while `BROKEN`/`LEAKED`/`TAMPERED` are stage-blocked. These fields record eligibility evidence only and grant no training or external-runtime authority.
+
+
+### Patch-membership and integrity-evidence review remediation
+
+Codex exact-head review on `2c57b8445c76b2c0b3efc59c4de5eda13bf3df53`
+identified two additional fail-closed defects. This repair requires every
+`test_path` to appear in `changed_paths`, preventing reuse of an unrelated
+unchanged test as generated evidence. It also requires concrete integrity-check
+evidence and checker-manifest identities, with the checked patch and test
+artifact hashes bound exactly to `generated_test_patch`. These bindings are
+evidence requirements only and grant no checker execution, model execution, or
+training authority.
+
+```text
+TEST_PATHS_SUBSET_OF_CHANGED_PATHS = required
+INTEGRITY_CHECK_EVIDENCE = required
+INTEGRITY_CHECKER_MANIFEST = required
+INTEGRITY_EVIDENCE_PATCH_BINDING = required
+INTEGRITY_EVIDENCE_TEST_ARTIFACT_BINDING = required
+```

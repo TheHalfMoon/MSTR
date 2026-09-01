@@ -74,7 +74,11 @@
   },
   "integrity_checks": {
     "answer_encoding": "CLEAR",
+    "checked_patch_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "checked_test_artifact_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "checker_manifest_id": "fixture-integrity-checker:v1",
     "evaluator_modification": "CLEAR",
+    "evidence_identity": "fixture-integrity-evidence:b024-v1",
     "protected_path_status": "INTACT",
     "test_weakening": "CLEAR"
   },

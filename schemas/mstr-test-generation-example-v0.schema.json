@@ -759,12 +759,24 @@
             "UNRESOLVED"
           ]
         },
+        "checked_patch_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "checked_test_artifact_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "checker_manifest_id": {
+          "$ref": "#/$defs/identity"
+        },
         "evaluator_modification": {
           "enum": [
             "CLEAR",
             "DETECTED",
             "UNRESOLVED"
           ]
+        },
+        "evidence_identity": {
+          "$ref": "#/$defs/identity"
         },
         "protected_path_status": {
           "enum": [
@@ -783,9 +795,13 @@
       },
       "required": [
         "answer_encoding",
-        "test_weakening",
+        "checked_patch_sha256",
+        "checked_test_artifact_sha256",
+        "checker_manifest_id",
         "evaluator_modification",
-        "protected_path_status"
+        "evidence_identity",
+        "protected_path_status",
+        "test_weakening"
       ],
       "type": "object"
     },

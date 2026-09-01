@@ -287,3 +287,48 @@ def test_b024_fixture_is_not_mutated_by_validation() -> None:
     before = copy.deepcopy(value)
     validate_instance("mstr-test-generation-example-v0", value)
     assert value == before
+
+
+def test_b024_test_paths_must_be_changed_by_generated_patch() -> None:
+    value = fixture()
+    patch = value["generated_test_patch"]
+    assert isinstance(patch, dict)
+    patch["changed_paths"] = ["src/config_export.py"]
+    errors = validation_errors("mstr-test-generation-example-v0", value)
+    assert any(
+        "every test path must be present in changed_paths" in error
+        for error in errors
+    )
+
+
+def test_b024_integrity_checks_require_auditable_evidence() -> None:
+    value = fixture()
+    integrity = value["integrity_checks"]
+    assert isinstance(integrity, dict)
+    integrity.pop("evidence_identity")
+    assert validation_errors("mstr-test-generation-example-v0", value)
+
+    value = fixture()
+    integrity = value["integrity_checks"]
+    assert isinstance(integrity, dict)
+    integrity.pop("checker_manifest_id")
+    assert validation_errors("mstr-test-generation-example-v0", value)
+
+
+def test_b024_integrity_evidence_is_bound_to_exact_patch_and_test_artifact() -> None:
+    value = fixture()
+    integrity = value["integrity_checks"]
+    assert isinstance(integrity, dict)
+    integrity["checked_patch_sha256"] = "3" * 64
+    errors = validation_errors("mstr-test-generation-example-v0", value)
+    assert any("must match generated_test_patch.patch_sha256" in error for error in errors)
+
+    value = fixture()
+    integrity = value["integrity_checks"]
+    assert isinstance(integrity, dict)
+    integrity["checked_test_artifact_sha256"] = "4" * 64
+    errors = validation_errors("mstr-test-generation-example-v0", value)
+    assert any(
+        "must match generated_test_patch.test_artifact_sha256" in error
+        for error in errors
+    )

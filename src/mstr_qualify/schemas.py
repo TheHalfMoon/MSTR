@@ -494,6 +494,39 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
                     "$.behavioral_proof: pre/post verifier_manifest_id must match"
                 )
 
+    if isinstance(patch, dict):
+        changed_paths = patch.get("changed_paths")
+        test_paths = patch.get("test_paths")
+        if isinstance(changed_paths, list) and isinstance(test_paths, list):
+            changed_path_set = {
+                item for item in changed_paths if isinstance(item, str)
+            }
+            missing_test_paths = sorted(
+                item
+                for item in test_paths
+                if isinstance(item, str) and item not in changed_path_set
+            )
+            if missing_test_paths:
+                errors.append(
+                    "$.generated_test_patch.test_paths: every test path must be "
+                    "present in changed_paths"
+                )
+
+    integrity = instance.get("integrity_checks")
+    if isinstance(patch, dict) and isinstance(integrity, dict):
+        if integrity.get("checked_patch_sha256") != patch.get("patch_sha256"):
+            errors.append(
+                "$.integrity_checks.checked_patch_sha256: must match "
+                "generated_test_patch.patch_sha256"
+            )
+        if integrity.get("checked_test_artifact_sha256") != patch.get(
+            "test_artifact_sha256"
+        ):
+            errors.append(
+                "$.integrity_checks.checked_test_artifact_sha256: must match "
+                "generated_test_patch.test_artifact_sha256"
+            )
+
     provenance = instance.get("generated_test_provenance")
     if isinstance(provenance, dict):
         if (

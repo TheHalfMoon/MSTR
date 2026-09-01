@@ -144,3 +144,14 @@ PRODUCTION_RELEASE = NONE
 ```
 
 B024 freezes test-generation curriculum and acceptance semantics only. It never converts a generated test, passing command, fixture, or model output into project authority.
+
+
+## Patch and shortcut-integrity binding
+
+For an admitted test-generation example, every declared `test_path` must be a
+member of `generated_test_patch.changed_paths`. A record cannot point at an
+unmodified pre-existing test and call it generated evidence. The exact patch and
+test artifact are also bound to auditable shortcut-integrity evidence through a
+concrete evidence identity and checker-manifest identity. `CLEAR` or `INTACT`
+labels without that exact-artifact evidence are insufficient for clean-positive
+admission.
