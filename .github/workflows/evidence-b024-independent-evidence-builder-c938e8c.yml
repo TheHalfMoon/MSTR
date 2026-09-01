@@ -19,11 +19,19 @@ jobs:
   build_and_publish:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact target branch
+        uses: actions/checkout@v4
         with:
           ref: ${{ env.TARGET_BRANCH }}
           fetch-depth: 0
           token: ${{ github.token }}
+
+      - name: Checkout immutable builder source
+        uses: actions/checkout@v4
+        with:
+          ref: evidence/b024-independent-evidence-builder-c938e8c
+          path: _builder
+          fetch-depth: 1
 
       - name: Verify immutable inputs
         shell: bash
@@ -35,110 +43,7 @@ jobs:
           test "$(git merge-base "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "$EXPECTED_MAIN"
 
       - name: Apply exact fail-closed repair and regression coverage
-        shell: python
-        run: |
-          from pathlib import Path
-
-          schemas_path = Path("src/mstr_qualify/schemas.py")
-          schemas = schemas_path.read_text(encoding="utf-8")
-          needle = '''                expected_binding = (
-                    _task_specific_acceptance_binding(
-                        instance,
-                        patch,
-                        post,
-                        evidence_identity,
-                    )
-                    if evidence_identity is not None
-                    else None
-                )
-                if raw_binding != expected_binding:
-'''
-          replacement = '''                expected_binding = (
-                    _task_specific_acceptance_binding(
-                        instance,
-                        patch,
-                        post,
-                        evidence_identity,
-                    )
-                    if evidence_identity is not None
-                    else None
-                )
-                execution_evidence_identities = {
-                    value
-                    for value in (
-                        pre.get("evidence_identity"),
-                        post.get("evidence_identity"),
-                    )
-                    if isinstance(value, str)
-                }
-                if (
-                    evidence_identity is not None
-                    and evidence_identity in execution_evidence_identities
-                ):
-                    errors.append(
-                        "$.behavioral_proof.independent_acceptance_evidence_identity: "
-                        "TASK_SPECIFIC_BEHAVIOR independent acceptance evidence must be "
-                        "distinct from pre/post execution evidence identities"
-                    )
-                if raw_binding != expected_binding:
-'''
-          if schemas.count(needle) != 1:
-              raise SystemExit("schemas.py target block was not found exactly once")
-          schemas_path.write_text(schemas.replace(needle, replacement), encoding="utf-8")
-
-          tests_path = Path("tests/contract/test_test_generation_example_contract.py")
-          tests = tests_path.read_text(encoding="utf-8")
-          anchor = '''\ndef test_b024_mutation_accounting_and_strength_fail_closed() -> None:\n'''
-          regression = '''\ndef test_b024_task_specific_independent_evidence_cannot_reuse_execution_evidence() -> None:
-    for source in ("pre_fix_result", "post_fix_result"):
-        value = task_specific_fixture()
-        proof = value["behavioral_proof"]
-        patch = value["generated_test_patch"]
-        assert isinstance(proof, dict)
-        assert isinstance(patch, dict)
-        post = proof["post_fix_result"]
-        result = proof[source]
-        assert isinstance(post, dict)
-        assert isinstance(result, dict)
-        evidence_identity = result["evidence_identity"]
-        assert isinstance(evidence_identity, str)
-        payload = {
-            "environment_identity": post["environment_identity"],
-            "execution_evidence_identity": post["evidence_identity"],
-            "independent_acceptance_evidence_identity": evidence_identity,
-            "revision": value["fix_revision"],
-            "task_identity": value["task_identity"],
-            "test_artifact_sha256": patch["test_artifact_sha256"],
-            "verifier_manifest_id": post["verifier_manifest_id"],
-        }
-        encoded = json.dumps(
-            payload,
-            ensure_ascii=True,
-            separators=(",", ":"),
-            sort_keys=True,
-        ).encode("utf-8")
-        proof["independent_acceptance_evidence_identity"] = (
-            f"{evidence_identity}|binding-sha256:{hashlib.sha256(encoded).hexdigest()}"
-        )
-        errors = validation_errors("mstr-test-generation-example-v0", value)
-        assert any(
-            "independent acceptance evidence must be distinct from pre/post "
-            "execution evidence identities" in error
-            for error in errors
-        )
-
-'''
-          if tests.count(anchor) != 1:
-              raise SystemExit("test insertion anchor was not found exactly once")
-          tests_path.write_text(tests.replace(anchor, regression + anchor), encoding="utf-8")
-
-          evidence_path = Path("evidence/mstr-000b/B024-test-curriculum.md")
-          evidence = evidence_path.read_text(encoding="utf-8")
-          marker = "TASK_SPECIFIC_ACCEPTANCE_INDEPENDENT_FROM_EXECUTION_EVIDENCE = required"
-          if marker in evidence:
-              raise SystemExit("evidence marker already exists unexpectedly")
-          evidence += '''\n\n## Exact-head independent-evidence hardening\n\nFresh independent review proved that a task-specific acceptance identity must not reuse either pre-fix or post-fix execution evidence and merely recompute the context digest. Semantic admission now requires the independent identity to be distinct from both execution-evidence identities while preserving the existing exact-context SHA-256 binding.\n\n```text\nTASK_SPECIFIC_ACCEPTANCE_INDEPENDENT_FROM_EXECUTION_EVIDENCE = required\n```\n'''
-          evidence_path.write_text(evidence, encoding="utf-8")
+        run: python _builder/.github/evidence/b024_independent_evidence_builder.py
 
       - uses: actions/setup-python@v5
         with:
