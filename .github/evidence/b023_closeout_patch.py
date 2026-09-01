@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path.cwd()
 IMPLEMENTATION_HEAD = "da0480c0eb39e4097cb2d3fd3337a7fc49ab75dc"
 IMPLEMENTATION_MERGE = "f71a15f967250c5c523749be9f9f3066feccb902"
+ENTRY_GATE_MAIN = "fdca133e53a47b8966faef172812da58503576a0"
 BUILDER_RUN_ID = os.environ["BUILDER_RUN_ID"]
 
 
@@ -60,6 +61,17 @@ def patch_evidence() -> None:
         "**State:** COMPLETE_CANONICAL"
     )
     text = text.replace(state_line, header, 1)
+
+    legacy_entry = f"ENTRY_CANONICAL_MAIN = {ENTRY_GATE_MAIN}\n"
+    assert text.count(legacy_entry) == 1
+    machine_entry = (
+        "ENTRY_GATE_TASK = B023\n"
+        f"ENTRY_GATE_CANONICAL_MAIN = {ENTRY_GATE_MAIN}\n"
+        "ENTRY_GATE_ELIGIBLE = true\n"
+    )
+    assert "ENTRY_GATE_TASK = B023" not in text
+    text = text.replace(legacy_entry, machine_entry + legacy_entry, 1)
+
     assert "## Canonical Implementation Closeout" not in text
     closeout = f"""
 ## Canonical Implementation Closeout
@@ -75,7 +87,7 @@ The B023 verifier-health evaluator was merged and independently verified on cano
 - exact-head Cubic check: check `99921330743` — SUCCESS
 - mandatory pre-merge verification: run `33528450915` — SUCCESS
 - post-merge implementation verification: run `33528911288` — SUCCESS
-- closeout builder negative evidence: runs `33529229275`, `33529850376`, `33530139830`, and `33530762794` — FAILURE / NO TARGET PUBLISHED
+- closeout builder negative evidence: runs `33529229275`, `33529850376`, `33530139830`, `33530762794`, `33530938623`, `33530974072`, `33531191471`, and `33532919817` — FAILURE / NO TARGET PUBLISHED
 - repaired atomic closeout builder: run `{BUILDER_RUN_ID}` — candidate build in progress at commit construction
 
 This closeout changes only B023 canonical state/provenance, the canonical task ledger, and closeout regression coverage. It does not modify the frozen B022 verifier-health schema, A006 protected terminal-success authority, A018 trajectory-admission authority, or B023 evaluator runtime. It grants no verifier subprocess execution, model execution, model-weight access, teacher/API execution, paid compute, network model calls, large/private/production data ingestion, weight-changing training, large-scale RL, candidate-pool authority change, or production release authority. B024 may become machine-eligible only because its exact prerequisite B023 is now canonically complete; B026 remains gated on B024.
@@ -146,6 +158,9 @@ def test_b023_closeout_provenance_and_authority_boundary() -> None:
     assert "**Implementation PR:** #133" in evidence
     assert "`da0480c0eb39e4097cb2d3fd3337a7fc49ab75dc`" in evidence
     assert "`f71a15f967250c5c523749be9f9f3066feccb902`" in evidence
+    assert "ENTRY_GATE_TASK = B023" in evidence
+    assert "ENTRY_GATE_CANONICAL_MAIN = fdca133e53a47b8966faef172812da58503576a0" in evidence
+    assert "ENTRY_GATE_ELIGIBLE = true" in evidence
     for run_id in ("33526148972", "33527138891", "33528450915", "33528911288"):
         assert f"run `{run_id}` — SUCCESS" in evidence
     assert "review `5080178013` — NO ISSUES FOUND" in evidence
