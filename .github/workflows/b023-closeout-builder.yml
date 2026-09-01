@@ -92,13 +92,34 @@ jobs:
           set -euo pipefail
           git update-ref refs/heads/main "$CANDIDATE_HEAD"
           git update-ref refs/remotes/origin/main "$CANDIDATE_HEAD"
+
+          set +e
           mstr-qualify task drift > /tmp/drift.json
-          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
-          if mstr-qualify task eligible B023 > /tmp/b023.json; then exit 1; else test "$?" -eq 1; fi
-          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b023.json
+          drift_rc=$?
+          mstr-qualify task eligible B023 > /tmp/b023.json
+          b023_rc=$?
           mstr-qualify task eligible B024 > /tmp/b024.json
+          b024_rc=$?
+          mstr-qualify task eligible B026 > /tmp/b026.json
+          b026_rc=$?
+          set -e
+
+          echo "DRIFT_RC=$drift_rc"
+          cat /tmp/drift.json
+          echo "B023_RC=$b023_rc"
+          cat /tmp/b023.json
+          echo "B024_RC=$b024_rc"
+          cat /tmp/b024.json
+          echo "B026_RC=$b026_rc"
+          cat /tmp/b026.json
+
+          test "$drift_rc" -eq 0
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          test "$b023_rc" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b023.json
+          test "$b024_rc" -eq 0
           jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b024.json
-          if mstr-qualify task eligible B026 > /tmp/b026.json; then exit 1; else test "$?" -eq 1; fi
+          test "$b026_rc" -eq 1
           jq -e '.eligible == false and .state_consistency_result.observed_state == "PENDING" and (.reasons | index("prerequisite.unsatisfied:B024")) != null' /tmp/b026.json
       - name: Guarded publish exact atomic target
         working-directory: repo
