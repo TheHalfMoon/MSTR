@@ -20,7 +20,8 @@ env:
   QUALIFICATION_RUN: '33527138891'
   QUALIFICATION_SHA: 4149d408c677ce1e15962cbf9200a590707daa3d
   QUALIFICATION_BRANCH: evidence/b023-verifier-health-qualify-da0480c
-  REVIEW_CHECK_ID: '99917483113'
+  REVIEW_ID: '5080178013'
+  REVIEW_CHECK_ID: '99921330743'
 
 jobs:
   identity_evidence_review:
@@ -77,7 +78,7 @@ jobs:
           grep -F "TARGET_BRANCH: $EXPECTED_BRANCH" /tmp/qualification.yml
           grep -F "PR_NUMBER: '133'" /tmp/qualification.yml
 
-      - name: Verify independent external exact-head review and zero unresolved threads
+      - name: Verify formal independent exact-head review and zero unresolved threads
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -86,8 +87,11 @@ jobs:
           gh api "repos/${GITHUB_REPOSITORY}/check-runs/${REVIEW_CHECK_ID}" > /tmp/review-check.json
           jq -e \
             --arg head "$EXPECTED_HEAD" \
-            '.name == "cubic · AI code reviewer" and .head_sha == $head and .status == "completed" and .conclusion == "success" and .app.slug == "cubic-dev-ai" and (.output.title == "AI review completed") and (.output.summary | contains("1 review")) and (.output.summary | contains("0 issues found"))' \
+            '.name == "cubic · AI code reviewer" and .head_sha == $head and .status == "completed" and .conclusion == "success" and .app.slug == "cubic-dev-ai" and (.output.title == "AI review completed") and (.output.summary | contains("No issues found"))' \
             /tmp/review-check.json
+
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" > /tmp/reviews.json
+          jq -e --argjson rid "$REVIEW_ID" --arg head "$EXPECTED_HEAD" '[.[] | select(.id == $rid and .commit_id == $head and .state == "COMMENTED" and .user.login == "cubic-dev-ai[bot]" and (.body | contains("No issues found")))] | length == 1' /tmp/reviews.json
 
           gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' -f owner='TheHalfMoon' -f name='MSTR' -F number=133 > /tmp/threads.json
           jq -e '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length == 0' /tmp/threads.json
@@ -180,10 +184,12 @@ jobs:
 
           gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" | jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .mergeable == true and .base.sha == $base and .head.sha == $head and .changed_files == 4'
           gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN}" | jq -e --arg sha "$QUALIFICATION_SHA" '.status == "completed" and .conclusion == "success" and .head_sha == $sha'
-          gh api "repos/${GITHUB_REPOSITORY}/check-runs/${REVIEW_CHECK_ID}" | jq -e --arg head "$EXPECTED_HEAD" '.head_sha == $head and .status == "completed" and .conclusion == "success" and .app.slug == "cubic-dev-ai" and (.output.summary | contains("0 issues found"))'
+          gh api "repos/${GITHUB_REPOSITORY}/check-runs/${REVIEW_CHECK_ID}" | jq -e --arg head "$EXPECTED_HEAD" '.head_sha == $head and .status == "completed" and .conclusion == "success" and .app.slug == "cubic-dev-ai" and (.output.summary | contains("No issues found"))'
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" | jq -e --argjson rid "$REVIEW_ID" --arg head "$EXPECTED_HEAD" '[.[] | select(.id == $rid and .commit_id == $head and .state == "COMMENTED" and .user.login == "cubic-dev-ai[bot]" and (.body | contains("No issues found")))] | length == 1'
           gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' -f owner='TheHalfMoon' -f name='MSTR' -F number=133 | jq -e '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length == 0'
 
           echo "B023_REPAIRED_PREMERGE_HEAD=$EXPECTED_HEAD"
+          echo "B023_FORMAL_REVIEW_ID=$REVIEW_ID"
           echo "B023_REPAIRED_PREMERGE=PASS"
           echo "MODEL_EXECUTION=NONE"
           echo "WEIGHT_CHANGING_TRAINING=NONE"
