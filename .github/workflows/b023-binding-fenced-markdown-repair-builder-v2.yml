@@ -1,0 +1,115 @@
+name: B023 fenced Markdown binding repair builder v2
+
+on:
+  push:
+    branches:
+      - evidence/b023-binding-fenced-markdown-repair-builder-v2
+
+permissions:
+  contents: write
+
+env:
+  BASE_SHA: db12d1467bb81185a9affffb4d470626ceceddfa
+  SOURCE_SHA: 0227eea165096b7ae8ea3cc853de4b6f941807e4
+  SOURCE_TREE: 15f0000be34e8a9380349fdc240526cdc32e9965
+  SOURCE_BRANCH: fix/b023-cross-workstream-bindings-final-atomic-20260901
+  PAYLOAD_BRANCH: evidence/b023-binding-fenced-markdown-repair-builder
+  TARGET_BRANCH: fix/b023-cross-workstream-bindings-fenced-safe-atomic-20260901
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify exact live identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$SOURCE_BRANCH | cut -f1)" = "$SOURCE_SHA"
+          git fetch origin "$SOURCE_BRANCH" "$PAYLOAD_BRANCH"
+          test "$(git rev-parse "$SOURCE_SHA^{tree}")" = "$SOURCE_TREE"
+          test -z "$(git ls-remote origin refs/heads/$TARGET_BRANCH)"
+      - name: Reconstruct reviewed fenced-safe candidate and fix harness typo only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -B "$TARGET_BRANCH" "$BASE_SHA"
+          git checkout "$SOURCE_SHA" -- configs/task-gate/mstr-000b.json evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md src/mstr_qualify/task_gate.py tests/contract/test_task_gate.py
+          git show "origin/$PAYLOAD_BRANCH:.github/workflows/b023-binding-fenced-markdown-repair-builder.yml" > /tmp/prior-builder.yml
+          python - <<'PY'
+          import base64
+          import re
+          from pathlib import Path
+
+          workflow = Path('/tmp/prior-builder.yml').read_text(encoding='utf-8')
+          payloads = re.findall(r"'([A-Za-z0-9+/=]{2000,})'", workflow)
+          assert len(payloads) == 1, len(payloads)
+          exec(base64.b64decode(payloads[0]).decode('utf-8'), {})
+
+          tests_path = Path('tests/contract/test_task_gate.py')
+          tests = tests_path.read_text(encoding='utf-8')
+          typo = 'preruisite.external_state_unproven'
+          fixed = 'prerequisite.external_state_unproven'
+          assert tests.count(typo) == 1
+          tests_path.write_text(tests.replace(typo, fixed, 1), encoding='utf-8')
+          PY
+          git diff --check
+          printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md \
+            src/mstr_qualify/task_gate.py \
+            tests/contract/test_task_gate.py | sort > /tmp/expected
+          git diff --name-only "$BASE_SHA" | sort > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          test -z "$(grep '^\.github/workflows/' /tmp/actual || true)"
+          grep -F -- '- [ ] **B023 Implement verifier-health evaluator on controlled fixtures.**' specs/002-code-model-supremacy-foundation/tasks.md
+      - name: Run complete frozen gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+      - name: Commit atomic candidate and prove prospective eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'MSTR Evidence Builder'
+          git config user.email 'mstr-evidence-builder@users.noreply.github.com'
+          git add configs/task-gate/mstr-000b.json evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md src/mstr_qualify/task_gate.py tests/contract/test_task_gate.py
+          git commit -m 'fix(task-gate): ignore fenced prerequisite examples'
+          candidate="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          CANDIDATE_SHA="$candidate" python - <<'PY'
+          import os
+          from mstr_qualify.task_gate import evaluate_task_snapshot
+          result = evaluate_task_snapshot('B023', canonical_main=os.environ['CANDIDATE_SHA'])
+          assert result['eligible'] is True, result
+          prereqs = {row['task_id']: row for row in result['prerequisite_results']}
+          for task_id in ('A006', 'A014', 'B002', 'B022'):
+              assert prereqs[task_id]['satisfied'] is True, prereqs[task_id]
+          print('B023_PROSPECTIVE_ELIGIBILITY=PASS')
+          PY
+          test "$(git diff --name-only "$BASE_SHA..HEAD" | wc -l)" -eq 4
+          test -z "$(git diff --name-only "$BASE_SHA..HEAD" | grep '^\.github/workflows/' || true)"
+          echo "CANDIDATE_SHA=$candidate"
+          echo "CANDIDATE_TREE=$(git rev-parse HEAD^{tree})"
+      - name: Guarded push
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$SOURCE_BRANCH | cut -f1)" = "$SOURCE_SHA"
+          test -z "$(git ls-remote origin refs/heads/$TARGET_BRANCH)"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$(git rev-parse HEAD)"
