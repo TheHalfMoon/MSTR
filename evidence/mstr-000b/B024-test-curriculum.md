@@ -35,6 +35,7 @@ TASK_SPECIFIC_PROOF_REQUIRES_INDEPENDENT_ACCEPTANCE_EVIDENCE = true
 SAME_TEST_ARTIFACT_PRE_POST = required
 SAME_ENVIRONMENT_PRE_POST = required
 SAME_VERIFIER_MANIFEST_PRE_POST = required
+FAIL_BEFORE_PASS_AFTER_DISTINCT_BASE_FIX_REVISIONS = required
 ADMIT_REQUIRES_COMPATIBLE_RIGHTS = true
 ADMIT_REQUIRES_CLEAR_CONTAMINATION = true
 ADMIT_REQUIRES_COMPLETE_PROVENANCE = true
@@ -95,3 +96,8 @@ Codex independent review `5081151219` on reviewed commit `f052704cdb` identified
 3. `ADEQUATE` mutation strength now requires concrete evidence plus nonzero evaluated and killed mutation counts.
 
 Regression tests reproduce each reviewed defect and require the repaired behavior. A new exact-head qualification and independent review are still required after this repair; the prior qualification and review do not transfer to the repaired head.
+
+
+### Distinct-revision review remediation
+
+The initial Codex review also identified that `FAIL_BEFORE_PASS_AFTER` could describe contradictory fail/pass outcomes on an identical code revision. This repair requires `base_revision != fix_revision` for that proof kind and adds a regression test that reproduces the rejected identical-revision case. `TASK_SPECIFIC_BEHAVIOR` is unchanged because this restriction is specific to claimed repair transitions.

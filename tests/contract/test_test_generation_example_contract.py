@@ -225,6 +225,19 @@ def test_b024_adequate_mutation_strength_requires_real_evidence() -> None:
     }
     validate_instance("mstr-test-generation-example-v0", value)
 
+
+def test_b024_fail_before_pass_after_requires_distinct_revisions() -> None:
+    value = fixture()
+    value["fix_revision"] = value["base_revision"]
+    proof = value["behavioral_proof"]
+    assert isinstance(proof, dict)
+    post = proof["post_fix_result"]
+    assert isinstance(post, dict)
+    post["revision"] = value["base_revision"]
+
+    errors = validation_errors("mstr-test-generation-example-v0", value)
+    assert any("requires a revision distinct from base_revision" in error for error in errors)
+
 def test_b024_schema_has_no_remote_reference() -> None:
     schema = json.loads(
         (ROOT / "schemas/mstr-test-generation-example-v0.schema.json").read_text(

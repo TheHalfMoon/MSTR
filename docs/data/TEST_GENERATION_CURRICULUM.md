@@ -72,6 +72,7 @@ SAME_ENVIRONMENT_IDENTITY = true
 SAME_VERIFIER_MANIFEST_ID = true
 PRE_FIX_REVISION = BASE_REVISION
 POST_FIX_REVISION = FIX_REVISION
+BASE_REVISION != FIX_REVISION
 ```
 
 A test that passes before and after a claimed fix is not accepted under this proof mode.
@@ -114,6 +115,7 @@ The contract rejects clean-positive admission for examples that:
 - compare different execution environments or verifier manifests;
 - claim a reproduction while never observing the pre-fix failure;
 - pass both before and after under `FAIL_BEFORE_PASS_AFTER`;
+- claim a repair while `base_revision` and `fix_revision` are identical;
 - use task-specific proof without independent acceptance evidence;
 - carry unresolved provenance, rights, contamination, or verifier health.
 

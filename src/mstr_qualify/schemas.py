@@ -454,6 +454,14 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
     post: dict[str, Any] | None = None
     if isinstance(patch, dict) and isinstance(proof, dict):
         artifact_sha = patch.get("test_artifact_sha256")
+        if (
+            proof.get("proof_kind") == "FAIL_BEFORE_PASS_AFTER"
+            and instance.get("base_revision") == instance.get("fix_revision")
+        ):
+            errors.append(
+                "$.fix_revision: FAIL_BEFORE_PASS_AFTER requires a revision "
+                "distinct from base_revision"
+            )
         raw_pre = proof.get("pre_fix_result")
         raw_post = proof.get("post_fix_result")
         if isinstance(raw_pre, dict) and isinstance(raw_post, dict):
