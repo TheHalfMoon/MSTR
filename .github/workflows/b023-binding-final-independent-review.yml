@@ -1,0 +1,203 @@
+name: B023 binding final independent adversarial review
+
+on:
+  push:
+    branches:
+      - evidence/b023-binding-final-review-a48cdf7
+
+permissions:
+  contents: read
+
+env:
+  BASE_SHA: db12d1467bb81185a9affffb4d470626ceceddfa
+  TARGET_SHA: a48cdf77247ec19364f720b768c4a602ad94477b
+  TARGET_TREE: ae29894f93f67cd285ba0529da71b4cdf0f78a5a
+  TARGET_BRANCH: fix/b023-cross-workstream-bindings-hardened-v2-atomic-20260901
+  QUALIFICATION_RUN: '33507996701'
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Verify reviewed exact-head identity and qualification predecessor
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_SHA"
+          python - <<'PY'
+          import json
+          import urllib.request
+          run = json.load(urllib.request.urlopen('https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/33507996701'))
+          assert run['status'] == 'completed'
+          assert run['conclusion'] == 'success'
+          PY
+      - name: Verify review scope and task-state boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(mktemp)"
+          actual="$(mktemp)"
+          cat >"$expected" <<'EOF'
+          configs/task-gate/mstr-000b.json
+          evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md
+          src/mstr_qualify/task_gate.py
+          tests/contract/test_task_gate.py
+          EOF
+          git diff --name-only "$BASE_SHA...$TARGET_SHA" | sort >"$actual"
+          sort -o "$expected" "$expected"
+          diff -u "$expected" "$actual"
+          git diff --check "$BASE_SHA...$TARGET_SHA"
+          test -z "$(grep '^\.github/workflows/' "$actual" || true)"
+          grep -F -- '- [ ] **B023 Implement verifier-health evaluator on controlled fixtures.**' specs/002-code-model-supremacy-foundation/tasks.md
+      - name: Install reviewed candidate
+        run: python -m pip install -e '.[dev]'
+      - name: Independent adversarial fail-closed probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import shutil
+          import tempfile
+          from pathlib import Path
+
+          from mstr_qualify.errors import QualificationError
+          from mstr_qualify.task_gate import evaluate_task_snapshot, load_task_catalog
+
+          source = Path.cwd()
+          target_sha = 'a48cdf77247ec19364f720b768c4a602ad94477b'
+
+          def clone_fixture() -> tuple[tempfile.TemporaryDirectory[str], Path]:
+              holder = tempfile.TemporaryDirectory()
+              root = Path(holder.name) / 'repo'
+              shutil.copytree(source, root, ignore=shutil.ignore_patterns('.git', '.venv', '__pycache__'))
+              return holder, root
+
+          def evaluate(root: Path) -> dict[str, object]:
+              return evaluate_task_snapshot(
+                  'B023',
+                  repository_root=root,
+                  catalog_path=root / 'configs/task-gate/mstr-000b.json',
+                  canonical_main=target_sha,
+              )
+
+          holder, root = clone_fixture()
+          try:
+              baseline = evaluate(root)
+              assert baseline['eligible'] is True, baseline
+          finally:
+              holder.cleanup()
+
+          holder, root = clone_fixture()
+          try:
+              evidence = root / 'evidence/mstr-000a/A006-finalizer.md'
+              evidence.write_text(
+                  '**Task:** `A006`\n**State:** `PENDING`\n'
+                  '**Task:** `MSTR-000A / A014`\n**State:** `COMPLETE_CANONICAL`\n',
+                  encoding='utf-8',
+              )
+              result = evaluate(root)
+              assert result['eligible'] is False, result
+              row = next(item for item in result['prerequisite_results'] if item['task_id'] == 'A006')
+              assert row['satisfied'] is False
+              assert 'prerequisite.external_identity_unproven' in row['reasons']
+              assert 'prerequisite.external_state_unproven' in row['reasons']
+          finally:
+              holder.cleanup()
+
+          holder, root = clone_fixture()
+          try:
+              tasks = root / 'specs/001-agent-harness-verified-loop-foundation/tasks.md'
+              tasks.unlink()
+              result = evaluate(root)
+              assert result['eligible'] is False, result
+              row = next(item for item in result['prerequisite_results'] if item['task_id'] == 'A006')
+              assert 'prerequisite.external_checkbox_unverifiable' in row['reasons']
+              assert 'prerequisite.state_checkbox_conflict' not in row['reasons']
+          finally:
+              holder.cleanup()
+
+          holder, root = clone_fixture()
+          try:
+              tasks = root / 'specs/001-agent-harness-verified-loop-foundation/tasks.md'
+              text = tasks.read_text(encoding='utf-8')
+              marker = '- [x] **A006 '
+              assert text.count(marker) == 1
+              tasks.write_text(text.replace(marker, '- [ ] **A006 ', 1), encoding='utf-8')
+              result = evaluate(root)
+              assert result['eligible'] is False, result
+              row = next(item for item in result['prerequisite_results'] if item['task_id'] == 'A006')
+              assert 'prerequisite.state_checkbox_conflict' in row['reasons']
+              assert 'prerequisite.external_checkbox_unverifiable' not in row['reasons']
+          finally:
+              holder.cleanup()
+
+          holder, root = clone_fixture()
+          try:
+              catalog_path = root / 'configs/task-gate/mstr-000b.json'
+              catalog = json.loads(catalog_path.read_text(encoding='utf-8'))
+              binding = catalog['external_prerequisites']['A006']
+              binding['state_evidence'] = 'evidence/mstr-000b/A006-finalizer.md'
+              binding['evidence_outputs'] = ['evidence/mstr-000b/A006-finalizer.md']
+              catalog_path.write_text(json.dumps(catalog), encoding='utf-8')
+              try:
+                  load_task_catalog(catalog_path, repository_root=root)
+              except QualificationError as exc:
+                  assert exc.code == 'task_gate.catalog_external_workstream_evidence', exc.code
+              else:
+                  raise AssertionError('wrong evidence namespace was accepted')
+          finally:
+              holder.cleanup()
+
+          holder, root = clone_fixture()
+          try:
+              catalog_path = root / 'configs/task-gate/mstr-000b.json'
+              catalog = json.loads(catalog_path.read_text(encoding='utf-8'))
+              catalog['external_prerequisites']['A006']['task_identity'] = 'A006'
+              catalog_path.write_text(json.dumps(catalog), encoding='utf-8')
+              try:
+                  load_task_catalog(catalog_path, repository_root=root)
+              except QualificationError as exc:
+                  assert exc.code == 'task_gate.catalog_external_task_identity', exc.code
+              else:
+                  raise AssertionError('bare binding identity was accepted')
+          finally:
+              holder.cleanup()
+
+          print('INDEPENDENT_ADVERSARIAL_REVIEW=PASS')
+          PY
+      - name: Review-focused negative contracts
+        run: >-
+          python -m pytest tests/contract/test_task_gate.py -q
+          -k 'external_prerequisite and (split or duplicate or workstream or identity or checklist)'
+      - name: Re-run frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+      - name: Final exact-head immutability review
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard "$TARGET_SHA"
+          git clean -fdx
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_SHA"
