@@ -131,9 +131,10 @@ This reconciliation does not infer completion for A005+ and grants no external-e
   Outputs: `mstr.trajectory-manifest.v0`, failure taxonomy, fixtures, `evidence/mstr-000a/A017-trajectory-contract.md`.
   Canonical implementation: PR #120 / final head `2270cbbd6a1110e2823679ea3ca2d7b77a92d256` / merge `11c528c0ad015f7505dd143c700e710a0f08d86a`; post-merge proof run `33441203968` = `SUCCESS`.
 
-- [ ] **A018 Implement trajectory recorder/replay/admission.**  
+- [x] **A018 Implement trajectory recorder/replay/admission.**
   Successful training examples require verifier proof; failures remain evidence; private user traces default to rejected/not-ingested.  
   Outputs: recorder/replay/admission modules + tests + `evidence/mstr-000a/A018-trajectory-factory.md`.
+  Canonical implementation: PR #122 / final head `fc04967b2cbe874489f3b09a38fb80c1650f2461` / merge `b34a17441c24712144ce21b64c41ec18eeb12352`; post-merge proof run `33492060094` = `SUCCESS`.
 
 **Checkpoint D:** one successful and one failed/recovered trajectory replay from exact events and identities.
 
