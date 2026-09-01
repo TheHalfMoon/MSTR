@@ -94,7 +94,7 @@ jobs:
           set -euo pipefail
           grep -F '**State:** COMPLETE_CANONICAL' evidence/mstr-000b/B024-test-curriculum.md
           grep -F '**Implementation PR:** #135' evidence/mstr-000b/B024-test-curriculum.md
-          grep -F 'Canonical implementation merge: `138a2c2c1d86c050db79e3190ab24d7c1052fe44`' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F '**Canonical implementation merge:** `138a2c2c1d86c050db79e3190ab24d7c1052fe44`' evidence/mstr-000b/B024-test-curriculum.md
           for marker in 'MODEL_WEIGHT_ACCESS = NONE' 'MODEL_EXECUTION = NONE' 'TEST_GENERATION_EXECUTION = NONE' 'VERIFIER_EXECUTION = NONE' 'PAID_COMPUTE = NONE' 'WEIGHT_CHANGING_TRAINING = NONE' 'PRODUCTION_RELEASE = NONE'; do grep -F "$marker" evidence/mstr-000b/B024-test-curriculum.md; done
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
 
