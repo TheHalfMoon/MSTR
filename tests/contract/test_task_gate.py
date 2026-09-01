@@ -1267,26 +1267,72 @@ def test_b022_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b023_cross_workstream_prerequisites_are_canonically_bound() -> None:
+def test_b023_is_terminal_after_canonical_closeout() -> None:
     result = evaluate_task_snapshot("B023", canonical_main=_CANONICAL_MAIN)
 
-    assert result["eligible"] is True
-    assert result["state_consistency_result"]["observed_state"] == "PENDING"
-    assert result["reasons"] == []
-    assert result["semantic_checks"]["prerequisite_set_complete"] is True
-    assert result["semantic_checks"]["prerequisite_states_satisfied"] is True
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert result["authority_result"]["required"] is False
+    assert "task.already_terminal" in result["reasons"]
     assert {item["task_id"] for item in result["prerequisite_results"]} == {
-        "A006", "A014", "B002", "B022"
+        "A006",
+        "A014",
+        "B002",
+        "B022",
     }
-    for task_id in ("A006", "A014"):
-        predecessor = next(
-            item for item in result["prerequisite_results"] if item["task_id"] == task_id
-        )
-        assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
-        assert predecessor["evidence_present"] is True
-        assert predecessor["satisfied"] is True
-        assert predecessor["reasons"] == []
+    assert all(item["satisfied"] is True for item in result["prerequisite_results"])
     validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b023_closeout_opens_b024_as_next_machine_eligible_task() -> None:
+    result = evaluate_task_snapshot("B024", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is True
+    assert result["reasons"] == []
+    assert result["state_consistency_result"]["observed_state"] == "PENDING"
+    predecessor = next(
+        item for item in result["prerequisite_results"] if item["task_id"] == "B023"
+    )
+    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
+    assert predecessor["evidence_present"] is True
+    assert predecessor["satisfied"] is True
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b023_closeout_does_not_skip_b024_for_b026() -> None:
+    result = evaluate_task_snapshot("B026", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "PENDING"
+    assert "prerequisite.unsatisfied:B024" in result["reasons"]
+    assert "prerequisite.unsatisfied:B022" not in result["reasons"]
+    assert "prerequisite.unsatisfied:B025" not in result["reasons"]
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b023_closeout_provenance_and_authority_boundary() -> None:
+    evidence = (
+        Path(__file__).resolve().parents[2]
+        / "evidence"
+        / "mstr-000b"
+        / "B023-verifier-health-implementation.md"
+    ).read_text(encoding="utf-8")
+
+    assert "**State:** COMPLETE_CANONICAL" in evidence
+    assert "**Implementation PR:** #133" in evidence
+    assert "`da0480c0eb39e4097cb2d3fd3337a7fc49ab75dc`" in evidence
+    assert "`f71a15f967250c5c523749be9f9f3066feccb902`" in evidence
+    assert "ENTRY_GATE_TASK = B023" in evidence
+    assert "ENTRY_GATE_CANONICAL_MAIN = fdca133e53a47b8966faef172812da58503576a0" in evidence
+    assert "ENTRY_GATE_ELIGIBLE = true" in evidence
+    for run_id in ("33526148972", "33527138891", "33528450915", "33528911288"):
+        assert f"run `{run_id}` — SUCCESS" in evidence
+    assert "review `5080178013` — NO ISSUES FOUND" in evidence
+    assert "MODEL_EXECUTION = NONE" in evidence
+    assert "MODEL_WEIGHT_ACCESS = NONE" in evidence
+    assert "VERIFIER_SUBPROCESS_EXECUTION = NONE" in evidence
+    assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
 
 
 def test_b025_is_terminal_after_canonical_closeout() -> None:
