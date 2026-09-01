@@ -1,0 +1,177 @@
+name: Prove B024 canonical closeout premerge
+
+on:
+  push:
+    branches: [evidence/b024-closeout-premerge-615f518]
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+  statuses: read
+  issues: read
+
+env:
+  BASE_SHA: 138a2c2c1d86c050db79e3190ab24d7c1052fe44
+  HEAD_SHA: 615f5189c16e62ecd176a5dc997e9a472eddfc05
+  HEAD_TREE: 6e84e0246ba9ba41e7b836cc98116f189d3c5282
+  TARGET_BRANCH: docs/000b-b024-canonicalize
+  PR_NUMBER: '136'
+  QUALIFICATION_RUN: '33561540768'
+  QUALIFICATION_BRANCH: evidence/b024-closeout-qualify-615f518
+  QUALIFICATION_WORKFLOW_HEAD: 2882093c85948a26b214e88779868a3399483e03
+  REVIEW_COMMENT_ID: '5500707774'
+  REVIEW_STATUS_ID: '53337028528'
+  REVIEW_RUN_ID: acaf3445-411b-4bca-a354-7727c0a69432
+
+jobs:
+  identity_review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: '${{ env.HEAD_SHA }}', fetch-depth: 0}
+      - name: Verify exact identity, qualification, and independent review
+        env: {GH_TOKEN: '${{ github.token }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '.state == "open" and .draft == false and .mergeable == true and .base.sha == $base and .head.sha == $head and .commits == 1 and .changed_files == 5' /tmp/pr.json
+
+          printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B024-test-curriculum.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort > /tmp/expected
+          git diff --name-only "$BASE_SHA...$HEAD_SHA" | sort > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          git diff --check "$BASE_SHA...$HEAD_SHA"
+          test -z "$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- src schemas specs/002-code-model-supremacy-foundation/contracts docs/data)"
+
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN}" > /tmp/qualification.json
+          jq -e --arg branch "$QUALIFICATION_BRANCH" --arg sha "$QUALIFICATION_WORKFLOW_HEAD" '.status == "completed" and .conclusion == "success" and .head_branch == $branch and .head_sha == $sha and .path == ".github/workflows/b024-closeout-qualification.yml"' /tmp/qualification.json
+          gh api "repos/${GITHUB_REPOSITORY}/contents/.github/workflows/b024-closeout-qualification.yml?ref=${QUALIFICATION_BRANCH}" --jq .content | base64 -d > /tmp/qualification.yml
+          grep -F "HEAD_SHA: $HEAD_SHA" /tmp/qualification.yml
+          grep -F "HEAD_TREE: $HEAD_TREE" /tmp/qualification.yml
+          grep -F "BASE_SHA: $BASE_SHA" /tmp/qualification.yml
+
+          gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${REVIEW_COMMENT_ID}" > /tmp/review.json
+          jq -e --arg run "$REVIEW_RUN_ID" --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '
+            .user.login == "coderabbitai[bot]" and
+            (.body | contains("No actionable comments were generated in the recent review")) and
+            (.body | contains($run)) and
+            (.body | contains($base)) and
+            (.body | contains($head)) and
+            (.body | contains("Files selected for processing (5)"))
+          ' /tmp/review.json
+
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/status" > /tmp/status.json
+          jq -e --argjson sid "$REVIEW_STATUS_ID" '.statuses | any(.id == $sid and .context == "CodeRabbit" and .state == "success" and .description == "Review completed")' /tmp/status.json
+
+          gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' -f owner='TheHalfMoon' -f name='MSTR' -F number="$PR_NUMBER" > /tmp/threads.json
+          jq -e '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length == 0' /tmp/threads.json
+
+  machine_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: '${{ env.HEAD_SHA }}', fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11', cache: pip, cache-dependency-path: pyproject.toml}
+      - name: Re-prove canonical closeout task frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$HEAD_SHA"
+          git update-ref refs/remotes/origin/main "$HEAD_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          set +e
+          mstr-qualify task eligible B024 > /tmp/b024.json; b024_rc=$?
+          mstr-qualify task eligible B011 > /tmp/b011.json; b011_rc=$?
+          set -e
+          test "$b024_rc" -eq 1
+          test "$b011_rc" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b024.json
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+          mstr-qualify task eligible B026 > /tmp/b026.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true and (.reasons | length) == 0' /tmp/b026.json
+          jq -e '[.prerequisite_results[] | select((.task_id == "B022" or .task_id == "B024" or .task_id == "B025") and .observed_state == "COMPLETE_CANONICAL" and .evidence_present == true and .satisfied == true)] | length == 3' /tmp/b026.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: '${{ env.HEAD_SHA }}', fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11', cache: pip, cache-dependency-path: pyproject.toml}
+      - name: Install development gates
+        run: python -m pip install -e '.[dev]'
+      - name: Focused closeout tests
+        run: python -m pytest tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py -q
+      - name: Offline validation
+        run: python -m mstr_qualify validate
+      - name: Full pytest
+        run: python -m pytest -q
+      - name: Ruff
+        run: python -m ruff check .
+      - name: Strict mypy
+        run: python -m mypy src
+      - name: Re-prove provenance and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F '**State:** COMPLETE_CANONICAL' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F '**Implementation PR:** #135' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F 'ENTRY_GATE_TASK = B024' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F 'CodeRabbit comment `5498547347`' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F 'post-merge implementation verification: run `33560182387` — SUCCESS' evidence/mstr-000b/B024-test-curriculum.md
+          for marker in \
+            'MODEL_WEIGHT_ACCESS = NONE' \
+            'MODEL_EXECUTION = NONE' \
+            'TEST_GENERATION_EXECUTION = NONE' \
+            'VERIFIER_EXECUTION = NONE' \
+            'TEACHER_API_EXECUTION = NONE' \
+            'PAID_MODEL_API = NONE' \
+            'PAID_COMPUTE = NONE' \
+            'NETWORK_MODEL_OR_TEACHER_CALL = NONE' \
+            'LARGE_DATASET_INGESTION = NONE' \
+            'PRIVATE_USER_DATA_INGESTION = NONE' \
+            'PRODUCTION_TRACE_INGESTION = NONE' \
+            'WEIGHT_CHANGING_TRAINING = NONE' \
+            'LARGE_SCALE_RL = NONE' \
+            'PRODUCTION_RELEASE = NONE'; do
+            grep -F "$marker" evidence/mstr-000b/B024-test-curriculum.md
+          done
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+
+  complete:
+    needs: [identity_review, machine_gate, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: '${{ env.HEAD_SHA }}', fetch-depth: 0}
+      - name: Final immutable premerge recheck
+        env: {GH_TOKEN: '${{ github.token }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" | jq -e --arg head "$HEAD_SHA" '.state == "open" and .draft == false and .mergeable == true and .head.sha == $head'
+          gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' -f owner='TheHalfMoon' -f name='MSTR' -F number="$PR_NUMBER" | jq -e '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length == 0'
+          echo 'B024_CLOSEOUT_MANDATORY_PREMERGE=PASS'
