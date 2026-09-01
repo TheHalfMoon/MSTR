@@ -1,0 +1,116 @@
+name: B023 verifier-health exact-head qualification
+
+on:
+  push:
+    branches:
+      - evidence/b023-verifier-health-qualify-c57ca59
+
+permissions:
+  contents: read
+
+env:
+  BASE_SHA: fdca133e53a47b8966faef172812da58503576a0
+  TARGET_SHA: c57ca59bdd7c079a95b26ab9a64af0e4286bc91f
+  TARGET_TREE: 642be471120bd57e2af0ea6261462c88bf5d6a50
+  TARGET_BRANCH: feat/000b-b023-verifier-health-evaluator
+
+jobs:
+  identity_contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - name: Verify exact identity, ancestry, live refs, and implementation scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$BASE_SHA" "$TARGET_SHA")" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_SHA"
+          printf '%s\n' \
+            evidence/mstr-000b/B023-verifier-health-implementation.md \
+            src/mstr_qualify/verifier/__init__.py \
+            src/mstr_qualify/verifier/health.py \
+            tests/unit/test_verifier_health.py | sort > /tmp/expected
+          git diff --name-only "$BASE_SHA...$TARGET_SHA" | sort > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          git diff --check "$BASE_SHA...$TARGET_SHA"
+          test -z "$(grep '^\.github/workflows/' /tmp/actual || true)"
+          grep -F -- '- [ ] **B023 Implement verifier-health evaluator on controlled fixtures.**' specs/002-code-model-supremacy-foundation/tasks.md
+      - name: Verify frozen B023 and authority semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path('src/mstr_qualify/verifier/health.py').read_text(encoding='utf-8')
+          tests = Path('tests/unit/test_verifier_health.py').read_text(encoding='utf-8')
+          evidence = Path('evidence/mstr-000b/B023-verifier-health-implementation.md').read_text(encoding='utf-8')
+
+          for health_class in ('HEALTHY', 'PARTIAL', 'DISAGREEMENT', 'BROKEN', 'LEAKED', 'TAMPERED'):
+              assert f'"{health_class}"' in source, health_class
+          assert 'validate_instance("mstr-verifier-health-v0", record)' in source
+          assert '"CLEAN_POSITIVE_ELIGIBLE"' in source
+          assert '"RESEARCH_DIAGNOSTIC_ONLY"' in source
+          assert '"BLOCKED"' in source
+          assert 'test_b023_healthy_record_flows_through_existing_a018_admission_surface' in tests
+          assert 'test_b023_nonhealthy_records_block_clean_positive_a018_sft' in tests
+          assert 'test_b023_does_not_change_a006_terminal_success_authority' in tests
+          assert 'ENTRY_B023_ELIGIBLE = true' in evidence
+          assert 'MODEL_EXECUTION = NONE' in evidence
+          assert 'WEIGHT_CHANGING_TRAINING = NONE' in evidence
+          assert '**State:** `IMPLEMENTATION_ACTIVE`' in evidence
+          PY
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install development gates
+        run: python -m pip install -e '.[dev]'
+      - name: Focused B023, B022, and A018 tests
+        run: >-
+          python -m pytest
+          tests/unit/test_verifier_health.py
+          tests/contract/test_verifier_health_contract.py
+          tests/unit/trajectory/test_trajectory_factory.py
+          -q
+      - name: Offline schema validation
+        run: python -m mstr_qualify validate
+      - name: Full pytest
+        run: python -m pytest -q
+      - name: Ruff
+        run: python -m ruff check .
+      - name: Strict mypy
+        run: python -m mypy src
+
+  complete:
+    runs-on: ubuntu-24.04
+    needs:
+      - identity_contract
+      - quality
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - name: Recheck exact-head immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_SHA"
