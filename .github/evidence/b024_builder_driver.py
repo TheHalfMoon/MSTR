@@ -8,7 +8,8 @@ if len(sys.argv) != 2:
 
 source_path = Path(sys.argv[1])
 source = source_path.read_text(encoding="utf-8")
-old = '''changed = {
+
+old_scope = '''changed = {
     line.strip()
     for line in __import__("subprocess")
     .check_output(["git", "diff", "--name-only"], text=True)
@@ -16,12 +17,27 @@ old = '''changed = {
     if line.strip()
 }
 '''
-new = '''status_lines = __import__("subprocess").check_output(
+new_scope = '''status_lines = __import__("subprocess").check_output(
     ["git", "status", "--porcelain=v1", "--untracked-files=all"], text=True
 ).splitlines()
 changed = {line[3:] for line in status_lines if len(line) >= 4}
 '''
-if source.count(old) != 1:
+if source.count(old_scope) != 1:
     raise RuntimeError("B024 builder scope-guard patch anchor mismatch")
-source = source.replace(old, new)
+source = source.replace(old_scope, new_scope)
+
+old_classes = '''        classes = behavior.get("test_classes")
+        class_set = set(classes) if isinstance(classes, list) else set()
+'''
+new_classes = '''        classes = behavior.get("test_classes")
+        class_set = (
+            {item for item in classes if isinstance(item, str)}
+            if isinstance(classes, list)
+            else set()
+        )
+'''
+if source.count(old_classes) != 1:
+    raise RuntimeError("B024 malformed-class hardening patch anchor mismatch")
+source = source.replace(old_classes, new_classes)
+
 exec(compile(source, str(source_path), "exec"), {"__name__": "__main__"})
