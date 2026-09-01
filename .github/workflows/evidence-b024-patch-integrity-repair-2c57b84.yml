@@ -1,0 +1,215 @@
+name: Repair B024 patch and integrity bindings
+
+on:
+  push:
+    branches:
+      - evidence/b024-patch-integrity-repair-2c57b84
+
+permissions:
+  contents: write
+  actions: read
+  pull-requests: read
+
+env:
+  BASE_SHA: 1ffa71c94bda161ec7be7784de3a6a4be81570ad
+  OLD_HEAD: 2c57b8445c76b2c0b3efc59c4de5eda13bf3df53
+  TARGET_BRANCH: feat/000b-b024-test-generation-curriculum
+  QUALIFICATION_RUN: '33543846847'
+  PATCH_THREAD_COMMENT: '3907184603'
+  INTEGRITY_THREAD_COMMENT: '3907184607'
+
+jobs:
+  repair_validate_publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repair controller
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Checkout exact current B024 head
+        run: |
+          set -euo pipefail
+          git fetch origin "$OLD_HEAD"
+          git checkout --detach "$OLD_HEAD"
+          test "$(git rev-parse HEAD)" = "$OLD_HEAD"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Verify immutable entry and fresh review provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$OLD_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN}" > /tmp/qualification.json
+          jq -e '.status == "completed" and .conclusion == "success"' /tmp/qualification.json
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/comments/${PATCH_THREAD_COMMENT}" > /tmp/patch-review.json
+          jq -e '.user.login == "chatgpt-codex-connector[bot]" and .commit_id == env.OLD_HEAD' /tmp/patch-review.json
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/comments/${INTEGRITY_THREAD_COMMENT}" > /tmp/integrity-review.json
+          jq -e '.user.login == "chatgpt-codex-connector[bot]" and .commit_id == env.OLD_HEAD' /tmp/integrity-review.json
+      - name: Apply patch-membership and integrity-evidence remediation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          schema_path = Path("schemas/mstr-test-generation-example-v0.schema.json")
+          design_path = Path(
+              "specs/002-code-model-supremacy-foundation/contracts/"
+              "mstr-test-generation-example-v0.schema.json"
+          )
+          schema = json.loads(schema_path.read_text(encoding="utf-8"))
+          integrity = schema["properties"]["integrity_checks"]
+          integrity["properties"].update(
+              {
+                  "checked_patch_sha256": {"$ref": "#/$defs/sha256"},
+                  "checked_test_artifact_sha256": {"$ref": "#/$defs/sha256"},
+                  "checker_manifest_id": {"$ref": "#/$defs/identity"},
+                  "evidence_identity": {"$ref": "#/$defs/identity"},
+              }
+          )
+          for field in (
+              "evidence_identity",
+              "checker_manifest_id",
+              "checked_patch_sha256",
+              "checked_test_artifact_sha256",
+          ):
+              if field not in integrity["required"]:
+                  integrity["required"].append(field)
+          integrity["required"] = sorted(integrity["required"])
+          encoded_schema = json.dumps(schema, indent=2, sort_keys=True) + "\n"
+          schema_path.write_text(encoded_schema, encoding="utf-8")
+          design_path.write_text(encoded_schema, encoding="utf-8")
+
+          source_path = Path("src/mstr_qualify/schemas.py")
+          source = source_path.read_text(encoding="utf-8")
+          patch_anchor = '''    provenance = instance.get("generated_test_provenance")\n'''
+          patch_insert = '''    if isinstance(patch, dict):\n        changed_paths = patch.get("changed_paths")\n        test_paths = patch.get("test_paths")\n        if isinstance(changed_paths, list) and isinstance(test_paths, list):\n            changed_path_set = {\n                item for item in changed_paths if isinstance(item, str)\n            }\n            missing_test_paths = sorted(\n                item\n                for item in test_paths\n                if isinstance(item, str) and item not in changed_path_set\n            )\n            if missing_test_paths:\n                errors.append(\n                    "$.generated_test_patch.test_paths: every test path must be "\n                    "present in changed_paths"\n                )\n\n    integrity = instance.get("integrity_checks")\n    if isinstance(patch, dict) and isinstance(integrity, dict):\n        if integrity.get("checked_patch_sha256") != patch.get("patch_sha256"):\n            errors.append(\n                "$.integrity_checks.checked_patch_sha256: must match "\n                "generated_test_patch.patch_sha256"\n            )\n        if integrity.get("checked_test_artifact_sha256") != patch.get(\n            "test_artifact_sha256"\n        ):\n            errors.append(\n                "$.integrity_checks.checked_test_artifact_sha256: must match "\n                "generated_test_patch.test_artifact_sha256"\n            )\n\n'''
+          if patch_anchor not in source:
+              raise SystemExit("schemas.py patch anchor missing")
+          source = source.replace(patch_anchor, patch_insert + patch_anchor, 1)
+          source_path.write_text(source, encoding="utf-8")
+
+          fixture_path = Path(
+              "tests/fixtures/schemas/valid/mstr-test-generation-example-v0.json"
+          )
+          fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+          patch = fixture["generated_test_patch"]
+          fixture["integrity_checks"].update(
+              {
+                  "checked_patch_sha256": patch["patch_sha256"],
+                  "checked_test_artifact_sha256": patch["test_artifact_sha256"],
+                  "checker_manifest_id": "fixture-integrity-checker:v1",
+                  "evidence_identity": "fixture-integrity-evidence:b024-v1",
+              }
+          )
+          fixture_path.write_text(
+              json.dumps(fixture, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+
+          test_path = Path("tests/contract/test_test_generation_example_contract.py")
+          tests = test_path.read_text(encoding="utf-8")
+          tests += '''\n\ndef test_b024_test_paths_must_be_changed_by_generated_patch() -> None:\n    value = fixture()\n    patch = value["generated_test_patch"]\n    assert isinstance(patch, dict)\n    patch["changed_paths"] = ["src/config_export.py"]\n    errors = validation_errors("mstr-test-generation-example-v0", value)\n    assert any(\n        "every test path must be present in changed_paths" in error\n        for error in errors\n    )\n\n\ndef test_b024_integrity_checks_require_auditable_evidence() -> None:\n    value = fixture()\n    integrity = value["integrity_checks"]\n    assert isinstance(integrity, dict)\n    integrity.pop("evidence_identity")\n    assert validation_errors("mstr-test-generation-example-v0", value)\n\n    value = fixture()\n    integrity = value["integrity_checks"]\n    assert isinstance(integrity, dict)\n    integrity.pop("checker_manifest_id")\n    assert validation_errors("mstr-test-generation-example-v0", value)\n\n\ndef test_b024_integrity_evidence_is_bound_to_exact_patch_and_test_artifact() -> None:\n    value = fixture()\n    integrity = value["integrity_checks"]\n    assert isinstance(integrity, dict)\n    integrity["checked_patch_sha256"] = "3" * 64\n    errors = validation_errors("mstr-test-generation-example-v0", value)\n    assert any("must match generated_test_patch.patch_sha256" in error for error in errors)\n\n    value = fixture()\n    integrity = value["integrity_checks"]\n    assert isinstance(integrity, dict)\n    integrity["checked_test_artifact_sha256"] = "4" * 64\n    errors = validation_errors("mstr-test-generation-example-v0", value)\n    assert any(\n        "must match generated_test_patch.test_artifact_sha256" in error\n        for error in errors\n    )\n'''
+          test_path.write_text(tests, encoding="utf-8")
+
+          docs_path = Path("docs/data/TEST_GENERATION_CURRICULUM.md")
+          docs = docs_path.read_text(encoding="utf-8")
+          docs += '''\n\n## Patch and shortcut-integrity binding\n\nFor an admitted test-generation example, every declared `test_path` must be a\nmember of `generated_test_patch.changed_paths`. A record cannot point at an\nunmodified pre-existing test and call it generated evidence. The exact patch and\ntest artifact are also bound to auditable shortcut-integrity evidence through a\nconcrete evidence identity and checker-manifest identity. `CLEAR` or `INTACT`\nlabels without that exact-artifact evidence are insufficient for clean-positive\nadmission.\n'''
+          docs_path.write_text(docs, encoding="utf-8")
+
+          evidence_path = Path("evidence/mstr-000b/B024-test-curriculum.md")
+          evidence = evidence_path.read_text(encoding="utf-8")
+          evidence += '''\n\n### Patch-membership and integrity-evidence review remediation\n\nCodex exact-head review on `2c57b8445c76b2c0b3efc59c4de5eda13bf3df53`\nidentified two additional fail-closed defects. This repair requires every\n`test_path` to appear in `changed_paths`, preventing reuse of an unrelated\nunchanged test as generated evidence. It also requires concrete integrity-check\nevidence and checker-manifest identities, with the checked patch and test\nartifact hashes bound exactly to `generated_test_patch`. These bindings are\nevidence requirements only and grant no checker execution, model execution, or\ntraining authority.\n\n```text\nTEST_PATHS_SUBSET_OF_CHANGED_PATHS = required\nINTEGRITY_CHECK_EVIDENCE = required\nINTEGRITY_CHECKER_MANIFEST = required\nINTEGRITY_EVIDENCE_PATCH_BINDING = required\nINTEGRITY_EVIDENCE_TEST_ARTIFACT_BINDING = required\n```\n'''
+          evidence_path.write_text(evidence, encoding="utf-8")
+          PY
+
+          git status --short
+          printf '%s\n' \
+            docs/data/TEST_GENERATION_CURRICULUM.md \
+            evidence/mstr-000b/B024-test-curriculum.md \
+            schemas/mstr-test-generation-example-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-test-generation-example-v0.schema.json \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_test_generation_example_contract.py \
+            tests/fixtures/schemas/valid/mstr-test-generation-example-v0.json | sort > /tmp/expected-repair
+          git status --porcelain | sed -E 's/^.. //' | sort > /tmp/actual-repair
+          diff -u /tmp/expected-repair /tmp/actual-repair
+          git diff --check
+          cmp schemas/mstr-test-generation-example-v0.schema.json \
+              specs/002-code-model-supremacy-foundation/contracts/mstr-test-generation-example-v0.schema.json
+          git config user.name "MSTR Evidence Builder"
+          git config user.email "evidence-builder@users.noreply.github.com"
+          git add --all
+          git commit -m "fix(mstr-000b): bind generated tests and integrity evidence"
+      - name: Install development gates
+        run: python -m pip install -e '.[dev]'
+      - name: Run focused B024 regression suite
+        run: |
+          python -m pytest \
+            tests/contract/test_test_generation_example_contract.py \
+            tests/contract/test_schemas.py \
+            tests/integration/test_cli_offline.py \
+            tests/contract/test_task_gate.py \
+            -q
+      - name: Validate offline schemas
+        run: python -m mstr_qualify validate
+      - name: Run full pytest
+        run: python -m pytest -q
+      - name: Run Ruff
+        run: python -m ruff check .
+      - name: Run strict mypy
+        run: python -m mypy src
+      - name: Re-prove remediation, canonical ordering, and authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp schemas/mstr-test-generation-example-v0.schema.json \
+              specs/002-code-model-supremacy-foundation/contracts/mstr-test-generation-example-v0.schema.json
+          grep -F 'TEST_PATHS_SUBSET_OF_CHANGED_PATHS = required' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F 'INTEGRITY_CHECK_EVIDENCE = required' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F 'INTEGRITY_CHECKER_MANIFEST = required' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F 'INTEGRITY_EVIDENCE_PATCH_BINDING = required' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F 'INTEGRITY_EVIDENCE_TEST_ARTIFACT_BINDING = required' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F 'MODEL_EXECUTION = NONE' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F 'WEIGHT_CHANGING_TRAINING = NONE' evidence/mstr-000b/B024-test-curriculum.md
+
+          candidate="$(git rev-parse HEAD)"
+          candidate_tree="$(git rev-parse HEAD^{tree})"
+          git fetch origin main
+          git switch --detach "$BASE_SHA"
+          git update-ref refs/heads/main "$BASE_SHA"
+          git update-ref refs/remotes/origin/main "$BASE_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          mstr-qualify task eligible B024 > /tmp/b024.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING"' /tmp/b024.json
+          set +e
+          mstr-qualify task eligible B026 > /tmp/b026.json
+          b026_rc=$?
+          mstr-qualify task eligible B011 > /tmp/b011.json
+          b011_rc=$?
+          set -e
+          test "$b026_rc" -eq 1
+          test "$b011_rc" -eq 1
+          jq -e '.eligible == false and ([.prerequisite_results[] | select(.task_id == "B024" and .satisfied == false)] | length == 1)' /tmp/b026.json
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+          git switch --detach "$candidate"
+          test "$(git rev-parse HEAD^{tree})" = "$candidate_tree"
+      - name: Guarded fast-forward publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$OLD_HEAD"
+          test "$(git rev-parse HEAD^)" = "$OLD_HEAD"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$(git rev-parse HEAD)"
+          echo "B024_PATCH_INTEGRITY_REPAIR_HEAD=$(git rev-parse HEAD)"
+          echo "B024_PATCH_INTEGRITY_REPAIR_TREE=$(git rev-parse HEAD^{tree})"
