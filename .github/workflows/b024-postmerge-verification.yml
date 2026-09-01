@@ -1,0 +1,157 @@
+name: Post-merge verification for B024 test-generation implementation
+
+on:
+  push:
+    branches:
+      - evidence/b024-postmerge-138a2c2
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: 138a2c2c1d86c050db79e3190ab24d7c1052fe44
+  EXPECTED_PARENT1: 1ffa71c94bda161ec7be7784de3a6a4be81570ad
+  EXPECTED_PARENT2: fc6b64fc68d629900b414e6e4ea01c5bdc0eaee2
+  EXPECTED_TREE: c368079e460ba43d6993fe3fa276cc46b4c2c192
+  PR_NUMBER: '135'
+
+jobs:
+  merge_identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+      - name: Verify exact implementation merge identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_PARENT1"
+          test "$(git rev-parse HEAD^2)" = "$EXPECTED_PARENT2"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg merge "$EXPECTED_MAIN" --arg head "$EXPECTED_PARENT2" '.state == "closed" and .merged == true and .merge_commit_sha == $merge and .head.sha == $head and .commits == 7 and .changed_files == 11' /tmp/pr.json
+
+  task_frontier:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove canonical drift and pre-closeout frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+
+          mstr-qualify task eligible B024 > /tmp/b024.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true' /tmp/b024.json
+
+          set +e
+          mstr-qualify task eligible B026 > /tmp/b026.json
+          b026_rc=$?
+          mstr-qualify task eligible B025 > /tmp/b025.json
+          b025_rc=$?
+          mstr-qualify task eligible B011 > /tmp/b011.json
+          b011_rc=$?
+          set -e
+          test "$b026_rc" -eq 1
+          test "$b025_rc" -eq 1
+          test "$b011_rc" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "PENDING" and (.reasons | index("prerequisite.unsatisfied:B024")) != null' /tmp/b026.json
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b025.json
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo 'B024_POSTMERGE_PENDING_ELIGIBLE=PASS'
+          echo 'B026_BLOCKED_ON_B024_CLOSEOUT=PASS'
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run canonical B024 quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest tests/contract/test_test_generation_example_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py tests/contract/test_task_gate.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          cmp schemas/mstr-test-generation-example-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-test-generation-example-v0.schema.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+
+  authority_boundary:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+      - name: Re-prove implementation authority boundary on canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          for marker in \
+            'MODEL_WEIGHT_ACCESS = NONE' \
+            'MODEL_EXECUTION = NONE' \
+            'TEST_GENERATION_EXECUTION = NONE' \
+            'VERIFIER_EXECUTION = NONE' \
+            'TEACHER_API_EXECUTION = NONE' \
+            'PAID_MODEL_API = NONE' \
+            'PAID_COMPUTE = NONE' \
+            'NETWORK_MODEL_OR_TEACHER_CALL = NONE' \
+            'LARGE_DATASET_INGESTION = NONE' \
+            'PRIVATE_USER_DATA_INGESTION = NONE' \
+            'PRODUCTION_TRACE_INGESTION = NONE' \
+            'WEIGHT_CHANGING_TRAINING = NONE' \
+            'LARGE_SCALE_RL = NONE' \
+            'PRODUCTION_RELEASE = NONE'; do
+            grep -F "$marker" evidence/mstr-000b/B024-test-curriculum.md
+          done
+          grep -F -- '- [ ] **B024 Freeze test-generation curriculum and acceptance semantics.**' specs/002-code-model-supremacy-foundation/tasks.md
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+
+  complete:
+    needs: [merge_identity, task_frontier, quality, authority_boundary]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+      - name: Final immutable canonical-main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_PARENT1"
+          test "$(git rev-parse HEAD^2)" = "$EXPECTED_PARENT2"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo "B024_POSTMERGE_MAIN=$EXPECTED_MAIN"
+          echo 'B024_CANONICAL_CLOSEOUT=NOT_YET_DONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
