@@ -1,7 +1,7 @@
 # A018 — Trajectory Recorder, Replay, and Admission
 
 **Task:** `A018`
-**State:** `IMPLEMENTATION_CANDIDATE`
+**State:** `COMPLETE_CANONICAL`
 **Canonical base:** `f222df1b939fc5db792021d6883d977014502dba`
 **Feature branch:** `feat/000a-a018-trajectory-factory`
 
@@ -149,10 +149,10 @@ tests/unit/trajectory/test_trajectory_factory.py
 evidence/mstr-000a/A018-trajectory-factory.md
 ```
 
-`specs/001-agent-harness-verified-loop-foundation/tasks.md` is intentionally
-unchanged in the implementation candidate. A018 may be marked complete only after
-governed implementation merge, successful post-merge proof, and a separate
-closeout.
+`specs/001-agent-harness-verified-loop-foundation/tasks.md` was intentionally
+unchanged by the implementation PR. A018 is marked complete only through this
+separate closeout after the governed implementation merge and successful
+post-merge proof.
 
 ## Test intent
 
@@ -193,7 +193,52 @@ A019_CONVERGENCE_EXECUTION = NOT_AUTHORIZED_BY_A018
 B023_VERIFIER_HEALTH_EVALUATOR = NOT_IMPLEMENTED_BY_A018
 ```
 
-## Qualification state
+## Canonical implementation lifecycle
 
-No qualification result is claimed by this implementation commit. Fresh exact-head
-hosted qualification is required before review or merge.
+The complete immutable A018 implementation evidence chain is:
+
+```text
+FINAL_FEATURE_HEAD = fc04967b2cbe874489f3b09a38fb80c1650f2461
+FINAL_FEATURE_TREE = 047b1b36bd83ce6fbfd52de97e3e38fa52db7d32
+IMPLEMENTATION_PR = 122
+FAILED_QUALIFICATION_1 = 33490868295 / FAILURE / RUFF_UP035_IMPORT_LOCATION / PRESERVED
+FAILED_QUALIFICATION_2 = 33491198294 / FAILURE / MYPY_NO_ANY_RETURN / PRESERVED
+FINAL_QUALIFICATION = 33491507890 / SUCCESS
+INDEPENDENT_REVIEW = 5076280749 / NO_BLOCKING_FINDING
+MANDATORY_PREMERGE = 33491799986 / SUCCESS
+IMPLEMENTATION_MERGE = b34a17441c24712144ce21b64c41ec18eeb12352
+IMPLEMENTATION_MERGE_TREE = 047b1b36bd83ce6fbfd52de97e3e38fa52db7d32
+IMPLEMENTATION_MERGE_PARENT_1 = f222df1b939fc5db792021d6883d977014502dba
+IMPLEMENTATION_MERGE_PARENT_2 = fc04967b2cbe874489f3b09a38fb80c1650f2461
+POST_MERGE_PROOF = 33492060094 / SUCCESS
+A018_STATE = COMPLETE_CANONICAL
+A019_STATE = PENDING_CONVERGENCE_GATED
+```
+
+The first failed qualification reached the A018 focused tests, offline schema
+validation, and full pytest successfully before Ruff reported `UP035`. The second
+failed qualification passed the focused tests, schema validation, full pytest, and
+Ruff before strict mypy reported `no-any-return`. Neither failed run is reused as
+PASS evidence.
+
+The final exact-head qualification `33491507890` re-proved exact identity/scope,
+11 focused A018 tests, offline schema validation, 1074 full tests, Ruff, strict
+mypy, and the immutable candidate/main recheck. Independent exact-head review
+`5076280749` found no blocking defect. Mandatory premerge run `33491799986` then
+succeeded on the same implementation head.
+
+The guarded implementation merge `b34a17441c24712144ce21b64c41ec18eeb12352`
+has the exact final feature tree and parents shown above. Post-merge proof
+`33492060094` re-proved merge identity/topology, PR/evidence identity, the focused
+A018 tests, offline schema validation, the full test suite, Ruff, strict mypy, and
+the final immutable canonical-main identity.
+
+This closeout changes only A018 evidence/task state. It does not satisfy or bypass
+A019/A020 convergence prerequisites, implement B023 verifier-health evaluation, or
+grant any model-weight, training, paid-compute, data-ingestion, RL, or release
+authority.
+
+> `COMPLETE_CANONICAL` becomes canonical only if this exact two-file closeout head
+> is itself freshly qualified, independently reviewed, mandatory-premerge verified,
+> guarded-merged with the expected head SHA, and successfully post-closeout proven
+> on canonical `main`.
