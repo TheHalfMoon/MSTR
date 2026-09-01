@@ -1,0 +1,366 @@
+name: B023 binding review finding repair builder
+
+on:
+  push:
+    branches:
+      - evidence/b023-binding-review-finding-repair-builder
+
+permissions:
+  contents: write
+
+env:
+  BASE_SHA: db12d1467bb81185a9affffb4d470626ceceddfa
+  SOURCE_HEAD: 77184a79e06879298dbfc0c031c44cf56a03957e
+  SOURCE_TREE: 3b9ccfd6857a7b1520c845601dcef6e52cfc2ab4
+  SOURCE_BRANCH: fix/b023-cross-workstream-bindings-atomic-20260901
+  TARGET_BRANCH: fix/b023-cross-workstream-bindings-hardened-atomic-20260901
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify live base and reviewed source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote_main="$(git ls-remote origin refs/heads/main | cut -f1)"
+          remote_source="$(git ls-remote origin refs/heads/$SOURCE_BRANCH | cut -f1)"
+          test "$remote_main" = "$BASE_SHA"
+          test "$remote_source" = "$SOURCE_HEAD"
+          git fetch origin "$SOURCE_BRANCH"
+          test "$(git rev-parse "$SOURCE_HEAD^{tree}")" = "$SOURCE_TREE"
+          test -z "$(git ls-remote origin refs/heads/$TARGET_BRANCH)"
+
+      - name: Construct fresh four-file candidate from canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -B "$TARGET_BRANCH" "$BASE_SHA"
+          git checkout "$SOURCE_HEAD" -- \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md \
+            src/mstr_qualify/task_gate.py \
+            tests/contract/test_task_gate.py
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          config_path = Path('configs/task-gate/mstr-000b.json')
+          catalog = json.loads(config_path.read_text())
+          for task_id in ('A006', 'A014'):
+              binding = catalog['external_prerequisites'][task_id]
+              binding['task_identity'] = f"MSTR-000A / {task_id}"
+          config_path.write_text(json.dumps(catalog, indent=2) + '\n')
+
+          source_path = Path('src/mstr_qualify/task_gate.py')
+          source = source_path.read_text()
+
+          sentinel = '_MISSING_POOL_SENTINEL = "MISSING_CANDIDATE_POOL_REQUIREMENT_ID"\n'
+          addition = '''_MISSING_POOL_SENTINEL = "MISSING_CANDIDATE_POOL_REQUIREMENT_ID"\n_EXTERNAL_WORKSTREAM_TASK_FILES = {\n    "MSTR-000A": "specs/001-agent-harness-verified-loop-foundation/tasks.md",\n}\n_EXTERNAL_WORKSTREAM_EVIDENCE_PREFIXES = {\n    "MSTR-000A": ("evidence", "mstr-000a"),\n}\n'''
+          assert source.count(sentinel) == 1
+          source = source.replace(sentinel, addition, 1)
+
+          old_extract = '''        workstream = binding.get("workstream_id")\n        external_tasks_file = binding.get("tasks_file")\n        state_evidence = binding.get("state_evidence")\n'''
+          new_extract = '''        workstream = binding.get("workstream_id")\n        task_identity = binding.get("task_identity")\n        external_tasks_file = binding.get("tasks_file")\n        state_evidence = binding.get("state_evidence")\n'''
+          assert source.count(old_extract) == 1
+          source = source.replace(old_extract, new_extract, 1)
+
+          old_workstream = '''        if not isinstance(workstream, str) or not workstream:\n            raise QualificationError(\n                "external prerequisite workstream_id is invalid",\n                code="task_gate.catalog_external_workstream",\n                details={"task_id": external_task_id},\n            )\n'''
+          new_workstream = old_workstream + '''        expected_task_identity = f"{workstream} / {external_task_id}"\n        if task_identity != expected_task_identity:\n            raise QualificationError(\n                "external prerequisite task_identity is invalid",\n                code="task_gate.catalog_external_task_identity",\n                details={\n                    "task_id": external_task_id,\n                    "expected": expected_task_identity,\n                    "observed": task_identity,\n                },\n            )\n'''
+          assert source.count(old_workstream) == 1
+          source = source.replace(old_workstream, new_workstream, 1)
+
+          old_paths = '''        _repository_path(root, external_tasks_file, field="external prerequisite tasks_file")\n        _repository_path(root, state_evidence, field="external prerequisite state_evidence")\n        for evidence_output in evidence_outputs:\n            _repository_path(root, evidence_output, field="external prerequisite evidence")\n'''
+          new_paths = old_paths + '''        expected_tasks_file = _EXTERNAL_WORKSTREAM_TASK_FILES.get(workstream)\n        evidence_prefix = _EXTERNAL_WORKSTREAM_EVIDENCE_PREFIXES.get(workstream)\n        if expected_tasks_file is None or evidence_prefix is None:\n            raise QualificationError(\n                "external prerequisite workstream is unsupported",\n                code="task_gate.catalog_external_workstream_unsupported",\n                details={"task_id": external_task_id, "workstream_id": workstream},\n            )\n        if external_tasks_file != expected_tasks_file:\n            raise QualificationError(\n                "external prerequisite tasks_file does not belong to workstream",\n                code="task_gate.catalog_external_workstream_tasks_file",\n                details={\n                    "task_id": external_task_id,\n                    "workstream_id": workstream,\n                    "expected": expected_tasks_file,\n                    "observed": external_tasks_file,\n                },\n            )\n        bound_evidence_paths = [state_evidence, *evidence_outputs]\n        if any(\n            Path(raw).parts[: len(evidence_prefix)] != evidence_prefix\n            for raw in bound_evidence_paths\n        ):\n            raise QualificationError(\n                "external prerequisite evidence path does not belong to workstream",\n                code="task_gate.catalog_external_workstream_evidence",\n                details={\n                    "task_id": external_task_id,\n                    "workstream_id": workstream,\n                    "paths": bound_evidence_paths,\n                },\n            )\n'''
+          assert source.count(old_paths) == 1
+          source = source.replace(old_paths, new_paths, 1)
+
+          start = source.index('def _external_evidence_claims(')
+          end = source.index('\ndef _external_prerequisite_result(', start)
+          hardened = '''def _external_evidence_claims(\n    catalog: TaskCatalog, task_id: str, binding: dict[str, Any]\n) -> tuple[bool, bool]:\n    raw = binding["state_evidence"]\n    path = _repository_path(\n        catalog.repository_root, raw, field="external prerequisite state_evidence"\n    )\n    resolved = _contained_existing_path(catalog.repository_root, path)\n    if resolved is None or not resolved.is_file():\n        return False, False\n    try:\n        evidence_text = resolved.read_text(encoding="utf-8")\n    except OSError:\n        return False, False\n    task_matches = list(\n        re.finditer(\n            r"^\\*\\*Task:\\*\\*\\s*`(?P<task>[^`]+)`\\s*$",\n            evidence_text,\n            re.MULTILINE,\n        )\n    )\n    state_matches = list(\n        re.finditer(\n            r"^\\*\\*State:\\*\\*\\s*`(?P<state>[^`]+)`\\s*$",\n            evidence_text,\n            re.MULTILINE,\n        )\n    )\n    if len(task_matches) != 1 or len(state_matches) != 1:\n        return False, False\n    declared_task = task_matches[0].group("task")\n    if " / " in declared_task:\n        declared_identity = declared_task\n    else:\n        declared_identity = f"{binding['workstream_id']} / {declared_task}"\n    identity_declared = declared_identity == binding["task_identity"]\n    state_declared = state_matches[0].group("state") == binding["required_state"]\n    return identity_declared, state_declared\n\n'''
+          source = source[:start] + hardened + source[end + 1:]
+          source_path.write_text(source)
+
+          tests_path = Path('tests/contract/test_task_gate.py')
+          tests = tests_path.read_text()
+          binding_marker = '''            "workstream_id": "MSTR-000A",\n            "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",\n'''
+          replacement = '''            "workstream_id": "MSTR-000A",\n            "task_identity": "MSTR-000A / A006",\n            "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",\n'''
+          assert tests.count(binding_marker) >= 2
+          tests = tests.replace(binding_marker, replacement)
+
+          extra_tests = r'''
+
+
+def _write_external_binding_fixture(root: Path, evidence_text: str) -> Path:
+    target_tasks = root / "specs" / "002-code-model-supremacy-foundation" / "tasks.md"
+    target_tasks.parent.mkdir(parents=True)
+    target_tasks.write_text("- [ ] **B001 Target task.**\n", encoding="utf-8")
+    external_tasks = (
+        root / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    )
+    external_tasks.parent.mkdir(parents=True)
+    external_tasks.write_text("- [x] **A006 External task.**\n", encoding="utf-8")
+    evidence = root / "evidence" / "mstr-000a" / "A006-finalizer.md"
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text(evidence_text, encoding="utf-8")
+    payload = {
+        "catalog_version": "mstr.task-catalog.v0",
+        "workstream_id": "MSTR-000B",
+        "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",
+        "defaults": {
+            "outputs": [],
+            "candidate_dependent": False,
+            "external_effect_class": "NO_EXTERNAL_EFFECT",
+            "parallel_safe": False,
+            "supersedes": [],
+            "superseded_by": [],
+            "closeout_rule": {
+                "terminal_states": ["COMPLETE_CANONICAL"],
+                "require_all_outputs": False,
+                "require_all_evidence_outputs": True,
+                "completion_requires_merge": True,
+            },
+        },
+        "tasks": {
+            "B001": {
+                "canonical_state": "PENDING",
+                "prerequisites": ["A006"],
+                "evidence_outputs": [],
+            }
+        },
+        "external_prerequisites": {
+            "A006": {
+                "workstream_id": "MSTR-000A",
+                "task_identity": "MSTR-000A / A006",
+                "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+                "state_evidence": "evidence/mstr-000a/A006-finalizer.md",
+                "evidence_outputs": ["evidence/mstr-000a/A006-finalizer.md"],
+                "required_state": "COMPLETE_CANONICAL",
+            }
+        },
+    }
+    catalog_path = root / "configs" / "task-gate" / "mstr-000b.json"
+    catalog_path.parent.mkdir(parents=True)
+    catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+    return catalog_path
+
+
+def test_external_prerequisite_split_identity_and_state_records_fail_closed(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `A006`\n**State:** `PENDING`\n"
+        "**Task:** `MSTR-000A / A014`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["observed_state"] is None
+    assert predecessor["evidence_present"] is False
+    assert predecessor["satisfied"] is False
+    assert "prerequisite.external_identity_unproven" in predecessor["reasons"]
+    assert "prerequisite.external_state_unproven" in predecessor["reasons"]
+
+
+def test_external_prerequisite_duplicate_identity_records_fail_closed(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `A006`\n**Task:** `MSTR-000A / A006`\n"
+        "**State:** `COMPLETE_CANONICAL`\n",
+    )
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["evidence_present"] is False
+    assert predecessor["satisfied"] is False
+    assert "prerequisite.external_identity_unproven" in predecessor["reasons"]
+
+
+def test_external_prerequisite_fully_qualified_identity_is_accepted(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is True
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["evidence_present"] is True
+    assert predecessor["satisfied"] is True
+
+
+def test_external_prerequisite_legacy_task_identity_requires_bound_namespace(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+    assert result["eligible"] is True
+
+    payload = json.loads(catalog_path.read_text(encoding="utf-8"))
+    binding = payload["external_prerequisites"]["A006"]
+    binding["state_evidence"] = "evidence/mstr-000b/A006-finalizer.md"
+    binding["evidence_outputs"] = ["evidence/mstr-000b/A006-finalizer.md"]
+    catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(QualificationError) as captured:
+        load_task_catalog(catalog_path, repository_root=tmp_path)
+    assert captured.value.code == "task_gate.catalog_external_workstream_evidence"
+
+
+def test_external_prerequisite_workstream_tasks_file_mismatch_is_rejected(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    payload = json.loads(catalog_path.read_text(encoding="utf-8"))
+    payload["external_prerequisites"]["A006"]["tasks_file"] = (
+        "specs/002-code-model-supremacy-foundation/tasks.md"
+    )
+    catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(QualificationError) as captured:
+        load_task_catalog(catalog_path, repository_root=tmp_path)
+    assert captured.value.code == "task_gate.catalog_external_workstream_tasks_file"
+
+
+def test_external_prerequisite_task_identity_binding_must_be_fully_qualified(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    payload = json.loads(catalog_path.read_text(encoding="utf-8"))
+    payload["external_prerequisites"]["A006"]["task_identity"] = "A006"
+    catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(QualificationError) as captured:
+        load_task_catalog(catalog_path, repository_root=tmp_path)
+    assert captured.value.code == "task_gate.catalog_external_task_identity"
+'''
+          tests += extra_tests
+          tests_path.write_text(tests)
+
+          evidence_path = Path(
+              'evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md'
+          )
+          evidence = evidence_path.read_text().rstrip()
+          evidence += '''\n\n## Independent-review hardening\n\nThe review repair binds each external prerequisite to an explicit fully qualified `task_identity`, permits only the repository-owned MSTR-000A checklist/evidence namespace for these v0 external bindings, and requires exactly one structured `Task` declaration plus exactly one structured `State` declaration in the bound canonical evidence. Duplicate or split identity/state records fail closed.\n\nA006's older canonical evidence uses the legacy bare `A006` task token. The gate qualifies that token only through the explicit `MSTR-000A / A006` binding plus the enforced MSTR-000A checklist and evidence namespace; a bare token cannot select another workstream or evidence namespace. A014 already declares the fully qualified identity directly.\n'''
+          evidence_path.write_text(evidence)
+          PY
+
+          git diff --check
+          expected="$(mktemp)"
+          actual="$(mktemp)"
+          cat >"$expected" <<'EOF'
+          configs/task-gate/mstr-000b.json
+          evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md
+          src/mstr_qualify/task_gate.py
+          tests/contract/test_task_gate.py
+          EOF
+          git diff --name-only "$BASE_SHA" | sort >"$actual"
+          sort -o "$expected" "$expected"
+          diff -u "$expected" "$actual"
+          grep -F -- '- [ ] **B023 Implement verifier-health evaluator on controlled fixtures.**' \
+            specs/002-code-model-supremacy-foundation/tasks.md
+
+      - name: Run complete frozen gates on repaired candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+
+      - name: Commit atomic candidate and prove prospective B023 gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'MSTR Evidence Builder'
+          git config user.email 'mstr-evidence-builder@users.noreply.github.com'
+          git add \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md \
+            src/mstr_qualify/task_gate.py \
+            tests/contract/test_task_gate.py
+          git commit -m 'fix(task-gate): harden external prerequisite identity binding'
+          candidate="$(git rev-parse HEAD)"
+          tree="$(git rev-parse HEAD^{tree})"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git diff --name-only "$BASE_SHA..HEAD" | wc -l)" -eq 4
+          test -z "$(git diff --name-only "$BASE_SHA..HEAD" | grep '^\.github/workflows/' || true)"
+          CANDIDATE_SHA="$candidate" python - <<'PY'
+          import os
+          from mstr_qualify.task_gate import evaluate_task_snapshot
+          candidate = os.environ['CANDIDATE_SHA']
+          result = evaluate_task_snapshot('B023', canonical_main=candidate)
+          assert result['eligible'] is True, result
+          prereqs = {row['task_id']: row for row in result['prerequisite_results']}
+          for task_id in ('A006', 'A014', 'B002', 'B022'):
+              assert prereqs[task_id]['satisfied'] is True, prereqs[task_id]
+          print('B023_PROSPECTIVE_ELIGIBILITY=PASS')
+          PY
+          echo "CANDIDATE_SHA=$candidate"
+          echo "CANDIDATE_TREE=$tree"
+
+      - name: Guarded push of new candidate branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote_main="$(git ls-remote origin refs/heads/main | cut -f1)"
+          remote_source="$(git ls-remote origin refs/heads/$SOURCE_BRANCH | cut -f1)"
+          remote_target="$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)"
+          test "$remote_main" = "$BASE_SHA"
+          test "$remote_source" = "$SOURCE_HEAD"
+          test -z "$remote_target"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          pushed="$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)"
+          test "$pushed" = "$(git rev-parse HEAD)"
+          echo "PUSHED_CANDIDATE_SHA=$pushed"
+          echo "PUSHED_CANDIDATE_TREE=$(git rev-parse HEAD^{tree})"
