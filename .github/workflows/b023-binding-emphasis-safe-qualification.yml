@@ -94,10 +94,10 @@ jobs:
           for name in required_tests:
               assert name in tests, name
           duplicate_assert = 'assert "prerequisite.external_state_unproven" in predecessor["reasons"]'
-          fenced_start = tests.index('def test_external_prerequisite_fenced_only_state_evidence_fails_closed')
-          fenced_end = tests.find('\ndef ', fenced_start + 4)
-          fenced_body = tests[fenced_start:] if fenced_end == -1 else tests[fenced_start:fenced_end]
-          assert fenced_body.count(duplicate_assert) == 1
+          block_start = tests.index('def test_external_prerequisite_missing_state_evidence_fails_closed')
+          block_end = tests.find('\ndef ', block_start + 4)
+          block = tests[block_start:] if block_end == -1 else tests[block_start:block_end]
+          assert block.count(duplicate_assert) == 1
           PY
 
   quality:
