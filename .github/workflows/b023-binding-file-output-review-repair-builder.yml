@@ -1,0 +1,159 @@
+name: B023 regular-file evidence-output repair builder
+
+on:
+  push:
+    branches: [evidence/b023-binding-file-output-review-repair-builder]
+
+permissions:
+  contents: write
+
+env:
+  BASE_SHA: db12d1467bb81185a9affffb4d470626ceceddfa
+  SOURCE_SHA: 96e9a958ba247ce3440bc3847d6cf72ba62c28ca
+  SOURCE_BRANCH: fix/b023-cross-workstream-bindings-emphasis-safe-atomic-20260901
+  TARGET_BRANCH: fix/b023-cross-workstream-bindings-file-output-safe-atomic-20260901
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify immutable inputs and target absence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$SOURCE_BRANCH"
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          test "$(git rev-parse "origin/$SOURCE_BRANCH")" = "$SOURCE_SHA"
+          if git ls-remote --exit-code --heads origin "$TARGET_BRANCH" >/dev/null 2>&1; then
+            echo "target branch already exists" >&2
+            exit 1
+          fi
+          echo "INPUT_IDENTITY=PASS"
+      - name: Reconstruct exact source candidate from canonical base
+        shell: bash
+        run: |
+          set -euo pipefail
+          git switch --detach "$BASE_SHA"
+          git checkout "$SOURCE_SHA" -- \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md \
+            src/mstr_qualify/task_gate.py \
+            tests/contract/test_task_gate.py
+      - name: Apply regular-file evidence-output hardening
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path('src/mstr_qualify/task_gate.py')
+          source = source_path.read_text(encoding='utf-8')
+          anchor = '''def _path_pattern_present(root: Path, raw: str) -> bool:\n    path = _repository_path(root, raw, field="task output")\n    if any(marker in raw for marker in ("*", "?", "[")):\n        matches = (Path(match) for match in glob.glob(str(path), recursive=True))\n        return any(\n            _contained_existing_path(root, match) is not None\n            for match in matches\n        )\n    return _contained_existing_path(root, path) is not None\n'''
+          assert source.count(anchor) == 1, source.count(anchor)
+          replacement = anchor + '''\n\ndef _external_evidence_output_present(root: Path, raw: str) -> bool:\n    """Require a repository-contained regular file for external evidence outputs."""\n\n    path = _repository_path(root, raw, field="external prerequisite evidence")\n    if any(marker in raw for marker in ("*", "?", "[")):\n        matches = (Path(match) for match in glob.glob(str(path), recursive=True))\n        return any(\n            (resolved := _contained_existing_path(root, match)) is not None\n            and resolved.is_file()\n            for match in matches\n        )\n    resolved = _contained_existing_path(root, path)\n    return resolved is not None and resolved.is_file()\n'''
+          source = source.replace(anchor, replacement, 1)
+          old_missing = '''    missing = [\n        raw\n        for raw in binding["evidence_outputs"]\n        if not _path_pattern_present(catalog.repository_root, raw)\n    ]\n'''
+          new_missing = '''    missing = [\n        raw\n        for raw in binding["evidence_outputs"]\n        if not _external_evidence_output_present(catalog.repository_root, raw)\n    ]\n'''
+          assert source.count(old_missing) == 1, source.count(old_missing)
+          source = source.replace(old_missing, new_missing, 1)
+          source_path.write_text(source, encoding='utf-8')
+
+          tests_path = Path('tests/contract/test_task_gate.py')
+          tests = tests_path.read_text(encoding='utf-8')
+          names = (
+              'test_external_prerequisite_literal_directory_evidence_output_fails_closed',
+              'test_external_prerequisite_glob_directory_evidence_output_fails_closed',
+          )
+          for name in names:
+              assert name not in tests, name
+          tests += '''\n\ndef test_external_prerequisite_literal_directory_evidence_output_fails_closed(\n    tmp_path: Path,\n) -> None:\n    catalog_path = _write_external_binding_fixture(\n        tmp_path,\n        "**Task:** `MSTR-000A / A006`\\n**State:** `COMPLETE_CANONICAL`\\n",\n    )\n    data = json.loads(catalog_path.read_text(encoding="utf-8"))\n    directory_output = "evidence/mstr-000a/supporting-artifact"\n    data["external_prerequisites"]["A006"]["evidence_outputs"].append(directory_output)\n    catalog_path.write_text(json.dumps(data), encoding="utf-8")\n    (tmp_path / directory_output).mkdir()\n\n    result = evaluate_task_snapshot(\n        "B001",\n        repository_root=tmp_path,\n        catalog_path=catalog_path,\n        canonical_main=_CANONICAL_MAIN,\n    )\n\n    assert result["eligible"] is False\n    predecessor = result["prerequisite_results"][0]\n    assert predecessor["evidence_present"] is False\n    assert predecessor["satisfied"] is False\n    assert "prerequisite.required_artifact_missing" in predecessor["reasons"]\n    assert f"missing:{directory_output}" in predecessor["reasons"]\n\n\ndef test_external_prerequisite_glob_directory_evidence_output_fails_closed(\n    tmp_path: Path,\n) -> None:\n    catalog_path = _write_external_binding_fixture(\n        tmp_path,\n        "**Task:** `MSTR-000A / A006`\\n**State:** `COMPLETE_CANONICAL`\\n",\n    )\n    data = json.loads(catalog_path.read_text(encoding="utf-8"))\n    glob_output = "evidence/mstr-000a/supporting-*"\n    data["external_prerequisites"]["A006"]["evidence_outputs"].append(glob_output)\n    catalog_path.write_text(json.dumps(data), encoding="utf-8")\n    (tmp_path / "evidence" / "mstr-000a" / "supporting-directory").mkdir()\n\n    result = evaluate_task_snapshot(\n        "B001",\n        repository_root=tmp_path,\n        catalog_path=catalog_path,\n        canonical_main=_CANONICAL_MAIN,\n    )\n\n    assert result["eligible"] is False\n    predecessor = result["prerequisite_results"][0]\n    assert predecessor["evidence_present"] is False\n    assert predecessor["satisfied"] is False\n    assert "prerequisite.required_artifact_missing" in predecessor["reasons"]\n    assert f"missing:{glob_output}" in predecessor["reasons"]\n'''
+          tests_path.write_text(tests, encoding='utf-8')
+
+          evidence_path = Path('evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md')
+          evidence = evidence_path.read_text(encoding='utf-8')
+          heading = '## Regular-file evidence-output hardening from independent review'
+          assert heading not in evidence
+          evidence += '''\n\n## Regular-file evidence-output hardening from independent review\n\nIndependent exact-head review of PR #129 found that external `evidence_outputs` reused the generic repository-path presence helper, which accepts an existing directory as present. An external prerequisite could therefore list a repository-contained directory as an additional evidence output and still satisfy the evidence-presence check. External prerequisite evidence outputs now use a dedicated verifier that requires every literal output to resolve to a repository-contained regular file and requires glob patterns to match at least one repository-contained regular file. The generic task-output presence helper is intentionally unchanged because non-external task contracts may have different output-shape semantics. Dedicated regressions cover both a literal directory and a glob that matches only a directory; both remain fail-closed with `prerequisite.required_artifact_missing`.\n'''
+          evidence_path.write_text(evidence, encoding='utf-8')
+          PY
+          git diff --check
+      - name: Verify exact four-file candidate scope and pending task ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md \
+            src/mstr_qualify/task_gate.py \
+            tests/contract/test_task_gate.py | sort >/tmp/expected
+          git diff --name-only "$BASE_SHA" | sort >/tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          test -z "$(git diff --name-only "$BASE_SHA" -- .github/workflows)"
+          test -z "$(git diff --name-only "$BASE_SHA" -- specs/002-code-model-supremacy-foundation/tasks.md)"
+          grep -F -- '- [ ] **B023 Implement verifier-health evaluator on controlled fixtures.**' specs/002-code-model-supremacy-foundation/tasks.md
+          echo "SCOPE=PASS"
+      - name: Install development gates
+        run: python -m pip install -e '.[dev]'
+      - name: Focused task-gate tests
+        run: python -m pytest tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py -q
+      - name: Offline schema validation
+        run: python -m mstr_qualify validate
+      - name: Full pytest
+        run: python -m pytest -q
+      - name: Ruff
+        run: python -m ruff check .
+      - name: Strict mypy
+        run: python -m mypy src
+      - name: Prospective B023 eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          from mstr_qualify.task_gate import evaluate_task_snapshot
+          result=evaluate_task_snapshot('B023',repository_root=Path.cwd(),catalog_path=Path('configs/task-gate/mstr-000b.json'),canonical_main='db12d1467bb81185a9affffb4d470626ceceddfa')
+          assert result['eligible'] is True, result
+          rows={x['task_id']:x for x in result['prerequisite_results']}
+          assert set(rows)=={'A006','A014','B002','B022'}, rows
+          assert all(rows[x]['satisfied'] is True for x in rows), rows
+          print('B023_PROSPECTIVE_ELIGIBLE=PASS')
+          PY
+      - name: Create one-parent atomic candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "MSTR Evidence Builder"
+          git config user.email "mstr-evidence-builder@users.noreply.github.com"
+          git add \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md \
+            src/mstr_qualify/task_gate.py \
+            tests/contract/test_task_gate.py
+          git commit -m "fix(task-gate): require file evidence outputs"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git rev-list --count "$BASE_SHA..HEAD")" -eq 1
+          echo "CANDIDATE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "CANDIDATE_TREE=$(git rev-parse HEAD^{tree})" >> "$GITHUB_ENV"
+      - name: Final guarded push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$SOURCE_BRANCH"
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          test "$(git rev-parse "origin/$SOURCE_BRANCH")" = "$SOURCE_SHA"
+          if git ls-remote --exit-code --heads origin "$TARGET_BRANCH" >/dev/null 2>&1; then
+            echo "target branch appeared during qualification" >&2
+            exit 1
+          fi
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$CANDIDATE_TREE"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "CANDIDATE_SHA=$CANDIDATE_SHA"
+          echo "CANDIDATE_TREE=$CANDIDATE_TREE"
+          echo "GUARDED_PUSH=PASS"
