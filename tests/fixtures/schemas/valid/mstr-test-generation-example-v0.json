@@ -61,6 +61,7 @@
   "generated_test_provenance": {
     "generator_identity": null,
     "lineage_identity": "fixture-lineage:b024-test-generation-v1",
+    "provenance_status": "COMPLETE",
     "source_class": "REPOSITORY_OWNED_FIXTURE",
     "source_identity": "TheHalfMoon/MSTR:b024-fixture",
     "source_revision": "1ffa71c94bda161ec7be7784de3a6a4be81570ad"
@@ -85,6 +86,11 @@
   },
   "schema_version": "mstr.test-generation-example.v0",
   "task_identity": "fixture-task:config-export-bug",
-  "verifier_health_class": "HEALTHY",
-  "verifier_health_id": "fixture-verifier-health:healthy-v1"
+  "verifier_health_binding": {
+    "health_class": "HEALTHY",
+    "schema_version": "mstr.verifier-health.v0",
+    "task_identity": "fixture-task:config-export-bug",
+    "verifier_health_id": "fixture-verifier-health:healthy-v1",
+    "verifier_manifest_id": "fixture-verifier-manifest-v1"
+  }
 }

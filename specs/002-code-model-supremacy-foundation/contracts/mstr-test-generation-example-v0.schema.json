@@ -110,6 +110,13 @@
         "lineage_identity": {
           "$ref": "#/$defs/identity"
         },
+        "provenance_status": {
+          "enum": [
+            "COMPLETE",
+            "INCOMPLETE",
+            "UNRESOLVED"
+          ]
+        },
         "source_class": {
           "enum": [
             "REPOSITORY_OWNED_FIXTURE",
@@ -131,7 +138,8 @@
         "source_identity",
         "source_revision",
         "lineage_identity",
-        "generator_identity"
+        "generator_identity",
+        "provenance_status"
       ],
       "type": "object"
     },
@@ -170,6 +178,41 @@
     "sha256": {
       "pattern": "^[0-9a-f]{64}$",
       "type": "string"
+    },
+    "verifier_health_binding": {
+      "additionalProperties": false,
+      "properties": {
+        "health_class": {
+          "enum": [
+            "HEALTHY",
+            "PARTIAL",
+            "DISAGREEMENT",
+            "BROKEN",
+            "LEAKED",
+            "TAMPERED"
+          ]
+        },
+        "schema_version": {
+          "const": "mstr.verifier-health.v0"
+        },
+        "task_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "verifier_health_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "verifier_manifest_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "schema_version",
+        "verifier_health_id",
+        "task_identity",
+        "verifier_manifest_id",
+        "health_class"
+      ],
+      "type": "object"
     }
   },
   "$id": "https://mstr.local/schemas/mstr-test-generation-example-v0.json",
@@ -225,6 +268,13 @@
               }
             }
           },
+          "generated_test_provenance": {
+            "properties": {
+              "provenance_status": {
+                "const": "COMPLETE"
+              }
+            }
+          },
           "generated_test_rights_decision": {
             "properties": {
               "decision": {
@@ -261,8 +311,12 @@
               }
             }
           },
-          "verifier_health_class": {
-            "const": "HEALTHY"
+          "verifier_health_binding": {
+            "properties": {
+              "health_class": {
+                "const": "HEALTHY"
+              }
+            }
           }
         }
       }
@@ -397,6 +451,76 @@
                     "METAMORPHIC"
                   ]
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "generated_test_provenance": {
+            "properties": {
+              "source_class": {
+                "enum": [
+                  "SYNTHETIC_VERIFIED",
+                  "STUDENT_GENERATED",
+                  "TEACHER_GENERATED"
+                ]
+              }
+            },
+            "required": [
+              "source_class"
+            ]
+          }
+        },
+        "required": [
+          "generated_test_provenance"
+        ]
+      },
+      "then": {
+        "properties": {
+          "generated_test_provenance": {
+            "properties": {
+              "generator_identity": {
+                "$ref": "#/$defs/identity"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mutation_strength": {
+            "properties": {
+              "status": {
+                "const": "ADEQUATE"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "mutation_strength"
+        ]
+      },
+      "then": {
+        "properties": {
+          "mutation_strength": {
+            "properties": {
+              "evidence_identity": {
+                "$ref": "#/$defs/identity"
+              },
+              "mutants_evaluated": {
+                "minimum": 1
+              },
+              "mutants_killed": {
+                "minimum": 1
               }
             }
           }
@@ -644,18 +768,8 @@
     "task_identity": {
       "$ref": "#/$defs/identity"
     },
-    "verifier_health_class": {
-      "enum": [
-        "HEALTHY",
-        "PARTIAL",
-        "DISAGREEMENT",
-        "BROKEN",
-        "LEAKED",
-        "TAMPERED"
-      ]
-    },
-    "verifier_health_id": {
-      "$ref": "#/$defs/identity"
+    "verifier_health_binding": {
+      "$ref": "#/$defs/verifier_health_binding"
     }
   },
   "required": [
@@ -672,8 +786,7 @@
     "behavioral_proof",
     "integrity_checks",
     "mutation_strength",
-    "verifier_health_id",
-    "verifier_health_class",
+    "verifier_health_binding",
     "admission_decision",
     "admission_reasons"
   ],

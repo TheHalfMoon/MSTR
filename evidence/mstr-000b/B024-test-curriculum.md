@@ -37,7 +37,11 @@ SAME_ENVIRONMENT_PRE_POST = required
 SAME_VERIFIER_MANIFEST_PRE_POST = required
 ADMIT_REQUIRES_COMPATIBLE_RIGHTS = true
 ADMIT_REQUIRES_CLEAR_CONTAMINATION = true
+ADMIT_REQUIRES_COMPLETE_PROVENANCE = true
+GENERATED_SOURCE_REQUIRES_GENERATOR_IDENTITY = true
 ADMIT_REQUIRES_HEALTHY_VERIFIER = true
+VERIFIER_HEALTH_BINDING_TO_TASK_AND_EXECUTED_MANIFEST = required
+ADEQUATE_MUTATION_REQUIRES_NONZERO_EVIDENCE = true
 ADMIT_REQUIRES_PROTECTED_PATH_INTEGRITY = true
 ANSWER_ENCODING = prohibited
 TEST_WEAKENING = prohibited
@@ -80,3 +84,14 @@ B024_AUTHORITY = TEST_GENERATION_CONTRACT_AND_FIXTURES_ONLY
 ## Completion boundary
 
 This is implementation evidence only. B024 remains `PENDING` and its checkbox remains open until governed implementation merge, post-merge verification, and a separate canonical closeout.
+
+
+## Independent review remediation
+
+Codex independent review `5081151219` on reviewed commit `f052704cdb` identified three P1 fail-closed defects. This repair candidate addresses all three without changing task state or authority:
+
+1. generated source classes now require a concrete generator identity, and clean-positive admission requires explicit `COMPLETE` provenance;
+2. verifier health is represented as a canonical binding whose task identity and verifier manifest must match the exact executed proof;
+3. `ADEQUATE` mutation strength now requires concrete evidence plus nonzero evaluated and killed mutation counts.
+
+Regression tests reproduce each reviewed defect and require the repaired behavior. A new exact-head qualification and independent review are still required after this repair; the prior qualification and review do not transfer to the repaired head.

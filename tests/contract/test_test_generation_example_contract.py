@@ -72,7 +72,7 @@ def test_b024_admit_rejects_deleted_or_protected_test_changes() -> None:
 )
 def test_b024_clean_admit_requires_healthy_verifier(health: str) -> None:
     value = fixture()
-    value["verifier_health_class"] = health
+    value["verifier_health_binding"]["health_class"] = health
     assert validation_errors("mstr-test-generation-example-v0", value)
 
 
@@ -168,6 +168,62 @@ def test_b024_rejected_records_require_reasons() -> None:
     value["admission_reasons"] = ["fixture.reject"]
     validate_instance("mstr-test-generation-example-v0", value)
 
+
+
+def test_b024_admit_requires_complete_generated_test_provenance() -> None:
+    value = fixture()
+    value["generated_test_provenance"]["provenance_status"] = "UNRESOLVED"
+    assert validation_errors("mstr-test-generation-example-v0", value)
+
+
+def test_b024_generated_sources_require_generator_identity() -> None:
+    value = fixture()
+    provenance = value["generated_test_provenance"]
+    assert isinstance(provenance, dict)
+    provenance["source_class"] = "STUDENT_GENERATED"
+    provenance["generator_identity"] = None
+    assert validation_errors("mstr-test-generation-example-v0", value)
+    provenance["generator_identity"] = "student-generator:fixture-v1"
+    validate_instance("mstr-test-generation-example-v0", value)
+
+
+def test_b024_verifier_health_binding_matches_task_and_executed_verifier() -> None:
+    value = fixture()
+    binding = value["verifier_health_binding"]
+    assert isinstance(binding, dict)
+    binding["task_identity"] = "other-task"
+    assert any(
+        "verifier_health_binding.task_identity" in error
+        for error in validation_errors("mstr-test-generation-example-v0", value)
+    )
+
+    value = fixture()
+    binding = value["verifier_health_binding"]
+    assert isinstance(binding, dict)
+    binding["verifier_manifest_id"] = "other-verifier"
+    assert any(
+        "must match executed verifier manifest" in error
+        for error in validation_errors("mstr-test-generation-example-v0", value)
+    )
+
+
+def test_b024_adequate_mutation_strength_requires_real_evidence() -> None:
+    value = fixture()
+    value["mutation_strength"] = {
+        "status": "ADEQUATE",
+        "evidence_identity": None,
+        "mutants_evaluated": 0,
+        "mutants_killed": 0,
+    }
+    assert validation_errors("mstr-test-generation-example-v0", value)
+
+    value["mutation_strength"] = {
+        "status": "ADEQUATE",
+        "evidence_identity": "fixture-mutation:v1",
+        "mutants_evaluated": 2,
+        "mutants_killed": 1,
+    }
+    validate_instance("mstr-test-generation-example-v0", value)
 
 def test_b024_schema_has_no_remote_reference() -> None:
     schema = json.loads(

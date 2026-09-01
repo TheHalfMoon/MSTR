@@ -48,14 +48,14 @@ Every `mstr.test-generation-example.v0` record binds:
 - a behavior contract and declared test classes;
 - generated test patch SHA-256 and test artifact SHA-256;
 - changed/test paths plus any deleted-test or protected-path changes;
-- generated-test provenance and immutable lineage;
+- generated-test provenance, explicit completeness state, immutable lineage, and generator identity for generated source classes;
 - a concrete rights decision for MSTR training/evaluation use;
 - benchmark/hidden-answer/future-history/cross-split contamination evidence;
 - pre-fix and post-fix execution evidence;
 - environment and verifier-manifest identity;
 - answer-encoding, test-weakening, evaluator-modification, and protected-path checks;
 - optional mutation-strength evidence;
-- exact verifier-health identity and class;
+- exact verifier-health binding across health-record id, task identity, executed verifier manifest, and class;
 - deterministic admission decision and reasons.
 
 ## Behavioral proof
@@ -119,7 +119,7 @@ The contract rejects clean-positive admission for examples that:
 
 ## Relationship to verifier health
 
-B023 is canonical before B024 entry. B024 records an exact verifier-health identity/class but does not create a second health authority and does not execute the B023 evaluator. Downstream admission must consume canonical verifier-health evidence and may not infer `HEALTHY` from a passing test process alone.
+B023 is canonical before B024 entry. B024 records an exact verifier-health binding but does not create a second health authority and does not execute the B023 evaluator. Downstream admission must consume canonical verifier-health evidence and may not infer `HEALTHY` from a passing test process alone.
 
 ## Non-authorities
 

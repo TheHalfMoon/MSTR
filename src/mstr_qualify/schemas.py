@@ -450,11 +450,15 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
     errors: list[str] = []
     patch = instance.get("generated_test_patch")
     proof = instance.get("behavioral_proof")
+    pre: dict[str, Any] | None = None
+    post: dict[str, Any] | None = None
     if isinstance(patch, dict) and isinstance(proof, dict):
         artifact_sha = patch.get("test_artifact_sha256")
-        pre = proof.get("pre_fix_result")
-        post = proof.get("post_fix_result")
-        if isinstance(pre, dict) and isinstance(post, dict):
+        raw_pre = proof.get("pre_fix_result")
+        raw_post = proof.get("post_fix_result")
+        if isinstance(raw_pre, dict) and isinstance(raw_post, dict):
+            pre = raw_pre
+            post = raw_post
             for label, result in (("pre_fix_result", pre), ("post_fix_result", post)):
                 if result.get("task_identity") != instance.get("task_identity"):
                     errors.append(
@@ -481,6 +485,48 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
                 errors.append(
                     "$.behavioral_proof: pre/post verifier_manifest_id must match"
                 )
+
+    provenance = instance.get("generated_test_provenance")
+    if isinstance(provenance, dict):
+        if (
+            instance.get("admission_decision") == "ADMIT"
+            and provenance.get("provenance_status") != "COMPLETE"
+        ):
+            errors.append(
+                "$.generated_test_provenance.provenance_status: ADMIT requires COMPLETE provenance"
+            )
+        if provenance.get("source_class") in {
+            "SYNTHETIC_VERIFIED",
+            "STUDENT_GENERATED",
+            "TEACHER_GENERATED",
+        }:
+            generator_identity = provenance.get("generator_identity")
+            if not isinstance(generator_identity, str) or not generator_identity:
+                errors.append(
+                    "$.generated_test_provenance.generator_identity: generated source classes "
+                    "require generator identity"
+                )
+
+    verifier_health = instance.get("verifier_health_binding")
+    if isinstance(verifier_health, dict):
+        if verifier_health.get("task_identity") != instance.get("task_identity"):
+            errors.append(
+                "$.verifier_health_binding.task_identity: must match task_identity"
+            )
+        if pre is not None and verifier_health.get("verifier_manifest_id") != pre.get(
+            "verifier_manifest_id"
+        ):
+            errors.append(
+                "$.verifier_health_binding.verifier_manifest_id: "
+                "must match executed verifier manifest"
+            )
+        if post is not None and verifier_health.get("verifier_manifest_id") != post.get(
+            "verifier_manifest_id"
+        ):
+            errors.append(
+                "$.verifier_health_binding.verifier_manifest_id: "
+                "must match executed verifier manifest"
+            )
 
     behavior = instance.get("behavior_contract")
     if isinstance(behavior, dict):
@@ -515,8 +561,25 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
             and killed > evaluated
         ):
             errors.append("$.mutation_strength.mutants_killed: cannot exceed mutants_evaluated")
+        if mutation.get("status") == "ADEQUATE":
+            if not isinstance(mutation.get("evidence_identity"), str) or not mutation.get(
+                "evidence_identity"
+            ):
+                errors.append(
+                    "$.mutation_strength.evidence_identity: ADEQUATE requires concrete evidence"
+                )
+            if not isinstance(evaluated, int) or isinstance(evaluated, bool) or evaluated < 1:
+                errors.append(
+                    "$.mutation_strength.mutants_evaluated: ADEQUATE requires at least one mutant"
+                )
+            if not isinstance(killed, int) or isinstance(killed, bool) or killed < 1:
+                errors.append(
+                    "$.mutation_strength.mutants_killed: "
+                    "ADEQUATE requires at least one killed mutant"
+                )
 
     return tuple(sorted(errors))
+
 
 def _trajectory_manifest_semantic_errors(instance: Any) -> tuple[str, ...]:
     """Enforce A017 identity bindings without implementing A018 admission execution."""
