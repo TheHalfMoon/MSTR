@@ -1,0 +1,108 @@
+name: B023 emphasized-safe binding adversarial evidence
+
+on:
+  push:
+    branches: [evidence/b023-binding-emphasis-safe-review-96e9a95]
+
+permissions:
+  contents: read
+
+env:
+  BASE_SHA: db12d1467bb81185a9affffb4d470626ceceddfa
+  TARGET_SHA: 96e9a958ba247ce3440bc3847d6cf72ba62c28ca
+  TARGET_TREE: 739f0c3e1831f363a30c710cbe058363bafd8ca8
+  TARGET_BRANCH: fix/b023-cross-workstream-bindings-emphasis-safe-atomic-20260901
+  QUALIFICATION_RUN: '33515209459'
+
+jobs:
+  evidence:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify exact reviewed head and qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_SHA"
+          python - <<'PY'
+          import json, urllib.request
+          run=json.load(urllib.request.urlopen('https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/33515209459'))
+          assert run['status']=='completed' and run['conclusion']=='success', run
+          print('QUALIFICATION_BINDING=PASS')
+          PY
+      - name: Verify scope and pending authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' configs/task-gate/mstr-000b.json evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md src/mstr_qualify/task_gate.py tests/contract/test_task_gate.py | sort >/tmp/expected
+          git diff --name-only "$BASE_SHA...$TARGET_SHA" | sort >/tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          git diff --check "$BASE_SHA...$TARGET_SHA"
+          grep -F -- '- [ ] **B023 Implement verifier-health evaluator on controlled fixtures.**' specs/002-code-model-supremacy-foundation/tasks.md
+      - name: Install candidate
+        run: python -m pip install -e '.[dev]'
+      - name: Adversarial parser probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from mstr_qualify.task_gate import _markdown_without_fenced_code
+          cases=[
+            ('before\n```markdown\n**Task:** `MSTR-000A / A006`\n```\nafter\n','before\nafter\n'),
+            ('before\n~~~text\n- [x] **A006 Example.**\n~~~\nafter\n','before\nafter\n'),
+            ('before\r\n```markdown\r\ninside\r\n```\r\nafter\r\n','before\r\nafter\r\n'),
+            ('before\n````markdown\ninside\n```\nstill-inside\n````\nafter\n','before\nafter\n'),
+            ('before\n```markdown\ninside\nunclosed\n','before\n'),
+          ]
+          for raw, expected in cases:
+            assert _markdown_without_fenced_code(raw)==expected
+          print('FENCED_PROBES=PASS')
+          PY
+      - name: External binding adversarial regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py -q -k 'external_prerequisite or b023'
+          python -m pytest tests/contract/test_task_gate.py -q -k 'emphasized_duplicate or fenced or non_utf8 or duplicate_external or split_external'
+      - name: Prospective exact-candidate eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          from mstr_qualify.task_gate import evaluate_task_snapshot
+          result=evaluate_task_snapshot('B023',repository_root=Path.cwd(),catalog_path=Path('configs/task-gate/mstr-000b.json'),canonical_main='db12d1467bb81185a9affffb4d470626ceceddfa')
+          assert result['eligible'] is True, result
+          rows={x['task_id']:x for x in result['prerequisite_results']}
+          assert set(rows)=={'A006','A014','B002','B022'}, rows
+          assert all(rows[x]['satisfied'] is True for x in rows), rows
+          print('B023_PROSPECTIVE_ELIGIBILITY=PASS')
+          PY
+      - name: Re-run frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+      - name: Final immutable recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_SHA"
+          echo 'SUPPLEMENTAL_ADVERSARIAL_EVIDENCE=PASS'
