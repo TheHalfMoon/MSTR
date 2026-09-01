@@ -64,7 +64,7 @@ def _replayed_raw(events: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _recovery_count(events: Sequence[Mapping[str, Any]]) -> int:
-    explicit = sum(event.get("event_type") == "recovery.started" for event in events)
+    explicit = sum(1 for event in events if event.get("event_type") == "recovery.started")
 
     verifier_history: dict[str, list[str]] = {}
     for event in events:
