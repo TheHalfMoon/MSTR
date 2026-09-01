@@ -40,4 +40,12 @@ if source.count(old_classes) != 1:
     raise RuntimeError("B024 malformed-class hardening patch anchor mismatch")
 source = source.replace(old_classes, new_classes)
 
+old_cli_order = '''    '        "mstr-task-node-v0",\\n        "mstr-test-generation-example-v0",\\n        "mstr-teacher-rescue-record-v0",\\n',
+'''
+new_cli_order = '''    '        "mstr-task-node-v0",\\n        "mstr-teacher-rescue-record-v0",\\n        "mstr-test-generation-example-v0",\\n',
+'''
+if source.count(old_cli_order) != 1:
+    raise RuntimeError("B024 CLI schema-order patch anchor mismatch")
+source = source.replace(old_cli_order, new_cli_order)
+
 exec(compile(source, str(source_path), "exec"), {"__name__": "__main__"})
