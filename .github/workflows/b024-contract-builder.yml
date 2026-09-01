@@ -1,0 +1,146 @@
+name: Build and qualify atomic B024 test-generation contract
+
+on:
+  push:
+    branches:
+      - automation/b024-contract-builder-1ffa71c
+
+permissions:
+  contents: write
+  actions: read
+  pull-requests: read
+
+env:
+  BASE_SHA: 1ffa71c94bda161ec7be7784de3a6a4be81570ad
+  TARGET_BRANCH: feat/000b-b024-test-generation-curriculum
+  ENTRY_RUN: '33535987808'
+
+jobs:
+  build_validate_publish:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: repo
+    steps:
+      - name: Checkout evidence controller
+        uses: actions/checkout@v4
+        with:
+          path: evidence-src
+          fetch-depth: 0
+      - name: Checkout exact canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_SHA }}
+          path: repo
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: repo/pyproject.toml
+      - name: Verify immutable entry gate and unpublished target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test -z "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${ENTRY_RUN}" > /tmp/entry.json
+          jq -e '.status == "completed" and .conclusion == "success" and .name == "Verify B023 canonical closeout on exact main"' /tmp/entry.json
+      - name: Construct exact B024 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ../evidence-src/.github/evidence/b024_builder_driver.py \
+            ../evidence-src/.github/evidence/b024_contract_builder.py
+          printf '%s\n' \
+            docs/data/TEST_GENERATION_CURRICULUM.md \
+            evidence/mstr-000b/B024-test-curriculum.md \
+            schemas/mstr-test-generation-example-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-test-generation-example-v0.schema.json \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_schemas.py \
+            tests/contract/test_test_generation_example_contract.py \
+            tests/fixtures/schemas/invalid/mstr-test-generation-example-v0.json \
+            tests/fixtures/schemas/valid/mstr-test-generation-example-v0.json \
+            tests/integration/test_cli_offline.py | sort > /tmp/expected-files
+          git status --porcelain=v1 --untracked-files=all | sed 's/^...//' | sort > /tmp/status-files
+          diff -u /tmp/expected-files /tmp/status-files
+          git add --pathspec-from-file=/tmp/expected-files
+          git diff --cached --check
+          git diff --cached --name-only | sort > /tmp/staged-files
+          diff -u /tmp/expected-files /tmp/staged-files
+          git -c user.name='MSTR Evidence Builder' -c user.email='evidence-builder@users.noreply.github.com' \
+            commit -m 'feat(mstr-000b): freeze B024 test-generation curriculum'
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          echo "CANDIDATE_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "CANDIDATE_TREE=$(git rev-parse HEAD^{tree})" >> "$GITHUB_ENV"
+      - name: Install package and run focused B024 tests
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest \
+            tests/contract/test_test_generation_example_contract.py \
+            tests/contract/test_schemas.py \
+            tests/integration/test_cli_offline.py \
+            tests/contract/test_task_gate.py \
+            -q
+      - name: Validate offline schemas
+        run: python -m mstr_qualify validate
+      - name: Run full pytest
+        run: python -m pytest -q
+      - name: Run Ruff canonical gate
+        run: python -m ruff check .
+      - name: Run strict mypy canonical gate
+        run: python -m mypy src
+      - name: Prove B024 machine eligibility and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          git update-ref refs/heads/main "$BASE_SHA"
+          git update-ref refs/remotes/origin/main "$BASE_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          mstr-qualify task eligible B024 > /tmp/b024.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true' /tmp/b024.json
+          jq -e '[.prerequisite_results[] | select(.task_id == "B023" and .satisfied == true)] | length == 1' /tmp/b024.json
+
+          set +e
+          mstr-qualify task eligible B026 > /tmp/b026.json
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+          jq -e '.eligible == false and [.prerequisite_results[] | select(.task_id == "B024" and .satisfied == false)] | length == 1' /tmp/b026.json
+
+          set +e
+          mstr-qualify task eligible B011 > /tmp/b011.json
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+
+          grep -F 'MODEL_EXECUTION = NONE' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F 'TEST_GENERATION_EXECUTION = NONE' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F 'PAID_COMPUTE = NONE' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F 'WEIGHT_CHANGING_TRAINING = NONE' evidence/mstr-000b/B024-test-curriculum.md
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+      - name: Guarded publish of exact validated candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$CANDIDATE_TREE"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test -z "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)"
+          git diff --name-only "$BASE_SHA...$CANDIDATE_HEAD" | sort > /tmp/final-files
+          diff -u /tmp/expected-files /tmp/final-files
+          git diff --check "$BASE_SHA...$CANDIDATE_HEAD"
+          git push origin "$CANDIDATE_HEAD:refs/heads/$TARGET_BRANCH"
+          echo "B024_CANDIDATE_HEAD=$CANDIDATE_HEAD"
+          echo "B024_CANDIDATE_TREE=$CANDIDATE_TREE"
+          echo "B024_ATOMIC_BUILD=PASS"
+          echo "WEIGHT_CHANGING_TRAINING=NONE"
