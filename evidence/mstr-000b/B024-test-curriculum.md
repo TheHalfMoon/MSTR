@@ -132,3 +132,12 @@ Codex exact-head review `5081833125` on `42debeb1b464ca8edcad8c647fd99d0749efc36
 3. `NOT_APPLICABLE` mutation status is a true zero-run state: its `evidence_identity` must be `not-applicable:<explicit-justification>`, and both evaluated/killed counts must be exactly zero. Weak or executed mutation results cannot be relabeled N/A.
 
 Regression tests reproduce all three fail-open cases. Runtime/design schema byte identity is intentionally preserved because these are cross-field semantic bindings enforced by the existing offline semantic validator, not new structural schema fields. A fresh exact-head qualification and independent review are required after publication of this repair; no earlier qualification or review transfers to the new head.
+
+
+## Exact-head independent-evidence hardening
+
+Fresh independent review proved that a task-specific acceptance identity must not reuse either pre-fix or post-fix execution evidence and merely recompute the context digest. Semantic admission now requires the independent identity to be distinct from both execution-evidence identities while preserving the existing exact-context SHA-256 binding.
+
+```text
+TASK_SPECIFIC_ACCEPTANCE_INDEPENDENT_FROM_EXECUTION_EVIDENCE = required
+```

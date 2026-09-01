@@ -239,6 +239,45 @@ def test_b024_task_specific_binding_covers_task_revision_artifact_environment_ve
     )
 
 
+def test_b024_task_specific_independent_evidence_cannot_reuse_execution_evidence() -> None:
+    for source in ("pre_fix_result", "post_fix_result"):
+        value = task_specific_fixture()
+        proof = value["behavioral_proof"]
+        patch = value["generated_test_patch"]
+        assert isinstance(proof, dict)
+        assert isinstance(patch, dict)
+        post = proof["post_fix_result"]
+        result = proof[source]
+        assert isinstance(post, dict)
+        assert isinstance(result, dict)
+        evidence_identity = result["evidence_identity"]
+        assert isinstance(evidence_identity, str)
+        payload = {
+            "environment_identity": post["environment_identity"],
+            "execution_evidence_identity": post["evidence_identity"],
+            "independent_acceptance_evidence_identity": evidence_identity,
+            "revision": value["fix_revision"],
+            "task_identity": value["task_identity"],
+            "test_artifact_sha256": patch["test_artifact_sha256"],
+            "verifier_manifest_id": post["verifier_manifest_id"],
+        }
+        encoded = json.dumps(
+            payload,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        proof["independent_acceptance_evidence_identity"] = (
+            f"{evidence_identity}|binding-sha256:{hashlib.sha256(encoded).hexdigest()}"
+        )
+        errors = validation_errors("mstr-test-generation-example-v0", value)
+        assert any(
+            "independent acceptance evidence must be distinct from pre/post "
+            "execution evidence identities" in error
+            for error in errors
+        )
+
+
 def test_b024_mutation_accounting_and_strength_fail_closed() -> None:
     value = fixture()
     value["mutation_strength"] = {

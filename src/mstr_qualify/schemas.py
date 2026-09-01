@@ -536,6 +536,23 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
                     if evidence_identity is not None
                     else None
                 )
+                execution_evidence_identities = {
+                    value
+                    for value in (
+                        pre.get("evidence_identity"),
+                        post.get("evidence_identity"),
+                    )
+                    if isinstance(value, str)
+                }
+                if (
+                    evidence_identity is not None
+                    and evidence_identity in execution_evidence_identities
+                ):
+                    errors.append(
+                        "$.behavioral_proof.independent_acceptance_evidence_identity: "
+                        "TASK_SPECIFIC_BEHAVIOR independent acceptance evidence must be "
+                        "distinct from pre/post execution evidence identities"
+                    )
                 if raw_binding != expected_binding:
                     errors.append(
                         "$.behavioral_proof.independent_acceptance_evidence_identity: "
