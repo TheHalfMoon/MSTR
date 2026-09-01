@@ -1,0 +1,93 @@
+name: B023 fenced Markdown binding repair builder
+
+on:
+  push:
+    branches:
+      - evidence/b023-binding-fenced-markdown-repair-builder
+
+permissions:
+  contents: write
+
+env:
+  BASE_SHA: db12d1467bb81185a9affffb4d470626ceceddfa
+  SOURCE_SHA: 0227eea165096b7ae8ea3cc853de4b6f941807e4
+  SOURCE_TREE: 15f0000be34e8a9380349fdc240526cdc32e9965
+  SOURCE_BRANCH: fix/b023-cross-workstream-bindings-final-atomic-20260901
+  TARGET_BRANCH: fix/b023-cross-workstream-bindings-fenced-safe-atomic-20260901
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify exact live base and source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$SOURCE_BRANCH | cut -f1)" = "$SOURCE_SHA"
+          git fetch origin "$SOURCE_BRANCH"
+          test "$(git rev-parse "$SOURCE_SHA^{tree}")" = "$SOURCE_TREE"
+          test -z "$(git ls-remote origin refs/heads/$TARGET_BRANCH)"
+      - name: Construct fenced-safe four-file candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -B "$TARGET_BRANCH" "$BASE_SHA"
+          git checkout "$SOURCE_SHA" -- configs/task-gate/mstr-000b.json evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md src/mstr_qualify/task_gate.py tests/contract/test_task_gate.py
+          python -c "import base64;exec(base64.b64decode('ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpzb3VyY2VfcGF0aCA9IFBhdGgoInNyYy9tc3RyX3F1YWxpZnkvdGFza19nYXRlLnB5IikKc291cmNlID0gc291cmNlX3BhdGgucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpCmFuY2hvciA9ICgKICAgICJkZWYgX2V4dGVybmFsX3Rhc2tfY2hlY2tlZChcbiIKICAgICIgICAgY2F0YWxvZzogVGFza0NhdGFsb2csIHRhc2tfaWQ6IHN0ciwgYmluZGluZzogZGljdFtzdHIsIEFueV1cbiIKICAgICIpIC0+IGJvb2wgfCBOb25lOlxuIgopCmhlbHBlciA9ICgKICAgICJkZWYgX21hcmtkb3duX3dpdGhvdXRfZmVuY2VkX2NvZGUodGV4dDogc3RyKSAtPiBzdHI6XG4iCiAgICAiICAgIFwiXCJcIlJldHVybiBNYXJrZG93biB0ZXh0IHdpdGggZmVuY2VkIGNvZGUgYmxvY2tzIHJlbW92ZWQgZmFpbC1jbG9zZWQuXCJcIlwiXG5cbiIKICAgICIgICAgdmlzaWJsZTogbGlzdFtzdHJdID0gW11cbiIKICAgICIgICAgZmVuY2VfY2hhcjogc3RyIHwgTm9uZSA9IE5vbmVcbiIKICAgICIgICAgZmVuY2VfbGVuZ3RoID0gMFxuIgogICAgIiAgICBvcGVuZXIgPSByZS5jb21waWxlKHJcIl5bIFxcXFx0XXswLDN9KD9QPGZlbmNlPmB7Myx9fH57Myx9KVwiKVxuIgogICAgIiAgICBjbG9zZXIgPSByZS5jb21waWxlKHJcIl5bIFxcXFx0XXswLDN9KD9QPGZlbmNlPmB7Myx9fH57Myx9KVsgXFxcXHRdKiRcIilcblxuIgogICAgIiAgICBmb3IgbGluZSBpbiB0ZXh0LnNwbGl0bGluZXMoa2VlcGVuZHM9VHJ1ZSk6XG4iCiAgICAiICAgICAgICBsb2dpY2FsID0gbGluZS5yc3RyaXAoXCJcXFxcclxcXFxuXCIpXG4iCiAgICAiICAgICAgICBpZiBmZW5jZV9jaGFyIGlzIE5vbmU6XG4iCiAgICAiICAgICAgICAgICAgbWF0Y2ggPSBvcGVuZXIubWF0Y2gobG9naWNhbClcbiIKICAgICIgICAgICAgICAgICBpZiBtYXRjaCBpcyBOb25lOlxuIgogICAgIiAgICAgICAgICAgICAgICB2aXNpYmxlLmFwcGVuZChsaW5lKVxuIgogICAgIiAgICAgICAgICAgICAgICBjb250aW51ZVxuIgogICAgIiAgICAgICAgICAgIGZlbmNlID0gbWF0Y2guZ3JvdXAoXCJmZW5jZVwiKVxuIgogICAgIiAgICAgICAgICAgIGZlbmNlX2NoYXIgPSBmZW5jZVswXVxuIgogICAgIiAgICAgICAgICAgIGZlbmNlX2xlbmd0aCA9IGxlbihmZW5jZSlcbiIKICAgICIgICAgICAgICAgICBjb250aW51ZVxuXG4iCiAgICAiICAgICAgICBtYXRjaCA9IGNsb3Nlci5tYXRjaChsb2dpY2FsKVxuIgogICAgIiAgICAgICAgaWYgKFxuIgogICAgIiAgICAgICAgICAgIG1hdGNoIGlzIG5vdCBOb25lXG4iCiAgICAiICAgICAgICAgICAgYW5kIG1hdGNoLmdyb3VwKFwiZmVuY2VcIilbMF0gPT0gZmVuY2VfY2hhclxuIgogICAgIiAgICAgICAgICAgIGFuZCBsZW4obWF0Y2guZ3JvdXAoXCJmZW5jZVwiKSkgPj0gZmVuY2VfbGVuZ3RoXG4iCiAgICAiICAgICAgICApOlxuIgogICAgIiAgICAgICAgICAgIGZlbmNlX2NoYXIgPSBOb25lXG4iCiAgICAiICAgICAgICAgICAgZmVuY2VfbGVuZ3RoID0gMFxuXG4iCiAgICAiICAgIHJldHVybiBcIlwiLmpvaW4odmlzaWJsZSlcblxuXG4iCikgKyBhbmNob3IKYXNzZXJ0IHNvdXJjZS5jb3VudChhbmNob3IpID09IDEKc291cmNlID0gc291cmNlLnJlcGxhY2UoYW5jaG9yLCBoZWxwZXIsIDEpCgpvbGQgPSAiICAgIG1hdGNoZXMgPSBsaXN0KHBhdHRlcm4uZmluZGl0ZXIoZXh0ZXJuYWxfdGV4dCkpXG4iCm5ldyA9ICIgICAgbWF0Y2hlcyA9IGxpc3QocGF0dGVybi5maW5kaXRlcihfbWFya2Rvd25fd2l0aG91dF9mZW5jZWRfY29kZShleHRlcm5hbF90ZXh0KSkpXG4iCmFzc2VydCBzb3VyY2UuY291bnQob2xkKSA9PSAxCnNvdXJjZSA9IHNvdXJjZS5yZXBsYWNlKG9sZCwgbmV3LCAxKQoKb2xkX3Rhc2sgPSAoCiAgICAiICAgICAgICAgICAgZXZpZGVuY2VfdGV4dCxcbiIKICAgICIgICAgICAgICAgICByZS5NVUxUSUxJTkUsXG4iCiAgICAiICAgICAgICApXG4iCiAgICAiICAgIClcbiIKICAgICIgICAgc3RhdGVfbWF0Y2hlcyA9IGxpc3QoXG4iCikKbmV3X3Rhc2sgPSAoCiAgICAiICAgICAgICAgICAgX21hcmtkb3duX3dpdGhvdXRfZmVuY2VkX2NvZGUoZXZpZGVuY2VfdGV4dCksXG4iCiAgICAiICAgICAgICAgICAgcmUuTVVMVElMSU5FLFxuIgogICAgIiAgICAgICAgKVxuIgogICAgIiAgICApXG4iCiAgICAiICAgIHN0YXRlX21hdGNoZXMgPSBsaXN0KFxuIgopCmFzc2VydCBzb3VyY2UuY291bnQob2xkX3Rhc2spID09IDEKc291cmNlID0gc291cmNlLnJlcGxhY2Uob2xkX3Rhc2ssIG5ld190YXNrLCAxKQoKb2xkX3N0YXRlID0gKAogICAgIiAgICAgICAgICAgIGV2aWRlbmNlX3RleHQsXG4iCiAgICAiICAgICAgICAgICAgcmUuTVVMVElMSU5FLFxuIgogICAgIiAgICAgICAgKVxuIgogICAgIiAgICApXG4iCiAgICAiICAgIGlmIGxlbih0YXNrX21hdGNoZXMpICE9IDEgb3IgbGVuKHN0YXRlX21hdGNoZXMpICE9IDE6XG4iCikKbmV3X3N0YXRlID0gKAogICAgIiAgICAgICAgICAgIF9tYXJrZG93bl93aXRob3V0X2ZlbmNlZF9jb2RlKGV2aWRlbmNlX3RleHQpLFxuIgogICAgIiAgICAgICAgICAgIHJlLk1VTFRJTElORSxcbiIKICAgICIgICAgICAgIClcbiIKICAgICIgICAgKVxuIgogICAgIiAgICBpZiBsZW4odGFza19tYXRjaGVzKSAhPSAxIG9yIGxlbihzdGF0ZV9tYXRjaGVzKSAhPSAxOlxuIgopCmFzc2VydCBzb3VyY2UuY291bnQob2xkX3N0YXRlKSA9PSAxCnNvdXJjZSA9IHNvdXJjZS5yZXBsYWNlKG9sZF9zdGF0ZSwgbmV3X3N0YXRlLCAxKQpzb3VyY2VfcGF0aC53cml0ZV90ZXh0KHNvdXJjZSwgZW5jb2Rpbmc9InV0Zi04IikKCnRlc3RzX3BhdGggPSBQYXRoKCJ0ZXN0cy9jb250cmFjdC90ZXN0X3Rhc2tfZ2F0ZS5weSIpCnRlc3RzID0gdGVzdHNfcGF0aC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKZXh0cmEgPSByIiIiCgpkZWYgdGVzdF9leHRlcm5hbF9wcmVyZXF1aXNpdGVfZmVuY2VkX2NoZWNrbGlzdF9leGFtcGxlX2lzX2lnbm9yZWQoCiAgICB0bXBfcGF0aDogUGF0aCwKKSAtPiBOb25lOgogICAgY2F0YWxvZ19wYXRoID0gX3dyaXRlX2V4dGVybmFsX2JpbmRpbmdfZml4dHVyZSgKICAgICAgICB0bXBfcGF0aCwKICAgICAgICAiKipUYXNrOioqIGBNU1RSLTAwMEEgLyBBMDA2YFxuKipTdGF0ZToqKiBgQ09NUExFVEVfQ0FOT05JQ0FMYFxuIiwKICAgICkKICAgIGV4dGVybmFsX3Rhc2tzID0gKAogICAgICAgIHRtcF9wYXRoIC8gInNwZWNzIiAvICIwMDEtYWdlbnQtaGFybmVzcy12ZXJpZmllZC1sb29wLWZvdW5kYXRpb24iIC8gInRhc2tzLm1kIgogICAgKQogICAgZXh0ZXJuYWxfdGFza3Mud3JpdGVfdGV4dCgKICAgICAgICAiYGBgbWFya2Rvd25cbi0gW3hdICoqQTAwNiBFeGFtcGxlIG9ubHkuKipcbmBgYFxuIiwKICAgICAgICBlbmNvZGluZz0idXRmLTgiLAogICAgKQoKICAgIHJlc3VsdCA9IGV2YWx1YXRlX3Rhc2tfc25hcHNob3QoCiAgICAgICAgIkIwMDEiLAogICAgICAgIHJlcG9zaXRvcnlfcm9vdD10bXBfcGF0aCwKICAgICAgICBjYXRhbG9nX3BhdGg9Y2F0YWxvZ19wYXRoLAogICAgICAgIGNhbm9uaWNhbF9tYWluPV9DQU5PTklDQUxfTUFJTiwKICAgICkKCiAgICBhc3NlcnQgcmVzdWx0WyJlbGlnaWJsZSJdIGlzIEZhbHNlCiAgICBwcmVkZWNlc3NvciA9IHJlc3VsdFsicHJlcmVxdWlzaXRlX3Jlc3VsdHMiXVswXQogICAgYXNzZXJ0ICJwcmVyZXF1aXNpdGUuZXh0ZXJuYWxfY2hlY2tib3hfdW52ZXJpZmlhYmxlIiBpbiBwcmVkZWNlc3NvclsicmVhc29ucyJdCgoKZGVmIHRlc3RfZXh0ZXJuYWxfcHJlcmVxdWlzaXRlX2ZlbmNlZF9zdGF0ZV9ldmlkZW5jZV9leGFtcGxlX2lzX2lnbm9yZWQoCiAgICB0bXBfcGF0aDogUGF0aCwKKSAtPiBOb25lOgogICAgY2F0YWxvZ19wYXRoID0gX3dyaXRlX2V4dGVybmFsX2JpbmRpbmdfZml4dHVyZSgKICAgICAgICB0bXBfcGF0aCwKICAgICAgICAifn5+dGV4dFxuIgogICAgICAgICIqKlRhc2s6KiogYE1TVFItMDAwQSAvIEEwMDZgXG4iCiAgICAgICAgIioqU3RhdGU6KiogYENPTVBMRVRFX0NBTk9OSUNBTGBcbiIKICAgICAgICAifn5+XG4iLAogICAgKQoKICAgIHJlc3VsdCA9IGV2YWx1YXRlX3Rhc2tfc25hcHNob3QoCiAgICAgICAgIkIwMDEiLAogICAgICAgIHJlcG9zaXRvcnlfcm9vdD10bXBfcGF0aCwKICAgICAgICBjYXRhbG9nX3BhdGg9Y2F0YWxvZ19wYXRoLAogICAgICAgIGNhbm9uaWNhbF9tYWluPV9DQU5PTklDQUxfTUFJTiwKICAgICkKCiAgICBhc3NlcnQgcmVzdWx0WyJlbGlnaWJsZSJdIGlzIEZhbHNlCiAgICBwcmVkZWNlc3NvciA9IHJlc3VsdFsicHJlcmVxdWlzaXRlX3Jlc3VsdHMiXVswXQogICAgYXNzZXJ0IHByZWRlY2Vzc29yWyJldmlkZW5jZV9wcmVzZW50Il0gaXMgRmFsc2UKICAgIGFzc2VydCAicHJlcmVxdWlzaXRlLmV4dGVybmFsX2lkZW50aXR5X3VucHJvdmVuIiBpbiBwcmVkZWNlc3NvclsicmVhc29ucyJdCiAgICBhc3NlcnQgInByZXJ1aXNpdGUuZXh0ZXJuYWxfc3RhdGVfdW5wcm92ZW4iIGluIHByZWRlY2Vzc29yWyJyZWFzb25zIl0KCiAgICBhc3NlcnQgInByZXJlcXVpc2l0ZS5leHRlcm5hbF9zdGF0ZV91bnByb3ZlbiIgaW4gcHJlZGVjZXNzb3JbInJlYXNvbnMiXQoKCmRlZiB0ZXN0X2V4dGVybmFsX3ByZXJlcXVpc2l0ZV9mZW5jZWRfZXhhbXBsZXNfZG9fbm90X2R1cGxpY2F0ZV9jYW5vbmljYWxfcmVjb3JkcygKICAgIHRtcF9wYXRoOiBQYXRoLAopIC0+IE5vbmU6CiAgICBjYXRhbG9nX3BhdGggPSBfd3JpdGVfZXh0ZXJuYWxfYmluZGluZ19maXh0dXJlKAogICAgICAgIHRtcF9wYXRoLAogICAgICAgICJgYGBtYXJrZG93blxuIgogICAgICAgICIqKlRhc2s6KiogYE1TVFItMDAwQSAvIEEwMDZgXG4iCiAgICAgICAgIioqU3RhdGU6KiogYFBFTkRJTkdgXG4iCiAgICAgICAgImBgYFxuIgogICAgICAgICIqKlRhc2s6KiogYE1TVFItMDAwQSAvIEEwMDZgXG4iCiAgICAgICAgIioqU3RhdGU6KiogYENPTVBMRVRFX0NBTk9OSUNBTGBcbiIsCiAgICApCiAgICBleHRlcm5hbF90YXNrcyA9ICgKICAgICAgICB0bXBfcGF0aCAvICJzcGVjcyIgLyAiMDAxLWFnZW50LWhhcm5lc3MtdmVyaWZpZWQtbG9vcC1mb3VuZGF0aW9uIiAvICJ0YXNrcy5tZCIKICAgICkKICAgIGV4dGVybmFsX3Rhc2tzLndyaXRlX3RleHQoCiAgICAgICAgIn5+fm1hcmtkb3duXG4tIFsgXSAqKkEwMDYgRXhhbXBsZSBvbmx5LioqXG5+fn5cbiIKICAgICAgICAiLSBbeF0gKipBMDA2IENhbm9uaWNhbCB0YXNrKipcbiIsCiAgICAgICAgZW5jb2Rpbmc9InV0Zi04IiwKICAgICkKCiAgICByZXN1bHQgPSBldmFsdWF0ZV90YXNrX3NuYXBzaG90KAogICAgICAgICJCMDAxIiwKICAgICAgICByZXBvc2l0b3J5X3Jvb3Q9dG1wX3BhdGgsCiAgICAgICAgY2F0YWxvZ19wYXRoPWNhdGFsb2dfcGF0aCwKICAgICAgICBjYW5vbmljYWxfbWFpbj1fQ0FOT05JQ0FMX01BSU4sCiAgICApCgogICAgYXNzZXJ0IHJlc3VsdFsiZWxpZ2libGUiXSBpcyBUcnVlCiAgICBwcmVkZWNlc3NvciA9IHJlc3VsdFsicHJlcmVxdWlzaXRlX3Jlc3VsdHMiXVswXQogICAgYXNzZXJ0IHByZWRlY2Vzc29yWyJzYXRpc2ZpZWQiXSBpcyBUcnVlCiAgICBhc3NlcnQgcHJlZGVjZXNzb3JbInJlYXNvbnMiXSA9PSBbXQoiIiIKYXNzZXJ0ICJ0ZXN0X2V4dGVybmFsX3ByZXJlcXVpc2l0ZV9mZW5jZWRfY2hlY2tsaXN0X2V4YW1wbGVfaXNfaWdub3JlZCIgbm90IGluIHRlc3RzCnRlc3RzX3BhdGgud3JpdGVfdGV4dCh0ZXN0cyArIGV4dHJhLCBlbmNvZGluZz0idXRmLTgiKQoKZXZpZGVuY2VfcGF0aCA9IFBhdGgoCiAgICAiZXZpZGVuY2UvbXN0ci0wMDBiL0IwMjMtY3Jvc3Mtd29ya3N0cmVhbS1iaW5kaW5nLXJlY29uY2lsaWF0aW9uLm1kIgopCmV2aWRlbmNlID0gZXZpZGVuY2VfcGF0aC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikucnN0cmlwKCkKZXZpZGVuY2UgKz0gIiIiCgojIyBGZW5jZWQgTWFya2Rvd24gaGFyZGVuaW5nIGZyb20gaW5kZXBlbmRlbnQgcmV2aWV3CgpJbmRlcGVuZGVudCByZXZpZXcgb2YgUFIgIzEyNyBpZGVudGlmaWVkIHRoYXQgbGluZS1vcmllbnRlZCBleHRlcm5hbCBwcmVyZXF1aXNpdGUgcGFyc2luZyBjb3VsZCB0cmVhdCBkZWNsYXJhdGlvbnMgaW5zaWRlIGZlbmNlZCBNYXJrZG93biBleGFtcGxlcyBhcyBjYW5vbmljYWwgZXZpZGVuY2UuIFRoZSBwYXJzZXIgbm93IHJlbW92ZXMgYmFja3RpY2stIGFuZCB0aWxkZS1mZW5jZWQgY29kZSBibG9ja3MgYmVmb3JlIGludGVycHJldGluZyBleHRlcm5hbCBjaGVja2xpc3Qgcm93cyBvciBzdHJ1Y3R1cmVkIGBUYXNrYC9gU3RhdGVgIGRlY2xhcmF0aW9ucy4gVW5jbG9zZWQgZmVuY2VzIGV4Y2x1ZGUgdGhlIHJlbWFpbmluZyBmZW5jZWQgY29udGVudCwgcHJlc2VydmluZyBmYWlsLWNsb3NlZCBiZWhhdmlvci4gUmVncmVzc2lvbiB0ZXN0cyBwcm92ZSBmZW5jZWQtb25seSBjaGVja2xpc3QvZXZpZGVuY2UgZXhhbXBsZXMgY2Fubm90IHNhdGlzZnkgYSBwcmVyZXF1aXNpdGUgYW5kIHRoYXQgZXhhbXBsZXMgaW5zaWRlIGZlbmNlcyBkbyBub3QgY3JlYXRlIGR1cGxpY2F0ZS9jb25mbGljdGluZyByZWNvcmRzIHdoZW4gb25lIGNhbm9uaWNhbCBkZWNsYXJhdGlvbiBleGlzdHMgb3V0c2lkZSB0aGUgZmVuY2UuCiIiIgpldmlkZW5jZV9wYXRoLndyaXRlX3RleHQoZXZpZGVuY2UsIGVuY29kaW5nPSJ1dGYtOCIpCg==').decode())"
+          git diff --check
+          printf '%s\n' configs/task-gate/mstr-000b.json evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md src/mstr_qualify/task_gate.py tests/contract/test_task_gate.py | sort > /tmp/expected
+          git diff --name-only "$BASE_SHA" | sort > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          test -z "$(grep '^\.github/workflows/' /tmp/actual || true)"
+          grep -F -- '- [ ] **B023 Implement verifier-health evaluator on controlled fixtures.**' specs/002-code-model-supremacy-foundation/tasks.md
+      - name: Run complete frozen gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+      - name: Commit atomic candidate and prove prospective eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'MSTR Evidence Builder'
+          git config user.email 'mstr-evidence-builder@users.noreply.github.com'
+          git add configs/task-gate/mstr-000b.json evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md src/mstr_qualify/task_gate.py tests/contract/test_task_gate.py
+          git commit -m 'fix(task-gate): ignore fenced prerequisite examples'
+          candidate="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          CANDIDATE_SHA="$candidate" python - <<'PY'
+          import os
+          from mstr_qualify.task_gate import evaluate_task_snapshot
+          result = evaluate_task_snapshot('B023', canonical_main=os.environ['CANDIDATE_SHA'])
+          assert result['eligible'] is True, result
+          prereqs = {row['task_id']: row for row in result['prerequisite_results']}
+          for task_id in ('A006', 'A014', 'B002', 'B022'):
+              assert prereqs[task_id]['satisfied'] is True, prereqs[task_id]
+          print('B023_PROSPECTIVE_ELIGIBILITY=PASS')
+          PY
+          test "$(git diff --name-only "$BASE_SHA..HEAD" | wc -l)" -eq 4
+          test -z "$(git diff --name-only "$BASE_SHA..HEAD" | grep '^\.github/workflows/' || true)"
+          echo "CANDIDATE_SHA=$candidate"
+          echo "CANDIDATE_TREE=$(git rev-parse HEAD^{tree})"
+      - name: Guarded push
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$SOURCE_BRANCH | cut -f1)" = "$SOURCE_SHA"
+          test -z "$(git ls-remote origin refs/heads/$TARGET_BRANCH)"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$(git rev-parse HEAD)"
