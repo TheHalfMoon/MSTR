@@ -6,8 +6,9 @@ execute verifiers, derive verifier-health classes, run models, or train weights.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Literal, Mapping, cast
+from typing import Any, Literal, cast
 
 from mstr_qualify.schemas import validate_instance
 
