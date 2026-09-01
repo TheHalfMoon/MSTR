@@ -150,6 +150,7 @@ def test_validate_self_checks_schemas_and_fixtures(capsys: pytest.CaptureFixture
         "mstr-task-eligibility-v0",
         "mstr-task-node-v0",
         "mstr-teacher-rescue-record-v0",
+        "mstr-test-generation-example-v0",
         "mstr-training-method-cell-v0",
         "mstr-trajectory-manifest-v0",
         "mstr-verifier-health-v0",
@@ -178,6 +179,23 @@ def test_validate_explicit_b020_difficulty_fixture_passes(
     payload = parse_stdout(capsys)
     assert payload["status"] == "pass"
     assert payload["files"][0]["schema_version"] == "mstr.difficulty-calibration.v0"
+
+
+def test_validate_explicit_b024_test_generation_fixture_passes(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "tests"
+        / "fixtures"
+        / "schemas"
+        / "valid"
+        / "mstr-test-generation-example-v0.json"
+    )
+    assert main(["validate", str(path)]) == 0
+    payload = parse_stdout(capsys)
+    assert payload["status"] == "pass"
+    assert payload["files"][0]["schema_version"] == "mstr.test-generation-example.v0"
 
 
 def test_validate_is_deterministic_across_runs(capsys: pytest.CaptureFixture[str]) -> None:

@@ -86,6 +86,8 @@ _SCHEMA_VERSION_TO_SCHEMA_NAME = {
     "mstr.difficulty-calibration.v0": "mstr-difficulty-calibration-v0",
     # MSTR-000B B022 verifier-health evidence contract.
     "mstr.verifier-health.v0": "mstr-verifier-health-v0",
+    # MSTR-000B B024 test-generation example and acceptance contract.
+    "mstr.test-generation-example.v0": "mstr-test-generation-example-v0",
     # MSTR-000B B025 greenfield/feature/synthesis task manifest contract.
     "mstr.greenfield-task.v0": "mstr-greenfield-task-v0",
 }

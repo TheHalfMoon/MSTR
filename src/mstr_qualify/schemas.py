@@ -56,6 +56,8 @@ SCHEMA_FILES: Mapping[str, str] = {
     "mstr-difficulty-calibration-v0": "mstr-difficulty-calibration-v0.schema.json",
     # MSTR-000B B022: verifier-health evidence contract.
     "mstr-verifier-health-v0": "mstr-verifier-health-v0.schema.json",
+    # MSTR-000B B024: test-generation example and acceptance contract.
+    "mstr-test-generation-example-v0": "mstr-test-generation-example-v0.schema.json",
     # MSTR-000B B025: greenfield/feature/synthesis task manifest contract.
     "mstr-greenfield-task-v0": "mstr-greenfield-task-v0.schema.json",
     # MSTR-000B B028: training-method preflight and fail-closed Q4 promotion.
@@ -438,6 +440,84 @@ def _difficulty_calibration_semantic_errors(instance: Any) -> tuple[str, ...]:
     return tuple(sorted(errors))
 
 
+
+def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
+    """Enforce B024 cross-field behavioral and identity bindings."""
+
+    if not isinstance(instance, dict):
+        return ()
+
+    errors: list[str] = []
+    patch = instance.get("generated_test_patch")
+    proof = instance.get("behavioral_proof")
+    if isinstance(patch, dict) and isinstance(proof, dict):
+        artifact_sha = patch.get("test_artifact_sha256")
+        pre = proof.get("pre_fix_result")
+        post = proof.get("post_fix_result")
+        if isinstance(pre, dict) and isinstance(post, dict):
+            for label, result in (("pre_fix_result", pre), ("post_fix_result", post)):
+                if result.get("task_identity") != instance.get("task_identity"):
+                    errors.append(
+                        f"$.behavioral_proof.{label}.task_identity: must match task_identity"
+                    )
+                if result.get("test_artifact_sha256") != artifact_sha:
+                    errors.append(
+                        f"$.behavioral_proof.{label}.test_artifact_sha256: "
+                        "must match generated_test_patch.test_artifact_sha256"
+                    )
+            if pre.get("revision") != instance.get("base_revision"):
+                errors.append(
+                    "$.behavioral_proof.pre_fix_result.revision: must match base_revision"
+                )
+            if post.get("revision") != instance.get("fix_revision"):
+                errors.append(
+                    "$.behavioral_proof.post_fix_result.revision: must match fix_revision"
+                )
+            if pre.get("environment_identity") != post.get("environment_identity"):
+                errors.append(
+                    "$.behavioral_proof: pre/post environment_identity must match"
+                )
+            if pre.get("verifier_manifest_id") != post.get("verifier_manifest_id"):
+                errors.append(
+                    "$.behavioral_proof: pre/post verifier_manifest_id must match"
+                )
+
+    behavior = instance.get("behavior_contract")
+    if isinstance(behavior, dict):
+        classes = behavior.get("test_classes")
+        class_set = (
+            {item for item in classes if isinstance(item, str)}
+            if isinstance(classes, list)
+            else set()
+        )
+        if behavior.get("requires_reproduction") is True and "REPRODUCTION" not in class_set:
+            errors.append(
+                "$.behavior_contract.test_classes: REPRODUCTION required when "
+                "requires_reproduction=true"
+            )
+        if behavior.get("property_or_metamorphic_applicable") is True and not (
+            {"PROPERTY", "METAMORPHIC"} & class_set
+        ):
+            errors.append(
+                "$.behavior_contract.test_classes: PROPERTY or METAMORPHIC required "
+                "when property_or_metamorphic_applicable=true"
+            )
+
+    mutation = instance.get("mutation_strength")
+    if isinstance(mutation, dict):
+        evaluated = mutation.get("mutants_evaluated")
+        killed = mutation.get("mutants_killed")
+        if (
+            isinstance(evaluated, int)
+            and not isinstance(evaluated, bool)
+            and isinstance(killed, int)
+            and not isinstance(killed, bool)
+            and killed > evaluated
+        ):
+            errors.append("$.mutation_strength.mutants_killed: cannot exceed mutants_evaluated")
+
+    return tuple(sorted(errors))
+
 def _trajectory_manifest_semantic_errors(instance: Any) -> tuple[str, ...]:
     """Enforce A017 identity bindings without implementing A018 admission execution."""
 
@@ -488,6 +568,8 @@ def validation_errors(
         formatted.extend(_teacher_rescue_semantic_errors(instance))
     if name == "mstr-difficulty-calibration-v0":
         formatted.extend(_difficulty_calibration_semantic_errors(instance))
+    if name == "mstr-test-generation-example-v0":
+        formatted.extend(_test_generation_semantic_errors(instance))
     if name == "mstr-trajectory-manifest-v0":
         formatted.extend(_trajectory_manifest_semantic_errors(instance))
     return tuple(sorted(formatted))
