@@ -525,10 +525,29 @@
   "unresolved_bindings": {
     "B011": "B010 must first determine whether new access is required. Until that decision is canonical, B011 remains BLOCKED under MODEL_WEIGHT_ACCESS. The access path must bind exact founder authority; the no-access path must explicitly change the node to NO_EXTERNAL_EFFECT before closing NOT_REQUIRED_NO_NEW_ACCESS.",
     "B013": "Existing-candidate T034 or canonical-equivalent hard-gate identity must be bound before B013 is unblocked.",
-    "B023": "External MSTR-000A prerequisites A006 and A014 are intentionally fail-closed until exact cross-workstream bindings are reconciled.",
     "B029": "Required MSTR-000A loop/context contract identities must be bound before B029 is unblocked.",
     "B030": "A019-ready harness surface identities must be bound before B030 is unblocked.",
     "B031": "A019/A020 are external prerequisites and must be canonical before B031."
   },
-  "workstream_id": "MSTR-000B"
+  "workstream_id": "MSTR-000B",
+  "external_prerequisites": {
+    "A006": {
+      "workstream_id": "MSTR-000A",
+      "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+      "state_evidence": "evidence/mstr-000a/A006-finalizer.md",
+      "evidence_outputs": [
+        "evidence/mstr-000a/A006-finalizer.md"
+      ],
+      "required_state": "COMPLETE_CANONICAL"
+    },
+    "A014": {
+      "workstream_id": "MSTR-000A",
+      "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+      "state_evidence": "evidence/mstr-000a/A014-verifier-shortcuts.md",
+      "evidence_outputs": [
+        "evidence/mstr-000a/A014-verifier-shortcuts.md"
+      ],
+      "required_state": "COMPLETE_CANONICAL"
+    }
+  }
 }
