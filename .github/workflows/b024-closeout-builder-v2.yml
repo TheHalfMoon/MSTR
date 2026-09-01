@@ -1,4 +1,4 @@
-name: Build guarded B024 canonical closeout v2
+name: Build guarded B024 canonical closeout v3
 
 on:
   push:
@@ -75,6 +75,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git update-ref refs/heads/main "$BASE_SHA"
+          git update-ref refs/remotes/origin/main "$BASE_SHA"
+          test "$(git rev-parse refs/heads/main)" = "$BASE_SHA"
           mstr-qualify task drift > /tmp/drift.json
           jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
           set +e
@@ -90,6 +93,7 @@ jobs:
           mstr-qualify task eligible B026 > /tmp/b026.json
           jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true and (.reasons | length) == 0' /tmp/b026.json
           jq -e '[.prerequisite_results[] | select((.task_id == "B022" or .task_id == "B024" or .task_id == "B025") and .observed_state == "COMPLETE_CANONICAL" and .evidence_present == true and .satisfied == true)] | length == 3' /tmp/b026.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
 
       - name: Focused closeout tests
         run: python -m pytest tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py -q
