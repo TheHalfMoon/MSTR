@@ -1,0 +1,131 @@
+name: A018 implementation premerge
+
+on:
+  push:
+    branches:
+      - evidence/a018-premerge-fc04967
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+env:
+  TARGET_SHA: fc04967b2cbe874489f3b09a38fb80c1650f2461
+  TARGET_TREE: 047b1b36bd83ce6fbfd52de97e3e38fa52db7d32
+  BASE_SHA: f222df1b939fc5db792021d6883d977014502dba
+  PR_NUMBER: '122'
+  QUALIFICATION_RUN: '33491507890'
+  REVIEW_ID: '5076280749'
+
+jobs:
+  admission:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - name: Verify immutable candidate and main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          git diff --check "$BASE_SHA...$TARGET_SHA"
+      - name: Verify pull request exact state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          pr="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
+          test "$(jq -r '.state' <<<"$pr")" = "open"
+          test "$(jq -r '.draft' <<<"$pr")" = "false"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$TARGET_SHA"
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$BASE_SHA"
+          test "$(jq -r '.base.ref' <<<"$pr")" = "main"
+      - name: Verify exact successful qualification
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          run="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN}")"
+          test "$(jq -r '.status' <<<"$run")" = "completed"
+          test "$(jq -r '.conclusion' <<<"$run")" = "success"
+          test "$(jq -r '.name' <<<"$run")" = "A018 exact-head qualification v3"
+      - name: Verify exact review and zero unresolved threads
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          review="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews/${REVIEW_ID}")"
+          test "$(jq -r '.commit_id' <<<"$review")" = "$TARGET_SHA"
+          test "$(jq -r '.state' <<<"$review")" = "COMMENTED"
+          unresolved="$(gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' -f owner='TheHalfMoon' -f name='MSTR' -F number="$PR_NUMBER" --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')"
+          test "$unresolved" = "0"
+      - name: Verify implementation-only scope and pending closeout state
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(mktemp)"
+          actual="$(mktemp)"
+          cat >"$expected" <<'EOF'
+          evidence/mstr-000a/A018-trajectory-factory.md
+          src/mstr_qualify/trajectory/__init__.py
+          src/mstr_qualify/trajectory/admission.py
+          src/mstr_qualify/trajectory/recorder.py
+          tests/unit/trajectory/test_trajectory_factory.py
+          EOF
+          git diff --name-only "$BASE_SHA...$TARGET_SHA" | sort >"$actual"
+          sort -o "$expected" "$expected"
+          diff -u "$expected" "$actual"
+          grep -F '**State:** `IMPLEMENTATION_CANDIDATE`' evidence/mstr-000a/A018-trajectory-factory.md
+          grep -F -- '- [ ] **A018 Implement trajectory recorder/replay/admission.**' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F -- '- [ ] **A019 Run cross-harness baseline/tournament' specs/001-agent-harness-verified-loop-foundation/tasks.md
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest tests/unit/trajectory/test_trajectory_factory.py -q
+      - run: python -m mstr_qualify validate
+      - run: python -m pytest -q
+      - run: python -m ruff check .
+      - run: python -m mypy src
+
+  complete:
+    runs-on: ubuntu-latest
+    needs:
+      - admission
+      - quality
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - name: Final immutable merge-admission recheck
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          pr="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
+          test "$(jq -r '.state' <<<"$pr")" = "open"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$TARGET_SHA"
+          unresolved="$(gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' -f owner='TheHalfMoon' -f name='MSTR' -F number="$PR_NUMBER" --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')"
+          test "$unresolved" = "0"
