@@ -1,0 +1,876 @@
+{
+  "$defs": {
+    "contamination_status": {
+      "additionalProperties": false,
+      "properties": {
+        "benchmark_overlap": {
+          "enum": [
+            "CLEAR",
+            "DETECTED",
+            "UNRESOLVED"
+          ]
+        },
+        "cross_split_duplicate": {
+          "enum": [
+            "CLEAR",
+            "DETECTED",
+            "UNRESOLVED"
+          ]
+        },
+        "evidence_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "future_history_exposure": {
+          "enum": [
+            "CLEAR",
+            "DETECTED",
+            "UNRESOLVED"
+          ]
+        },
+        "hidden_answer_exposure": {
+          "enum": [
+            "CLEAR",
+            "DETECTED",
+            "UNRESOLVED"
+          ]
+        }
+      },
+      "required": [
+        "benchmark_overlap",
+        "hidden_answer_exposure",
+        "future_history_exposure",
+        "cross_split_duplicate",
+        "evidence_identity"
+      ],
+      "type": "object"
+    },
+    "execution_result": {
+      "additionalProperties": false,
+      "properties": {
+        "environment_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "evidence_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "result_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "revision": {
+          "$ref": "#/$defs/identity"
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "ERROR",
+            "NOT_RUN"
+          ]
+        },
+        "task_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "test_artifact_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "verifier_manifest_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "result_id",
+        "task_identity",
+        "revision",
+        "test_artifact_sha256",
+        "status",
+        "environment_identity",
+        "verifier_manifest_id",
+        "evidence_identity"
+      ],
+      "type": "object"
+    },
+    "identity": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
+    "provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "generator_identity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lineage_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "provenance_status": {
+          "enum": [
+            "COMPLETE",
+            "INCOMPLETE",
+            "UNRESOLVED"
+          ]
+        },
+        "source_class": {
+          "enum": [
+            "REPOSITORY_OWNED_FIXTURE",
+            "PUBLIC_SOURCE",
+            "SYNTHETIC_VERIFIED",
+            "STUDENT_GENERATED",
+            "TEACHER_GENERATED"
+          ]
+        },
+        "source_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "source_class",
+        "source_identity",
+        "source_revision",
+        "lineage_identity",
+        "generator_identity",
+        "provenance_status"
+      ],
+      "type": "object"
+    },
+    "rights_decision": {
+      "additionalProperties": false,
+      "properties": {
+        "decision": {
+          "enum": [
+            "COMPATIBLE",
+            "INCOMPATIBLE",
+            "UNRESOLVED"
+          ]
+        },
+        "intended_use": {
+          "const": "MSTR_TRAINING_OR_EVALUATION"
+        },
+        "reason_codes": {
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "terms_identity": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "decision",
+        "intended_use",
+        "terms_identity",
+        "reason_codes"
+      ],
+      "type": "object"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "verifier_health_binding": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "health_class": {
+                "enum": [
+                  "PARTIAL",
+                  "DISAGREEMENT"
+                ]
+              }
+            },
+            "required": [
+              "health_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "stage_admission_class": {
+                "enum": [
+                  "RESEARCH_DIAGNOSTIC_ONLY",
+                  "BLOCKED"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "health_class": {
+                "enum": [
+                  "BROKEN",
+                  "LEAKED",
+                  "TAMPERED"
+                ]
+              }
+            },
+            "required": [
+              "health_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "stage_admission_class": {
+                "const": "BLOCKED"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "health_class": {
+          "enum": [
+            "HEALTHY",
+            "PARTIAL",
+            "DISAGREEMENT",
+            "BROKEN",
+            "LEAKED",
+            "TAMPERED"
+          ]
+        },
+        "schema_version": {
+          "const": "mstr.verifier-health.v0"
+        },
+        "stage_admission_class": {
+          "enum": [
+            "CLEAN_POSITIVE_ELIGIBLE",
+            "RESEARCH_DIAGNOSTIC_ONLY",
+            "BLOCKED"
+          ]
+        },
+        "stage_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "task_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "verifier_health_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "verifier_manifest_id": {
+          "$ref": "#/$defs/identity"
+        }
+      },
+      "required": [
+        "schema_version",
+        "verifier_health_id",
+        "task_identity",
+        "verifier_manifest_id",
+        "health_class",
+        "stage_id",
+        "stage_admission_class"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://mstr.local/schemas/mstr-test-generation-example-v0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "else": {
+        "properties": {
+          "admission_reasons": {
+            "minItems": 1
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "admission_decision": {
+            "const": "ADMIT"
+          }
+        },
+        "required": [
+          "admission_decision"
+        ]
+      },
+      "then": {
+        "properties": {
+          "admission_reasons": {
+            "maxItems": 0
+          },
+          "contamination_status": {
+            "properties": {
+              "benchmark_overlap": {
+                "const": "CLEAR"
+              },
+              "cross_split_duplicate": {
+                "const": "CLEAR"
+              },
+              "future_history_exposure": {
+                "const": "CLEAR"
+              },
+              "hidden_answer_exposure": {
+                "const": "CLEAR"
+              }
+            }
+          },
+          "generated_test_patch": {
+            "properties": {
+              "deleted_existing_test_paths": {
+                "maxItems": 0
+              },
+              "protected_path_changes": {
+                "maxItems": 0
+              }
+            }
+          },
+          "generated_test_provenance": {
+            "properties": {
+              "provenance_status": {
+                "const": "COMPLETE"
+              }
+            }
+          },
+          "generated_test_rights_decision": {
+            "properties": {
+              "decision": {
+                "const": "COMPATIBLE"
+              },
+              "reason_codes": {
+                "maxItems": 0
+              }
+            }
+          },
+          "integrity_checks": {
+            "properties": {
+              "answer_encoding": {
+                "const": "CLEAR"
+              },
+              "evaluator_modification": {
+                "const": "CLEAR"
+              },
+              "protected_path_status": {
+                "const": "INTACT"
+              },
+              "test_weakening": {
+                "const": "CLEAR"
+              }
+            }
+          },
+          "mutation_strength": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "ADEQUATE",
+                  "NOT_APPLICABLE"
+                ]
+              }
+            }
+          },
+          "verifier_health_binding": {
+            "properties": {
+              "health_class": {
+                "const": "HEALTHY"
+              },
+              "stage_admission_class": {
+                "const": "CLEAN_POSITIVE_ELIGIBLE"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "behavioral_proof": {
+            "properties": {
+              "proof_kind": {
+                "const": "FAIL_BEFORE_PASS_AFTER"
+              }
+            },
+            "required": [
+              "proof_kind"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "behavioral_proof": {
+            "properties": {
+              "independent_acceptance_evidence_identity": {
+                "type": "null"
+              },
+              "post_fix_result": {
+                "properties": {
+                  "status": {
+                    "const": "PASS"
+                  }
+                }
+              },
+              "pre_fix_result": {
+                "properties": {
+                  "status": {
+                    "const": "FAIL"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "behavioral_proof": {
+            "properties": {
+              "proof_kind": {
+                "const": "TASK_SPECIFIC_BEHAVIOR"
+              }
+            },
+            "required": [
+              "proof_kind"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "behavioral_proof": {
+            "properties": {
+              "independent_acceptance_evidence_identity": {
+                "$ref": "#/$defs/identity"
+              },
+              "post_fix_result": {
+                "properties": {
+                  "status": {
+                    "const": "PASS"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "behavior_contract": {
+            "properties": {
+              "requires_reproduction": {
+                "const": true
+              }
+            },
+            "required": [
+              "requires_reproduction"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "behavior_contract": {
+            "properties": {
+              "test_classes": {
+                "contains": {
+                  "const": "REPRODUCTION"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "behavior_contract": {
+            "properties": {
+              "property_or_metamorphic_applicable": {
+                "const": true
+              }
+            },
+            "required": [
+              "property_or_metamorphic_applicable"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "behavior_contract": {
+            "properties": {
+              "test_classes": {
+                "contains": {
+                  "enum": [
+                    "PROPERTY",
+                    "METAMORPHIC"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "generated_test_provenance": {
+            "properties": {
+              "source_class": {
+                "enum": [
+                  "SYNTHETIC_VERIFIED",
+                  "STUDENT_GENERATED",
+                  "TEACHER_GENERATED"
+                ]
+              }
+            },
+            "required": [
+              "source_class"
+            ]
+          }
+        },
+        "required": [
+          "generated_test_provenance"
+        ]
+      },
+      "then": {
+        "properties": {
+          "generated_test_provenance": {
+            "properties": {
+              "generator_identity": {
+                "$ref": "#/$defs/identity"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mutation_strength": {
+            "properties": {
+              "status": {
+                "const": "ADEQUATE"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "mutation_strength"
+        ]
+      },
+      "then": {
+        "properties": {
+          "mutation_strength": {
+            "properties": {
+              "evidence_identity": {
+                "$ref": "#/$defs/identity"
+              },
+              "mutants_evaluated": {
+                "minimum": 1
+              },
+              "mutants_killed": {
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "admission_decision": {
+      "enum": [
+        "ADMIT",
+        "REJECT",
+        "DIAGNOSTIC_ONLY"
+      ]
+    },
+    "admission_reasons": {
+      "items": {
+        "$ref": "#/$defs/identity"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "base_revision": {
+      "$ref": "#/$defs/identity"
+    },
+    "behavior_contract": {
+      "additionalProperties": false,
+      "properties": {
+        "behavior_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "description": {
+          "$ref": "#/$defs/identity"
+        },
+        "property_or_metamorphic_applicable": {
+          "type": "boolean"
+        },
+        "requires_reproduction": {
+          "type": "boolean"
+        },
+        "test_classes": {
+          "items": {
+            "enum": [
+              "REPRODUCTION",
+              "TARGETED_REGRESSION",
+              "BOUNDARY_ERROR",
+              "PROPERTY",
+              "METAMORPHIC"
+            ]
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "behavior_id",
+        "description",
+        "test_classes",
+        "requires_reproduction",
+        "property_or_metamorphic_applicable"
+      ],
+      "type": "object"
+    },
+    "behavioral_proof": {
+      "additionalProperties": false,
+      "properties": {
+        "independent_acceptance_evidence_identity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "post_fix_result": {
+          "$ref": "#/$defs/execution_result"
+        },
+        "pre_fix_result": {
+          "$ref": "#/$defs/execution_result"
+        },
+        "proof_kind": {
+          "enum": [
+            "FAIL_BEFORE_PASS_AFTER",
+            "TASK_SPECIFIC_BEHAVIOR"
+          ]
+        }
+      },
+      "required": [
+        "proof_kind",
+        "independent_acceptance_evidence_identity",
+        "pre_fix_result",
+        "post_fix_result"
+      ],
+      "type": "object"
+    },
+    "contamination_status": {
+      "$ref": "#/$defs/contamination_status"
+    },
+    "example_id": {
+      "$ref": "#/$defs/identity"
+    },
+    "fix_revision": {
+      "$ref": "#/$defs/identity"
+    },
+    "generated_test_patch": {
+      "additionalProperties": false,
+      "properties": {
+        "changed_paths": {
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "deleted_existing_test_paths": {
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "patch_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "protected_path_changes": {
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "test_artifact_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "test_paths": {
+          "items": {
+            "$ref": "#/$defs/identity"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "patch_sha256",
+        "test_artifact_sha256",
+        "changed_paths",
+        "test_paths",
+        "deleted_existing_test_paths",
+        "protected_path_changes"
+      ],
+      "type": "object"
+    },
+    "generated_test_provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "generated_test_rights_decision": {
+      "$ref": "#/$defs/rights_decision"
+    },
+    "integrity_checks": {
+      "additionalProperties": false,
+      "properties": {
+        "answer_encoding": {
+          "enum": [
+            "CLEAR",
+            "DETECTED",
+            "UNRESOLVED"
+          ]
+        },
+        "checked_patch_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "checked_test_artifact_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "checker_manifest_id": {
+          "$ref": "#/$defs/identity"
+        },
+        "evaluator_modification": {
+          "enum": [
+            "CLEAR",
+            "DETECTED",
+            "UNRESOLVED"
+          ]
+        },
+        "evidence_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "protected_path_status": {
+          "enum": [
+            "INTACT",
+            "TAMPERED",
+            "UNRESOLVED"
+          ]
+        },
+        "test_weakening": {
+          "enum": [
+            "CLEAR",
+            "DETECTED",
+            "UNRESOLVED"
+          ]
+        }
+      },
+      "required": [
+        "answer_encoding",
+        "checked_patch_sha256",
+        "checked_test_artifact_sha256",
+        "checker_manifest_id",
+        "evaluator_modification",
+        "evidence_identity",
+        "protected_path_status",
+        "test_weakening"
+      ],
+      "type": "object"
+    },
+    "mutation_strength": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_identity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mutants_evaluated": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mutants_killed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "ADEQUATE",
+            "NOT_APPLICABLE",
+            "WEAK",
+            "UNRESOLVED"
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "evidence_identity",
+        "mutants_evaluated",
+        "mutants_killed"
+      ],
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "mstr.test-generation-example.v0"
+    },
+    "task_identity": {
+      "$ref": "#/$defs/identity"
+    },
+    "verifier_health_binding": {
+      "$ref": "#/$defs/verifier_health_binding"
+    }
+  },
+  "required": [
+    "schema_version",
+    "example_id",
+    "task_identity",
+    "base_revision",
+    "fix_revision",
+    "behavior_contract",
+    "generated_test_patch",
+    "generated_test_provenance",
+    "generated_test_rights_decision",
+    "contamination_status",
+    "behavioral_proof",
+    "integrity_checks",
+    "mutation_strength",
+    "verifier_health_binding",
+    "admission_decision",
+    "admission_reasons"
+  ],
+  "title": "MSTR Test Generation Example v0",
+  "type": "object"
+}

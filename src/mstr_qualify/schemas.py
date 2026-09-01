@@ -7,6 +7,7 @@ cannot become an implicit network boundary.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from collections.abc import Iterator, Mapping
@@ -56,6 +57,8 @@ SCHEMA_FILES: Mapping[str, str] = {
     "mstr-difficulty-calibration-v0": "mstr-difficulty-calibration-v0.schema.json",
     # MSTR-000B B022: verifier-health evidence contract.
     "mstr-verifier-health-v0": "mstr-verifier-health-v0.schema.json",
+    # MSTR-000B B024: test-generation example and acceptance contract.
+    "mstr-test-generation-example-v0": "mstr-test-generation-example-v0.schema.json",
     # MSTR-000B B025: greenfield/feature/synthesis task manifest contract.
     "mstr-greenfield-task-v0": "mstr-greenfield-task-v0.schema.json",
     # MSTR-000B B028: training-method preflight and fail-closed Q4 promotion.
@@ -438,6 +441,287 @@ def _difficulty_calibration_semantic_errors(instance: Any) -> tuple[str, ...]:
     return tuple(sorted(errors))
 
 
+def _task_specific_acceptance_binding(
+    instance: Mapping[str, Any],
+    patch: Mapping[str, Any],
+    post: Mapping[str, Any],
+    evidence_identity: str,
+) -> str:
+    """Bind independent B024 acceptance evidence to its exact acceptance context."""
+
+    payload = {
+        "environment_identity": post.get("environment_identity"),
+        "execution_evidence_identity": post.get("evidence_identity"),
+        "independent_acceptance_evidence_identity": evidence_identity,
+        "revision": instance.get("fix_revision"),
+        "task_identity": instance.get("task_identity"),
+        "test_artifact_sha256": patch.get("test_artifact_sha256"),
+        "verifier_manifest_id": post.get("verifier_manifest_id"),
+    }
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return f"{evidence_identity}|binding-sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
+    """Enforce B024 cross-field behavioral and identity bindings."""
+
+    if not isinstance(instance, dict):
+        return ()
+
+    errors: list[str] = []
+    patch = instance.get("generated_test_patch")
+    proof = instance.get("behavioral_proof")
+    pre: dict[str, Any] | None = None
+    post: dict[str, Any] | None = None
+    if isinstance(patch, dict) and isinstance(proof, dict):
+        artifact_sha = patch.get("test_artifact_sha256")
+        if (
+            proof.get("proof_kind") == "FAIL_BEFORE_PASS_AFTER"
+            and instance.get("base_revision") == instance.get("fix_revision")
+        ):
+            errors.append(
+                "$.fix_revision: FAIL_BEFORE_PASS_AFTER requires a revision "
+                "distinct from base_revision"
+            )
+        raw_pre = proof.get("pre_fix_result")
+        raw_post = proof.get("post_fix_result")
+        if isinstance(raw_pre, dict) and isinstance(raw_post, dict):
+            pre = raw_pre
+            post = raw_post
+            for label, result in (("pre_fix_result", pre), ("post_fix_result", post)):
+                if result.get("task_identity") != instance.get("task_identity"):
+                    errors.append(
+                        f"$.behavioral_proof.{label}.task_identity: must match task_identity"
+                    )
+                if result.get("test_artifact_sha256") != artifact_sha:
+                    errors.append(
+                        f"$.behavioral_proof.{label}.test_artifact_sha256: "
+                        "must match generated_test_patch.test_artifact_sha256"
+                    )
+            if pre.get("revision") != instance.get("base_revision"):
+                errors.append(
+                    "$.behavioral_proof.pre_fix_result.revision: must match base_revision"
+                )
+            if post.get("revision") != instance.get("fix_revision"):
+                errors.append(
+                    "$.behavioral_proof.post_fix_result.revision: must match fix_revision"
+                )
+            if pre.get("environment_identity") != post.get("environment_identity"):
+                errors.append(
+                    "$.behavioral_proof: pre/post environment_identity must match"
+                )
+            if pre.get("verifier_manifest_id") != post.get("verifier_manifest_id"):
+                errors.append(
+                    "$.behavioral_proof: pre/post verifier_manifest_id must match"
+                )
+            if proof.get("proof_kind") == "TASK_SPECIFIC_BEHAVIOR":
+                raw_binding = proof.get("independent_acceptance_evidence_identity")
+                evidence_identity: str | None = None
+                if isinstance(raw_binding, str):
+                    prefix, marker, _digest = raw_binding.rpartition("|binding-sha256:")
+                    if marker and prefix and "|binding-sha256:" not in prefix:
+                        evidence_identity = prefix
+                expected_binding = (
+                    _task_specific_acceptance_binding(
+                        instance,
+                        patch,
+                        post,
+                        evidence_identity,
+                    )
+                    if evidence_identity is not None
+                    else None
+                )
+                execution_evidence_identities = {
+                    value
+                    for value in (
+                        pre.get("evidence_identity"),
+                        post.get("evidence_identity"),
+                    )
+                    if isinstance(value, str)
+                }
+                if (
+                    evidence_identity is not None
+                    and evidence_identity in execution_evidence_identities
+                ):
+                    errors.append(
+                        "$.behavioral_proof.independent_acceptance_evidence_identity: "
+                        "TASK_SPECIFIC_BEHAVIOR independent acceptance evidence must be "
+                        "distinct from pre/post execution evidence identities"
+                    )
+                if raw_binding != expected_binding:
+                    errors.append(
+                        "$.behavioral_proof.independent_acceptance_evidence_identity: "
+                        "TASK_SPECIFIC_BEHAVIOR must preserve an independent evidence identity "
+                        "and bind it to the exact task, fix revision, test artifact, environment, "
+                        "verifier manifest, and execution evidence"
+                    )
+
+    if isinstance(patch, dict):
+        changed_paths = patch.get("changed_paths")
+        test_paths = patch.get("test_paths")
+        if isinstance(changed_paths, list) and isinstance(test_paths, list):
+            changed_path_set = {
+                item for item in changed_paths if isinstance(item, str)
+            }
+            missing_test_paths = sorted(
+                item
+                for item in test_paths
+                if isinstance(item, str) and item not in changed_path_set
+            )
+            if missing_test_paths:
+                errors.append(
+                    "$.generated_test_patch.test_paths: every test path must be "
+                    "present in changed_paths"
+                )
+
+    integrity = instance.get("integrity_checks")
+    if isinstance(patch, dict) and isinstance(integrity, dict):
+        if integrity.get("checked_patch_sha256") != patch.get("patch_sha256"):
+            errors.append(
+                "$.integrity_checks.checked_patch_sha256: must match "
+                "generated_test_patch.patch_sha256"
+            )
+        if integrity.get("checked_test_artifact_sha256") != patch.get(
+            "test_artifact_sha256"
+        ):
+            errors.append(
+                "$.integrity_checks.checked_test_artifact_sha256: must match "
+                "generated_test_patch.test_artifact_sha256"
+            )
+
+    provenance = instance.get("generated_test_provenance")
+    if isinstance(provenance, dict):
+        if (
+            instance.get("admission_decision") == "ADMIT"
+            and provenance.get("provenance_status") != "COMPLETE"
+        ):
+            errors.append(
+                "$.generated_test_provenance.provenance_status: ADMIT requires COMPLETE provenance"
+            )
+        if provenance.get("source_class") in {
+            "SYNTHETIC_VERIFIED",
+            "STUDENT_GENERATED",
+            "TEACHER_GENERATED",
+        }:
+            generator_identity = provenance.get("generator_identity")
+            if not isinstance(generator_identity, str) or not generator_identity:
+                errors.append(
+                    "$.generated_test_provenance.generator_identity: generated source classes "
+                    "require generator identity"
+                )
+        if isinstance(patch, dict):
+            artifact_sha = patch.get("test_artifact_sha256")
+            lineage_identity = provenance.get("lineage_identity")
+            expected_suffix = f"|test-artifact-sha256:{artifact_sha}"
+            if (
+                not isinstance(lineage_identity, str)
+                or not lineage_identity.endswith(expected_suffix)
+            ):
+                errors.append(
+                    "$.generated_test_provenance.lineage_identity: must bind the exact "
+                    "generated_test_patch.test_artifact_sha256"
+                )
+
+    verifier_health = instance.get("verifier_health_binding")
+    if isinstance(verifier_health, dict):
+        if verifier_health.get("task_identity") != instance.get("task_identity"):
+            errors.append(
+                "$.verifier_health_binding.task_identity: must match task_identity"
+            )
+        if pre is not None and verifier_health.get("verifier_manifest_id") != pre.get(
+            "verifier_manifest_id"
+        ):
+            errors.append(
+                "$.verifier_health_binding.verifier_manifest_id: "
+                "must match executed verifier manifest"
+            )
+        if post is not None and verifier_health.get("verifier_manifest_id") != post.get(
+            "verifier_manifest_id"
+        ):
+            errors.append(
+                "$.verifier_health_binding.verifier_manifest_id: "
+                "must match executed verifier manifest"
+            )
+
+    behavior = instance.get("behavior_contract")
+    if isinstance(behavior, dict):
+        classes = behavior.get("test_classes")
+        class_set = (
+            {item for item in classes if isinstance(item, str)}
+            if isinstance(classes, list)
+            else set()
+        )
+        if behavior.get("requires_reproduction") is True and "REPRODUCTION" not in class_set:
+            errors.append(
+                "$.behavior_contract.test_classes: REPRODUCTION required when "
+                "requires_reproduction=true"
+            )
+        if behavior.get("property_or_metamorphic_applicable") is True and not (
+            {"PROPERTY", "METAMORPHIC"} & class_set
+        ):
+            errors.append(
+                "$.behavior_contract.test_classes: PROPERTY or METAMORPHIC required "
+                "when property_or_metamorphic_applicable=true"
+            )
+
+    mutation = instance.get("mutation_strength")
+    if isinstance(mutation, dict):
+        evaluated = mutation.get("mutants_evaluated")
+        killed = mutation.get("mutants_killed")
+        if (
+            isinstance(evaluated, int)
+            and not isinstance(evaluated, bool)
+            and isinstance(killed, int)
+            and not isinstance(killed, bool)
+            and killed > evaluated
+        ):
+            errors.append("$.mutation_strength.mutants_killed: cannot exceed mutants_evaluated")
+        if mutation.get("status") == "ADEQUATE":
+            if not isinstance(mutation.get("evidence_identity"), str) or not mutation.get(
+                "evidence_identity"
+            ):
+                errors.append(
+                    "$.mutation_strength.evidence_identity: ADEQUATE requires concrete evidence"
+                )
+            if not isinstance(evaluated, int) or isinstance(evaluated, bool) or evaluated < 1:
+                errors.append(
+                    "$.mutation_strength.mutants_evaluated: ADEQUATE requires at least one mutant"
+                )
+            if not isinstance(killed, int) or isinstance(killed, bool) or killed < 1:
+                errors.append(
+                    "$.mutation_strength.mutants_killed: "
+                    "ADEQUATE requires at least one killed mutant"
+                )
+        if mutation.get("status") == "NOT_APPLICABLE":
+            justification = mutation.get("evidence_identity")
+            if (
+                not isinstance(justification, str)
+                or not justification.startswith("not-applicable:")
+                or not justification.removeprefix("not-applicable:").strip()
+            ):
+                errors.append(
+                    "$.mutation_strength.evidence_identity: NOT_APPLICABLE requires "
+                    "an explicit not-applicable:<justification> identity"
+                )
+            if evaluated != 0 or isinstance(evaluated, bool):
+                errors.append(
+                    "$.mutation_strength.mutants_evaluated: NOT_APPLICABLE requires "
+                    "zero evaluated mutants"
+                )
+            if killed != 0 or isinstance(killed, bool):
+                errors.append(
+                    "$.mutation_strength.mutants_killed: NOT_APPLICABLE requires "
+                    "zero killed mutants"
+                )
+
+    return tuple(sorted(errors))
+
+
 def _trajectory_manifest_semantic_errors(instance: Any) -> tuple[str, ...]:
     """Enforce A017 identity bindings without implementing A018 admission execution."""
 
@@ -488,6 +772,8 @@ def validation_errors(
         formatted.extend(_teacher_rescue_semantic_errors(instance))
     if name == "mstr-difficulty-calibration-v0":
         formatted.extend(_difficulty_calibration_semantic_errors(instance))
+    if name == "mstr-test-generation-example-v0":
+        formatted.extend(_test_generation_semantic_errors(instance))
     if name == "mstr-trajectory-manifest-v0":
         formatted.extend(_trajectory_manifest_semantic_errors(instance))
     return tuple(sorted(formatted))

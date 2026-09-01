@@ -1,0 +1,90 @@
+{
+  "admission_decision": "ADMIT",
+  "admission_reasons": [],
+  "base_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "behavior_contract": {
+    "behavior_id": "config-export-empty-value",
+    "description": "Export preserves an explicitly empty configuration value.",
+    "property_or_metamorphic_applicable": false,
+    "requires_reproduction": true,
+    "test_classes": [
+      "REPRODUCTION",
+      "TARGETED_REGRESSION",
+      "BOUNDARY_ERROR"
+    ]
+  },
+  "behavioral_proof": {
+    "independent_acceptance_evidence_identity": null,
+    "post_fix_result": {
+      "environment_identity": "fixture-env:python-3.11-offline",
+      "evidence_identity": "fixture-evidence:post-fix",
+      "result_id": "fixture-post-fix",
+      "revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "status": "PASS",
+      "task_identity": "fixture-task:config-export-bug",
+      "test_artifact_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "verifier_manifest_id": "fixture-verifier-manifest-v1"
+    },
+    "pre_fix_result": {
+      "environment_identity": "fixture-env:python-3.11-offline",
+      "evidence_identity": "fixture-evidence:pre-fix",
+      "result_id": "fixture-pre-fix",
+      "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": "PASS",
+      "task_identity": "fixture-task:config-export-bug",
+      "test_artifact_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "verifier_manifest_id": "fixture-verifier-manifest-v1"
+    },
+    "proof_kind": "FAIL_BEFORE_PASS_AFTER"
+  },
+  "contamination_status": {
+    "benchmark_overlap": "CLEAR",
+    "cross_split_duplicate": "CLEAR",
+    "evidence_identity": "fixture-contamination:b024-v1",
+    "future_history_exposure": "CLEAR",
+    "hidden_answer_exposure": "CLEAR"
+  },
+  "example_id": "b024-invalid-pass-before-pass-after",
+  "fix_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "generated_test_patch": {
+    "changed_paths": [
+      "tests/test_config_export.py"
+    ],
+    "deleted_existing_test_paths": [],
+    "patch_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "protected_path_changes": [],
+    "test_artifact_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "test_paths": [
+      "tests/test_config_export.py"
+    ]
+  },
+  "generated_test_provenance": {
+    "generator_identity": null,
+    "lineage_identity": "fixture-lineage:b024-test-generation-v1",
+    "source_class": "REPOSITORY_OWNED_FIXTURE",
+    "source_identity": "TheHalfMoon/MSTR:b024-fixture",
+    "source_revision": "1ffa71c94bda161ec7be7784de3a6a4be81570ad"
+  },
+  "generated_test_rights_decision": {
+    "decision": "COMPATIBLE",
+    "intended_use": "MSTR_TRAINING_OR_EVALUATION",
+    "reason_codes": [],
+    "terms_identity": "repository-owned-fixture-policy-v1"
+  },
+  "integrity_checks": {
+    "answer_encoding": "CLEAR",
+    "evaluator_modification": "CLEAR",
+    "protected_path_status": "INTACT",
+    "test_weakening": "CLEAR"
+  },
+  "mutation_strength": {
+    "evidence_identity": null,
+    "mutants_evaluated": 0,
+    "mutants_killed": 0,
+    "status": "NOT_APPLICABLE"
+  },
+  "schema_version": "mstr.test-generation-example.v0",
+  "task_identity": "fixture-task:config-export-bug",
+  "verifier_health_class": "HEALTHY",
+  "verifier_health_id": "fixture-verifier-health:healthy-v1"
+}
