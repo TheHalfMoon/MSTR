@@ -238,6 +238,38 @@ def test_b024_fail_before_pass_after_requires_distinct_revisions() -> None:
     errors = validation_errors("mstr-test-generation-example-v0", value)
     assert any("requires a revision distinct from base_revision" in error for error in errors)
 
+
+@pytest.mark.parametrize(
+    "stage_class",
+    ["RESEARCH_DIAGNOSTIC_ONLY", "BLOCKED"],
+)
+def test_b024_admit_requires_clean_positive_stage_eligibility(stage_class: str) -> None:
+    value = fixture()
+    binding = value["verifier_health_binding"]
+    assert isinstance(binding, dict)
+    binding["health_class"] = "HEALTHY"
+    binding["stage_admission_class"] = stage_class
+    assert validation_errors("mstr-test-generation-example-v0", value)
+
+
+def test_b024_verifier_health_binding_requires_exact_stage_identity() -> None:
+    value = fixture()
+    binding = value["verifier_health_binding"]
+    assert isinstance(binding, dict)
+    binding.pop("stage_id")
+    assert validation_errors("mstr-test-generation-example-v0", value)
+
+
+def test_b024_nonhealthy_health_cannot_claim_clean_positive_stage() -> None:
+    value = fixture()
+    value["admission_decision"] = "REJECT"
+    value["admission_reasons"] = ["VERIFIER_HEALTH_NOT_CLEAN_POSITIVE"]
+    binding = value["verifier_health_binding"]
+    assert isinstance(binding, dict)
+    binding["health_class"] = "PARTIAL"
+    binding["stage_admission_class"] = "CLEAN_POSITIVE_ELIGIBLE"
+    assert validation_errors("mstr-test-generation-example-v0", value)
+
 def test_b024_schema_has_no_remote_reference() -> None:
     schema = json.loads(
         (ROOT / "schemas/mstr-test-generation-example-v0.schema.json").read_text(

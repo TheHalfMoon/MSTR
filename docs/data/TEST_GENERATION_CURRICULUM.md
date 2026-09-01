@@ -55,7 +55,7 @@ Every `mstr.test-generation-example.v0` record binds:
 - environment and verifier-manifest identity;
 - answer-encoding, test-weakening, evaluator-modification, and protected-path checks;
 - optional mutation-strength evidence;
-- exact verifier-health binding across health-record id, task identity, executed verifier manifest, and class;
+- exact verifier-health binding across health-record id, task identity, executed verifier manifest, health class, stage identity, and stage admission class;
 - deterministic admission decision and reasons.
 
 ## Behavioral proof
@@ -92,6 +92,7 @@ HIDDEN_ANSWER_EXPOSURE = CLEAR
 FUTURE_HISTORY_EXPOSURE = CLEAR
 CROSS_SPLIT_DUPLICATE = CLEAR
 VERIFIER_HEALTH_CLASS = HEALTHY
+STAGE_ADMISSION_CLASS = CLEAN_POSITIVE_ELIGIBLE
 ANSWER_ENCODING = CLEAR
 TEST_WEAKENING = CLEAR
 EVALUATOR_MODIFICATION = CLEAR
@@ -121,7 +122,7 @@ The contract rejects clean-positive admission for examples that:
 
 ## Relationship to verifier health
 
-B023 is canonical before B024 entry. B024 records an exact verifier-health binding but does not create a second health authority and does not execute the B023 evaluator. Downstream admission must consume canonical verifier-health evidence and may not infer `HEALTHY` from a passing test process alone.
+B023 is canonical before B024 entry. B024 records an exact verifier-health binding but does not create a second health authority and does not execute the B023 evaluator. Downstream admission must consume canonical verifier-health evidence and may not infer `HEALTHY` from a passing test process alone. Clean-positive admission also requires the exact referenced stage to be `CLEAN_POSITIVE_ELIGIBLE`; global `HEALTHY` status cannot override a stage-specific diagnostic or blocked decision.
 
 ## Non-authorities
 

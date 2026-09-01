@@ -89,6 +89,8 @@
   "verifier_health_binding": {
     "health_class": "HEALTHY",
     "schema_version": "mstr.verifier-health.v0",
+    "stage_admission_class": "CLEAN_POSITIVE_ELIGIBLE",
+    "stage_id": "MSTR-002-SFT",
     "task_identity": "fixture-task:config-export-bug",
     "verifier_health_id": "fixture-verifier-health:healthy-v1",
     "verifier_manifest_id": "fixture-verifier-manifest-v1"

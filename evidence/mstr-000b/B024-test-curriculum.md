@@ -42,6 +42,8 @@ ADMIT_REQUIRES_COMPLETE_PROVENANCE = true
 GENERATED_SOURCE_REQUIRES_GENERATOR_IDENTITY = true
 ADMIT_REQUIRES_HEALTHY_VERIFIER = true
 VERIFIER_HEALTH_BINDING_TO_TASK_AND_EXECUTED_MANIFEST = required
+VERIFIER_HEALTH_STAGE_IDENTITY = required
+CLEAN_POSITIVE_STAGE_ELIGIBILITY = CLEAN_POSITIVE_ELIGIBLE
 ADEQUATE_MUTATION_REQUIRES_NONZERO_EVIDENCE = true
 ADMIT_REQUIRES_PROTECTED_PATH_INTEGRITY = true
 ANSWER_ENCODING = prohibited
@@ -101,3 +103,8 @@ Regression tests reproduce each reviewed defect and require the repaired behavio
 ### Distinct-revision review remediation
 
 The initial Codex review also identified that `FAIL_BEFORE_PASS_AFTER` could describe contradictory fail/pass outcomes on an identical code revision. This repair requires `base_revision != fix_revision` for that proof kind and adds a regression test that reproduces the rejected identical-revision case. `TASK_SPECIFIC_BEHAVIOR` is unchanged because this restriction is specific to claimed repair transitions.
+
+
+### Stage-eligibility review remediation
+
+Codex review `5081306167` on intermediate head `639c263b2c349f21dddc2539d46748f67e544a0e` identified that global `HEALTHY` verifier status could still be admitted when the referenced training stage was diagnostic-only or blocked. This repair mirrors the canonical trajectory binding: every verifier-health binding carries exact `stage_id` and `stage_admission_class`, and clean-positive `ADMIT` requires `CLEAN_POSITIVE_ELIGIBLE`. `PARTIAL`/`DISAGREEMENT` cannot claim clean-positive stage eligibility, while `BROKEN`/`LEAKED`/`TAMPERED` are stage-blocked. These fields record eligibility evidence only and grant no training or external-runtime authority.

@@ -181,6 +181,56 @@
     },
     "verifier_health_binding": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "health_class": {
+                "enum": [
+                  "PARTIAL",
+                  "DISAGREEMENT"
+                ]
+              }
+            },
+            "required": [
+              "health_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "stage_admission_class": {
+                "enum": [
+                  "RESEARCH_DIAGNOSTIC_ONLY",
+                  "BLOCKED"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "health_class": {
+                "enum": [
+                  "BROKEN",
+                  "LEAKED",
+                  "TAMPERED"
+                ]
+              }
+            },
+            "required": [
+              "health_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "stage_admission_class": {
+                "const": "BLOCKED"
+              }
+            }
+          }
+        }
+      ],
       "properties": {
         "health_class": {
           "enum": [
@@ -194,6 +244,16 @@
         },
         "schema_version": {
           "const": "mstr.verifier-health.v0"
+        },
+        "stage_admission_class": {
+          "enum": [
+            "CLEAN_POSITIVE_ELIGIBLE",
+            "RESEARCH_DIAGNOSTIC_ONLY",
+            "BLOCKED"
+          ]
+        },
+        "stage_id": {
+          "$ref": "#/$defs/identity"
         },
         "task_identity": {
           "$ref": "#/$defs/identity"
@@ -210,7 +270,9 @@
         "verifier_health_id",
         "task_identity",
         "verifier_manifest_id",
-        "health_class"
+        "health_class",
+        "stage_id",
+        "stage_admission_class"
       ],
       "type": "object"
     }
@@ -315,6 +377,9 @@
             "properties": {
               "health_class": {
                 "const": "HEALTHY"
+              },
+              "stage_admission_class": {
+                "const": "CLEAN_POSITIVE_ELIGIBLE"
               }
             }
           }
