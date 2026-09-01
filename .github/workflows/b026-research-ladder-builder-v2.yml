@@ -94,7 +94,7 @@ jobs:
           set -e
           test "$b027_rc" -eq 1
           test "$b011_rc" -eq 1
-          jq -e '.eligible == false and .state_consistency_result.observed_state == "PENDING" and [.prerequisite_results[] | select(.task_id == "B026" and .observed_state == "PENDING" and .satisfied == false)] | length == 1' /tmp/b027.json
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "PENDING" and ([.prerequisite_results[] | select(.task_id == "B026" and .observed_state == "PENDING" and .satisfied == false)] | length == 1)' /tmp/b027.json
           jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
       - name: Focused B026 contract tests
         run: python -m pytest tests/contract/test_schemas.py tests/contract/test_research_ladder_contract.py -q
