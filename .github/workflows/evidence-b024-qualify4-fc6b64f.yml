@@ -72,8 +72,8 @@ jobs:
           test -z "$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json)"
 
           gh api "repos/${GITHUB_REPOSITORY}/pulls/comments/${FINDING_COMMENT_ID}" > /tmp/finding.json
-          jq -e --arg predecessor "$PREDECESSOR_SHA" \
-            '.user.login == "chatgpt-codex-connector[bot]" and .commit_id == $predecessor and (.body | contains("Require truly independent acceptance evidence")) and (.body | contains("distinct from the pre/post execution evidence identities"))' \
+          jq -e --arg predecessor "$PREDECESSOR_SHA" --arg head "$HEAD_SHA" \
+            '.user.login == "chatgpt-codex-connector[bot]" and .original_commit_id == $predecessor and .commit_id == $head and (.body | contains("Require truly independent acceptance evidence")) and (.body | contains("distinct from the pre/post execution evidence identities"))' \
             /tmp/finding.json
 
   canonical_machine_gate:
