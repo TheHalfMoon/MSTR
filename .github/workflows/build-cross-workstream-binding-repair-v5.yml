@@ -1,0 +1,190 @@
+name: Build cross-workstream binding repair v5
+
+on:
+  push:
+    branches:
+      - fix/000b-cross-workstream-prerequisite-bindings
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_BASE: db12d1467bb81185a9affffb4d470626ceceddfa
+  EXPECTED_PARENT: 5852e96293b8ba5430c8781689933a4dce13c5d4
+  BRANCH: fix/000b-cross-workstream-prerequisite-bindings
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.BRANCH }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify immutable base and builder history
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_BASE"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_BASE"..HEAD)" -eq 5
+      - name: Generate bounded repair and identity hardening
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/build-cross-workstream-binding-repair-v4.yml')
+          source = workflow.read_text(encoding='utf-8')
+          start_marker = "          python - <<'PY'\n"
+          end_marker = "\n          PY\n"
+          start = source.index(start_marker) + len(start_marker)
+          end = source.index(end_marker, start)
+          script = textwrap.dedent(source[start:end])
+          script = script.split("\ntests = Path('tests/contract/test_task_gate.py')", 1)[0]
+          exec(compile(script, '<bounded-generator-v5>', 'exec'), {'__name__': '__main__'})
+          PY
+          cat >> tests/contract/test_task_gate.py <<'PYTEST'
+
+
+def test_external_prerequisite_mismatched_evidence_identity_fails_closed(
+    tmp_path: Path,
+) -> None:
+    tasks_dir = tmp_path / "specs" / "002-code-model-supremacy-foundation"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / "tasks.md").write_text(
+        "- [ ] **B001 Target task.**\n", encoding="utf-8"
+    )
+    external_tasks = (
+        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    )
+    external_tasks.parent.mkdir(parents=True)
+    external_tasks.write_text(
+        "- [x] **A006 External task.**\n", encoding="utf-8"
+    )
+    evidence = tmp_path / "evidence" / "mstr-000a" / "A006-finalizer.md"
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text(
+        "# Wrong task\n\n**Task:** `A014`\n**State:** `COMPLETE_CANONICAL`\n",
+        encoding="utf-8",
+    )
+    payload = {
+        "catalog_version": "mstr.task-catalog.v0",
+        "workstream_id": "MSTR-000B",
+        "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",
+        "defaults": {
+            "outputs": [],
+            "candidate_dependent": False,
+            "external_effect_class": "NO_EXTERNAL_EFFECT",
+            "parallel_safe": False,
+            "supersedes": [],
+            "superseded_by": [],
+            "closeout_rule": {
+                "terminal_states": ["COMPLETE_CANONICAL"],
+                "require_all_outputs": False,
+                "require_all_evidence_outputs": True,
+                "completion_requires_merge": True,
+            },
+        },
+        "tasks": {
+            "B001": {
+                "canonical_state": "PENDING",
+                "prerequisites": ["A006"],
+                "evidence_outputs": [],
+            }
+        },
+        "external_prerequisites": {
+            "A006": {
+                "workstream_id": "MSTR-000A",
+                "tasks_file": (
+                    "specs/001-agent-harness-verified-loop-foundation/tasks.md"
+                ),
+                "state_evidence": "evidence/mstr-000a/A006-finalizer.md",
+                "evidence_outputs": ["evidence/mstr-000a/A006-finalizer.md"],
+                "required_state": "COMPLETE_CANONICAL",
+            }
+        },
+    }
+    catalog_path = tmp_path / "configs" / "task-gate" / "mstr-000b.json"
+    catalog_path.parent.mkdir(parents=True)
+    catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["task_id"] == "A006"
+    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
+    assert predecessor["evidence_present"] is False
+    assert predecessor["satisfied"] is False
+    assert "prerequisite.external_identity_unproven" in predecessor["reasons"]
+PYTEST
+          rm -f \
+            .github/workflows/build-cross-workstream-binding-repair.yml \
+            .github/workflows/build-cross-workstream-binding-repair-v2.yml \
+            .github/workflows/build-cross-workstream-binding-repair-v3.yml \
+            .github/workflows/build-cross-workstream-binding-repair-v4.yml \
+            .github/workflows/build-cross-workstream-binding-repair-v5.yml
+      - name: Run complete frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git diff --check "$EXPECTED_BASE"
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy
+      - name: Create clean prospective repair commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add -A
+          git diff --cached --check
+          test "$(git diff --cached --name-only | wc -l)" -eq 9
+          git commit -m 'fix(task-gate): bind cross-workstream prerequisites'
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          git diff --name-only "$EXPECTED_BASE"..HEAD | tee /tmp/final-files
+          test "$(wc -l < /tmp/final-files)" -eq 4
+          grep -Fx 'configs/task-gate/mstr-000b.json' /tmp/final-files
+          grep -Fx 'evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md' /tmp/final-files
+          grep -Fx 'src/mstr_qualify/task_gate.py' /tmp/final-files
+          grep -Fx 'tests/contract/test_task_gate.py' /tmp/final-files
+      - name: Prove prospective drift and B023 machine eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          FINAL_HEAD=$(git rev-parse HEAD)
+          git update-ref refs/heads/main "$FINAL_HEAD"
+          git update-ref refs/remotes/origin/main "$FINAL_HEAD"
+          python -m mstr_qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          cat /tmp/drift.json
+          mstr-qualify task eligible B023 > /tmp/b023.json
+          jq -e '.task_id == "B023" and .eligible == true and (.reasons | length) == 0' /tmp/b023.json
+          jq -e '.semantic_checks.prerequisite_set_complete == true and .semantic_checks.prerequisite_states_satisfied == true' /tmp/b023.json
+          jq -e '[.prerequisite_results[] | select(.task_id == "A006" or .task_id == "A014") | .satisfied] == [true, true]' /tmp/b023.json
+          cat /tmp/b023.json
+      - name: Push exact repair after live-main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          FINAL_HEAD=$(git rev-parse HEAD)
+          git push origin HEAD:"$BRANCH"
+          echo "FINAL_REPAIR_HEAD=$FINAL_HEAD"
