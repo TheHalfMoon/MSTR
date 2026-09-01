@@ -1,0 +1,187 @@
+name: Repair and qualify B024 Codex findings v2
+
+on:
+  push:
+    branches:
+      - evidence/b024-review-repair-f052704
+
+permissions:
+  contents: write
+  actions: read
+  pull-requests: read
+
+env:
+  BASE_SHA: 1ffa71c94bda161ec7be7784de3a6a4be81570ad
+  OLD_HEAD: f052704cdb89b0e8d99135aa8d844c18a6b7a698
+  TARGET_BRANCH: feat/000b-b024-test-generation-curriculum
+  PRIOR_QUALIFICATION_RUN: '33537978316'
+  CODEX_REVIEW_ID: '5081151219'
+  NEGATIVE_REPAIR_RUN: '33539156940'
+
+jobs:
+  repair_validate_publish:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: repo
+    steps:
+      - name: Checkout repair controller
+        uses: actions/checkout@v4
+        with:
+          path: evidence-src
+          fetch-depth: 0
+
+      - name: Checkout exact reviewed B024 head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.OLD_HEAD }}
+          path: repo
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: repo/pyproject.toml
+
+      - name: Verify immutable repair entry and negative-run provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$OLD_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$OLD_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PRIOR_QUALIFICATION_RUN}" > /tmp/prior-qualification.json
+          jq -e '.status == "completed" and .conclusion == "success"' /tmp/prior-qualification.json
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/135/reviews/${CODEX_REVIEW_ID}" > /tmp/review.json
+          jq -e '.user.login == "chatgpt-codex-connector[bot]" and .commit_id == env.OLD_HEAD' /tmp/review.json
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${NEGATIVE_REPAIR_RUN}" > /tmp/negative.json
+          jq -e '.status == "completed" and .conclusion == "failure"' /tmp/negative.json
+
+      - name: Apply deterministic three-finding repair with Ruff-safe formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ../evidence-src/.github/evidence/b024_review_repair.py
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/mstr_qualify/schemas.py")
+          text = path.read_text(encoding="utf-8")
+          text = text.replace(
+              '                "$.verifier_health_binding.verifier_manifest_id: must match executed verifier manifest"\n',
+              '                "$.verifier_health_binding.verifier_manifest_id: "\n'
+              '                "must match executed verifier manifest"\n',
+          )
+          text = text.replace(
+              '                    "$.mutation_strength.mutants_killed: ADEQUATE requires at least one killed mutant"\n',
+              '                    "$.mutation_strength.mutants_killed: "\n'
+              '                    "ADEQUATE requires at least one killed mutant"\n',
+          )
+          path.write_text(text, encoding="utf-8")
+          PY
+          printf '%s\n' \
+            docs/data/TEST_GENERATION_CURRICULUM.md \
+            evidence/mstr-000b/B024-test-curriculum.md \
+            schemas/mstr-test-generation-example-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-test-generation-example-v0.schema.json \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_test_generation_example_contract.py \
+            tests/fixtures/schemas/valid/mstr-test-generation-example-v0.json | sort > /tmp/expected-files
+          git status --porcelain=v1 --untracked-files=all | sed 's/^...//' | sort > /tmp/status-files
+          diff -u /tmp/expected-files /tmp/status-files
+          git add --pathspec-from-file=/tmp/expected-files
+          git diff --cached --check
+          git diff --cached --name-only | sort > /tmp/staged-files
+          diff -u /tmp/expected-files /tmp/staged-files
+          git -c user.name='MSTR Evidence Builder' -c user.email='evidence-builder@users.noreply.github.com' \
+            commit -m 'fix(mstr-000b): close B024 review integrity gaps'
+          test "$(git rev-parse HEAD^)" = "$OLD_HEAD"
+          echo "CANDIDATE_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "CANDIDATE_TREE=$(git rev-parse HEAD^{tree})" >> "$GITHUB_ENV"
+
+      - name: Install development gates
+        run: python -m pip install -e '.[dev]'
+
+      - name: Run focused B024 regression suite
+        run: |
+          set -euo pipefail
+          python -m pytest \
+            tests/contract/test_test_generation_example_contract.py \
+            tests/contract/test_schemas.py \
+            tests/integration/test_cli_offline.py \
+            -q
+
+      - name: Validate offline schemas
+        run: python -m mstr_qualify validate
+
+      - name: Run full pytest
+        run: python -m pytest -q
+
+      - name: Run Ruff canonical gate
+        run: python -m ruff check .
+
+      - name: Run strict mypy canonical gate
+        run: python -m mypy src
+
+      - name: Re-prove canonical task ordering and authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          git switch --detach "$BASE_SHA"
+          git update-ref refs/heads/main "$BASE_SHA"
+          git update-ref refs/remotes/origin/main "$BASE_SHA"
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          mstr-qualify task eligible B024 > /tmp/b024.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true' /tmp/b024.json
+
+          set +e
+          mstr-qualify task eligible B026 > /tmp/b026.json
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+          jq -e '.eligible == false and ([.prerequisite_results[] | select(.task_id == "B024" and .satisfied == false)] | length == 1)' /tmp/b026.json
+
+          set +e
+          mstr-qualify task eligible B011 > /tmp/b011.json
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+
+          git switch --detach "$CANDIDATE_HEAD"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          test "$(git rev-parse HEAD^)" = "$OLD_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$CANDIDATE_TREE"
+          cmp schemas/mstr-test-generation-example-v0.schema.json \
+              specs/002-code-model-supremacy-foundation/contracts/mstr-test-generation-example-v0.schema.json
+          grep -F 'ADMIT_REQUIRES_COMPLETE_PROVENANCE = true' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F 'VERIFIER_HEALTH_BINDING_TO_TASK_AND_EXECUTED_MANIFEST = required' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F 'ADEQUATE_MUTATION_REQUIRES_NONZERO_EVIDENCE = true' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F 'WEIGHT_CHANGING_TRAINING = NONE' evidence/mstr-000b/B024-test-curriculum.md
+
+      - name: Guarded fast-forward publication to PR head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          test "$(git rev-parse HEAD^)" = "$OLD_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$CANDIDATE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$OLD_HEAD"
+          git diff --name-only "$OLD_HEAD...$CANDIDATE_HEAD" | sort > /tmp/final-files
+          diff -u /tmp/expected-files /tmp/final-files
+          git diff --check "$OLD_HEAD...$CANDIDATE_HEAD"
+          git push origin "$CANDIDATE_HEAD:refs/heads/$TARGET_BRANCH"
+          echo "B024_REPAIRED_HEAD=$CANDIDATE_HEAD"
+          echo "B024_REPAIRED_TREE=$CANDIDATE_TREE"
+          echo "B024_REVIEW_REPAIR=PASS"
+          echo "MODEL_EXECUTION=NONE"
+          echo "PAID_COMPUTE=NONE"
+          echo "WEIGHT_CHANGING_TRAINING=NONE"
