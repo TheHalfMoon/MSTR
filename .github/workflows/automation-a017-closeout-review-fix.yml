@@ -1,0 +1,46 @@
+name: Apply A017 closeout review fix
+
+on:
+  push:
+    branches:
+      - automation/a017-closeout-review-fix
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Append canonical implementation line to A017
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED='fefed09b18b1b1f817c1f3e3ef9bb95abb6536b7'
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git fetch origin closeout/000a-a017 --quiet
+          test "$(git rev-parse origin/closeout/000a-a017)" = "$EXPECTED"
+          git switch -C closeout/000a-a017 origin/closeout/000a-a017
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('specs/001-agent-harness-verified-loop-foundation/tasks.md')
+          text = path.read_text(encoding='utf-8')
+          marker = '  Outputs: `mstr.trajectory-manifest.v0`, failure taxonomy, fixtures, `evidence/mstr-000a/A017-trajectory-contract.md`.\n'
+          addition = '  Canonical implementation: PR #120 / final head `2270cbbd6a1110e2823679ea3ca2d7b77a92d256` / merge `11c528c0ad015f7505dd143c700e710a0f08d86a`; post-merge proof run `33441203968` = `SUCCESS`.\n'
+          assert text.count(marker) == 1
+          assert addition not in text
+          text = text.replace(marker, marker + addition, 1)
+          assert '- [ ] **A018 Implement trajectory recorder/replay/admission.**' in text
+          path.write_text(text, encoding='utf-8')
+          PY
+          test "$(git diff --name-only)" = 'specs/001-agent-harness-verified-loop-foundation/tasks.md'
+          git diff --check
+          grep -F 'Canonical implementation: PR #120 / final head `2270cbbd6a1110e2823679ea3ca2d7b77a92d256` / merge `11c528c0ad015f7505dd143c700e710a0f08d86a`; post-merge proof run `33441203968` = `SUCCESS`.' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          git add specs/001-agent-harness-verified-loop-foundation/tasks.md
+          git commit -m 'docs(mstr-000a): record A017 canonical implementation'
+          git push origin HEAD:closeout/000a-a017
