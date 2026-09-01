@@ -100,8 +100,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          # B003 requires the machine gate to execute with actual HEAD equal to
+          # canonical main. A candidate ref or rewritten main ref is not enough.
+          git switch --detach "$BASE_SHA"
           git update-ref refs/heads/main "$BASE_SHA"
           git update-ref refs/remotes/origin/main "$BASE_SHA"
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+
           mstr-qualify task drift > /tmp/drift.json
           jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
           mstr-qualify task eligible B024 > /tmp/b024.json
@@ -122,11 +129,18 @@ jobs:
           test "$rc" -eq 1
           jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
 
+          # Return to the exact candidate before checking candidate-only evidence
+          # and before the publish step. No candidate state is inferred on main.
+          git switch --detach "$CANDIDATE_HEAD"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$CANDIDATE_TREE"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
           grep -F 'MODEL_EXECUTION = NONE' evidence/mstr-000b/B024-test-curriculum.md
           grep -F 'TEST_GENERATION_EXECUTION = NONE' evidence/mstr-000b/B024-test-curriculum.md
           grep -F 'PAID_COMPUTE = NONE' evidence/mstr-000b/B024-test-curriculum.md
           grep -F 'WEIGHT_CHANGING_TRAINING = NONE' evidence/mstr-000b/B024-test-curriculum.md
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test -z "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)"
       - name: Guarded publish of exact validated candidate
         shell: bash
         run: |
