@@ -1,0 +1,144 @@
+name: Build guarded B026 research ladder v3
+
+on:
+  push:
+    branches: [evidence/b026-builder-823cd7e]
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  BASE_SHA: 823cd7ec3b4c537876a0795d0f0f8d4bd75acd85
+  TARGET_BRANCH: feat/000b-b026-research-ladder
+  POST_CLOSEOUT_RUN: '33564300212'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11', cache: pip, cache-dependency-path: pyproject.toml}
+      - name: Verify immutable entry and stage repaired builder
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test -z "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)"
+          cp .github/scripts/b026_research_ladder_builder.py /tmp/b026_builder.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('/tmp/b026_builder.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''    for line in (\n        "mstr.material-result-identity.v0\\n",\n        "mstr.research-experiment.v2\\n",\n    ):\n        replace_once(\n            "specs/002-code-model-supremacy-foundation/contracts/README.md",\n            line,\n            "",\n        )\n'''
+          new = '''    planned_old = (\n        "mstr.greenfield-task.v0\\n"\n        "mstr.material-result-identity.v0\\n"\n        "mstr.research-experiment.v2\\n"\n        "mstr.repository-health.v0\\n"\n    )\n    planned_new = (\n        "mstr.greenfield-task.v0\\n"\n        "mstr.repository-health.v0\\n"\n    )\n    replace_once(\n        "specs/002-code-model-supremacy-foundation/contracts/README.md",\n        planned_old,\n        planned_new,\n    )\n'''
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one builder patch target, found {text.count(old)}')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+          python -m py_compile /tmp/b026_builder.py
+          git checkout --detach "$BASE_SHA"
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test -z "$(git status --porcelain)"
+      - name: Build and seal exact B026 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/b026_builder.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/integration/test_cli_offline.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''        "mstr-loop-contract-v0",\n        "mstr-q4-promotion-v0",\n'''
+          new = '''        "mstr-loop-contract-v0",\n        "mstr-material-result-identity-v0",\n        "mstr-q4-promotion-v0",\n        "mstr-research-experiment-v2",\n'''
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one offline registry list target, found {text.count(old)}')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+          printf '%s\n' \
+            configs/research/mstr-research-ladder-v0.json \
+            evidence/mstr-000b/B026-research-ladder.md \
+            schemas/mstr-material-result-identity-v0.schema.json \
+            schemas/mstr-research-experiment-v2.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/README.md \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-material-result-identity-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-research-experiment-v2.schema.json \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_research_ladder_contract.py \
+            tests/contract/test_schemas.py \
+            tests/fixtures/schemas/invalid/mstr-material-result-identity-v0.json \
+            tests/fixtures/schemas/invalid/mstr-research-experiment-v2.json \
+            tests/fixtures/schemas/valid/mstr-material-result-identity-v0.json \
+            tests/fixtures/schemas/valid/mstr-research-experiment-v2.json \
+            tests/integration/test_cli_offline.py | sort > /tmp/expected
+          (git diff --name-only; git ls-files --others --exclude-standard) | sort -u > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          git diff --check
+          test -z "$(git diff --name-only -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json)"
+          cmp schemas/mstr-material-result-identity-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-material-result-identity-v0.schema.json
+          cmp schemas/mstr-research-experiment-v2.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-research-experiment-v2.schema.json
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add --pathspec-from-file=/tmp/expected
+          git commit -m 'feat(mstr-000b): freeze B026 research ladder contracts'
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git diff --name-only "$BASE_SHA...HEAD" | wc -l)" -eq 15
+          test -z "$(git status --porcelain)"
+      - name: Install development gates
+        run: python -m pip install -e '.[dev]'
+      - name: Prove machine frontier remains bounded
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="$(git rev-parse HEAD)"
+          git update-ref refs/heads/main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          mstr-qualify task eligible B026 > /tmp/b026.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true and (.reasons | length) == 0' /tmp/b026.json
+          set +e
+          mstr-qualify task eligible B027 > /tmp/b027.json; b027_rc=$?
+          mstr-qualify task eligible B011 > /tmp/b011.json; b011_rc=$?
+          set -e
+          test "$b027_rc" -eq 1
+          test "$b011_rc" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "PENDING" and ([.prerequisite_results[] | select(.task_id == "B026" and .observed_state == "PENDING" and .satisfied == false)] | length == 1)' /tmp/b027.json
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+      - name: Focused B026 and registry tests
+        run: python -m pytest tests/contract/test_schemas.py tests/contract/test_research_ladder_contract.py tests/integration/test_cli_offline.py -q
+      - name: Offline schema validation
+        run: python -m mstr_qualify validate
+      - name: Full pytest
+        run: python -m pytest -q
+      - name: Ruff
+        run: python -m ruff check .
+      - name: Strict mypy
+        run: python -m mypy src
+      - name: Verify B026 authority and contract boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp schemas/mstr-material-result-identity-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-material-result-identity-v0.schema.json
+          cmp schemas/mstr-research-experiment-v2.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-research-experiment-v2.schema.json
+          grep -F '**State:** `IMPLEMENTATION_ACTIVE`' evidence/mstr-000b/B026-research-ladder.md
+          grep -F 'B026_ELIGIBLE = true' evidence/mstr-000b/B026-research-ladder.md
+          grep -F 'RESEARCH_CAMPAIGN_EXECUTION = NONE' evidence/mstr-000b/B026-research-ladder.md
+          for marker in 'MODEL_WEIGHT_ACCESS = NONE' 'MODEL_EXECUTION = NONE' 'PAID_COMPUTE = NONE' 'NETWORK_MODEL_OR_TEACHER_CALL = NONE' 'LARGE_DATASET_INGESTION = NONE' 'PRIVATE_USER_DATA_INGESTION = NONE' 'WEIGHT_CHANGING_TRAINING = NONE' 'LARGE_SCALE_RL = NONE' 'PRODUCTION_RELEASE = NONE'; do grep -F "$marker" evidence/mstr-000b/B026-research-ladder.md; done
+          jq -e '.authority_boundary.contract_freeze_only == true and ([.authority_boundary | to_entries[] | select(.key != "contract_freeze_only") | .value] | all(. == false))' configs/research/mstr-research-ladder-v0.json
+          test -z "$(git diff --name-only "$BASE_SHA...HEAD" -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json)"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test -z "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)"
+      - name: Guarded exact-candidate publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test -z "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)"
+          git push origin "$candidate:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$candidate"
+          echo "B026_CANDIDATE_SHA=$candidate"
