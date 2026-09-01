@@ -1,0 +1,257 @@
+name: B023 binding final independent adversarial review 0227eea
+
+on:
+  push:
+    branches:
+      - evidence/b023-binding-final-review-0227eea
+
+permissions:
+  contents: read
+
+env:
+  BASE_SHA: db12d1467bb81185a9affffb4d470626ceceddfa
+  TARGET_SHA: 0227eea165096b7ae8ea3cc853de4b6f941807e4
+  TARGET_TREE: 15f0000be34e8a9380349fdc240526cdc32e9965
+  TARGET_BRANCH: fix/b023-cross-workstream-bindings-final-atomic-20260901
+  QUALIFICATION_RUN: '33510433686'
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Verify exact reviewed head and qualification predecessor
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_SHA"
+          python - <<'PY'
+          import json
+          import urllib.request
+          run = json.load(urllib.request.urlopen('https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/33510433686'))
+          assert run['status'] == 'completed', run
+          assert run['conclusion'] == 'success', run
+          PY
+      - name: Verify exact scope and task-state boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md \
+            src/mstr_qualify/task_gate.py \
+            tests/contract/test_task_gate.py | sort > /tmp/expected
+          git diff --name-only "$BASE_SHA...$TARGET_SHA" | sort > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          git diff --check "$BASE_SHA...$TARGET_SHA"
+          test -z "$(grep '^\.github/workflows/' /tmp/actual || true)"
+          grep -F -- '- [ ] **B023 Implement verifier-health evaluator on controlled fixtures.**' specs/002-code-model-supremacy-foundation/tasks.md
+      - name: Install reviewed candidate
+        run: python -m pip install -e '.[dev]'
+      - name: Independent adversarial fail-closed probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import shutil
+          import tempfile
+          from pathlib import Path
+
+          from mstr_qualify.errors import QualificationError
+          from mstr_qualify.task_gate import evaluate_task_snapshot, load_task_catalog
+
+          source = Path.cwd()
+          target_sha = '0227eea165096b7ae8ea3cc853de4b6f941807e4'
+
+          def clone_fixture() -> tuple[tempfile.TemporaryDirectory[str], Path]:
+              holder = tempfile.TemporaryDirectory()
+              root = Path(holder.name) / 'repo'
+              shutil.copytree(source, root, ignore=shutil.ignore_patterns('.git', '.venv', '__pycache__'))
+              return holder, root
+
+          def evaluate(root: Path) -> dict[str, object]:
+              return evaluate_task_snapshot(
+                  'B023',
+                  repository_root=root,
+                  catalog_path=root / 'configs/task-gate/mstr-000b.json',
+                  canonical_main=target_sha,
+              )
+
+          def row(result: dict[str, object], task_id: str) -> dict[str, object]:
+              return next(item for item in result['prerequisite_results'] if item['task_id'] == task_id)  # type: ignore[index,union-attr]
+
+          holder, root = clone_fixture()
+          try:
+              baseline = evaluate(root)
+              assert baseline['eligible'] is True, baseline
+          finally:
+              holder.cleanup()
+
+          # Split/duplicate identity-state substitution must fail closed.
+          holder, root = clone_fixture()
+          try:
+              evidence = root / 'evidence/mstr-000a/A006-finalizer.md'
+              evidence.write_text(
+                  '**Task:** `A006`\n**State:** `PENDING`\n'
+                  '**Task:** `MSTR-000A / A014`\n**State:** `COMPLETE_CANONICAL`\n',
+                  encoding='utf-8',
+              )
+              result = evaluate(root)
+              assert result['eligible'] is False, result
+              item = row(result, 'A006')
+              assert item['satisfied'] is False
+              assert 'prerequisite.external_identity_unproven' in item['reasons']
+              assert 'prerequisite.external_state_unproven' in item['reasons']
+          finally:
+              holder.cleanup()
+
+          # Missing checklist is unverifiable, not an unchecked-state conflict.
+          holder, root = clone_fixture()
+          try:
+              tasks = root / 'specs/001-agent-harness-verified-loop-foundation/tasks.md'
+              tasks.unlink()
+              result = evaluate(root)
+              item = row(result, 'A006')
+              assert result['eligible'] is False
+              assert 'prerequisite.external_checkbox_unverifiable' in item['reasons']
+              assert 'prerequisite.state_checkbox_conflict' not in item['reasons']
+          finally:
+              holder.cleanup()
+
+          # A unique unchecked task remains a state conflict, not unverifiable.
+          holder, root = clone_fixture()
+          try:
+              tasks = root / 'specs/001-agent-harness-verified-loop-foundation/tasks.md'
+              text = tasks.read_text(encoding='utf-8')
+              marker = '- [x] **A006 '
+              assert text.count(marker) == 1
+              tasks.write_text(text.replace(marker, '- [ ] **A006 ', 1), encoding='utf-8')
+              result = evaluate(root)
+              item = row(result, 'A006')
+              assert result['eligible'] is False
+              assert 'prerequisite.state_checkbox_conflict' in item['reasons']
+              assert 'prerequisite.external_checkbox_unverifiable' not in item['reasons']
+          finally:
+              holder.cleanup()
+
+          # A valid bold checklist title need not end in a period.
+          holder, root = clone_fixture()
+          try:
+              tasks = root / 'specs/001-agent-harness-verified-loop-foundation/tasks.md'
+              lines = tasks.read_text(encoding='utf-8').splitlines()
+              changed = False
+              for index, line in enumerate(lines):
+                  if line.startswith('- [x] **A006 '):
+                      assert line.count('**') >= 2
+                      prefix, rest = line.split('**', 1)
+                      title, suffix = rest.split('**', 1)
+                      title = title.rstrip('.')
+                      lines[index] = prefix + '**' + title + '**' + suffix
+                      changed = True
+                      break
+              assert changed
+              tasks.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+              result = evaluate(root)
+              item = row(result, 'A006')
+              assert item['satisfied'] is True, item
+              assert 'prerequisite.external_checkbox_unverifiable' not in item['reasons']
+          finally:
+              holder.cleanup()
+
+          # Malformed UTF-8 checklist must fail closed without raising.
+          holder, root = clone_fixture()
+          try:
+              tasks = root / 'specs/001-agent-harness-verified-loop-foundation/tasks.md'
+              tasks.write_bytes(b'- [x] **A006 External task**\n\xff\xfe')
+              result = evaluate(root)
+              item = row(result, 'A006')
+              assert result['eligible'] is False
+              assert 'prerequisite.external_checkbox_unverifiable' in item['reasons']
+          finally:
+              holder.cleanup()
+
+          # Malformed UTF-8 state evidence must fail closed without raising.
+          holder, root = clone_fixture()
+          try:
+              evidence = root / 'evidence/mstr-000a/A006-finalizer.md'
+              evidence.write_bytes(b'**Task:** `MSTR-000A / A006`\n\xff\xfe')
+              result = evaluate(root)
+              item = row(result, 'A006')
+              assert result['eligible'] is False
+              assert item['evidence_present'] is False
+              assert 'prerequisite.external_identity_unproven' in item['reasons']
+              assert 'prerequisite.external_state_unproven' in item['reasons']
+          finally:
+              holder.cleanup()
+
+          # Workstream evidence cannot escape the MSTR-000A namespace.
+          holder, root = clone_fixture()
+          try:
+              catalog_path = root / 'configs/task-gate/mstr-000b.json'
+              catalog = json.loads(catalog_path.read_text(encoding='utf-8'))
+              binding = catalog['external_prerequisites']['A006']
+              binding['state_evidence'] = 'evidence/mstr-000b/A006-finalizer.md'
+              binding['evidence_outputs'] = ['evidence/mstr-000b/A006-finalizer.md']
+              catalog_path.write_text(json.dumps(catalog), encoding='utf-8')
+              try:
+                  load_task_catalog(catalog_path, repository_root=root)
+              except QualificationError as exc:
+                  assert exc.code == 'task_gate.catalog_external_workstream_evidence', exc.code
+              else:
+                  raise AssertionError('wrong evidence namespace was accepted')
+          finally:
+              holder.cleanup()
+
+          # Binding identity itself must be fully qualified.
+          holder, root = clone_fixture()
+          try:
+              catalog_path = root / 'configs/task-gate/mstr-000b.json'
+              catalog = json.loads(catalog_path.read_text(encoding='utf-8'))
+              catalog['external_prerequisites']['A006']['task_identity'] = 'A006'
+              catalog_path.write_text(json.dumps(catalog), encoding='utf-8')
+              try:
+                  load_task_catalog(catalog_path, repository_root=root)
+              except QualificationError as exc:
+                  assert exc.code == 'task_gate.catalog_external_task_identity', exc.code
+              else:
+                  raise AssertionError('bare binding identity was accepted')
+          finally:
+              holder.cleanup()
+
+          print('INDEPENDENT_ADVERSARIAL_REVIEW=PASS')
+          PY
+      - name: Review-focused negative contracts
+        run: >-
+          python -m pytest tests/contract/test_task_gate.py -q
+          -k 'external_prerequisite and (split or duplicate or workstream or identity or checklist or utf8 or trailing_period)'
+      - name: Re-run frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+      - name: Final exact-head immutability review
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard "$TARGET_SHA"
+          git clean -fdx
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_SHA"
