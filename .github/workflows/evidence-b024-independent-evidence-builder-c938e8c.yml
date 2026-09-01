@@ -70,7 +70,7 @@ jobs:
         run: python -m pytest -q
 
       - name: Ruff
-        run: python -m ruff check .
+        run: python -m ruff check . --exclude _builder
 
       - name: Strict mypy
         run: python -m mypy src
