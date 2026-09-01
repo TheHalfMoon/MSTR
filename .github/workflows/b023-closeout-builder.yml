@@ -54,17 +54,42 @@ jobs:
           git commit -m 'docs(mstr-000b): canonicalize B023 closeout'
           echo "CANDIDATE_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "CANDIDATE_TREE=$(git rev-parse HEAD^{tree})" >> "$GITHUB_ENV"
-      - name: Validate exact candidate and prospective frontier
+      - name: Install package and run focused closeout tests
         working-directory: repo
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install -e '.[dev]'
           python -m pytest tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/unit/test_verifier_health.py tests/contract/test_verifier_health_contract.py -q
+      - name: Validate offline schemas
+        working-directory: repo
+        shell: bash
+        run: |
+          set -euo pipefail
           python -m mstr_qualify validate
+      - name: Run full pytest
+        working-directory: repo
+        shell: bash
+        run: |
+          set -euo pipefail
           python -m pytest -q
+      - name: Run Ruff canonical gate
+        working-directory: repo
+        shell: bash
+        run: |
+          set -euo pipefail
           python -m ruff check .
+      - name: Run strict mypy canonical gate
+        working-directory: repo
+        shell: bash
+        run: |
+          set -euo pipefail
           python -m mypy src
+      - name: Prove prospective canonical frontier
+        working-directory: repo
+        shell: bash
+        run: |
+          set -euo pipefail
           git update-ref refs/heads/main "$CANDIDATE_HEAD"
           git update-ref refs/remotes/origin/main "$CANDIDATE_HEAD"
           mstr-qualify task drift > /tmp/drift.json
