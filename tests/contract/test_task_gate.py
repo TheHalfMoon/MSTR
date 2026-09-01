@@ -1267,18 +1267,25 @@ def test_b022_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b022_closeout_satisfies_only_its_b023_prerequisite() -> None:
+def test_b023_cross_workstream_prerequisites_are_canonically_bound() -> None:
     result = evaluate_task_snapshot("B023", canonical_main=_CANONICAL_MAIN)
 
-    assert result["eligible"] is False
+    assert result["eligible"] is True
     assert result["state_consistency_result"]["observed_state"] == "PENDING"
-    assert "prerequisite.unsatisfied:B022" not in result["reasons"]
-    assert "prerequisite.unsatisfied:A006" in result["reasons"]
-    assert "prerequisite.unsatisfied:A014" in result["reasons"]
-    predecessor = next(item for item in result["prerequisite_results"] if item["task_id"] == "B022")
-    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
-    assert predecessor["evidence_present"] is True
-    assert predecessor["satisfied"] is True
+    assert result["reasons"] == []
+    assert result["semantic_checks"]["prerequisite_set_complete"] is True
+    assert result["semantic_checks"]["prerequisite_states_satisfied"] is True
+    assert {item["task_id"] for item in result["prerequisite_results"]} == {
+        "A006", "A014", "B002", "B022"
+    }
+    for task_id in ("A006", "A014"):
+        predecessor = next(
+            item for item in result["prerequisite_results"] if item["task_id"] == task_id
+        )
+        assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
+        assert predecessor["evidence_present"] is True
+        assert predecessor["satisfied"] is True
+        assert predecessor["reasons"] == []
     validate_instance("mstr-task-eligibility-v0", result)
 
 
@@ -1329,3 +1336,798 @@ def test_b028_is_terminal_after_canonical_closeout() -> None:
     assert all(item["evidence_present"] is True for item in result["prerequisite_results"])
     assert all(item["satisfied"] is True for item in result["prerequisite_results"])
     validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_external_prerequisite_missing_state_evidence_fails_closed(tmp_path: Path) -> None:
+    tasks_dir = tmp_path / "specs" / "002-code-model-supremacy-foundation"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / "tasks.md").write_text("- [ ] **B001 Target task.**\n", encoding="utf-8")
+    a_tasks = tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    a_tasks.parent.mkdir(parents=True)
+    a_tasks.write_text("- [x] **A006 External task.**\n", encoding="utf-8")
+    evidence = tmp_path / "evidence" / "mstr-000a" / "A006-finalizer.md"
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text("# A006\n\n**Task:** `A006`\n**State:** `PENDING`\n", encoding="utf-8")
+    payload = {
+        "catalog_version": "mstr.task-catalog.v0",
+        "workstream_id": "MSTR-000B",
+        "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",
+        "defaults": {
+            "outputs": [], "candidate_dependent": False,
+            "external_effect_class": "NO_EXTERNAL_EFFECT", "parallel_safe": False,
+            "supersedes": [], "superseded_by": [],
+            "closeout_rule": {
+                "terminal_states": ["COMPLETE_CANONICAL"],
+                "require_all_outputs": False, "require_all_evidence_outputs": True,
+                "completion_requires_merge": True,
+            },
+        },
+        "tasks": {
+            "B001": {
+                "canonical_state": "PENDING",
+                "prerequisites": ["A006"],
+                "evidence_outputs": [],
+            }
+        },
+        "external_prerequisites": {"A006": {
+            "workstream_id": "MSTR-000A",
+            "task_identity": "MSTR-000A / A006",
+            "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+            "state_evidence": "evidence/mstr-000a/A006-finalizer.md",
+            "evidence_outputs": ["evidence/mstr-000a/A006-finalizer.md"],
+            "required_state": "COMPLETE_CANONICAL",
+        }},
+    }
+    catalog_path = tmp_path / "configs" / "task-gate" / "mstr-000b.json"
+    catalog_path.parent.mkdir(parents=True)
+    catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+    result = evaluate_task_snapshot(
+        "B001", repository_root=tmp_path, catalog_path=catalog_path, canonical_main=_CANONICAL_MAIN
+    )
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["observed_state"] is None
+    assert predecessor["evidence_present"] is False
+    assert predecessor["satisfied"] is False
+    assert "prerequisite.external_state_unproven" in predecessor["reasons"]
+
+
+def test_external_prerequisite_mismatched_evidence_identity_fails_closed(tmp_path: Path) -> None:
+    tasks_dir = tmp_path / "specs" / "002-code-model-supremacy-foundation"
+    tasks_dir.mkdir(parents=True)
+    (tasks_dir / "tasks.md").write_text("- [ ] **B001 Target task.**\n", encoding="utf-8")
+    a_tasks = tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    a_tasks.parent.mkdir(parents=True)
+    a_tasks.write_text("- [x] **A006 External task.**\n", encoding="utf-8")
+    evidence = tmp_path / "evidence" / "mstr-000a" / "A006-finalizer.md"
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text(
+        "# Wrong task\n\n**Task:** `A014`\n**State:** `COMPLETE_CANONICAL`\n", encoding="utf-8"
+    )
+    payload = {
+        "catalog_version": "mstr.task-catalog.v0",
+        "workstream_id": "MSTR-000B",
+        "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",
+        "defaults": {
+            "outputs": [], "candidate_dependent": False,
+            "external_effect_class": "NO_EXTERNAL_EFFECT", "parallel_safe": False,
+            "supersedes": [], "superseded_by": [],
+            "closeout_rule": {
+                "terminal_states": ["COMPLETE_CANONICAL"],
+                "require_all_outputs": False, "require_all_evidence_outputs": True,
+                "completion_requires_merge": True,
+            },
+        },
+        "tasks": {
+            "B001": {
+                "canonical_state": "PENDING",
+                "prerequisites": ["A006"],
+                "evidence_outputs": [],
+            }
+        },
+        "external_prerequisites": {"A006": {
+            "workstream_id": "MSTR-000A",
+            "task_identity": "MSTR-000A / A006",
+            "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+            "state_evidence": "evidence/mstr-000a/A006-finalizer.md",
+            "evidence_outputs": ["evidence/mstr-000a/A006-finalizer.md"],
+            "required_state": "COMPLETE_CANONICAL",
+        }},
+    }
+    catalog_path = tmp_path / "configs" / "task-gate" / "mstr-000b.json"
+    catalog_path.parent.mkdir(parents=True)
+    catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+    result = evaluate_task_snapshot(
+        "B001", repository_root=tmp_path, catalog_path=catalog_path, canonical_main=_CANONICAL_MAIN
+    )
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
+    assert predecessor["evidence_present"] is False
+    assert predecessor["satisfied"] is False
+    assert "prerequisite.external_identity_unproven" in predecessor["reasons"]
+
+
+def test_unknown_external_prerequisite_still_fails_closed(tmp_path: Path) -> None:
+    catalog_path = _write_minimal_catalog(tmp_path, b001_checked=True)
+    data = json.loads(catalog_path.read_text(encoding="utf-8"))
+    data["tasks"]["B002"]["prerequisites"] = ["A999"]
+    catalog_path.write_text(json.dumps(data), encoding="utf-8")
+    result = evaluate_task_snapshot(
+        "B002", repository_root=tmp_path, catalog_path=catalog_path, canonical_main=_CANONICAL_MAIN
+    )
+    assert result["eligible"] is False
+    assert result["semantic_checks"]["prerequisite_set_complete"] is False
+    assert result["prerequisite_results"][0]["reasons"] == ["prerequisite.missing_task_binding"]
+
+
+def _write_external_binding_fixture(root: Path, evidence_text: str) -> Path:
+    target_tasks = root / "specs" / "002-code-model-supremacy-foundation" / "tasks.md"
+    target_tasks.parent.mkdir(parents=True)
+    target_tasks.write_text("- [ ] **B001 Target task.**\n", encoding="utf-8")
+    external_tasks = (
+        root / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    )
+    external_tasks.parent.mkdir(parents=True)
+    external_tasks.write_text("- [x] **A006 External task.**\n", encoding="utf-8")
+    evidence = root / "evidence" / "mstr-000a" / "A006-finalizer.md"
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text(evidence_text, encoding="utf-8")
+    payload = {
+        "catalog_version": "mstr.task-catalog.v0",
+        "workstream_id": "MSTR-000B",
+        "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",
+        "defaults": {
+            "outputs": [],
+            "candidate_dependent": False,
+            "external_effect_class": "NO_EXTERNAL_EFFECT",
+            "parallel_safe": False,
+            "supersedes": [],
+            "superseded_by": [],
+            "closeout_rule": {
+                "terminal_states": ["COMPLETE_CANONICAL"],
+                "require_all_outputs": False,
+                "require_all_evidence_outputs": True,
+                "completion_requires_merge": True,
+            },
+        },
+        "tasks": {
+            "B001": {
+                "canonical_state": "PENDING",
+                "prerequisites": ["A006"],
+                "evidence_outputs": [],
+            }
+        },
+        "external_prerequisites": {
+            "A006": {
+                "workstream_id": "MSTR-000A",
+                "task_identity": "MSTR-000A / A006",
+                "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+                "state_evidence": "evidence/mstr-000a/A006-finalizer.md",
+                "evidence_outputs": ["evidence/mstr-000a/A006-finalizer.md"],
+                "required_state": "COMPLETE_CANONICAL",
+            }
+        },
+    }
+    catalog_path = root / "configs" / "task-gate" / "mstr-000b.json"
+    catalog_path.parent.mkdir(parents=True)
+    catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+    return catalog_path
+
+
+def test_external_prerequisite_split_identity_and_state_records_fail_closed(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `A006`\n**State:** `PENDING`\n"
+        "**Task:** `MSTR-000A / A014`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["observed_state"] is None
+    assert predecessor["evidence_present"] is False
+    assert predecessor["satisfied"] is False
+    assert "prerequisite.external_identity_unproven" in predecessor["reasons"]
+    assert "prerequisite.external_state_unproven" in predecessor["reasons"]
+
+
+def test_external_prerequisite_duplicate_identity_records_fail_closed(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `A006`\n**Task:** `MSTR-000A / A006`\n"
+        "**State:** `COMPLETE_CANONICAL`\n",
+    )
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["evidence_present"] is False
+    assert predecessor["satisfied"] is False
+    assert "prerequisite.external_identity_unproven" in predecessor["reasons"]
+
+
+def test_external_prerequisite_fully_qualified_identity_is_accepted(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is True
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["evidence_present"] is True
+    assert predecessor["satisfied"] is True
+
+
+def test_external_prerequisite_legacy_task_identity_requires_bound_namespace(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+    assert result["eligible"] is True
+
+    payload = json.loads(catalog_path.read_text(encoding="utf-8"))
+    binding = payload["external_prerequisites"]["A006"]
+    binding["state_evidence"] = "evidence/mstr-000b/A006-finalizer.md"
+    binding["evidence_outputs"] = ["evidence/mstr-000b/A006-finalizer.md"]
+    catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(QualificationError) as captured:
+        load_task_catalog(catalog_path, repository_root=tmp_path)
+    assert captured.value.code == "task_gate.catalog_external_workstream_evidence"
+
+
+def test_external_prerequisite_workstream_tasks_file_mismatch_is_rejected(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    payload = json.loads(catalog_path.read_text(encoding="utf-8"))
+    payload["external_prerequisites"]["A006"]["tasks_file"] = (
+        "specs/002-code-model-supremacy-foundation/tasks.md"
+    )
+    catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(QualificationError) as captured:
+        load_task_catalog(catalog_path, repository_root=tmp_path)
+    assert captured.value.code == "task_gate.catalog_external_workstream_tasks_file"
+
+
+def test_external_prerequisite_task_identity_binding_must_be_fully_qualified(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    payload = json.loads(catalog_path.read_text(encoding="utf-8"))
+    payload["external_prerequisites"]["A006"]["task_identity"] = "A006"
+    catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(QualificationError) as captured:
+        load_task_catalog(catalog_path, repository_root=tmp_path)
+    assert captured.value.code == "task_gate.catalog_external_task_identity"
+
+
+def test_external_prerequisite_missing_checklist_is_reported_unverifiable(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    external_tasks = (
+        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    )
+    external_tasks.unlink()
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert "prerequisite.external_checkbox_unverifiable" in predecessor["reasons"]
+    assert "prerequisite.state_checkbox_conflict" not in predecessor["reasons"]
+
+
+def test_external_prerequisite_unchecked_checklist_remains_checkbox_conflict(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    external_tasks = (
+        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    )
+    external_tasks.write_text("- [ ] **A006 External task.**\n", encoding="utf-8")
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert "prerequisite.state_checkbox_conflict" in predecessor["reasons"]
+    assert "prerequisite.external_checkbox_unverifiable" not in predecessor["reasons"]
+
+
+def test_external_prerequisite_checklist_title_does_not_require_trailing_period(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    external_tasks = (
+        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    )
+    external_tasks.write_text("- [x] **A006 Implement boundary**\n", encoding="utf-8")
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is True
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["satisfied"] is True
+    assert predecessor["reasons"] == []
+
+
+def test_external_prerequisite_non_utf8_checklist_fails_closed_without_exception(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    external_tasks = (
+        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    )
+    external_tasks.write_bytes(b"- [x] **A006 External task**\n\xff\xfe")
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert "prerequisite.external_checkbox_unverifiable" in predecessor["reasons"]
+
+
+def test_external_prerequisite_non_utf8_state_evidence_fails_closed_without_exception(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    evidence = tmp_path / "evidence" / "mstr-000a" / "A006-finalizer.md"
+    evidence.write_bytes(b"**Task:** `MSTR-000A / A006`\n\xff\xfe")
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["evidence_present"] is False
+    assert "prerequisite.external_identity_unproven" in predecessor["reasons"]
+    assert "prerequisite.external_state_unproven" in predecessor["reasons"]
+
+
+def test_external_prerequisite_fenced_checklist_example_is_ignored(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    external_tasks = (
+        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    )
+    external_tasks.write_text(
+        "```markdown\n- [x] **A006 Example only.**\n```\n",
+        encoding="utf-8",
+    )
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert "prerequisite.external_checkbox_unverifiable" in predecessor["reasons"]
+
+
+def test_external_prerequisite_fenced_state_evidence_example_is_ignored(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "~~~text\n"
+        "**Task:** `MSTR-000A / A006`\n"
+        "**State:** `COMPLETE_CANONICAL`\n"
+        "~~~\n",
+    )
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["evidence_present"] is False
+    assert "prerequisite.external_identity_unproven" in predecessor["reasons"]
+    assert "prerequisite.external_state_unproven" in predecessor["reasons"]
+
+
+def test_external_prerequisite_fenced_examples_do_not_duplicate_canonical_records(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "```markdown\n"
+        "**Task:** `MSTR-000A / A006`\n"
+        "**State:** `PENDING`\n"
+        "```\n"
+        "**Task:** `MSTR-000A / A006`\n"
+        "**State:** `COMPLETE_CANONICAL`\n",
+    )
+    external_tasks = (
+        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    )
+    external_tasks.write_text(
+        "~~~markdown\n- [ ] **A006 Example only.**\n~~~\n"
+        "- [x] **A006 Canonical task**\n",
+        encoding="utf-8",
+    )
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is True
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["satisfied"] is True
+    assert predecessor["reasons"] == []
+
+
+def test_external_prerequisite_crlf_fenced_checklist_example_is_ignored(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    external_tasks = (
+        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    )
+    external_tasks.write_bytes(
+        b"```markdown\r\n- [x] **A006 Example only.**\r\n```\r\n"
+    )
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert "prerequisite.external_checkbox_unverifiable" in predecessor["reasons"]
+
+
+def test_external_prerequisite_emphasized_duplicate_checklist_row_fails_closed(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    external_tasks = (
+        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    )
+    external_tasks.write_text(
+        "- [x] **A006 Canonical task.**\n"
+        "- [ ] **A006 Duplicate with *emphasis*.**\n",
+        encoding="utf-8",
+    )
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["satisfied"] is False
+    assert "prerequisite.external_checkbox_unverifiable" in predecessor["reasons"]
+
+
+def test_external_prerequisite_literal_directory_evidence_output_fails_closed(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    data = json.loads(catalog_path.read_text(encoding="utf-8"))
+    directory_output = "evidence/mstr-000a/supporting-artifact"
+    data["external_prerequisites"]["A006"]["evidence_outputs"].append(directory_output)
+    catalog_path.write_text(json.dumps(data), encoding="utf-8")
+    (tmp_path / directory_output).mkdir()
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["evidence_present"] is False
+    assert predecessor["satisfied"] is False
+    assert "prerequisite.required_artifact_missing" in predecessor["reasons"]
+    assert f"missing:{directory_output}" in predecessor["reasons"]
+
+
+def test_external_prerequisite_glob_directory_evidence_output_fails_closed(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    data = json.loads(catalog_path.read_text(encoding="utf-8"))
+    glob_output = "evidence/mstr-000a/supporting-*"
+    data["external_prerequisites"]["A006"]["evidence_outputs"].append(glob_output)
+    catalog_path.write_text(json.dumps(data), encoding="utf-8")
+    (tmp_path / "evidence" / "mstr-000a" / "supporting-directory").mkdir()
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["evidence_present"] is False
+    assert predecessor["satisfied"] is False
+    assert "prerequisite.required_artifact_missing" in predecessor["reasons"]
+    assert f"missing:{glob_output}" in predecessor["reasons"]
+
+
+
+def test_external_prerequisite_literal_t_fence_does_not_hide_duplicate_row(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    external_tasks = (
+        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    )
+    external_tasks.write_text(
+        "- [x] **A006 Canonical row.**\n"
+        "t```\n"
+        "- [ ] **A006 Conflicting duplicate.**\n",
+        encoding="utf-8",
+    )
+    result = evaluate_task_snapshot(
+        "B001", repository_root=tmp_path, catalog_path=catalog_path, canonical_main=_CANONICAL_MAIN
+    )
+    predecessor = result["prerequisite_results"][0]
+    assert result["eligible"] is False
+    assert predecessor["satisfied"] is False
+    assert "prerequisite.external_checkbox_unverifiable" in predecessor["reasons"]
+
+
+def test_external_prerequisite_tab_indented_fence_still_hides_fenced_duplicate(
+    tmp_path: Path,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    external_tasks = (
+        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    )
+    external_tasks.write_text(
+        "- [x] **A006 Canonical row.**\n"
+        "\t```\n"
+        "- [ ] **A006 Fenced duplicate.**\n"
+        "\t```\n",
+        encoding="utf-8",
+    )
+    result = evaluate_task_snapshot(
+        "B001", repository_root=tmp_path, catalog_path=catalog_path, canonical_main=_CANONICAL_MAIN
+    )
+    predecessor = result["prerequisite_results"][0]
+    assert result["eligible"] is True
+    assert predecessor["satisfied"] is True
+    assert predecessor["reasons"] == []
+
+
+@pytest.mark.parametrize(
+    ("tasks_text", "evidence_text", "expected_reason"),
+    [
+        (
+            "- [x] **A006\nExternal task.**\n",
+            "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+            "prerequisite.external_checkbox_unverifiable",
+        ),
+        (
+            "- [x] **A006 External task.**\n",
+            "**Task:**\n`MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+            "prerequisite.external_identity_unproven",
+        ),
+        (
+            "- [x] **A006 External task.**\n",
+            "**Task:** `MSTR-000A / A006`\n**State:**\n`COMPLETE_CANONICAL`\n",
+            "prerequisite.external_state_unproven",
+        ),
+    ],
+)
+def test_external_prerequisite_newline_split_records_fail_closed(
+    tmp_path: Path,
+    tasks_text: str,
+    evidence_text: str,
+    expected_reason: str,
+) -> None:
+    catalog_path = _write_external_binding_fixture(tmp_path, evidence_text)
+    external_tasks = (
+        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    )
+    external_tasks.write_text(tasks_text, encoding="utf-8")
+    result = evaluate_task_snapshot(
+        "B001", repository_root=tmp_path, catalog_path=catalog_path, canonical_main=_CANONICAL_MAIN
+    )
+    predecessor = result["prerequisite_results"][0]
+    assert result["eligible"] is False
+    assert predecessor["satisfied"] is False
+    assert expected_reason in predecessor["reasons"]
+
+
+
+_SPLITLINES_NON_CRLF_BOUNDARIES = [
+    "\v",
+    "\f",
+    "\x1c",
+    "\x1d",
+    "\x1e",
+    "\x85",
+    "\u2028",
+    "\u2029",
+]
+
+
+@pytest.mark.parametrize("separator", _SPLITLINES_NON_CRLF_BOUNDARIES)
+def test_external_prerequisite_splitlines_boundary_duplicate_rows_fail_closed(
+    tmp_path: Path,
+    separator: str,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    external_tasks = (
+        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    )
+    external_tasks.write_text(
+        f"- [x] **A006 Canonical row.**{separator}"
+        "- [ ] **A006 Conflicting duplicate.**",
+        encoding="utf-8",
+    )
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is False
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["satisfied"] is False
+    assert "prerequisite.external_checkbox_unverifiable" in predecessor["reasons"]
+
+
+@pytest.mark.parametrize("separator", _SPLITLINES_NON_CRLF_BOUNDARIES)
+def test_external_prerequisite_splitlines_boundary_fence_closes_before_canonical_row(
+    tmp_path: Path,
+    separator: str,
+) -> None:
+    catalog_path = _write_external_binding_fixture(
+        tmp_path,
+        "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
+    )
+    external_tasks = (
+        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    )
+    external_tasks.write_text(
+        f"```{separator}"
+        f"- [ ] **A006 Fenced example.**{separator}"
+        f"```{separator}"
+        "- [x] **A006 Canonical row.**",
+        encoding="utf-8",
+    )
+
+    result = evaluate_task_snapshot(
+        "B001",
+        repository_root=tmp_path,
+        catalog_path=catalog_path,
+        canonical_main=_CANONICAL_MAIN,
+    )
+
+    assert result["eligible"] is True
+    predecessor = result["prerequisite_results"][0]
+    assert predecessor["satisfied"] is True
+    assert predecessor["reasons"] == []
