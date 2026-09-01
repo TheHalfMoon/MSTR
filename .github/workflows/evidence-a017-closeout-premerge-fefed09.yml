@@ -1,0 +1,102 @@
+name: Mandatory A017 closeout premerge verification
+
+on:
+  push:
+    branches:
+      - evidence/a017-closeout-premerge-fefed09
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  admission:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact A017 closeout admission
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='11c528c0ad015f7505dd143c700e710a0f08d86a'
+          HEAD='fefed09b18b1b1f817c1f3e3ef9bb95abb6536b7'
+          TREE='c6739191b278e6c82b59692d0dda3a5b92244860'
+          git fetch origin main closeout/000a-a017 --quiet
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/closeout/000a-a017)" = "$HEAD"
+          test "$(git show -s --format=%T "$HEAD")" = "$TREE"
+          pr="$(gh api repos/TheHalfMoon/MSTR/pulls/121)"
+          test "$(jq -r '.state' <<<"$pr")" = 'open'
+          test "$(jq -r '.merged' <<<"$pr")" = 'false'
+          test "$(jq -r '.draft' <<<"$pr")" = 'false'
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$BASE"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$HEAD"
+          reviews="$(gh api repos/TheHalfMoon/MSTR/pulls/121/reviews)"
+          jq -e '.[] | select(.id == 5075661353 and .state == "COMMENTED" and .commit_id == "fefed09b18b1b1f817c1f3e3ef9bb95abb6536b7")' <<<"$reviews" >/dev/null
+          qualification="$(gh api repos/TheHalfMoon/MSTR/actions/runs/33441835774)"
+          test "$(jq -r '.conclusion' <<<"$qualification")" = 'success'
+          postmerge="$(gh api repos/TheHalfMoon/MSTR/actions/runs/33441203968)"
+          test "$(jq -r '.conclusion' <<<"$postmerge")" = 'success'
+          helper1="$(gh api repos/TheHalfMoon/MSTR/actions/runs/33441445707)"
+          helper2="$(gh api repos/TheHalfMoon/MSTR/actions/runs/33441572452)"
+          helper3="$(gh api repos/TheHalfMoon/MSTR/actions/runs/33441656261)"
+          test "$(jq -r '.conclusion' <<<"$helper1")" = 'failure'
+          test "$(jq -r '.conclusion' <<<"$helper2")" = 'failure'
+          test "$(jq -r '.conclusion' <<<"$helper3")" = 'success'
+          expected="$(printf '%s\n' 'evidence/mstr-000a/A017-trajectory-contract.md' 'specs/001-agent-harness-verified-loop-foundation/tasks.md')"
+          actual="$(git diff --name-only "$BASE..$HEAD")"
+          test "$actual" = "$expected"
+          git diff --check "$BASE..$HEAD"
+          git show "$HEAD:evidence/mstr-000a/A017-trajectory-contract.md" | grep -F '**State:** COMPLETE_CANONICAL'
+          git show "$HEAD:specs/001-agent-harness-verified-loop-foundation/tasks.md" | grep -F -- '- [x] **A017 Freeze failure taxonomy and training trajectory contract.**'
+          git show "$HEAD:specs/001-agent-harness-verified-loop-foundation/tasks.md" | grep -F -- '- [ ] **A018 Implement trajectory recorder/replay/admission.**'
+          threads="$(gh api graphql -f query='query { repository(owner:"TheHalfMoon", name:"MSTR") { pullRequest(number:121) { reviewThreads(first:100) { nodes { isResolved } } } } }')"
+          test "$(jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length' <<<"$threads")" = '0'
+
+  quality:
+    needs: admission
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fefed09b18b1b1f817c1f3e3ef9bb95abb6536b7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Run A017 closeout quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+
+  complete:
+    needs: quality
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Final immutable A017 closeout premerge recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main closeout/000a-a017 --quiet
+          test "$(git rev-parse origin/main)" = '11c528c0ad015f7505dd143c700e710a0f08d86a'
+          test "$(git rev-parse origin/closeout/000a-a017)" = 'fefed09b18b1b1f817c1f3e3ef9bb95abb6536b7'
+          test "$(git show -s --format=%T origin/closeout/000a-a017)" = 'c6739191b278e6c82b59692d0dda3a5b92244860'
+          pr="$(gh api repos/TheHalfMoon/MSTR/pulls/121)"
+          test "$(jq -r '.state' <<<"$pr")" = 'open'
+          test "$(jq -r '.head.sha' <<<"$pr")" = 'fefed09b18b1b1f817c1f3e3ef9bb95abb6536b7'
+          test "$(jq -r '.base.sha' <<<"$pr")" = '11c528c0ad015f7505dd143c700e710a0f08d86a'
