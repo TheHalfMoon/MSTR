@@ -47,6 +47,12 @@ _GATED_EFFECTS = {
 }
 _MISSING_AUTHORITY_SENTINEL = "MISSING_REQUIRED_AUTHORITY_ID"
 _MISSING_POOL_SENTINEL = "MISSING_CANDIDATE_POOL_REQUIREMENT_ID"
+_EXTERNAL_WORKSTREAM_TASK_FILES = {
+    "MSTR-000A": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+}
+_EXTERNAL_WORKSTREAM_EVIDENCE_PREFIXES = {
+    "MSTR-000A": ("evidence", "mstr-000a"),
+}
 
 
 @dataclass(frozen=True)
@@ -58,6 +64,7 @@ class TaskCatalog:
     nodes: dict[str, dict[str, Any]]
     checked: dict[str, bool]
     unresolved_bindings: dict[str, str]
+    external_prerequisites: dict[str, dict[str, Any]]
 
 
 def _read_json_object(path: Path, *, code: str) -> dict[str, Any]:
@@ -166,6 +173,7 @@ def load_task_catalog(
     defaults = raw.get("defaults")
     tasks = raw.get("tasks")
     unresolved = raw.get("unresolved_bindings", {})
+    external_prerequisites = raw.get("external_prerequisites", {})
     if not isinstance(workstream_id, str) or not workstream_id:
         raise QualificationError(
             "catalog workstream_id is invalid",
@@ -188,6 +196,121 @@ def load_task_catalog(
             "catalog unresolved_bindings must map task ids to explanations",
             code="task_gate.catalog_unresolved_shape",
         )
+    if not isinstance(external_prerequisites, dict):
+        raise QualificationError(
+            "catalog external_prerequisites must be an object",
+            code="task_gate.catalog_external_shape",
+        )
+    for external_task_id, binding in external_prerequisites.items():
+        if not isinstance(external_task_id, str) or not re.fullmatch(
+            r"[A-Z][0-9]{3}", external_task_id
+        ):
+            raise QualificationError(
+                "external prerequisite id is invalid",
+                code="task_gate.catalog_external_id",
+                details={"task_id": external_task_id},
+            )
+        if external_task_id in tasks:
+            raise QualificationError(
+                "external prerequisite cannot shadow a catalog task",
+                code="task_gate.catalog_external_shadow",
+                details={"task_id": external_task_id},
+            )
+        if not isinstance(binding, dict):
+            raise QualificationError(
+                "external prerequisite binding must be an object",
+                code="task_gate.catalog_external_binding",
+                details={"task_id": external_task_id},
+            )
+        workstream = binding.get("workstream_id")
+        task_identity = binding.get("task_identity")
+        external_tasks_file = binding.get("tasks_file")
+        state_evidence = binding.get("state_evidence")
+        evidence_outputs = binding.get("evidence_outputs")
+        required_state = binding.get("required_state")
+        if not isinstance(workstream, str) or not workstream:
+            raise QualificationError(
+                "external prerequisite workstream_id is invalid",
+                code="task_gate.catalog_external_workstream",
+                details={"task_id": external_task_id},
+            )
+        expected_task_identity = f"{workstream} / {external_task_id}"
+        if task_identity != expected_task_identity:
+            raise QualificationError(
+                "external prerequisite task_identity is invalid",
+                code="task_gate.catalog_external_task_identity",
+                details={
+                    "task_id": external_task_id,
+                    "expected": expected_task_identity,
+                    "observed": task_identity,
+                },
+            )
+        if not isinstance(external_tasks_file, str) or not external_tasks_file:
+            raise QualificationError(
+                "external prerequisite tasks_file is invalid",
+                code="task_gate.catalog_external_tasks_file",
+                details={"task_id": external_task_id},
+            )
+        if not isinstance(state_evidence, str) or not state_evidence:
+            raise QualificationError(
+                "external prerequisite state_evidence is invalid",
+                code="task_gate.catalog_external_state_evidence",
+                details={"task_id": external_task_id},
+            )
+        if (
+            not isinstance(evidence_outputs, list)
+            or not evidence_outputs
+            or any(not isinstance(item, str) or not item for item in evidence_outputs)
+            or state_evidence not in evidence_outputs
+        ):
+            raise QualificationError(
+                "external prerequisite evidence_outputs are invalid",
+                code="task_gate.catalog_external_evidence",
+                details={"task_id": external_task_id},
+            )
+        if required_state != "COMPLETE_CANONICAL":
+            raise QualificationError(
+                "external prerequisite v0 requires COMPLETE_CANONICAL",
+                code="task_gate.catalog_external_state",
+                details={"task_id": external_task_id, "required_state": required_state},
+            )
+        _repository_path(root, external_tasks_file, field="external prerequisite tasks_file")
+        _repository_path(root, state_evidence, field="external prerequisite state_evidence")
+        for evidence_output in evidence_outputs:
+            _repository_path(root, evidence_output, field="external prerequisite evidence")
+        expected_tasks_file = _EXTERNAL_WORKSTREAM_TASK_FILES.get(workstream)
+        evidence_prefix = _EXTERNAL_WORKSTREAM_EVIDENCE_PREFIXES.get(workstream)
+        if expected_tasks_file is None or evidence_prefix is None:
+            raise QualificationError(
+                "external prerequisite workstream is unsupported",
+                code="task_gate.catalog_external_workstream_unsupported",
+                details={"task_id": external_task_id, "workstream_id": workstream},
+            )
+        if external_tasks_file != expected_tasks_file:
+            raise QualificationError(
+                "external prerequisite tasks_file does not belong to workstream",
+                code="task_gate.catalog_external_workstream_tasks_file",
+                details={
+                    "task_id": external_task_id,
+                    "workstream_id": workstream,
+                    "expected": expected_tasks_file,
+                    "observed": external_tasks_file,
+                },
+            )
+        bound_evidence_paths = [state_evidence, *evidence_outputs]
+        if any(
+            Path(raw).parts[: len(evidence_prefix)] != evidence_prefix
+            for raw in bound_evidence_paths
+        ):
+            raise QualificationError(
+                "external prerequisite evidence path does not belong to workstream",
+                code="task_gate.catalog_external_workstream_evidence",
+                details={
+                    "task_id": external_task_id,
+                    "workstream_id": workstream,
+                    "paths": bound_evidence_paths,
+                },
+            )
 
     tasks_file = _repository_path(root, tasks_file_raw, field="tasks_file")
     contained_tasks_file = _contained_existing_path(root, tasks_file)
@@ -244,7 +367,14 @@ def load_task_catalog(
                 details={"task_id": task_id, "errors": list(errors)},
             )
         nodes[task_id] = fields
-    return TaskCatalog(root, tasks_file, nodes, checked, dict(unresolved))
+    return TaskCatalog(
+        root,
+        tasks_file,
+        nodes,
+        checked,
+        dict(unresolved),
+        {key: dict(value) for key, value in external_prerequisites.items()},
+    )
 
 
 def _run_git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -381,6 +511,21 @@ def _path_pattern_present(root: Path, raw: str) -> bool:
         )
     return _contained_existing_path(root, path) is not None
 
+
+def _external_evidence_output_present(root: Path, raw: str) -> bool:
+    """Require a repository-contained regular file for external evidence outputs."""
+
+    path = _repository_path(root, raw, field="external prerequisite evidence")
+    if any(marker in raw for marker in ("*", "?", "[")):
+        matches = (Path(match) for match in glob.glob(str(path), recursive=True))
+        return any(
+            (resolved := _contained_existing_path(root, match)) is not None
+            and resolved.is_file()
+            for match in matches
+        )
+    resolved = _contained_existing_path(root, path)
+    return resolved is not None and resolved.is_file()
+
 def _required_closeout_paths_present(root: Path, node: dict[str, Any]) -> tuple[bool, list[str]]:
     rule = node["closeout_rule"]
     required: list[str] = []
@@ -460,9 +605,141 @@ def _candidate_pool_observed(root: Path, requirement_id: str) -> bool:
     observed = data.get("decision_id", data.get("candidate_pool_id"))
     return observed == requirement_id
 
+def _markdown_without_fenced_code(text: str) -> str:
+    """Return Markdown text with fenced code blocks removed fail-closed."""
+
+    visible: list[str] = []
+    fence_char: str | None = None
+    fence_length = 0
+    opener = re.compile(r"^[ \t]{0,3}(?P<fence>`{3,}|~{3,})")
+    closer = re.compile(r"^[ \t]{0,3}(?P<fence>`{3,}|~{3,})[ \t]*$")
+
+    for logical in text.splitlines():
+        if fence_char is None:
+            match = opener.match(logical)
+            if match is None:
+                visible.append(logical)
+                continue
+            fence = match.group("fence")
+            fence_char = fence[0]
+            fence_length = len(fence)
+            continue
+
+        match = closer.match(logical)
+        if (
+            match is not None
+            and match.group("fence")[0] == fence_char
+            and len(match.group("fence")) >= fence_length
+        ):
+            fence_char = None
+            fence_length = 0
+
+    return "\n".join(visible)
+
+
+def _external_task_checked(
+    catalog: TaskCatalog, task_id: str, binding: dict[str, Any]
+) -> bool | None:
+    raw = binding["tasks_file"]
+    path = _repository_path(catalog.repository_root, raw, field="external prerequisite tasks_file")
+    resolved = _contained_existing_path(catalog.repository_root, path)
+    if resolved is None or not resolved.is_file():
+        return None
+    try:
+        external_text = resolved.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return None
+    pattern = re.compile(
+        rf"^- \[(?P<mark>[ xX])\] \*\*{re.escape(task_id)}[ \t]+[^\r\n]+?\*\*[ \t]*$",
+        re.MULTILINE,
+    )
+    matches = list(pattern.finditer(_markdown_without_fenced_code(external_text)))
+    if len(matches) != 1:
+        return None
+    return matches[0].group("mark").lower() == "x"
+
+
+def _external_evidence_claims(
+    catalog: TaskCatalog, task_id: str, binding: dict[str, Any]
+) -> tuple[bool, bool]:
+    raw = binding["state_evidence"]
+    path = _repository_path(
+        catalog.repository_root, raw, field="external prerequisite state_evidence"
+    )
+    resolved = _contained_existing_path(catalog.repository_root, path)
+    if resolved is None or not resolved.is_file():
+        return False, False
+    try:
+        evidence_text = resolved.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return False, False
+    task_matches = list(
+        re.finditer(
+            r"^\*\*Task:\*\*[ \t]*`(?P<task>[^`\r\n]+)`[ \t]*$",
+            _markdown_without_fenced_code(evidence_text),
+            re.MULTILINE,
+        )
+    )
+    state_matches = list(
+        re.finditer(
+            r"^\*\*State:\*\*[ \t]*`(?P<state>[^`\r\n]+)`[ \t]*$",
+            _markdown_without_fenced_code(evidence_text),
+            re.MULTILINE,
+        )
+    )
+    if len(task_matches) != 1 or len(state_matches) != 1:
+        return False, False
+    declared_task = task_matches[0].group("task")
+    if " / " in declared_task:
+        declared_identity = declared_task
+    else:
+        declared_identity = f"{binding['workstream_id']} / {declared_task}"
+    identity_declared = declared_identity == binding["task_identity"]
+    state_declared = state_matches[0].group("state") == binding["required_state"]
+    return identity_declared, state_declared
+
+def _external_prerequisite_result(
+    catalog: TaskCatalog, task_id: str, binding: dict[str, Any]
+) -> dict[str, Any]:
+    checked = _external_task_checked(catalog, task_id, binding)
+    required_state = binding["required_state"]
+    identity_declared, state_declared = _external_evidence_claims(
+        catalog, task_id, binding
+    )
+    missing = [
+        raw
+        for raw in binding["evidence_outputs"]
+        if not _external_evidence_output_present(catalog.repository_root, raw)
+    ]
+    evidence_present = not missing and identity_declared and state_declared
+    reasons: list[str] = []
+    if checked is None:
+        reasons.append("prerequisite.external_checkbox_unverifiable")
+    elif checked is False:
+        reasons.append("prerequisite.state_checkbox_conflict")
+    if not identity_declared:
+        reasons.append("prerequisite.external_identity_unproven")
+    if not state_declared:
+        reasons.append("prerequisite.external_state_unproven")
+    if missing:
+        reasons.append("prerequisite.required_artifact_missing")
+    satisfied = checked is True and evidence_present
+    return {
+        "task_id": task_id,
+        "required_state": required_state,
+        "observed_state": required_state if state_declared else None,
+        "evidence_present": evidence_present,
+        "satisfied": satisfied,
+        "reasons": reasons + [f"missing:{item}" for item in missing],
+    }
+
+
 def _prerequisite_result(catalog: TaskCatalog, task_id: str) -> dict[str, Any]:
     node = catalog.nodes.get(task_id)
     if node is None:
+        external = catalog.external_prerequisites.get(task_id)
+        if external is not None:
+            return _external_prerequisite_result(catalog, task_id, external)
         return {
             "task_id": task_id,
             "required_state": "COMPLETE_CANONICAL",
@@ -610,7 +887,8 @@ def evaluate_task_snapshot(
         _prerequisite_result(catalog, predecessor) for predecessor in node["prerequisites"]
     ]
     prerequisite_set_complete = all(
-        predecessor in catalog.nodes for predecessor in node["prerequisites"]
+        predecessor in catalog.nodes or predecessor in catalog.external_prerequisites
+        for predecessor in node["prerequisites"]
     )
     prerequisites_satisfied = all(item["satisfied"] for item in prerequisite_results)
 
