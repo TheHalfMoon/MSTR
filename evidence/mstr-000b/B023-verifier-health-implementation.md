@@ -53,6 +53,12 @@ The evaluator output is passed directly through the existing A018 `bind_verifier
 
 A006 remains the only protected terminal-success authority. The B023 record contains no terminal-success field and cannot create a `run.completed` event.
 
+## Independent-review hardening
+
+Independent exact-head review of PR #133 identified that a scalar string passed as `stage_ids` satisfies Python's `Sequence[str]` protocol and could be interpreted character-by-character as multiple stage identities. The evaluator now rejects scalar strings before stage iteration and returns the existing fail-closed `verifier.health_stage_invalid` error. A dedicated regression proves that `"MSTR-002-SFT"` cannot be serialized as per-character training-stage eligibility.
+
+The pre-fix exact-head qualification is preserved as stale evidence after this head movement and is not reused. Fresh build, exact-head qualification, independent review, mandatory premerge proof, and post-merge proof are required on the repaired head.
+
 ## Controlled-fixture boundary
 
 ```text
