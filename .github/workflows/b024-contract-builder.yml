@@ -120,7 +120,7 @@ jobs:
           rc=$?
           set -e
           test "$rc" -eq 1
-          jq -e '.eligible == false and [.prerequisite_results[] | select(.task_id == "B024" and .satisfied == false)] | length == 1' /tmp/b026.json
+          jq -e '(.eligible == false) and (([.prerequisite_results[] | select(.task_id == "B024" and .satisfied == false)] | length) == 1)' /tmp/b026.json
 
           set +e
           mstr-qualify task eligible B011 > /tmp/b011.json
