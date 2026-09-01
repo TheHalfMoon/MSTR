@@ -102,8 +102,12 @@ def classify_verifier_health(observation: VerifierHealthObservation) -> HealthCl
     return "HEALTHY"
 
 
-def _stage_eligibility(health_class: HealthClass, stage_ids: Sequence[str]) -> list[dict[str, Any]]:
-    if not stage_ids or any(not isinstance(stage_id, str) or not stage_id.strip() for stage_id in stage_ids):
+def _stage_eligibility(
+    health_class: HealthClass, stage_ids: Sequence[str]
+) -> list[dict[str, Any]]:
+    if not stage_ids or any(
+        not isinstance(stage_id, str) or not stage_id.strip() for stage_id in stage_ids
+    ):
         raise VerifierHealthEvaluationError(
             "verifier-health evaluation requires non-empty stage identities",
             code="verifier.health_stage_invalid",
