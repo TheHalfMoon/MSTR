@@ -168,9 +168,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: verifier-health module/tests, `evidence/mstr-000b/B023-verifier-health-implementation.md`.
   Canonical implementation: PR #133 / final head `da0480c0eb39e4097cb2d3fd3337a7fc49ab75dc` / merge `f71a15f967250c5c523749be9f9f3066feccb902`.
 
-- [ ] **B024 Freeze test-generation curriculum and acceptance semantics.**  
+- [x] **B024 Freeze test-generation curriculum and acceptance semantics.**
   Prerequisite: B023 `COMPLETE_CANONICAL`. Include per-example provenance/rights/contamination requirements, reproduce-before-fix, targeted regression, boundary/error, property/metamorphic where appropriate, pre-fix fail/post-fix pass, and rejection of answer-encoding/test weakening.  
   Outputs: `docs/data/TEST_GENERATION_CURRICULUM.md`, fixtures, `evidence/mstr-000b/B024-test-curriculum.md`.
+  Canonical implementation: PR #135 / final head `fc6b64fc68d629900b414e6e4ea01c5bdc0eaee2` / merge `138a2c2c1d86c050db79e3190ab24d7c1052fe44`.
 
 - [x] **B025 Freeze greenfield/feature/synthesis curriculum.**
   Define G0 function, G1 module+tests, G2 component/file, G3 multi-file feature, G4 bounded program, G5 multi-round evolution. Include feature-tree/semantic synthesis as experimental generator with independent verification.  

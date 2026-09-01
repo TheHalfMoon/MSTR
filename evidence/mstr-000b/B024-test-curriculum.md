@@ -1,7 +1,10 @@
 # B024 — Test Generation Curriculum Evidence
 
 **Task:** `B024`
-**State:** `IMPLEMENTATION_ACTIVE`
+**Implementation PR:** #135
+**Final implementation head:** `fc6b64fc68d629900b414e6e4ea01c5bdc0eaee2`
+**Canonical implementation merge:** `138a2c2c1d86c050db79e3190ab24d7c1052fe44`
+**State:** COMPLETE_CANONICAL
 **Canonical entry main:** `1ffa71c94bda161ec7be7784de3a6a4be81570ad`
 **Entry gate run:** `33535987808`
 **Entry gate job:** `99950302502`
@@ -11,6 +14,9 @@
 Exact-main post-closeout validation proved B024 machine eligibility before material implementation.
 
 ```text
+ENTRY_GATE_TASK = B024
+ENTRY_GATE_CANONICAL_MAIN = 1ffa71c94bda161ec7be7784de3a6a4be81570ad
+ENTRY_GATE_ELIGIBLE = true
 TASK = B024
 CANONICAL_MAIN = 1ffa71c94bda161ec7be7784de3a6a4be81570ad
 TASK_DRIFT = clean
@@ -141,3 +147,20 @@ Fresh independent review proved that a task-specific acceptance identity must no
 ```text
 TASK_SPECIFIC_ACCEPTANCE_INDEPENDENT_FROM_EXECUTION_EVIDENCE = required
 ```
+
+## Canonical Implementation Closeout
+
+The B024 test-generation curriculum and acceptance contract were merged and independently verified on canonical main. This closeout records terminal task/provenance state only. It does not authorize test generation with a model, verifier execution, model execution, model-weight access, training, paid compute, external/private data ingestion, candidate-pool changes, or production release.
+
+- implementation PR: `#135`
+- final implementation head: `fc6b64fc68d629900b414e6e4ea01c5bdc0eaee2`
+- canonical implementation merge: `138a2c2c1d86c050db79e3190ab24d7c1052fe44`
+- guarded final repair builder: run `33553919725` — SUCCESS
+- exact-head qualification: run `33554572587` — SUCCESS
+- exact-head independent review: CodeRabbit comment `5498547347` / run `e2805914-59c9-4314-99e2-04bcb3ed5892` — NO ACTIONABLE COMMENTS
+- mandatory pre-merge verification: run `33559716801` — SUCCESS
+- post-merge implementation verification: run `33560182387` — SUCCESS
+
+The fresh Codex review request on the final head was service-blocked by the Codex code-review usage limit, so it was not represented as successful review evidence. The independent exact-head CodeRabbit review explicitly reviewed the exact base-to-head range and all 11 changed files. Its non-blocking future-risk note about authenticated producer provenance does not grant or imply runtime/training authority; authenticated evidence provenance remains a future consumer-side hardening requirement before any admission path may rely on such evidence.
+
+This closeout changes only B024 canonical state/provenance, the canonical task ledger, and closeout regression coverage. The frozen B024 runtime/design schemas and semantic validator are unchanged by this closeout. B026 may become machine-eligible only because B022, B024, and B025 are now canonically complete. B011 remains separately blocked on repository-specific external authority.
