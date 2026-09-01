@@ -1,0 +1,191 @@
+name: Qualify B024 remaining semantic repairs
+
+on:
+  push:
+    branches:
+      - evidence/b024-qualify3-c938e8c
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  BASE_SHA: 1ffa71c94bda161ec7be7784de3a6a4be81570ad
+  PREDECESSOR_SHA: 42debeb1b464ca8edcad8c647fd99d0749efc366
+  HEAD_SHA: c938e8cd3c2e83a435983d0c34c8d1b01d15babc
+  HEAD_TREE: f465c7787811ef4e0ede0fdf49b452c201e698b5
+  CODEX_REVIEW_ID: '5081833125'
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - name: Verify exact identity, review provenance, and bounded scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          test "$(git rev-parse HEAD^)" = "$PREDECESSOR_SHA"
+          test "$(git rev-list --count "$BASE_SHA..$HEAD_SHA")" -eq 6
+          test "$(git merge-base "$BASE_SHA" "$HEAD_SHA")" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/feat/000b-b024-test-generation-curriculum | cut -f1)" = "$HEAD_SHA"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/135" > /tmp/pr.json
+          jq -e '.state == "open" and .draft == false and .base.sha == env.BASE_SHA and .head.sha == env.HEAD_SHA and .commits == 6 and .changed_files == 11' /tmp/pr.json
+          printf '%s\n' \
+            docs/data/TEST_GENERATION_CURRICULUM.md \
+            evidence/mstr-000b/B024-test-curriculum.md \
+            schemas/mstr-test-generation-example-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-test-generation-example-v0.schema.json \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_schemas.py \
+            tests/contract/test_test_generation_example_contract.py \
+            tests/fixtures/schemas/invalid/mstr-test-generation-example-v0.json \
+            tests/fixtures/schemas/valid/mstr-test-generation-example-v0.json \
+            tests/integration/test_cli_offline.py | sort > /tmp/expected-files
+          git diff --name-only "$BASE_SHA...$HEAD_SHA" | sort > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          printf '%s\n' \
+            docs/data/TEST_GENERATION_CURRICULUM.md \
+            evidence/mstr-000b/B024-test-curriculum.md \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_test_generation_example_contract.py \
+            tests/fixtures/schemas/valid/mstr-test-generation-example-v0.json | sort > /tmp/expected-repair-files
+          git diff --name-only "$PREDECESSOR_SHA...$HEAD_SHA" | sort > /tmp/actual-repair-files
+          diff -u /tmp/expected-repair-files /tmp/actual-repair-files
+          git diff --check "$BASE_SHA...$HEAD_SHA"
+          test -z "$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json)"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/135/reviews/${CODEX_REVIEW_ID}" > /tmp/review.json
+          jq -e '.user.login == "chatgpt-codex-connector[bot]" and .commit_id == env.PREDECESSOR_SHA and .id == 5081833125 and .state == "COMMENTED"' /tmp/review.json
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/135/reviews/${CODEX_REVIEW_ID}/comments" > /tmp/review-comments.json
+          jq -e '([.[] | select(.id == 3907334084)] | length) == 1' /tmp/review-comments.json
+          jq -e '([.[] | select(.body | contains("TASK_SPECIFIC_BEHAVIOR"))] | length) >= 1' /tmp/review-comments.json
+          jq -e '([.[] | select(.body | contains("NOT_APPLICABLE"))] | length) >= 1' /tmp/review-comments.json
+
+  canonical_machine_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Re-prove exact-main task ordering and authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          git update-ref refs/heads/main "$BASE_SHA"
+          git update-ref refs/remotes/origin/main "$BASE_SHA"
+          python -m pip install -e '.[dev]'
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          mstr-qualify task eligible B024 > /tmp/b024.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING"' /tmp/b024.json
+          set +e
+          mstr-qualify task eligible B026 > /tmp/b026.json
+          b026_rc=$?
+          mstr-qualify task eligible B011 > /tmp/b011.json
+          b011_rc=$?
+          set -e
+          test "$b026_rc" -eq 1
+          test "$b011_rc" -eq 1
+          jq -e '.eligible == false and ([.prerequisite_results[] | select(.task_id == "B024" and .satisfied == false)] | length == 1)' /tmp/b026.json
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+
+  candidate_quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install development gates
+        run: python -m pip install -e '.[dev]'
+      - name: Focused B024 contract and CLI tests
+        run: |
+          python -m pytest \
+            tests/contract/test_test_generation_example_contract.py \
+            tests/contract/test_schemas.py \
+            tests/integration/test_cli_offline.py \
+            tests/contract/test_task_gate.py \
+            -q
+      - name: Offline schema validation
+        run: python -m mstr_qualify validate
+      - name: Full pytest
+        run: python -m pytest -q
+      - name: Ruff
+        run: python -m ruff check .
+      - name: Strict mypy
+        run: python -m mypy src
+      - name: Re-prove all ten review remediations and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          cmp schemas/mstr-test-generation-example-v0.schema.json \
+              specs/002-code-model-supremacy-foundation/contracts/mstr-test-generation-example-v0.schema.json
+          for marker in \
+            'ADMIT_REQUIRES_COMPLETE_PROVENANCE = true' \
+            'GENERATED_SOURCE_REQUIRES_GENERATOR_IDENTITY = true' \
+            'VERIFIER_HEALTH_BINDING_TO_TASK_AND_EXECUTED_MANIFEST = required' \
+            'ADEQUATE_MUTATION_REQUIRES_NONZERO_EVIDENCE = true' \
+            'FAIL_BEFORE_PASS_AFTER_DISTINCT_BASE_FIX_REVISIONS = required' \
+            'VERIFIER_HEALTH_STAGE_IDENTITY = required' \
+            'CLEAN_POSITIVE_STAGE_ELIGIBILITY = CLEAN_POSITIVE_ELIGIBLE' \
+            'TEST_PATHS_SUBSET_OF_CHANGED_PATHS = required' \
+            'INTEGRITY_CHECK_EVIDENCE = required' \
+            'INTEGRITY_CHECKER_MANIFEST = required' \
+            'INTEGRITY_EVIDENCE_PATCH_BINDING = required' \
+            'INTEGRITY_EVIDENCE_TEST_ARTIFACT_BINDING = required' \
+            'PROVENANCE_LINEAGE_BINDS_EXACT_TEST_ARTIFACT_SHA256 = required' \
+            'TASK_SPECIFIC_ACCEPTANCE_PRESERVES_INDEPENDENT_EVIDENCE_ID = true' \
+            'TASK_SPECIFIC_ACCEPTANCE_EXACT_CONTEXT_SHA256_BINDING = required' \
+            'NOT_APPLICABLE_MUTATION_REQUIRES_EXPLICIT_JUSTIFICATION = true' \
+            'NOT_APPLICABLE_MUTATION_REQUIRES_ZERO_RUN = true'; do
+            grep -F "$marker" evidence/mstr-000b/B024-test-curriculum.md
+          done
+          grep -F 'test-artifact-sha256:' tests/fixtures/schemas/valid/mstr-test-generation-example-v0.json
+          grep -F 'not-applicable:fixture-no-meaningful-mutation-surface' tests/fixtures/schemas/valid/mstr-test-generation-example-v0.json
+          grep -F 'binding-sha256:' src/mstr_qualify/schemas.py
+          grep -F 'MODEL_EXECUTION = NONE' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F 'PAID_COMPUTE = NONE' evidence/mstr-000b/B024-test-curriculum.md
+          grep -F 'WEIGHT_CHANGING_TRAINING = NONE' evidence/mstr-000b/B024-test-curriculum.md
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/feat/000b-b024-test-generation-curriculum | cut -f1)" = "$HEAD_SHA"
+
+  complete:
+    needs: [identity_scope, canonical_machine_gate, candidate_quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - name: Final immutable main/head/tree recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/feat/000b-b024-test-generation-curriculum | cut -f1)" = "$HEAD_SHA"
+          echo "B024_REMAINING_SEMANTIC_REPAIRS_EXACT_HEAD_QUALIFICATION=PASS"
