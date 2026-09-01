@@ -59,7 +59,7 @@ jobs:
           import json
           from pathlib import Path
           catalog = json.loads(Path('configs/task-gate/mstr-000b.json').read_text())
-          nodes = {node['task_id']: node for node in catalog['tasks']}
+          nodes = catalog['tasks']
           assert nodes['B023']['canonical_state'] == 'PENDING'
           assert set(nodes['B023']['prerequisites']) == {'A006', 'A014', 'B002', 'B022'}
           external = catalog['external_prerequisites']
