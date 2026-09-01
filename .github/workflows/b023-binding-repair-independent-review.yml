@@ -75,9 +75,9 @@ jobs:
               assert binding == {
                   'workstream_id': 'MSTR-000A',
                   'tasks_file': 'specs/001-agent-harness-verified-loop-foundation/tasks.md',
-                  'state_evidence_output': evidence_path,
+                  'state_evidence': evidence_path,
+                  'evidence_outputs': [evidence_path],
                   'required_state': 'COMPLETE_CANONICAL',
-                  'required_evidence_outputs': [evidence_path],
               }, (task_id, binding)
               tasks_text = Path(binding['tasks_file']).read_text()
               matches = re.findall(
@@ -90,7 +90,11 @@ jobs:
                   evidence,
                   re.MULTILINE,
               ), task_id
-              assert 'COMPLETE_CANONICAL' in evidence, task_id
+              assert re.search(
+                  r'^\*\*State:\*\*\s*`?COMPLETE_CANONICAL`?\s*$',
+                  evidence,
+                  re.MULTILINE,
+              ), task_id
 
           task_gate = Path('src/mstr_qualify/task_gate.py').read_text()
           for marker in (
@@ -101,16 +105,11 @@ jobs:
           ):
               assert marker in task_gate, marker
 
-          evidence = Path(
+          repair_evidence = Path(
               'evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md'
           ).read_text()
-          for marker in (
-              'MODEL EXECUTION = NONE',
-              'WEIGHT ACCESS = NONE',
-              'TRAINING = NONE',
-              'PAID COMPUTE = NONE',
-          ):
-              assert marker in evidence.upper(), marker
+          assert 'creates no external authority' in repair_evidence
+          assert 'model access, model execution, paid compute, training, large dataset ingestion' in repair_evidence
 
           tasks = Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text()
           assert '- [ ] **B023 Implement verifier-health evaluator on controlled fixtures.**' in tasks
@@ -135,14 +134,26 @@ jobs:
 
           cp evidence/mstr-000a/A006-finalizer.md /tmp/A006-finalizer.md
           python - <<'PY'
+          import re
           from pathlib import Path
           p=Path('evidence/mstr-000a/A006-finalizer.md')
-          text=p.read_text()
-          text=text.replace('**Task:** `A006`', '**Task:** `A999`')
-          text=text.replace('**Task:** A006', '**Task:** A999')
-          p.write_text(text)
+          original=p.read_text()
+          tampered, count = re.subn(
+              r'(?m)^(\*\*Task:\*\*\s*`?)A006(`?\s*)$',
+              r'\1A999\2',
+              original,
+              count=1,
+          )
+          assert count == 1
+          assert tampered != original
+          p.write_text(tampered)
           PY
-          python -m mstr_qualify task eligible B023 > /tmp/b023-tampered.json
+          if python -m mstr_qualify task eligible B023 > /tmp/b023-tampered.json; then
+            echo 'Tampered A006 evidence unexpectedly kept B023 eligible' >&2
+            exit 1
+          else
+            test "$?" -eq 1
+          fi
           python - <<'PY'
           import json
           d=json.load(open('/tmp/b023-tampered.json'))
