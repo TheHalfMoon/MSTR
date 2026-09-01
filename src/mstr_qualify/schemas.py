@@ -61,6 +61,9 @@ SCHEMA_FILES: Mapping[str, str] = {
     "mstr-test-generation-example-v0": "mstr-test-generation-example-v0.schema.json",
     # MSTR-000B B025: greenfield/feature/synthesis task manifest contract.
     "mstr-greenfield-task-v0": "mstr-greenfield-task-v0.schema.json",
+    # MSTR-000B B026: exact material-result identity and multi-fidelity research record.
+    "mstr-material-result-identity-v0": "mstr-material-result-identity-v0.schema.json",
+    "mstr-research-experiment-v2": "mstr-research-experiment-v2.schema.json",
     # MSTR-000B B028: training-method preflight and fail-closed Q4 promotion.
     "mstr-training-method-cell-v0": "mstr-training-method-cell-v0.schema.json",
     "mstr-q4-promotion-v0": "mstr-q4-promotion-v0.schema.json",

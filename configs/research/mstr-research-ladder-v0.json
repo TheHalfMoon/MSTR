@@ -1,0 +1,179 @@
+{
+  "config_version": "mstr.research-ladder.v0",
+  "task_id": "B026",
+  "material_result_identity_schema": "mstr.material-result-identity.v0",
+  "research_experiment_schema": "mstr.research-experiment.v2",
+  "promotion_policy": {
+    "sequential_only": true,
+    "promotion_criteria_predeclared": true,
+    "hard_reject_is_terminal_for_current_experiment": true,
+    "weak_experiments_must_not_run_expensive_levels": true,
+    "missing_material_identity_invalidates_promotion": true,
+    "frozen_evaluation_identity_required": true,
+    "task_eligibility_never_grants_external_effect_authority": true
+  },
+  "levels": [
+    {
+      "level": "L0_CONTRACT_SMOKE",
+      "ordinal": 0,
+      "cost_class": "CHEAP",
+      "scope": [
+        "contract-validation",
+        "schema-validation",
+        "unit-smoke",
+        "configuration-smoke"
+      ],
+      "promotion_requires": [
+        "all required contracts/configs validate",
+        "all L0 smoke checks pass",
+        "frozen evaluation identity is pinned",
+        "every material result has complete MaterialResultIdentity or explicit N/A fields",
+        "no hard gate is failed"
+      ],
+      "hard_reject_conditions": [
+        "schema or config invalid",
+        "missing or opaque material-result identity",
+        "evaluation identity missing or mutable",
+        "protected evaluator or authority boundary violation",
+        "declared budget exceeded"
+      ]
+    },
+    {
+      "level": "L1_CODE_PROXY",
+      "ordinal": 1,
+      "cost_class": "LOW",
+      "scope": [
+        "direct-code",
+        "fim",
+        "edit",
+        "tool-schema"
+      ],
+      "promotion_requires": [
+        "L0 is PROMOTE for the same experiment lineage",
+        "predeclared code/FIM/edit/tool proxy thresholds pass",
+        "no frozen-evaluation regression exceeds its declared tolerance",
+        "every material result binds exact task/verifier/sampling/runtime identity or explicit N/A",
+        "no hard gate is failed"
+      ],
+      "hard_reject_conditions": [
+        "L0 not promoted",
+        "task or verifier identity mismatch",
+        "frozen-evaluation regression beyond declared tolerance",
+        "missing material-result identity",
+        "declared budget exceeded"
+      ]
+    },
+    {
+      "level": "L2_EXECUTABLE_REPO",
+      "ordinal": 2,
+      "cost_class": "MODERATE",
+      "scope": [
+        "executable-small-repository",
+        "build",
+        "tests",
+        "bounded-repair"
+      ],
+      "promotion_requires": [
+        "L1 is PROMOTE for the same experiment lineage",
+        "predeclared executable-repository acceptance passes",
+        "applicable verifier-health threshold is satisfied",
+        "no shortcut, leakage, or protected-path violation is detected",
+        "every material result preserves exact environment/runtime/task/verifier identity",
+        "no hard gate is failed"
+      ],
+      "hard_reject_conditions": [
+        "L1 not promoted",
+        "repository cannot execute under the frozen environment",
+        "verifier is broken, leaked, tampered, or below the declared threshold",
+        "shortcut or protected-path violation",
+        "missing material-result identity",
+        "declared budget exceeded"
+      ]
+    },
+    {
+      "level": "L3_DIRECTION_TO_DONE",
+      "ordinal": 3,
+      "cost_class": "HIGH",
+      "scope": [
+        "direction-to-done",
+        "feature",
+        "bounded-program",
+        "recovery"
+      ],
+      "promotion_requires": [
+        "L2 is PROMOTE for the same experiment lineage",
+        "predeclared Direction-to-Done or feature/program acceptance passes",
+        "hidden acceptance and evaluator authority remain immutable",
+        "no unresolved product hard-gate regression exists",
+        "every material result preserves exact contract/harness/task/verifier identity",
+        "no hard gate is failed"
+      ],
+      "hard_reject_conditions": [
+        "L2 not promoted",
+        "hidden-evaluation leakage",
+        "evaluator authority or protected acceptance mutated",
+        "product hard gate regresses",
+        "missing material-result identity",
+        "declared budget exceeded"
+      ]
+    },
+    {
+      "level": "L4_Q4_UNIVERSAL_LAPTOP",
+      "ordinal": 4,
+      "cost_class": "MOST_EXPENSIVE",
+      "scope": [
+        "release-relevant-q4",
+        "universal-laptop",
+        "product-regression"
+      ],
+      "promotion_requires": [
+        "L3 is PROMOTE for the same experiment lineage",
+        "release-relevant Q4 artifact identity is exact",
+        "quantizer/runtime/hardware identities are exact or explicit N/A only when genuinely inapplicable",
+        "required universal-laptop product gates pass",
+        "a required Q4PromotionRecord is PROMOTED before any material weight-changing checkpoint may parent another material stage",
+        "no hard gate is failed"
+      ],
+      "hard_reject_conditions": [
+        "L3 not promoted",
+        "Q4 artifact or quantizer identity missing",
+        "required universal-laptop product gate fails",
+        "8GB/CPU/8K/Q4<=3GB product floor is silently weakened",
+        "required Q4PromotionRecord absent or not PROMOTED",
+        "missing material-result identity",
+        "declared budget exceeded"
+      ]
+    }
+  ],
+  "promotion_edges": [
+    {
+      "from": "L0_CONTRACT_SMOKE",
+      "to": "L1_CODE_PROXY"
+    },
+    {
+      "from": "L1_CODE_PROXY",
+      "to": "L2_EXECUTABLE_REPO"
+    },
+    {
+      "from": "L2_EXECUTABLE_REPO",
+      "to": "L3_DIRECTION_TO_DONE"
+    },
+    {
+      "from": "L3_DIRECTION_TO_DONE",
+      "to": "L4_Q4_UNIVERSAL_LAPTOP"
+    }
+  ],
+  "authority_boundary": {
+    "contract_freeze_only": true,
+    "research_campaign_execution_authorized": false,
+    "model_execution_authorized": false,
+    "model_weight_access_authorized": false,
+    "paid_compute_authorized": false,
+    "network_model_calls_authorized": false,
+    "large_dataset_ingestion_authorized": false,
+    "private_or_production_data_ingestion_authorized": false,
+    "weight_changing_training_authorized": false,
+    "large_scale_rl_authorized": false,
+    "production_release_authorized": false
+  }
+}

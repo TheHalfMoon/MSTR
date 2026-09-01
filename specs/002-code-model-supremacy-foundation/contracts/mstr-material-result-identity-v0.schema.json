@@ -1,0 +1,359 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mstr.local/schemas/mstr-material-result-identity-v0.json",
+  "title": "MSTR Material Result Identity v0",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "mstr.material-result-identity.v0"
+    },
+    "result_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "model_id_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "model_revision_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "model_artifact_sha256_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "tokenizer_id_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "tokenizer_revision_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "quantization_method_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "quantizer_tool_revision_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "runtime_id_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "runtime_version_or_commit_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "runtime_build_flags_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "os_identity_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "cpu_identity_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "acceleration_backend_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "cache_state_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "interaction_contract_version_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "loop_contract_version_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "harness_profile_id_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "verifier_health_id_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "sampling_config_id_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "invalidation_reason_or_na": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "total_ram_bytes_or_na": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "const": "N/A"
+        }
+      ]
+    },
+    "thread_count_or_na": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "const": "N/A"
+        }
+      ]
+    },
+    "context_length_or_na": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "const": "N/A"
+        }
+      ]
+    },
+    "seed_or_na": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "const": "N/A"
+        }
+      ]
+    },
+    "wall_time_seconds_or_na": {
+      "oneOf": [
+        {
+          "type": "number",
+          "minimum": 0
+        },
+        {
+          "const": "N/A"
+        }
+      ]
+    },
+    "task_manifest_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "not": {
+        "const": "N/A"
+      }
+    },
+    "verifier_manifest_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "not": {
+        "const": "N/A"
+      }
+    },
+    "result_classification": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "INVALID",
+        "CRASHED",
+        "DISCARDED",
+        "PROMOTED"
+      ]
+    },
+    "metrics": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 128,
+      "additionalProperties": {
+        "type": [
+          "number",
+          "string",
+          "boolean",
+          "null"
+        ]
+      }
+    },
+    "resource_cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cost_class": {
+          "enum": [
+            "NO_EXTERNAL_EFFECT",
+            "LOCAL_COMPUTE",
+            "AUTHORIZED_REMOTE_COMPUTE"
+          ]
+        },
+        "cpu_seconds_or_na": {
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "const": "N/A"
+            }
+          ]
+        },
+        "accelerator_seconds_or_na": {
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "const": "N/A"
+            }
+          ]
+        },
+        "network_bytes_or_na": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "N/A"
+            }
+          ]
+        },
+        "peak_ram_bytes_or_na": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "N/A"
+            }
+          ]
+        }
+      },
+      "required": [
+        "cost_class",
+        "cpu_seconds_or_na",
+        "accelerator_seconds_or_na",
+        "network_bytes_or_na",
+        "peak_ram_bytes_or_na"
+      ]
+    },
+    "paid_cost_usd": {
+      "type": "number",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "schema_version",
+    "result_id",
+    "model_id_or_na",
+    "model_revision_or_na",
+    "model_artifact_sha256_or_na",
+    "tokenizer_id_or_na",
+    "tokenizer_revision_or_na",
+    "quantization_method_or_na",
+    "quantizer_tool_revision_or_na",
+    "runtime_id_or_na",
+    "runtime_version_or_commit_or_na",
+    "runtime_build_flags_or_na",
+    "os_identity_or_na",
+    "cpu_identity_or_na",
+    "acceleration_backend_or_na",
+    "cache_state_or_na",
+    "interaction_contract_version_or_na",
+    "loop_contract_version_or_na",
+    "harness_profile_id_or_na",
+    "verifier_health_id_or_na",
+    "sampling_config_id_or_na",
+    "invalidation_reason_or_na",
+    "total_ram_bytes_or_na",
+    "thread_count_or_na",
+    "context_length_or_na",
+    "seed_or_na",
+    "wall_time_seconds_or_na",
+    "task_manifest_id",
+    "verifier_manifest_id",
+    "result_classification",
+    "metrics",
+    "resource_cost",
+    "paid_cost_usd"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "result_classification": {
+            "const": "INVALID"
+          }
+        },
+        "required": [
+          "result_classification"
+        ]
+      },
+      "then": {
+        "properties": {
+          "invalidation_reason_or_na": {
+            "not": {
+              "const": "N/A"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "result_classification": {
+            "enum": [
+              "PASS",
+              "PROMOTED"
+            ]
+          }
+        },
+        "required": [
+          "result_classification"
+        ]
+      },
+      "then": {
+        "properties": {
+          "invalidation_reason_or_na": {
+            "const": "N/A"
+          }
+        }
+      }
+    }
+  ]
+}
