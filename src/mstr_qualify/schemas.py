@@ -7,6 +7,7 @@ cannot become an implicit network boundary.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from collections.abc import Iterator, Mapping
@@ -440,6 +441,31 @@ def _difficulty_calibration_semantic_errors(instance: Any) -> tuple[str, ...]:
     return tuple(sorted(errors))
 
 
+def _task_specific_acceptance_binding(
+    instance: Mapping[str, Any],
+    patch: Mapping[str, Any],
+    post: Mapping[str, Any],
+    evidence_identity: str,
+) -> str:
+    """Bind independent B024 acceptance evidence to its exact acceptance context."""
+
+    payload = {
+        "environment_identity": post.get("environment_identity"),
+        "execution_evidence_identity": post.get("evidence_identity"),
+        "independent_acceptance_evidence_identity": evidence_identity,
+        "revision": instance.get("fix_revision"),
+        "task_identity": instance.get("task_identity"),
+        "test_artifact_sha256": patch.get("test_artifact_sha256"),
+        "verifier_manifest_id": post.get("verifier_manifest_id"),
+    }
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return f"{evidence_identity}|binding-sha256:{hashlib.sha256(encoded).hexdigest()}"
+
 
 def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
     """Enforce B024 cross-field behavioral and identity bindings."""
@@ -493,6 +519,30 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
                 errors.append(
                     "$.behavioral_proof: pre/post verifier_manifest_id must match"
                 )
+            if proof.get("proof_kind") == "TASK_SPECIFIC_BEHAVIOR":
+                raw_binding = proof.get("independent_acceptance_evidence_identity")
+                evidence_identity: str | None = None
+                if isinstance(raw_binding, str):
+                    prefix, marker, _digest = raw_binding.rpartition("|binding-sha256:")
+                    if marker and prefix and "|binding-sha256:" not in prefix:
+                        evidence_identity = prefix
+                expected_binding = (
+                    _task_specific_acceptance_binding(
+                        instance,
+                        patch,
+                        post,
+                        evidence_identity,
+                    )
+                    if evidence_identity is not None
+                    else None
+                )
+                if raw_binding != expected_binding:
+                    errors.append(
+                        "$.behavioral_proof.independent_acceptance_evidence_identity: "
+                        "TASK_SPECIFIC_BEHAVIOR must preserve an independent evidence identity "
+                        "and bind it to the exact task, fix revision, test artifact, environment, "
+                        "verifier manifest, and execution evidence"
+                    )
 
     if isinstance(patch, dict):
         changed_paths = patch.get("changed_paths")
@@ -546,6 +596,18 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
                 errors.append(
                     "$.generated_test_provenance.generator_identity: generated source classes "
                     "require generator identity"
+                )
+        if isinstance(patch, dict):
+            artifact_sha = patch.get("test_artifact_sha256")
+            lineage_identity = provenance.get("lineage_identity")
+            expected_suffix = f"|test-artifact-sha256:{artifact_sha}"
+            if (
+                not isinstance(lineage_identity, str)
+                or not lineage_identity.endswith(expected_suffix)
+            ):
+                errors.append(
+                    "$.generated_test_provenance.lineage_identity: must bind the exact "
+                    "generated_test_patch.test_artifact_sha256"
                 )
 
     verifier_health = instance.get("verifier_health_binding")
@@ -617,6 +679,27 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
                 errors.append(
                     "$.mutation_strength.mutants_killed: "
                     "ADEQUATE requires at least one killed mutant"
+                )
+        if mutation.get("status") == "NOT_APPLICABLE":
+            justification = mutation.get("evidence_identity")
+            if (
+                not isinstance(justification, str)
+                or not justification.startswith("not-applicable:")
+                or not justification.removeprefix("not-applicable:").strip()
+            ):
+                errors.append(
+                    "$.mutation_strength.evidence_identity: NOT_APPLICABLE requires "
+                    "an explicit not-applicable:<justification> identity"
+                )
+            if evaluated != 0 or isinstance(evaluated, bool):
+                errors.append(
+                    "$.mutation_strength.mutants_evaluated: NOT_APPLICABLE requires "
+                    "zero evaluated mutants"
+                )
+            if killed != 0 or isinstance(killed, bool):
+                errors.append(
+                    "$.mutation_strength.mutants_killed: NOT_APPLICABLE requires "
+                    "zero killed mutants"
                 )
 
     return tuple(sorted(errors))

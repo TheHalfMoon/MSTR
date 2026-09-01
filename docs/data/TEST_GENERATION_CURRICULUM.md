@@ -48,15 +48,25 @@ Every `mstr.test-generation-example.v0` record binds:
 - a behavior contract and declared test classes;
 - generated test patch SHA-256 and test artifact SHA-256;
 - changed/test paths plus any deleted-test or protected-path changes;
-- generated-test provenance, explicit completeness state, immutable lineage, and generator identity for generated source classes;
+- generated-test provenance, explicit completeness state, immutable lineage, exact test-artifact binding, and generator identity for generated source classes;
 - a concrete rights decision for MSTR training/evaluation use;
 - benchmark/hidden-answer/future-history/cross-split contamination evidence;
 - pre-fix and post-fix execution evidence;
 - environment and verifier-manifest identity;
 - answer-encoding, test-weakening, evaluator-modification, and protected-path checks;
-- optional mutation-strength evidence;
+- mutation-strength evidence or an explicit zero-run `NOT_APPLICABLE` justification;
 - exact verifier-health binding across health-record id, task identity, executed verifier manifest, health class, stage identity, and stage admission class;
 - deterministic admission decision and reasons.
+
+### Exact generated-test provenance binding
+
+`generated_test_provenance.lineage_identity` must bind the exact generated test artifact by ending with:
+
+```text
+|test-artifact-sha256:<generated_test_patch.test_artifact_sha256>
+```
+
+This suffix is part of the immutable lineage identity. Complete provenance from another generated test therefore cannot be reused to authorize a different test artifact.
 
 ## Behavioral proof
 
@@ -79,7 +89,43 @@ A test that passes before and after a claimed fix is not accepted under this pro
 
 ### Task-specific proof
 
-Some valid test-authoring work has no meaningful broken pre-fix state. `TASK_SPECIFIC_BEHAVIOR` is therefore allowed only when post-fix behavior passes and an independent acceptance-evidence identity is present. This exception cannot bypass rights, contamination, verifier health, protected paths, answer-encoding, or test-weakening gates.
+Some valid test-authoring work has no meaningful broken pre-fix state. `TASK_SPECIFIC_BEHAVIOR` is therefore allowed only when post-fix behavior passes and `independent_acceptance_evidence_identity` both preserves a concrete independent evidence identity and binds that identity to the exact acceptance context.
+
+The field uses this deterministic form:
+
+```text
+<independent-evidence-id>|binding-sha256:<digest>
+```
+
+The digest covers canonical compact JSON with sorted keys for:
+
+```text
+{
+  "environment_identity": post_fix_result.environment_identity,
+  "execution_evidence_identity": post_fix_result.evidence_identity,
+  "independent_acceptance_evidence_identity": <independent-evidence-id>,
+  "revision": fix_revision,
+  "task_identity": task_identity,
+  "test_artifact_sha256": generated_test_patch.test_artifact_sha256,
+  "verifier_manifest_id": post_fix_result.verifier_manifest_id
+}
+```
+
+Changing or substituting the independent evidence id, task, fix revision, test artifact, environment, verifier manifest, or concrete post-fix execution evidence invalidates the binding. An unrelated acceptance result therefore cannot be reused merely by copying a nonempty identifier. This exception still cannot bypass rights, contamination, verifier health, protected paths, answer-encoding, or test-weakening gates.
+
+## Mutation-strength semantics
+
+`ADEQUATE` requires concrete mutation evidence, at least one evaluated mutant, at least one killed mutant, and coherent accounting.
+
+`NOT_APPLICABLE` is a true no-run state, not a weak-run escape hatch. It requires:
+
+```text
+EVIDENCE_IDENTITY = not-applicable:<explicit-justification>
+MUTANTS_EVALUATED = 0
+MUTANTS_KILLED = 0
+```
+
+Any nonzero mutation accounting under `NOT_APPLICABLE`, or a missing/empty applicability justification, fails closed.
 
 ## Fail-closed admission
 
@@ -103,7 +149,7 @@ MUTATION_STRENGTH = ADEQUATE | NOT_APPLICABLE
 ADMISSION_REASONS = []
 ```
 
-Any incompatible/unresolved right, contamination signal, unhealthy verifier, protected evaluator change, answer encoding, weakened/deleted tests, weak/unresolved mutation evidence, or invalid behavioral proof fails closed.
+Any incompatible/unresolved right, contamination signal, unhealthy verifier, protected evaluator change, answer encoding, weakened/deleted tests, weak/unresolved mutation evidence, invalid `NOT_APPLICABLE` claim, unrelated provenance, or invalid behavioral proof fails closed.
 
 ## Rejected shortcut patterns
 
@@ -117,7 +163,9 @@ The contract rejects clean-positive admission for examples that:
 - claim a reproduction while never observing the pre-fix failure;
 - pass both before and after under `FAIL_BEFORE_PASS_AFTER`;
 - claim a repair while `base_revision` and `fix_revision` are identical;
-- use task-specific proof without independent acceptance evidence;
+- reuse provenance whose lineage is not bound to the exact generated test artifact;
+- use task-specific proof with independent acceptance evidence not bound to the exact task/revision/artifact/environment/verifier/execution evidence;
+- relabel a weak or executed mutation run as `NOT_APPLICABLE`;
 - carry unresolved provenance, rights, contamination, or verifier health.
 
 ## Relationship to verifier health
@@ -145,13 +193,6 @@ PRODUCTION_RELEASE = NONE
 
 B024 freezes test-generation curriculum and acceptance semantics only. It never converts a generated test, passing command, fixture, or model output into project authority.
 
-
 ## Patch and shortcut-integrity binding
 
-For an admitted test-generation example, every declared `test_path` must be a
-member of `generated_test_patch.changed_paths`. A record cannot point at an
-unmodified pre-existing test and call it generated evidence. The exact patch and
-test artifact are also bound to auditable shortcut-integrity evidence through a
-concrete evidence identity and checker-manifest identity. `CLEAR` or `INTACT`
-labels without that exact-artifact evidence are insufficient for clean-positive
-admission.
+For an admitted test-generation example, every declared `test_path` must be a member of `generated_test_patch.changed_paths`. A record cannot point at an unmodified pre-existing test and call it generated evidence. The exact patch and test artifact are also bound to auditable shortcut-integrity evidence through a concrete evidence identity and checker-manifest identity. `CLEAR` or `INTACT` labels without that exact-artifact evidence are insufficient for clean-positive admission.

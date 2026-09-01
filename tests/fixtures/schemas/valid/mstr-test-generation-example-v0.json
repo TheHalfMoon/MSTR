@@ -60,7 +60,7 @@
   },
   "generated_test_provenance": {
     "generator_identity": null,
-    "lineage_identity": "fixture-lineage:b024-test-generation-v1",
+    "lineage_identity": "fixture-lineage:b024-test-generation-v1|test-artifact-sha256:2222222222222222222222222222222222222222222222222222222222222222",
     "provenance_status": "COMPLETE",
     "source_class": "REPOSITORY_OWNED_FIXTURE",
     "source_identity": "TheHalfMoon/MSTR:b024-fixture",
@@ -83,7 +83,7 @@
     "test_weakening": "CLEAR"
   },
   "mutation_strength": {
-    "evidence_identity": null,
+    "evidence_identity": "not-applicable:fixture-no-meaningful-mutation-surface",
     "mutants_evaluated": 0,
     "mutants_killed": 0,
     "status": "NOT_APPLICABLE"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from pathlib import Path
 
@@ -14,6 +15,40 @@ VALID = ROOT / "tests/fixtures/schemas/valid/mstr-test-generation-example-v0.jso
 
 def fixture() -> dict[str, object]:
     return json.loads(VALID.read_text(encoding="utf-8"))
+
+
+def task_specific_fixture() -> dict[str, object]:
+    value = fixture()
+    proof = value["behavioral_proof"]
+    patch = value["generated_test_patch"]
+    assert isinstance(proof, dict)
+    assert isinstance(patch, dict)
+    post = proof["post_fix_result"]
+    pre = proof["pre_fix_result"]
+    assert isinstance(post, dict)
+    assert isinstance(pre, dict)
+    proof["proof_kind"] = "TASK_SPECIFIC_BEHAVIOR"
+    pre["status"] = "PASS"
+    evidence_identity = "fixture-independent-acceptance-v1"
+    payload = {
+        "environment_identity": post["environment_identity"],
+        "execution_evidence_identity": post["evidence_identity"],
+        "independent_acceptance_evidence_identity": evidence_identity,
+        "revision": value["fix_revision"],
+        "task_identity": value["task_identity"],
+        "test_artifact_sha256": patch["test_artifact_sha256"],
+        "verifier_manifest_id": post["verifier_manifest_id"],
+    }
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    proof["independent_acceptance_evidence_identity"] = (
+        f"{evidence_identity}|binding-sha256:{hashlib.sha256(encoded).hexdigest()}"
+    )
+    return value
 
 
 def test_b024_valid_reproduction_regression_fixture_passes() -> None:
@@ -136,15 +171,72 @@ def test_b024_property_or_metamorphic_requirement_is_semantically_bound() -> Non
     validate_instance("mstr-test-generation-example-v0", value)
 
 
-def test_b024_task_specific_proof_requires_independent_evidence() -> None:
+def test_b024_task_specific_proof_requires_exact_independent_binding() -> None:
     value = fixture()
     value["behavioral_proof"]["proof_kind"] = "TASK_SPECIFIC_BEHAVIOR"
     value["behavioral_proof"]["pre_fix_result"]["status"] = "PASS"
-    assert validation_errors("mstr-test-generation-example-v0", value)
     value["behavioral_proof"]["independent_acceptance_evidence_identity"] = (
         "fixture-independent-acceptance-v1"
     )
-    validate_instance("mstr-test-generation-example-v0", value)
+    assert validation_errors("mstr-test-generation-example-v0", value)
+    validate_instance("mstr-test-generation-example-v0", task_specific_fixture())
+
+
+def test_b024_task_specific_binding_covers_task_revision_artifact_environment_verifier() -> None:
+    value = task_specific_fixture()
+    value["task_identity"] = "other-task"
+    assert any(
+        "TASK_SPECIFIC_BEHAVIOR must preserve an independent evidence identity" in error
+        for error in validation_errors("mstr-test-generation-example-v0", value)
+    )
+
+    value = task_specific_fixture()
+    value["fix_revision"] = "cccccccccccccccccccccccccccccccccccccccc"
+    assert any(
+        "TASK_SPECIFIC_BEHAVIOR must preserve an independent evidence identity" in error
+        for error in validation_errors("mstr-test-generation-example-v0", value)
+    )
+
+    value = task_specific_fixture()
+    value["generated_test_patch"]["test_artifact_sha256"] = "3" * 64
+    assert any(
+        "TASK_SPECIFIC_BEHAVIOR must preserve an independent evidence identity" in error
+        for error in validation_errors("mstr-test-generation-example-v0", value)
+    )
+
+    value = task_specific_fixture()
+    value["behavioral_proof"]["post_fix_result"]["environment_identity"] = "other-env"
+    assert any(
+        "TASK_SPECIFIC_BEHAVIOR must preserve an independent evidence identity" in error
+        for error in validation_errors("mstr-test-generation-example-v0", value)
+    )
+
+    value = task_specific_fixture()
+    value["behavioral_proof"]["post_fix_result"]["verifier_manifest_id"] = "other-verifier"
+    assert any(
+        "TASK_SPECIFIC_BEHAVIOR must preserve an independent evidence identity" in error
+        for error in validation_errors("mstr-test-generation-example-v0", value)
+    )
+
+    value = task_specific_fixture()
+    value["behavioral_proof"]["post_fix_result"]["evidence_identity"] = "other-evidence"
+    assert any(
+        "TASK_SPECIFIC_BEHAVIOR must preserve an independent evidence identity" in error
+        for error in validation_errors("mstr-test-generation-example-v0", value)
+    )
+
+    value = task_specific_fixture()
+    proof = value["behavioral_proof"]
+    assert isinstance(proof, dict)
+    bound = proof["independent_acceptance_evidence_identity"]
+    assert isinstance(bound, str)
+    proof["independent_acceptance_evidence_identity"] = bound.replace(
+        "fixture-independent-acceptance-v1", "unrelated-independent-evidence", 1
+    )
+    assert any(
+        "TASK_SPECIFIC_BEHAVIOR must preserve an independent evidence identity" in error
+        for error in validation_errors("mstr-test-generation-example-v0", value)
+    )
 
 
 def test_b024_mutation_accounting_and_strength_fail_closed() -> None:
@@ -161,13 +253,32 @@ def test_b024_mutation_accounting_and_strength_fail_closed() -> None:
     assert validation_errors("mstr-test-generation-example-v0", value)
 
 
+def test_b024_not_applicable_mutation_requires_explicit_justification_and_zero_run() -> None:
+    value = fixture()
+    value["mutation_strength"]["evidence_identity"] = None
+    assert validation_errors("mstr-test-generation-example-v0", value)
+
+    value = fixture()
+    value["mutation_strength"]["evidence_identity"] = "not-applicable:"
+    assert validation_errors("mstr-test-generation-example-v0", value)
+
+    value = fixture()
+    value["mutation_strength"]["mutants_evaluated"] = 1
+    assert validation_errors("mstr-test-generation-example-v0", value)
+
+    value = fixture()
+    value["mutation_strength"]["mutants_killed"] = 1
+    assert validation_errors("mstr-test-generation-example-v0", value)
+
+    validate_instance("mstr-test-generation-example-v0", fixture())
+
+
 def test_b024_rejected_records_require_reasons() -> None:
     value = fixture()
     value["admission_decision"] = "REJECT"
     assert validation_errors("mstr-test-generation-example-v0", value)
     value["admission_reasons"] = ["fixture.reject"]
     validate_instance("mstr-test-generation-example-v0", value)
-
 
 
 def test_b024_admit_requires_complete_generated_test_provenance() -> None:
@@ -185,6 +296,21 @@ def test_b024_generated_sources_require_generator_identity() -> None:
     assert validation_errors("mstr-test-generation-example-v0", value)
     provenance["generator_identity"] = "student-generator:fixture-v1"
     validate_instance("mstr-test-generation-example-v0", value)
+
+
+def test_b024_generated_provenance_binds_exact_test_artifact() -> None:
+    value = fixture()
+    provenance = value["generated_test_provenance"]
+    assert isinstance(provenance, dict)
+    provenance["lineage_identity"] = (
+        "fixture-lineage:unrelated|test-artifact-sha256:" + "3" * 64
+    )
+    errors = validation_errors("mstr-test-generation-example-v0", value)
+    assert any(
+        "lineage_identity: must bind the exact generated_test_patch.test_artifact_sha256"
+        in error
+        for error in errors
+    )
 
 
 def test_b024_verifier_health_binding_matches_task_and_executed_verifier() -> None:
@@ -269,6 +395,7 @@ def test_b024_nonhealthy_health_cannot_claim_clean_positive_stage() -> None:
     binding["health_class"] = "PARTIAL"
     binding["stage_admission_class"] = "CLEAN_POSITIVE_ELIGIBLE"
     assert validation_errors("mstr-test-generation-example-v0", value)
+
 
 def test_b024_schema_has_no_remote_reference() -> None:
     schema = json.loads(
