@@ -126,9 +126,10 @@ This reconciliation does not infer completion for A005+ and grants no external-e
   Outputs: metric module/tests + `evidence/mstr-000a/A016-metrics.md`.
   Canonical implementation: PR #118 / final head `66381acbab6295d5e445c4354605c704a90df719` / merge `3e247d9b89dabce1bcbdfcf1799face3d583d4a4`; post-merge proof run `33434283002` = `SUCCESS`.
 
-- [ ] **A017 Freeze failure taxonomy and training trajectory contract.**  
+- [x] **A017 Freeze failure taxonomy and training trajectory contract.**
   Preserve verified success, recovered success, valid failure, timeout, invalid environment/verifier, contamination/leakage/authority failure. MSTR-000B verifier-health records become a required admission input before training.  
   Outputs: `mstr.trajectory-manifest.v0`, failure taxonomy, fixtures, `evidence/mstr-000a/A017-trajectory-contract.md`.
+  Canonical implementation: PR #120 / final head `2270cbbd6a1110e2823679ea3ca2d7b77a92d256` / merge `11c528c0ad015f7505dd143c700e710a0f08d86a`; post-merge proof run `33441203968` = `SUCCESS`.
 
 - [ ] **A018 Implement trajectory recorder/replay/admission.**  
   Successful training examples require verifier proof; failures remain evidence; private user traces default to rejected/not-ingested.  
