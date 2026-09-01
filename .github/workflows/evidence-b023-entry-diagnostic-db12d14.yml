@@ -1,0 +1,48 @@
+name: Diagnose B023 entry gate
+
+on:
+  push:
+    branches:
+      - evidence/b023-entry-diagnostic-db12d14
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: db12d1467bb81185a9affffb4d470626ceceddfa
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: db12d1467bb81185a9affffb4d470626ceceddfa
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Capture exact B023 machine eligibility result
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/drift.json
+          echo '--- task drift ---'
+          cat /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          set +e
+          mstr-qualify task eligible B023 > /tmp/b023.json
+          code=$?
+          set -e
+          echo "B023_EXIT_CODE=$code"
+          echo '--- B023 eligibility ---'
+          cat /tmp/b023.json
+          test "$code" -eq 0 -o "$code" -eq 1
+          jq -e '.task_id == "B023"' /tmp/b023.json
+          jq '{eligible, reasons, state_consistency_result, authority_result, prerequisite_results}' /tmp/b023.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
