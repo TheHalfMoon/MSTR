@@ -1,0 +1,174 @@
+name: Atomic builder for B023 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/b023-closeout-build-f71a15f
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: f71a15f967250c5c523749be9f9f3066feccb902
+  TARGET_BRANCH: docs/000b-b023-canonicalize
+  IMPLEMENTATION_PR: '133'
+  IMPLEMENTATION_HEAD: da0480c0eb39e4097cb2d3fd3337a7fc49ab75dc
+  IMPLEMENTATION_MERGE: f71a15f967250c5c523749be9f9f3066feccb902
+  BUILD_RUN: '33526148972'
+  QUALIFICATION_RUN: '33527138891'
+  REVIEW_ID: '5080178013'
+  REVIEW_CHECK: '99921330743'
+  PREMERGE_RUN: '33528450915'
+  POSTMERGE_RUN: '33528911288'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify immutable canonical base and absent target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)"
+
+      - name: Build bounded B023 canonical closeout
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git switch -c "$TARGET_BRANCH"
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import copy
+          import json
+          from pathlib import Path
+
+          root = Path.cwd()
+
+          # Machine catalog: only B023 transitions to COMPLETE_CANONICAL.
+          catalog_path = root / 'configs/task-gate/mstr-000b.json'
+          before = json.loads(catalog_path.read_text(encoding='utf-8'))
+          after = copy.deepcopy(before)
+          assert before['tasks']['B023']['canonical_state'] == 'PENDING'
+          after['tasks']['B023']['canonical_state'] = 'COMPLETE_CANONICAL'
+          for task_id, node in before['tasks'].items():
+              if task_id == 'B023':
+                  expected = copy.deepcopy(node)
+                  expected['canonical_state'] = 'COMPLETE_CANONICAL'
+                  assert after['tasks'][task_id] == expected
+              else:
+                  assert after['tasks'][task_id] == node, task_id
+          catalog_path.write_text(json.dumps(after, indent=2) + '\n', encoding='utf-8')
+
+          # Canonical ledger: close only B023 and record exact implementation provenance.
+          tasks_path = root / 'specs/002-code-model-supremacy-foundation/tasks.md'
+          tasks = tasks_path.read_text(encoding='utf-8')
+          old = '''- [ ] **B023 Implement verifier-health evaluator on controlled fixtures.**  \n  Exact prerequisites: A006 protected finalizer/verifier boundary `COMPLETE_CANONICAL`, A014 verifier runner/reward-shortcut battery `COMPLETE_CANONICAL`, B002 `COMPLETE_CANONICAL`, B022 `COMPLETE_CANONICAL`, and exact-main `eligible=true`. Prove `HEALTHY`, `PARTIAL`, `DISAGREEMENT`, `BROKEN`, `LEAKED`, and `TAMPERED` classifications; integrate with training trajectory admission as a blocking field, amending earlier trajectory plumbing if necessary rather than creating a parallel authority surface.  \n  Outputs: verifier-health module/tests, `evidence/mstr-000b/B023-verifier-health-implementation.md`.'''
+          new = '''- [x] **B023 Implement verifier-health evaluator on controlled fixtures.**\n  Exact prerequisites: A006 protected finalizer/verifier boundary `COMPLETE_CANONICAL`, A014 verifier runner/reward-shortcut battery `COMPLETE_CANONICAL`, B002 `COMPLETE_CANONICAL`, B022 `COMPLETE_CANONICAL`, and exact-main `eligible=true`. Prove `HEALTHY`, `PARTIAL`, `DISAGREEMENT`, `BROKEN`, `LEAKED`, and `TAMPERED` classifications; integrate with training trajectory admission as a blocking field, amending earlier trajectory plumbing if necessary rather than creating a parallel authority surface.  \n  Outputs: verifier-health module/tests, `evidence/mstr-000b/B023-verifier-health-implementation.md`.\n  Canonical implementation: PR #133 / final head `da0480c0eb39e4097cb2d3fd3337a7fc49ab75dc` / merge `f71a15f967250c5c523749be9f9f3066feccb902`.'''
+          assert tasks.count(old) == 1
+          tasks_path.write_text(tasks.replace(old, new, 1), encoding='utf-8')
+
+          # Evidence: preserve implementation record and append governed closeout provenance.
+          evidence_path = root / 'evidence/mstr-000b/B023-verifier-health-implementation.md'
+          evidence = evidence_path.read_text(encoding='utf-8')
+          old_header = '''**Task:** `B023`\n**State:** `IMPLEMENTATION_ACTIVE`'''
+          new_header = '''**Task:** `B023`\n**Implementation PR:** #133\n**Final implementation head:** `da0480c0eb39e4097cb2d3fd3337a7fc49ab75dc`\n**Canonical implementation merge:** `f71a15f967250c5c523749be9f9f3066feccb902`\n**State:** COMPLETE_CANONICAL'''
+          assert evidence.count(old_header) == 1
+          evidence = evidence.replace(old_header, new_header, 1)
+          closeout = '''
+
+## Canonical Implementation Closeout
+
+The B023 verifier-health evaluator was merged and independently verified on canonical main using controlled repository fixtures only. The closeout records canonical task/provenance state; it does not widen the evaluator into verifier execution, model execution, training, paid-compute, private-data, or production authority.
+
+- implementation PR: `#133`
+- final implementation head: `da0480c0eb39e4097cb2d3fd3337a7fc49ab75dc`
+- canonical implementation merge: `f71a15f967250c5c523749be9f9f3066feccb902`
+- repaired atomic implementation build: run `33526148972` — SUCCESS
+- exact-head qualification: run `33527138891` — SUCCESS
+- exact-head independent review: review `5080178013` — NO ISSUES FOUND
+- exact-head Cubic check: check `99921330743` — SUCCESS
+- mandatory pre-merge verification: run `33528450915` — SUCCESS
+- post-merge implementation verification: run `33528911288` — SUCCESS
+
+This closeout changes only B023 canonical state/provenance, the canonical task ledger, and closeout regression coverage. It does not modify the frozen B022 verifier-health schema, A006 protected terminal-success authority, A018 trajectory-admission authority, or B023 evaluator runtime. It grants no verifier subprocess execution, model execution, model-weight access, teacher/API execution, paid compute, network model calls, large/private/production data ingestion, weight-changing training, large-scale RL, candidate-pool authority change, or production release authority. B024 may become machine-eligible only because its exact prerequisite B023 is now canonically complete; B026 remains gated on B024.
+'''
+          assert '## Canonical Implementation Closeout' not in evidence
+          evidence_path.write_text(evidence.rstrip() + closeout, encoding='utf-8')
+
+          # Dedicated closeout regressions keep the canonicalization bounded and auditable.
+          test_path = root / 'tests/contract/test_b023_closeout.py'
+          assert not test_path.exists()
+          test_path.write_text('''from __future__ import annotations\n\nimport json\nfrom pathlib import Path\n\nimport pytest\n\nfrom mstr_qualify.cli import main\nfrom mstr_qualify.schemas import validate_instance\nfrom mstr_qualify.task_gate import evaluate_task_snapshot\n\nROOT = Path(__file__).resolve().parents[2]\n_CANONICAL_MAIN = "a" * 40\n\n\ndef test_b023_is_terminal_after_canonical_closeout() -> None:\n    result = evaluate_task_snapshot("B023", canonical_main=_CANONICAL_MAIN)\n\n    assert result["eligible"] is False\n    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"\n    assert result["state_consistency_result"]["satisfied"] is True\n    assert result["authority_result"]["required"] is False\n    assert "task.already_terminal" in result["reasons"]\n    assert {item["task_id"] for item in result["prerequisite_results"]} == {\n        "A006", "A014", "B002", "B022"\n    }\n    assert all(item["satisfied"] is True for item in result["prerequisite_results"])\n    validate_instance("mstr-task-eligibility-v0", result)\n\n\ndef test_b023_closeout_opens_b024_as_next_machine_eligible_task() -> None:\n    result = evaluate_task_snapshot("B024", canonical_main=_CANONICAL_MAIN)\n\n    assert result["eligible"] is True\n    assert result["reasons"] == []\n    assert result["state_consistency_result"]["observed_state"] == "PENDING"\n    predecessor = next(item for item in result["prerequisite_results"] if item["task_id"] == "B023")\n    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"\n    assert predecessor["evidence_present"] is True\n    assert predecessor["satisfied"] is True\n    validate_instance("mstr-task-eligibility-v0", result)\n\n\ndef test_b023_closeout_does_not_skip_b024_for_b026() -> None:\n    result = evaluate_task_snapshot("B026", canonical_main=_CANONICAL_MAIN)\n\n    assert result["eligible"] is False\n    assert result["state_consistency_result"]["observed_state"] == "PENDING"\n    assert "prerequisite.unsatisfied:B024" in result["reasons"]\n    assert "prerequisite.unsatisfied:B022" not in result["reasons"]\n    assert "prerequisite.unsatisfied:B025" not in result["reasons"]\n    validate_instance("mstr-task-eligibility-v0", result)\n\n\ndef test_b023_closeout_provenance_and_authority_boundary() -> None:\n    evidence = (ROOT / "evidence" / "mstr-000b" / "B023-verifier-health-implementation.md").read_text(encoding="utf-8")\n    assert "**State:** COMPLETE_CANONICAL" in evidence\n    assert "**Implementation PR:** #133" in evidence\n    assert "`da0480c0eb39e4097cb2d3fd3337a7fc49ab75dc`" in evidence\n    assert "`f71a15f967250c5c523749be9f9f3066feccb902`" in evidence\n    for run_id in ("33526148972", "33527138891", "33528450915", "33528911288"):\n        assert f"run `{run_id}` — SUCCESS" in evidence\n    assert "review `5080178013` — NO ISSUES FOUND" in evidence\n    assert "MODEL_EXECUTION = NONE" in evidence\n    assert "MODEL_WEIGHT_ACCESS = NONE" in evidence\n    assert "VERIFIER_SUBPROCESS_EXECUTION = NONE" in evidence\n    assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence\n\n\ndef test_task_eligible_b023_terminal_returns_one(\n    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]\n) -> None:\n    expected = evaluate_task_snapshot("B023", canonical_main=_CANONICAL_MAIN)\n\n    def fake_evaluate_task_eligibility(task_id: str) -> dict[str, object]:\n        assert task_id == "B023"\n        return expected\n\n    monkeypatch.setattr("mstr_qualify.cli.evaluate_task_eligibility", fake_evaluate_task_eligibility)\n    exit_code = main(["task", "eligible", "B023"])\n    payload = json.loads(capsys.readouterr().out)\n    assert exit_code == 1\n    assert payload == expected\n    assert payload["eligible"] is False\n    assert "task.already_terminal" in payload["reasons"]\n    validate_instance("mstr-task-eligibility-v0", payload)\n''', encoding='utf-8')
+          PY
+
+          printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B023-verifier-health-implementation.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_b023_closeout.py | sort > /tmp/expected-files
+          git diff --name-only | sort > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git diff --check
+
+          git add --all
+          git commit -m 'docs(mstr-000b): canonicalize B023 closeout'
+          echo "CANDIDATE_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "CANDIDATE_TREE=$(git rev-parse HEAD^{tree})" >> "$GITHUB_ENV"
+
+      - name: Validate exact closeout candidate and prospective frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest tests/contract/test_b023_closeout.py tests/unit/test_verifier_health.py tests/contract/test_verifier_health_contract.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+
+          git update-ref refs/heads/main "$CANDIDATE_HEAD"
+          git update-ref refs/remotes/origin/main "$CANDIDATE_HEAD"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+
+          if mstr-qualify task eligible B023 > /tmp/b023.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b023.json
+
+          mstr-qualify task eligible B024 > /tmp/b024.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false' /tmp/b024.json
+
+          if mstr-qualify task eligible B026 > /tmp/b026.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "PENDING" and (.reasons | index("prerequisite.unsatisfied:B024")) != null' /tmp/b026.json
+
+      - name: Guarded publish of exact atomic target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^{tree})" = "$CANDIDATE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test -z "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$CANDIDATE_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo "B023_CLOSEOUT_HEAD=$CANDIDATE_HEAD"
+          echo "B023_CLOSEOUT_TREE=$CANDIDATE_TREE"
+          echo "B024_PROSPECTIVE_ELIGIBLE=PASS"
+          echo "MODEL_EXECUTION=NONE"
+          echo "WEIGHT_CHANGING_TRAINING=NONE"
