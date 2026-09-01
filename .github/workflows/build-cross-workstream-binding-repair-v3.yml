@@ -1,0 +1,114 @@
+name: Build cross-workstream binding repair v3
+
+on:
+  push:
+    branches:
+      - fix/000b-cross-workstream-prerequisite-bindings
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_BASE: db12d1467bb81185a9affffb4d470626ceceddfa
+  BRANCH: fix/000b-cross-workstream-prerequisite-bindings
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.BRANCH }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify immutable base and negative-evidence history
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_BASE"
+          test "$(git rev-list --count "$EXPECTED_BASE"..HEAD)" -eq 3
+          test "$(git rev-parse HEAD^)" = "01a60f7f23618f6d319ce36bb85cdecbac4eece4"
+      - name: Generate bounded repair and fix exact Ruff defects
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/build-cross-workstream-binding-repair.yml')
+          source = workflow.read_text(encoding='utf-8')
+          start_marker = "          python - <<'PY'\n"
+          end_marker = "\n          PY\n"
+          start = source.index(start_marker) + len(start_marker)
+          end = source.index(end_marker, start)
+          script = textwrap.dedent(source[start:end])
+          marker = "addition = r'''"
+          if script.count(marker) != 1:
+              raise SystemExit('expected one raw addition marker')
+          script = script.replace(marker, "addition = '''", 1)
+          exec(compile(script, '<bounded-generator-v3>', 'exec'), {'__name__': '__main__'})
+
+          gate = Path('src/mstr_qualify/task_gate.py')
+          text = gate.read_text(encoding='utf-8')
+          old = '        if not isinstance(external_task_id, str) or not re.fullmatch(r"[A-Z][0-9]{3}", external_task_id):\n'
+          new = '''        if not isinstance(external_task_id, str) or not re.fullmatch(\n            r"[A-Z][0-9]{3}", external_task_id\n        ):\n'''
+          if text.count(old) != 1:
+              raise SystemExit('first Ruff repair anchor missing')
+          text = text.replace(old, new, 1)
+          old = '    path = _repository_path(catalog.repository_root, raw, field="external prerequisite state_evidence")\n'
+          new = '''    path = _repository_path(\n        catalog.repository_root, raw, field="external prerequisite state_evidence"\n    )\n'''
+          if text.count(old) != 1:
+              raise SystemExit('second Ruff repair anchor missing')
+          text = text.replace(old, new, 1)
+          gate.write_text(text, encoding='utf-8')
+
+          for path in (
+              '.github/workflows/build-cross-workstream-binding-repair-v2.yml',
+              '.github/workflows/build-cross-workstream-binding-repair-v3.yml',
+          ):
+              Path(path).unlink()
+          PY
+      - name: Run complete frozen gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git diff --check "$EXPECTED_BASE"
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy
+          python -m mstr_qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          cat /tmp/drift.json
+          git update-ref refs/heads/main HEAD
+          git update-ref refs/remotes/origin/main HEAD
+          mstr-qualify task eligible B023 > /tmp/b023.json
+          jq -e '.task_id == "B023" and .eligible == true and (.reasons | length) == 0' /tmp/b023.json
+          jq -e '.semantic_checks.prerequisite_set_complete == true and .semantic_checks.prerequisite_states_satisfied == true' /tmp/b023.json
+          jq -e '[.prerequisite_results[] | select(.task_id == "A006" or .task_id == "A014") | .satisfied] == [true, true]' /tmp/b023.json
+          cat /tmp/b023.json
+      - name: Commit exact maintenance repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add -A
+          git diff --cached --check
+          test "$(git diff --cached --name-only | wc -l)" -eq 7
+          git commit -m 'fix(task-gate): bind cross-workstream prerequisites'
+          git push origin HEAD:"$BRANCH"
+          echo "FINAL_REPAIR_HEAD=$(git rev-parse HEAD)"
+          git diff --name-only "$EXPECTED_BASE"..HEAD | tee /tmp/final-files
+          test "$(wc -l < /tmp/final-files)" -eq 4
+          grep -Fx 'configs/task-gate/mstr-000b.json' /tmp/final-files
+          grep -Fx 'evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md' /tmp/final-files
+          grep -Fx 'src/mstr_qualify/task_gate.py' /tmp/final-files
+          grep -Fx 'tests/contract/test_task_gate.py' /tmp/final-files
