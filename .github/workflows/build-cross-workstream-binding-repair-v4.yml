@@ -1,0 +1,145 @@
+name: Build cross-workstream binding repair v4
+
+on:
+  push:
+    branches:
+      - fix/000b-cross-workstream-prerequisite-bindings
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_BASE: db12d1467bb81185a9affffb4d470626ceceddfa
+  EXPECTED_PARENT: 0c3fe51738fa4b89065b11529c2175744bfbd650
+  BRANCH: fix/000b-cross-workstream-prerequisite-bindings
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.BRANCH }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify immutable base and negative-evidence history
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_BASE"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_BASE"..HEAD)" -eq 4
+      - name: Generate bounded repair with exact evidence-identity hardening
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/build-cross-workstream-binding-repair.yml')
+          source = workflow.read_text(encoding='utf-8')
+          start_marker = "          python - <<'PY'\n"
+          end_marker = "\n          PY\n"
+          start = source.index(start_marker) + len(start_marker)
+          end = source.index(end_marker, start)
+          script = textwrap.dedent(source[start:end])
+          marker = "addition = r'''"
+          if script.count(marker) != 1:
+              raise SystemExit('expected one raw addition marker')
+          script = script.replace(marker, "addition = '''", 1)
+          exec(compile(script, '<bounded-generator-v4>', 'exec'), {'__name__': '__main__'})
+
+          gate = Path('src/mstr_qualify/task_gate.py')
+          text = gate.read_text(encoding='utf-8')
+
+          old = '        if not isinstance(external_task_id, str) or not re.fullmatch(r"[A-Z][0-9]{3}", external_task_id):\n'
+          new = '''        if not isinstance(external_task_id, str) or not re.fullmatch(\n            r"[A-Z][0-9]{3}", external_task_id\n        ):\n'''
+          if text.count(old) != 1:
+              raise SystemExit('first Ruff repair anchor missing')
+          text = text.replace(old, new, 1)
+
+          old = '    path = _repository_path(catalog.repository_root, raw, field="external prerequisite state_evidence")\n'
+          new = '''    path = _repository_path(\n        catalog.repository_root, raw, field="external prerequisite state_evidence"\n    )\n'''
+          if text.count(old) != 1:
+              raise SystemExit('second Ruff repair anchor missing')
+          text = text.replace(old, new, 1)
+
+          old = '''def _external_state_declared(\n    catalog: TaskCatalog, binding: dict[str, Any]\n) -> bool:\n    raw = binding["state_evidence"]\n    path = _repository_path(\n        catalog.repository_root, raw, field="external prerequisite state_evidence"\n    )\n    resolved = _contained_existing_path(catalog.repository_root, path)\n    if resolved is None or not resolved.is_file():\n        return False\n    try:\n        text = resolved.read_text(encoding="utf-8")\n    except OSError:\n        return False\n    required_state = binding["required_state"]\n    return bool(\n        re.search(\n            rf"^\\*\\*State:\\*\\*\\s*`{re.escape(required_state)}`\\s*$",\n            text,\n            re.MULTILINE,\n        )\n    )\n'''
+          new = '''def _external_evidence_claims(\n    catalog: TaskCatalog, task_id: str, binding: dict[str, Any]\n) -> tuple[bool, bool]:\n    raw = binding["state_evidence"]\n    path = _repository_path(\n        catalog.repository_root, raw, field="external prerequisite state_evidence"\n    )\n    resolved = _contained_existing_path(catalog.repository_root, path)\n    if resolved is None or not resolved.is_file():\n        return False, False\n    try:\n        text = resolved.read_text(encoding="utf-8")\n    except OSError:\n        return False, False\n    task_match = re.search(\n        r"^\\*\\*Task:\\*\\*\\s*`(?P<task>[^`]+)`\\s*$", text, re.MULTILINE\n    )\n    expected_task_values = {task_id, f"{binding['workstream_id']} / {task_id}"}\n    identity_declared = bool(\n        task_match is not None and task_match.group("task") in expected_task_values\n    )\n    required_state = binding["required_state"]\n    state_declared = bool(\n        re.search(\n            rf"^\\*\\*State:\\*\\*\\s*`{re.escape(required_state)}`\\s*$",\n            text,\n            re.MULTILINE,\n        )\n    )\n    return identity_declared, state_declared\n'''
+          if text.count(old) != 1:
+              raise SystemExit('external evidence parser anchor missing')
+          text = text.replace(old, new, 1)
+
+          old = '''    state_declared = _external_state_declared(catalog, binding)\n    missing = [\n'''
+          new = '''    identity_declared, state_declared = _external_evidence_claims(\n        catalog, task_id, binding\n    )\n    missing = [\n'''
+          if text.count(old) != 1:
+              raise SystemExit('external evidence call anchor missing')
+          text = text.replace(old, new, 1)
+
+          old = '''    evidence_present = not missing and state_declared\n    reasons: list[str] = []\n    if checked is not True:\n        reasons.append("prerequisite.state_checkbox_conflict")\n    if not state_declared:\n        reasons.append("prerequisite.external_state_unproven")\n'''
+          new = '''    evidence_present = not missing and identity_declared and state_declared\n    reasons: list[str] = []\n    if checked is not True:\n        reasons.append("prerequisite.state_checkbox_conflict")\n    if not identity_declared:\n        reasons.append("prerequisite.external_identity_unproven")\n    if not state_declared:\n        reasons.append("prerequisite.external_state_unproven")\n'''
+          if text.count(old) != 1:
+              raise SystemExit('external evidence semantics anchor missing')
+          text = text.replace(old, new, 1)
+          gate.write_text(text, encoding='utf-8')
+
+          tests = Path('tests/contract/test_task_gate.py')
+          test_text = tests.read_text(encoding='utf-8')
+          addition = '''\n\ndef test_external_prerequisite_mismatched_evidence_identity_fails_closed(\n    tmp_path: Path,\n) -> None:\n    tasks_dir = tmp_path / "specs" / "002-code-model-supremacy-foundation"\n    tasks_dir.mkdir(parents=True)\n    (tasks_dir / "tasks.md").write_text(\n        "- [ ] **B001 Target task.**\\n", encoding="utf-8"\n    )\n    external_tasks = (\n        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"\n    )\n    external_tasks.parent.mkdir(parents=True)\n    external_tasks.write_text(\n        "- [x] **A006 External task.**\\n", encoding="utf-8"\n    )\n    evidence = tmp_path / "evidence" / "mstr-000a" / "A006-finalizer.md"\n    evidence.parent.mkdir(parents=True)\n    evidence.write_text(\n        "# Wrong task\\n\\n**Task:** `A014`\\n**State:** `COMPLETE_CANONICAL`\\n",\n        encoding="utf-8",\n    )\n    payload = {\n        "catalog_version": "mstr.task-catalog.v0",\n        "workstream_id": "MSTR-000B",\n        "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",\n        "defaults": {\n            "outputs": [],\n            "candidate_dependent": False,\n            "external_effect_class": "NO_EXTERNAL_EFFECT",\n            "parallel_safe": False,\n            "supersedes": [],\n            "superseded_by": [],\n            "closeout_rule": {\n                "terminal_states": ["COMPLETE_CANONICAL"],\n                "require_all_outputs": False,\n                "require_all_evidence_outputs": True,\n                "completion_requires_merge": True,\n            },\n        },\n        "tasks": {\n            "B001": {\n                "canonical_state": "PENDING",\n                "prerequisites": ["A006"],\n                "evidence_outputs": [],\n            }\n        },\n        "external_prerequisites": {\n            "A006": {\n                "workstream_id": "MSTR-000A",\n                "tasks_file": (\n                    "specs/001-agent-harness-verified-loop-foundation/tasks.md"\n                ),\n                "state_evidence": "evidence/mstr-000a/A006-finalizer.md",\n                "evidence_outputs": ["evidence/mstr-000a/A006-finalizer.md"],\n                "required_state": "COMPLETE_CANONICAL",\n            }\n        },\n    }\n    catalog_path = tmp_path / "configs" / "task-gate" / "mstr-000b.json"\n    catalog_path.parent.mkdir(parents=True)\n    catalog_path.write_text(json.dumps(payload), encoding="utf-8")\n\n    result = evaluate_task_snapshot(\n        "B001",\n        repository_root=tmp_path,\n        catalog_path=catalog_path,\n        canonical_main=_CANONICAL_MAIN,\n    )\n\n    assert result["eligible"] is False\n    predecessor = result["prerequisite_results"][0]\n    assert predecessor["task_id"] == "A006"\n    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"\n    assert predecessor["evidence_present"] is False\n    assert predecessor["satisfied"] is False\n    assert "prerequisite.external_identity_unproven" in predecessor["reasons"]\n'''\n          if 'test_external_prerequisite_mismatched_evidence_identity_fails_closed' in test_text:\n              raise SystemExit('identity mismatch regression already present')\n          tests.write_text(test_text + addition, encoding='utf-8')\n
+          for path in (\n              '.github/workflows/build-cross-workstream-binding-repair.yml',\n              '.github/workflows/build-cross-workstream-binding-repair-v2.yml',\n              '.github/workflows/build-cross-workstream-binding-repair-v3.yml',\n              '.github/workflows/build-cross-workstream-binding-repair-v4.yml',\n          ):\n              Path(path).unlink()\n          PY
+      - name: Run complete frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git diff --check "$EXPECTED_BASE"
+          pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          python -m mstr_qualify validate
+          pytest -q
+          ruff check src tests
+          mypy
+      - name: Create clean prospective repair commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add -A
+          git diff --cached --check
+          test "$(git diff --cached --name-only | wc -l)" -eq 8
+          git commit -m 'fix(task-gate): bind cross-workstream prerequisites'
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          git diff --name-only "$EXPECTED_BASE"..HEAD | tee /tmp/final-files
+          test "$(wc -l < /tmp/final-files)" -eq 4
+          grep -Fx 'configs/task-gate/mstr-000b.json' /tmp/final-files
+          grep -Fx 'evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md' /tmp/final-files
+          grep -Fx 'src/mstr_qualify/task_gate.py' /tmp/final-files
+          grep -Fx 'tests/contract/test_task_gate.py' /tmp/final-files
+      - name: Prove prospective drift and B023 machine eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          FINAL_HEAD=$(git rev-parse HEAD)
+          git update-ref refs/heads/main "$FINAL_HEAD"
+          git update-ref refs/remotes/origin/main "$FINAL_HEAD"
+          python -m mstr_qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json
+          cat /tmp/drift.json
+          mstr-qualify task eligible B023 > /tmp/b023.json
+          jq -e '.task_id == "B023" and .eligible == true and (.reasons | length) == 0' /tmp/b023.json
+          jq -e '.semantic_checks.prerequisite_set_complete == true and .semantic_checks.prerequisite_states_satisfied == true' /tmp/b023.json
+          jq -e '[.prerequisite_results[] | select(.task_id == "A006" or .task_id == "A014") | .satisfied] == [true, true]' /tmp/b023.json
+          cat /tmp/b023.json
+      - name: Push exact repair after live-main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          FINAL_HEAD=$(git rev-parse HEAD)
+          git push origin HEAD:"$BRANCH"
+          echo "FINAL_REPAIR_HEAD=$FINAL_HEAD"
