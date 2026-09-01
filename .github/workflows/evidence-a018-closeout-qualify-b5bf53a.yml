@@ -1,0 +1,108 @@
+name: Qualify A018 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/a018-closeout-qualify-b5bf53a
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact A018 closeout identity, scope, and implementation evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='b34a17441c24712144ce21b64c41ec18eeb12352'
+          HEAD='b5bf53abae23bea97063de6f8004437a2fc9610e'
+          TREE='8e407f32878a0829f56b46ec702f35fc7a861ad7'
+          git fetch origin main docs/000a-a018-closeout --quiet
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/docs/000a-a018-closeout)" = "$HEAD"
+          test "$(git show -s --format=%T "$HEAD")" = "$TREE"
+          test "$(git show -s --format=%P "$HEAD")" = "$BASE"
+          expected="$(printf '%s\n' 'evidence/mstr-000a/A018-trajectory-factory.md' 'specs/001-agent-harness-verified-loop-foundation/tasks.md')"
+          actual="$(git diff --name-only "$BASE..$HEAD")"
+          test "$actual" = "$expected"
+          git diff --check "$BASE..$HEAD"
+          evidence="$(git show "$HEAD:evidence/mstr-000a/A018-trajectory-factory.md")"
+          grep -F '**State:** `COMPLETE_CANONICAL`' <<<"$evidence"
+          grep -F 'FAILED_QUALIFICATION_1 = 33490868295 / FAILURE / RUFF_UP035_IMPORT_LOCATION / PRESERVED' <<<"$evidence"
+          grep -F 'FAILED_QUALIFICATION_2 = 33491198294 / FAILURE / MYPY_NO_ANY_RETURN / PRESERVED' <<<"$evidence"
+          grep -F 'FINAL_QUALIFICATION = 33491507890 / SUCCESS' <<<"$evidence"
+          grep -F 'INDEPENDENT_REVIEW = 5076280749 / NO_BLOCKING_FINDING' <<<"$evidence"
+          grep -F 'MANDATORY_PREMERGE = 33491799986 / SUCCESS' <<<"$evidence"
+          grep -F 'IMPLEMENTATION_MERGE = b34a17441c24712144ce21b64c41ec18eeb12352' <<<"$evidence"
+          grep -F 'POST_MERGE_PROOF = 33492060094 / SUCCESS' <<<"$evidence"
+          tasks="$(git show "$HEAD:specs/001-agent-harness-verified-loop-foundation/tasks.md")"
+          grep -F -- '- [x] **A018 Implement trajectory recorder/replay/admission.**' <<<"$tasks"
+          grep -F 'Canonical implementation: PR #122 / final head `fc04967b2cbe874489f3b09a38fb80c1650f2461` / merge `b34a17441c24712144ce21b64c41ec18eeb12352`; post-merge proof run `33492060094` = `SUCCESS`.' <<<"$tasks"
+          grep -F -- '- [ ] **A019 Run cross-harness baseline/tournament' <<<"$tasks"
+          grep -F -- '- [ ] **A020 Implement and qualify `MSTR-RESEARCH-LOOP-v0`' <<<"$tasks"
+          failed1="$(gh api repos/TheHalfMoon/MSTR/actions/runs/33490868295)"
+          failed2="$(gh api repos/TheHalfMoon/MSTR/actions/runs/33491198294)"
+          finalq="$(gh api repos/TheHalfMoon/MSTR/actions/runs/33491507890)"
+          premerge="$(gh api repos/TheHalfMoon/MSTR/actions/runs/33491799986)"
+          postmerge="$(gh api repos/TheHalfMoon/MSTR/actions/runs/33492060094)"
+          test "$(jq -r '.conclusion' <<<"$failed1")" = 'failure'
+          test "$(jq -r '.conclusion' <<<"$failed2")" = 'failure'
+          test "$(jq -r '.conclusion' <<<"$finalq")" = 'success'
+          test "$(jq -r '.conclusion' <<<"$premerge")" = 'success'
+          test "$(jq -r '.conclusion' <<<"$postmerge")" = 'success'
+          review="$(gh api repos/TheHalfMoon/MSTR/pulls/122/reviews/5076280749)"
+          test "$(jq -r '.commit_id' <<<"$review")" = 'fc04967b2cbe874489f3b09a38fb80c1650f2461'
+          impl="$(gh api repos/TheHalfMoon/MSTR/pulls/122)"
+          test "$(jq -r '.merged' <<<"$impl")" = 'true'
+          test "$(jq -r '.merge_commit_sha' <<<"$impl")" = "$BASE"
+          closeout="$(gh api repos/TheHalfMoon/MSTR/pulls/123)"
+          test "$(jq -r '.state' <<<"$closeout")" = 'open'
+          test "$(jq -r '.head.sha' <<<"$closeout")" = "$HEAD"
+          test "$(jq -r '.base.sha' <<<"$closeout")" = "$BASE"
+
+  quality:
+    needs: identity_scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: b5bf53abae23bea97063de6f8004437a2fc9610e
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Run A018 closeout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest tests/unit/trajectory/test_trajectory_factory.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+
+  complete:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Final immutable A018 closeout recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main docs/000a-a018-closeout --quiet
+          test "$(git rev-parse origin/main)" = 'b34a17441c24712144ce21b64c41ec18eeb12352'
+          test "$(git rev-parse origin/docs/000a-a018-closeout)" = 'b5bf53abae23bea97063de6f8004437a2fc9610e'
+          test "$(git show -s --format=%T origin/docs/000a-a018-closeout)" = '8e407f32878a0829f56b46ec702f35fc7a861ad7'
