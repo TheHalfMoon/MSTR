@@ -1,0 +1,155 @@
+name: Mandatory premerge verification for B023 binding repair
+
+on:
+  push:
+    branches:
+      - evidence/b023-binding-line-boundary-safe-premerge-98bdae6
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_BASE: db12d1467bb81185a9affffb4d470626ceceddfa
+  EXPECTED_HEAD: 98bdae609adda62376a6eba17886f4c7049cc29a
+  EXPECTED_TREE: 4dcb096d1229f3245100edfb70b23a7f3dd65f1d
+  EXPECTED_BRANCH: fix/b023-cross-workstream-bindings-line-boundary-safe-atomic-20260901
+  PR_NUMBER: '132'
+  REVIEW_ID: '5079542574'
+
+jobs:
+  pr_scope_review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+      - name: Verify exact PR identity, scope, independent review, and zero unresolved threads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_BASE"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$EXPECTED_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .mergeable == true and .base.sha == $base and .head.sha == $head and .commits == 1 and .changed_files == 4' /tmp/pr.json
+
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" > /tmp/reviews.json
+          jq -e --argjson rid "$REVIEW_ID" --arg head "$EXPECTED_HEAD" '[.[] | select(.id == $rid and .commit_id == $head and .state == "COMMENTED" and .user.login == "cubic-dev-ai[bot]" and (.body | contains("No issues found")))] | length == 1' /tmp/reviews.json
+
+          gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' -f owner='TheHalfMoon' -f name='MSTR' -F number=132 > /tmp/threads.json
+          jq -e '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length == 0' /tmp/threads.json
+
+          printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B023-cross-workstream-binding-reconciliation.md \
+            src/mstr_qualify/task_gate.py \
+            tests/contract/test_task_gate.py | sort > /tmp/expected-files
+          git diff --name-only "$EXPECTED_BASE...$EXPECTED_HEAD" | sort > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git diff --check "$EXPECTED_BASE...$EXPECTED_HEAD"
+          test -z "$(grep '^\.github/' /tmp/actual-files || true)"
+          test -z "$(grep '^specs/002-code-model-supremacy-foundation/tasks.md$' /tmp/actual-files || true)"
+          grep -F -- '- [ ] **B023 Implement verifier-health evaluator on controlled fixtures.**' specs/002-code-model-supremacy-foundation/tasks.md
+
+  candidate_quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-prove candidate contract and frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          python - <<'PY'
+          from pathlib import Path
+          from mstr_qualify.task_gate import evaluate_task_snapshot
+
+          result = evaluate_task_snapshot(
+              'B023',
+              repository_root=Path.cwd(),
+              catalog_path=Path('configs/task-gate/mstr-000b.json'),
+              canonical_main='db12d1467bb81185a9affffb4d470626ceceddfa',
+          )
+          assert result['eligible'] is True, result
+          rows = {item['task_id']: item for item in result['prerequisite_results']}
+          assert set(rows) == {'A006', 'A014', 'B002', 'B022'}, rows
+          assert all(rows[item]['satisfied'] is True for item in rows), rows
+          print('B023_CANDIDATE_ELIGIBLE=PASS')
+          PY
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$EXPECTED_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+
+  canonical_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_BASE }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-prove canonical drift and bounded pre-repair B023 denial
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_BASE"
+          git update-ref refs/remotes/origin/main "$EXPECTED_BASE"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          if mstr-qualify task eligible B023 > /tmp/b023.json; then
+            echo 'canonical B023 unexpectedly eligible before repair' >&2
+            exit 1
+          else
+            test "$?" -eq 1
+          fi
+          jq -e '.eligible == false' /tmp/b023.json
+          jq -e '[.prerequisite_results[] | select(.task_id == "A006" or .task_id == "A014") | .reasons[]] | all(. == "prerequisite.missing_task_binding")' /tmp/b023.json
+          jq -e '[.prerequisite_results[] | select(.task_id == "B002" or .task_id == "B022") | .satisfied] | all(. == true)' /tmp/b023.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+
+  complete:
+    needs: [pr_scope_review, candidate_quality, canonical_gate]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+      - name: Final immutable main, head, tree, PR, review, and thread recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_BASE"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$EXPECTED_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" | jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .mergeable == true and .base.sha == $base and .head.sha == $head and .commits == 1 and .changed_files == 4'
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" | jq -e --argjson rid "$REVIEW_ID" --arg head "$EXPECTED_HEAD" '[.[] | select(.id == $rid and .commit_id == $head and .state == "COMMENTED" and .user.login == "cubic-dev-ai[bot]" and (.body | contains("No issues found")))] | length == 1'
+          gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' -f owner='TheHalfMoon' -f name='MSTR' -F number=132 | jq -e '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length == 0'
+          echo "B023_BINDING_PREMERGE_HEAD=$EXPECTED_HEAD"
+          echo "B023_IMPLEMENTATION=NOT_STARTED"
+          echo "MODEL_EXECUTION=NONE"
+          echo "WEIGHT_CHANGING_TRAINING=NONE"
