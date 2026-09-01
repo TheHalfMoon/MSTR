@@ -183,10 +183,14 @@ def test_b023_invalid_observation_fails_schema_validation() -> None:
         evaluate_verifier_health(observation, stage_ids=STAGES)
 
 
-def test_b023_stage_ids_must_be_nonempty_and_unique() -> None:
+def test_b023_stage_ids_must_be_nonempty_unique_and_nonscalar() -> None:
     with pytest.raises(VerifierHealthEvaluationError) as empty:
         evaluate_verifier_health(_observation(), stage_ids=())
     assert empty.value.code == "verifier.health_stage_invalid"
+
+    with pytest.raises(VerifierHealthEvaluationError) as scalar:
+        evaluate_verifier_health(_observation(), stage_ids="MSTR-002-SFT")
+    assert scalar.value.code == "verifier.health_stage_invalid"
 
     with pytest.raises(VerifierHealthEvaluationError) as duplicate:
         evaluate_verifier_health(_observation(), stage_ids=("MSTR-002-SFT", "MSTR-002-SFT"))
