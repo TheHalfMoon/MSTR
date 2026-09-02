@@ -29,7 +29,9 @@
     "model_execution_authority_required": true,
     "network_model_or_teacher_call_authority_required": true,
     "l4_reference_envelope_semantically_enforced": true,
-    "q4_candidate_lineage_binding_required": true
+    "q4_candidate_lineage_binding_required": true,
+    "network_resource_evidence_authority_required": true,
+    "verifier_underlying_artifact_resolution_required": true
   },
   "levels": [
     {
@@ -253,7 +255,7 @@
     "promotion_policy_registry_template": "artifacts/results/research/{governing_task_id}/promotion-policies/{sha256}.json",
     "gate_evidence_registry_template": "artifacts/results/research/{governing_task_id}/gate-evidence/{sha256}.json",
     "q4_promotion_registry_template": "artifacts/results/q4-promotion/registry/{sha256}.json",
-    "promotion_policy_binding": "promotion_policy_identity resolves from the strict ancestor campaign-freeze commit; gate evidence resolves from the later canonical evidence commit and derives its observed value from separately content-addressed verifier evidence",
+    "promotion_policy_binding": "promotion_policy_identity resolves from the strict ancestor campaign-freeze commit; gate evidence resolves from the later canonical evidence commit and derives its observed value only from a content-addressed verifier result bound to content-addressed verifier manifest, verifier-health, and subject material evidence",
     "promotion_policy_record_contract": {
       "schema_version": "mstr.research-promotion-policy.v0",
       "required_fields": [
@@ -305,11 +307,15 @@
         "experiment_id",
         "gate_id",
         "frozen_evaluation_identity",
-        "verifier_manifest_id",
+        "verifier_manifest_identity",
         "verifier_health_identity",
         "subject_identity",
-        "observed_value"
-      ]
+        "subject_evidence_identity",
+        "verifier_result_identity",
+        "verifier_result_json_pointer"
+      ],
+      "observed_value_is_forbidden_in_wrapper": true,
+      "underlying_artifacts_must_resolve_from_canonical_evidence_commit": true
     },
     "q4_candidate_binding_record_contract": {
       "schema_version": "mstr.research-q4-candidate-binding.v0",
@@ -320,6 +326,30 @@
         "source_checkpoint_sha256",
         "canonical_q4_artifact_sha256"
       ]
+    },
+    "verifier_manifest_registry_template": "artifacts/results/research/{governing_task_id}/verifier-manifests/{sha256}.json",
+    "verifier_health_registry_template": "artifacts/results/research/{governing_task_id}/verifier-health/{sha256}.json",
+    "subject_evidence_registry_template": "artifacts/results/research/{governing_task_id}/subject-evidence/{sha256}.json",
+    "verifier_result_registry_template": "artifacts/results/research/{governing_task_id}/verifier-results/{sha256}.json",
+    "verifier_manifest_record_contract": {
+      "schema_version": "mstr.research-verifier-manifest.v0",
+      "content_addressed": true
+    },
+    "verifier_health_record_contract": {
+      "schema_version": "mstr.research-verifier-health.v0",
+      "content_addressed": true,
+      "required_status": "HEALTHY"
+    },
+    "subject_evidence_record_contract": {
+      "schema_version": "mstr.research-subject-evidence.v0",
+      "content_addressed": true,
+      "must_exactly_match_experiment_material_result": true
+    },
+    "verifier_result_record_contract": {
+      "schema_version": "mstr.research-verifier-result.v0",
+      "content_addressed": true,
+      "observed_value_pointer": "/observed_value",
+      "must_bind_manifest_health_and_subject": true
     }
   }
 }

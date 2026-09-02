@@ -135,3 +135,18 @@ Codex review `PRR_kwDOUCYTYs8AAAABL4fRHw` on exact historical head `ffd526fd686c
 This repair is contract/configuration hardening only. `CAMPAIGN_RESULT` now requires explicit Git commits in canonical-main ancestry: policy/predecessor/authority resolve from a strict ancestor campaign-freeze commit, while gate/verifier/Q4 evidence resolves from the later canonical evidence commit. Gate evidence derives observations from separately content-addressed verifier evidence instead of accepting an `observed_value` field in the gate record. Model execution and network model/teacher calls are explicit governed effects. L4 enforces the 8 GiB / CPU / 8K / Q4 <= 3 GiB envelope and a content-addressed Q4 candidate/source-checkpoint binding. B026 contract fixtures are explicitly non-campaign and cannot claim promotion.
 
 The repair does not grant or execute model inference, model-weight access, network model/teacher calls, paid APIs or compute, dataset ingestion, training, RL, or release. Fresh exact-head qualification and fresh independent review remain required after publication of the repaired candidate.
+
+## Exact-head CodeRabbit review repair — network evidence and verifier derivation
+
+Fresh independent CodeRabbit issue review comment `5514766559` reviewed exact head `d2950bb1f254beedbac64268347c735f21e500c9` against canonical base `823cd7ec3b4c537876a0795d0f0f8d4bd75acd85`, resolved tree `0817e9fc29c40557e46765b8db72d60cf74f9283`, and reported two High actionable findings:
+
+1. positive `resource_cost.network_bytes_or_na` could be accepted with zero model/teacher call count, all governed effects false, and no authority binding;
+2. `mstr.research-verifier-evidence.v0` still carried a self-authored observed value without content-addressed bindings to the verifier manifest, verifier-health record, subject material evidence, and underlying verifier execution result.
+
+This bounded repair derives the network effect from both the call counter and positive network-byte evidence. Any positive network bytes require `NETWORK_MODEL_OR_TEACHER_CALL=true`; any true governed effect continues to require a separately canonical authority record resolved from the campaign-freeze commit. No authority artifact or task ledger state is changed.
+
+The verifier-evidence wrapper no longer carries `observed_value`. It binds content-addressed canonical verifier-manifest, verifier-health, subject-evidence, and verifier-result records from the canonical evidence commit. Validation verifies every digest and cross-binding, requires the health record to be `HEALTHY`, requires subject material evidence to exactly equal a material result in the experiment, and computes the gate observation only from the resolved verifier result at `/observed_value`. Adversarial tests cover positive network bytes with no effect declaration, a missing underlying verifier result, and mismatched subject material evidence.
+
+These findings are not considered resolved by this text or by a local patch. Resolution requires a successful guarded repair publication, fresh exact-head qualification, a fresh independent substantive review of the newly published head, zero unresolved actionable review findings, and the mandatory exact-head premerge gate.
+
+The authority boundary remains unchanged: B026 grants no model execution, network model/teacher call, paid compute/API, model-weight access, dataset ingestion, training/RL, research-campaign execution, or production-release authority. B027 remains separate and B011 remains blocked on its separately required external authority.

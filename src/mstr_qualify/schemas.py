@@ -1074,6 +1074,22 @@ def _b026_sha256_identity(value: Any) -> str | None:
     return digest
 
 
+def _b026_research_artifact_path(
+    task_id: object,
+    registry: str,
+    identity: object,
+) -> tuple[Path, str] | None:
+    """Derive one content-addressed B026 research-artifact path."""
+
+    digest = _b026_sha256_identity(identity)
+    if not isinstance(task_id, str) or not _b026_binding_id(task_id) or digest is None:
+        return None
+    return (
+        Path("artifacts") / "results" / "research" / task_id / registry / f"{digest}.json",
+        digest,
+    )
+
+
 def _b026_compare_gate_value(operator: Any, observed: Any, expected: Any) -> str | None:
     """Compute a gate status from one predeclared policy criterion."""
 
@@ -1295,10 +1311,12 @@ def _b026_promotion_policy_errors(
             "experiment_id",
             "gate_id",
             "frozen_evaluation_identity",
-            "verifier_manifest_id",
+            "verifier_manifest_identity",
             "verifier_health_identity",
             "subject_identity",
-            "observed_value",
+            "subject_evidence_identity",
+            "verifier_result_identity",
+            "verifier_result_json_pointer",
         }
         if set(source_record) != expected_source_keys:
             errors.append(
@@ -1319,17 +1337,264 @@ def _b026_promotion_policy_errors(
                 errors.append(
                     f"$.hard_gate_results[{index}]: verifier evidence {field} must match experiment"
                 )
-        for field in ("verifier_manifest_id", "verifier_health_identity", "subject_identity"):
-            value = source_record.get(field)
-            if _is_ambiguous_identity(value) or value in {None, "N/A"}:
-                errors.append(
-                    f"$.hard_gate_results[{index}]: verifier evidence {field} must be concrete"
-                )
+        subject_identity = source_record.get("subject_identity")
+        if _is_ambiguous_identity(subject_identity) or subject_identity in {None, "N/A"}:
+            errors.append(
+                f"$.hard_gate_results[{index}]: verifier evidence subject_identity must be concrete"
+            )
+
+        manifest_spec = _b026_research_artifact_path(
+            task_id,
+            "verifier-manifests",
+            source_record.get("verifier_manifest_identity"),
+        )
+        manifest_record: dict[str, Any] | None = None
+        if manifest_spec is None:
+            errors.append(
+                f"$.hard_gate_results[{index}]: verifier manifest identity "
+                "must be content-addressed"
+            )
+        else:
+            manifest_path, manifest_digest = manifest_spec
+            loaded_manifest = _b026_repository_json(
+                repository_root,
+                manifest_path,
+                canonical_commit_sha=evidence_commit_sha,
+            )
+            if loaded_manifest is None:
+                errors.append(f"$.hard_gate_results[{index}]: canonical verifier manifest missing")
+            else:
+                manifest_record, observed_manifest_sha = loaded_manifest
+                if observed_manifest_sha != manifest_digest:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier manifest content address mismatch"
+                    )
+                expected_manifest_keys = {
+                    "schema_version",
+                    "verifier_manifest_id",
+                    "gate_id",
+                    "frozen_evaluation_identity",
+                }
+                if set(manifest_record) != expected_manifest_keys:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier manifest fields are not canonical"
+                    )
+                if manifest_record.get("schema_version") != "mstr.research-verifier-manifest.v0":
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: unsupported verifier manifest "
+                        "schema_version"
+                    )
+                if manifest_record.get("gate_id") != gate_id:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier manifest gate_id mismatch"
+                    )
+                if manifest_record.get("frozen_evaluation_identity") != evaluation_id:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier manifest evaluation "
+                        "identity mismatch"
+                    )
+                manifest_id = manifest_record.get("verifier_manifest_id")
+                if _is_ambiguous_identity(manifest_id) or manifest_id in {None, "N/A"}:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier manifest id must be concrete"
+                    )
+
+        health_spec = _b026_research_artifact_path(
+            task_id,
+            "verifier-health",
+            source_record.get("verifier_health_identity"),
+        )
+        if health_spec is None:
+            errors.append(
+                f"$.hard_gate_results[{index}]: verifier health identity must be content-addressed"
+            )
+        else:
+            health_path, health_digest = health_spec
+            loaded_health = _b026_repository_json(
+                repository_root,
+                health_path,
+                canonical_commit_sha=evidence_commit_sha,
+            )
+            if loaded_health is None:
+                errors.append(f"$.hard_gate_results[{index}]: canonical verifier health missing")
+            else:
+                health_record, observed_health_sha = loaded_health
+                if observed_health_sha != health_digest:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier health content address mismatch"
+                    )
+                expected_health_keys = {
+                    "schema_version",
+                    "verifier_health_id",
+                    "verifier_manifest_identity",
+                    "frozen_evaluation_identity",
+                    "status",
+                }
+                if set(health_record) != expected_health_keys:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier health fields are not canonical"
+                    )
+                if health_record.get("schema_version") != "mstr.research-verifier-health.v0":
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: unsupported verifier health schema_version"
+                    )
+                if health_record.get("verifier_manifest_identity") != source_record.get(
+                    "verifier_manifest_identity"
+                ):
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier health must bind resolved manifest"
+                    )
+                if health_record.get("frozen_evaluation_identity") != evaluation_id:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier health evaluation "
+                        "identity mismatch"
+                    )
+                if health_record.get("status") != "HEALTHY":
+                    errors.append(f"$.hard_gate_results[{index}]: verifier health must be HEALTHY")
+                health_id = health_record.get("verifier_health_id")
+                if _is_ambiguous_identity(health_id) or health_id in {None, "N/A"}:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier health id must be concrete"
+                    )
+
+        subject_spec = _b026_research_artifact_path(
+            task_id,
+            "subject-evidence",
+            source_record.get("subject_evidence_identity"),
+        )
+        if subject_spec is None:
+            errors.append(
+                f"$.hard_gate_results[{index}]: subject evidence identity must be content-addressed"
+            )
+        else:
+            subject_path, subject_digest = subject_spec
+            loaded_subject = _b026_repository_json(
+                repository_root,
+                subject_path,
+                canonical_commit_sha=evidence_commit_sha,
+            )
+            if loaded_subject is None:
+                errors.append(f"$.hard_gate_results[{index}]: canonical subject evidence missing")
+            else:
+                subject_record, observed_subject_sha = loaded_subject
+                if observed_subject_sha != subject_digest:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: subject evidence content address mismatch"
+                    )
+                expected_subject_keys = {
+                    "schema_version",
+                    "governing_task_id",
+                    "campaign_id",
+                    "experiment_id",
+                    "subject_identity",
+                    "material_result",
+                }
+                if set(subject_record) != expected_subject_keys:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: subject evidence fields are not canonical"
+                    )
+                if subject_record.get("schema_version") != "mstr.research-subject-evidence.v0":
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: unsupported subject evidence schema_version"
+                    )
+                for field, expected_subject_value in (
+                    ("governing_task_id", task_id),
+                    ("campaign_id", campaign_id),
+                    ("experiment_id", experiment_id),
+                    ("subject_identity", subject_identity),
+                ):
+                    if subject_record.get(field) != expected_subject_value:
+                        errors.append(
+                            f"$.hard_gate_results[{index}]: subject evidence {field} mismatch"
+                        )
+                material_results = instance.get("material_results")
+                material_result = subject_record.get("material_result")
+                matching_subject = False
+                if isinstance(material_results, list) and isinstance(material_result, dict):
+                    matching_subject = any(
+                        isinstance(candidate, dict)
+                        and candidate.get("result_id") == subject_identity
+                        and candidate == material_result
+                        for candidate in material_results
+                    )
+                if not matching_subject:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: subject material evidence must exactly "
+                        "match one experiment material result"
+                    )
+
+        result_spec = _b026_research_artifact_path(
+            task_id,
+            "verifier-results",
+            source_record.get("verifier_result_identity"),
+        )
+        verifier_result: dict[str, Any] | None = None
+        if result_spec is None:
+            errors.append(
+                f"$.hard_gate_results[{index}]: verifier result identity must be content-addressed"
+            )
+        else:
+            result_path, result_digest = result_spec
+            loaded_result = _b026_repository_json(
+                repository_root,
+                result_path,
+                canonical_commit_sha=evidence_commit_sha,
+            )
+            if loaded_result is None:
+                errors.append(f"$.hard_gate_results[{index}]: canonical verifier result missing")
+            else:
+                verifier_result, observed_result_sha = loaded_result
+                if observed_result_sha != result_digest:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier result content address mismatch"
+                    )
+                expected_result_keys = {
+                    "schema_version",
+                    "governing_task_id",
+                    "campaign_id",
+                    "experiment_id",
+                    "gate_id",
+                    "frozen_evaluation_identity",
+                    "verifier_manifest_identity",
+                    "verifier_health_identity",
+                    "subject_identity",
+                    "subject_evidence_identity",
+                    "observed_value",
+                }
+                if set(verifier_result) != expected_result_keys:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier result fields are not canonical"
+                    )
+                if verifier_result.get("schema_version") != "mstr.research-verifier-result.v0":
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: unsupported verifier result schema_version"
+                    )
+                for field, expected_result_value in (
+                    ("governing_task_id", task_id),
+                    ("campaign_id", campaign_id),
+                    ("experiment_id", experiment_id),
+                    ("gate_id", gate_id),
+                    ("frozen_evaluation_identity", evaluation_id),
+                    ("verifier_manifest_identity", source_record.get("verifier_manifest_identity")),
+                    ("verifier_health_identity", source_record.get("verifier_health_identity")),
+                    ("subject_identity", subject_identity),
+                    ("subject_evidence_identity", source_record.get("subject_evidence_identity")),
+                ):
+                    if verifier_result.get(field) != expected_result_value:
+                        errors.append(
+                            f"$.hard_gate_results[{index}]: verifier result {field} mismatch"
+                        )
+
         if evidence_record.get("source_json_pointer") != "/observed_value":
             errors.append(f"$.hard_gate_results[{index}]: unsupported source_json_pointer")
             continue
-
-        observed_value = source_record.get("observed_value")
+        if source_record.get("verifier_result_json_pointer") != "/observed_value":
+            errors.append(f"$.hard_gate_results[{index}]: unsupported verifier_result_json_pointer")
+            continue
+        if verifier_result is None or "observed_value" not in verifier_result:
+            errors.append(f"$.hard_gate_results[{index}]: verifier result lacks observed value")
+            continue
+        observed_value = verifier_result.get("observed_value")
         operator = criterion.get("operator")
         computed: str | None
         if operator == "EQ_PROMOTED_ARTIFACT":
@@ -1887,6 +2152,7 @@ def _research_experiment_semantic_errors(
     declared_effects = _b026_true_effects(instance)
     model_execution_total = 0
     network_model_call_total = 0
+    network_byte_total = 0
     if isinstance(material_results, list):
         for result in material_results:
             if not isinstance(result, dict):
@@ -1908,6 +2174,18 @@ def _research_experiment_semantic_errors(
                     "$.governed_effects.RENTED_COMPUTE: "
                     "AUTHORIZED_REMOTE_COMPUTE requires explicit true declaration"
                 )
+            if isinstance(resource_cost, dict):
+                network_bytes = resource_cost.get("network_bytes_or_na")
+                if isinstance(network_bytes, int) and not isinstance(network_bytes, bool):
+                    network_byte_total += network_bytes
+                    if (
+                        network_bytes > 0
+                        and "NETWORK_MODEL_OR_TEACHER_CALL" not in declared_effects
+                    ):
+                        errors.append(
+                            "$.governed_effects.NETWORK_MODEL_OR_TEACHER_CALL: positive network "
+                            "byte evidence requires explicit true declaration"
+                        )
             paid = result.get("paid_cost_usd")
             if (
                 isinstance(paid, (int, float))
@@ -1941,10 +2219,14 @@ def _research_experiment_semantic_errors(
             "$.governed_effects.MODEL_EXECUTION: true declaration requires "
             "positive execution evidence"
         )
-    if "NETWORK_MODEL_OR_TEACHER_CALL" in declared_effects and network_model_call_total <= 0:
+    if (
+        "NETWORK_MODEL_OR_TEACHER_CALL" in declared_effects
+        and network_model_call_total <= 0
+        and network_byte_total <= 0
+    ):
         errors.append(
             "$.governed_effects.NETWORK_MODEL_OR_TEACHER_CALL: true declaration "
-            "requires positive call evidence"
+            "requires positive call or network-byte evidence"
         )
     if (
         "PAID_MODEL_API_EXECUTION" in declared_effects

@@ -343,6 +343,61 @@ def _prepare_policy_and_gate_evidence(root: Path, record: dict[str, object]) -> 
                 if isinstance(result, dict) and result.get("result_id") == promoted_id
             )
             observed_value = promoted["model_artifact_sha256_or_na"]
+        material_results = record["material_results"]
+        promoted_id = record["promoted_result_id_or_na"]
+        assert isinstance(material_results, list)
+        subject_material = next(
+            result
+            for result in material_results
+            if isinstance(result, dict) and result.get("result_id") == promoted_id
+        )
+        subject_identity = str(promoted_id)
+        subject_evidence_identity = _write_content_addressed(
+            root / "artifacts/results/research" / task_id / "subject-evidence",
+            {
+                "schema_version": "mstr.research-subject-evidence.v0",
+                "governing_task_id": task_id,
+                "campaign_id": campaign_id,
+                "experiment_id": experiment_id,
+                "subject_identity": subject_identity,
+                "material_result": json.loads(json.dumps(subject_material)),
+            },
+        )
+        verifier_manifest_identity = _write_content_addressed(
+            root / "artifacts/results/research" / task_id / "verifier-manifests",
+            {
+                "schema_version": "mstr.research-verifier-manifest.v0",
+                "verifier_manifest_id": f"fixture-verifier-manifest:{gate_id}",
+                "gate_id": gate_id,
+                "frozen_evaluation_identity": str(record["frozen_evaluation_identity"]),
+            },
+        )
+        verifier_health_identity = _write_content_addressed(
+            root / "artifacts/results/research" / task_id / "verifier-health",
+            {
+                "schema_version": "mstr.research-verifier-health.v0",
+                "verifier_health_id": f"fixture-verifier-health:{gate_id}",
+                "verifier_manifest_identity": verifier_manifest_identity,
+                "frozen_evaluation_identity": str(record["frozen_evaluation_identity"]),
+                "status": "HEALTHY",
+            },
+        )
+        verifier_result_identity = _write_content_addressed(
+            root / "artifacts/results/research" / task_id / "verifier-results",
+            {
+                "schema_version": "mstr.research-verifier-result.v0",
+                "governing_task_id": task_id,
+                "campaign_id": campaign_id,
+                "experiment_id": experiment_id,
+                "gate_id": gate_id,
+                "frozen_evaluation_identity": str(record["frozen_evaluation_identity"]),
+                "verifier_manifest_identity": verifier_manifest_identity,
+                "verifier_health_identity": verifier_health_identity,
+                "subject_identity": subject_identity,
+                "subject_evidence_identity": subject_evidence_identity,
+                "observed_value": observed_value,
+            },
+        )
         source = {
             "schema_version": "mstr.research-verifier-evidence.v0",
             "governing_task_id": task_id,
@@ -350,10 +405,12 @@ def _prepare_policy_and_gate_evidence(root: Path, record: dict[str, object]) -> 
             "experiment_id": experiment_id,
             "gate_id": gate_id,
             "frozen_evaluation_identity": str(record["frozen_evaluation_identity"]),
-            "verifier_manifest_id": "fixture-verifier-manifest",
-            "verifier_health_identity": "fixture-verifier-health",
-            "subject_identity": str(record["promoted_result_id_or_na"]),
-            "observed_value": observed_value,
+            "verifier_manifest_identity": verifier_manifest_identity,
+            "verifier_health_identity": verifier_health_identity,
+            "subject_identity": subject_identity,
+            "subject_evidence_identity": subject_evidence_identity,
+            "verifier_result_identity": verifier_result_identity,
+            "verifier_result_json_pointer": "/observed_value",
         }
         source_identity = _write_content_addressed(
             root / "artifacts/results/research" / task_id / "verifier-evidence",
@@ -947,7 +1004,16 @@ def test_promotion_status_is_computed_from_predeclared_policy_and_content_bound_
         tmp_path / "artifacts/results/research/B027/verifier-evidence" / f"{source_digest}.json"
     )
     source = _json(source_path)
-    source["observed_value"] = False
+    result_digest = str(source["verifier_result_identity"]).removeprefix("sha256:")
+    result_path = (
+        tmp_path / "artifacts/results/research/B027/verifier-results" / f"{result_digest}.json"
+    )
+    verifier_result = _json(result_path)
+    verifier_result["observed_value"] = False
+    source["verifier_result_identity"] = _write_content_addressed(
+        result_path.parent,
+        verifier_result,
+    )
     replacement_source = _write_content_addressed(source_path.parent, source)
     gate_evidence["source_evidence_identity"] = replacement_source
     gate["evidence_identity"] = _write_content_addressed(gate_path.parent, gate_evidence)
@@ -1029,6 +1095,97 @@ def test_model_and_network_execution_require_explicit_governed_effects(tmp_path:
     assert isinstance(effects, dict)
     effects["MODEL_EXECUTION"] = True
     with pytest.raises(ValueError, match="NETWORK_MODEL_OR_TEACHER_CALL"):
+        validate_instance("mstr-research-experiment-v2", record, repository_root=tmp_path)
+
+
+def test_positive_network_bytes_require_network_effect_declaration(tmp_path: Path) -> None:
+    record = _make_level_record(0, task_id="B027", campaign_id="network-bytes-fixture")
+    results = record["material_results"]
+    assert isinstance(results, list) and isinstance(results[0], dict)
+    resource_cost = results[0]["resource_cost"]
+    assert isinstance(resource_cost, dict)
+    resource_cost["network_bytes_or_na"] = 1
+    results[0]["network_model_or_teacher_call_count_or_na"] = 0
+    _prepare_policy_and_gate_evidence(tmp_path, record)
+
+    with pytest.raises(ValueError, match="positive network byte evidence"):
+        validate_instance("mstr-research-experiment-v2", record, repository_root=tmp_path)
+
+
+def test_verifier_evidence_rejects_unresolvable_underlying_result(tmp_path: Path) -> None:
+    record = _make_level_record(0, task_id="B027", campaign_id="verifier-result-fixture")
+    _prepare_policy_and_gate_evidence(tmp_path, record)
+    gates = record["hard_gate_results"]
+    assert isinstance(gates, list) and isinstance(gates[0], dict)
+    gate = gates[0]
+    gate_digest = str(gate["evidence_identity"]).removeprefix("sha256:")
+    gate_path = tmp_path / "artifacts/results/research/B027/gate-evidence" / f"{gate_digest}.json"
+    gate_evidence = _json(gate_path)
+    source_digest = str(gate_evidence["source_evidence_identity"]).removeprefix("sha256:")
+    source_path = (
+        tmp_path / "artifacts/results/research/B027/verifier-evidence" / f"{source_digest}.json"
+    )
+    source = _json(source_path)
+    source["verifier_result_identity"] = "sha256:" + "f" * 64
+    gate_evidence["source_evidence_identity"] = _write_content_addressed(
+        source_path.parent,
+        source,
+    )
+    gate["evidence_identity"] = _write_content_addressed(gate_path.parent, gate_evidence)
+    record["canonical_evidence_commit_sha_or_na"] = _commit_all(
+        tmp_path,
+        "point verifier evidence at missing underlying result",
+    )
+
+    with pytest.raises(ValueError, match="canonical verifier result missing"):
+        validate_instance("mstr-research-experiment-v2", record, repository_root=tmp_path)
+
+
+def test_verifier_subject_evidence_must_match_material_result(tmp_path: Path) -> None:
+    record = _make_level_record(0, task_id="B027", campaign_id="subject-evidence-fixture")
+    _prepare_policy_and_gate_evidence(tmp_path, record)
+    gates = record["hard_gate_results"]
+    assert isinstance(gates, list) and isinstance(gates[0], dict)
+    gate = gates[0]
+    gate_digest = str(gate["evidence_identity"]).removeprefix("sha256:")
+    gate_path = tmp_path / "artifacts/results/research/B027/gate-evidence" / f"{gate_digest}.json"
+    gate_evidence = _json(gate_path)
+    source_digest = str(gate_evidence["source_evidence_identity"]).removeprefix("sha256:")
+    source_path = (
+        tmp_path / "artifacts/results/research/B027/verifier-evidence" / f"{source_digest}.json"
+    )
+    source = _json(source_path)
+    subject_digest = str(source["subject_evidence_identity"]).removeprefix("sha256:")
+    subject_path = (
+        tmp_path / "artifacts/results/research/B027/subject-evidence" / f"{subject_digest}.json"
+    )
+    subject = _json(subject_path)
+    material_result = subject["material_result"]
+    assert isinstance(material_result, dict)
+    material_result["decision_reason"] = "not-part-of-material-result"
+    replacement_subject = _write_content_addressed(subject_path.parent, subject)
+    source["subject_evidence_identity"] = replacement_subject
+    result_digest = str(source["verifier_result_identity"]).removeprefix("sha256:")
+    result_path = (
+        tmp_path / "artifacts/results/research/B027/verifier-results" / f"{result_digest}.json"
+    )
+    verifier_result = _json(result_path)
+    verifier_result["subject_evidence_identity"] = replacement_subject
+    source["verifier_result_identity"] = _write_content_addressed(
+        result_path.parent,
+        verifier_result,
+    )
+    gate_evidence["source_evidence_identity"] = _write_content_addressed(
+        source_path.parent,
+        source,
+    )
+    gate["evidence_identity"] = _write_content_addressed(gate_path.parent, gate_evidence)
+    record["canonical_evidence_commit_sha_or_na"] = _commit_all(
+        tmp_path,
+        "replace subject material evidence with a mismatch",
+    )
+
+    with pytest.raises(ValueError, match="subject material evidence must exactly match"):
         validate_instance("mstr-research-experiment-v2", record, repository_root=tmp_path)
 
 
