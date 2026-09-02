@@ -62,6 +62,7 @@ jobs:
           cp .github/scripts/b026_review_repair5_builder.py /tmp/builder.py
           cp .github/scripts/b026_review_repair5_normalize.py /tmp/normalize.py
           cp .github/scripts/b026_review_repair5_test_compat.py /tmp/test_compat.py
+          cp .github/scripts/b026_review_repair5_lint.py /tmp/lint.py
           python - <<'PY'
           from pathlib import Path
 
@@ -73,7 +74,7 @@ jobs:
               raise SystemExit('unexpected replace_regex implementation')
           path.write_text(text.replace(old, new), encoding='utf-8')
           PY
-          python -m py_compile /tmp/builder.py /tmp/normalize.py /tmp/test_compat.py
+          python -m py_compile /tmp/builder.py /tmp/normalize.py /tmp/test_compat.py /tmp/lint.py
           git checkout --detach "$OLD_HEAD"
           test -z "$(git status --porcelain)"
 
@@ -83,6 +84,7 @@ jobs:
           set -euo pipefail
           python /tmp/builder.py
           python /tmp/test_compat.py
+          python /tmp/lint.py
           python /tmp/normalize.py
           git diff --check
           test -z "$(git diff --name-only -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json artifacts/authorities)"
