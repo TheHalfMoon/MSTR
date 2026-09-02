@@ -1,4 +1,4 @@
-name: Guard B026 second exact-head review repair v4
+name: Guard B026 second exact-head review repair v5
 
 on:
   push:
@@ -182,10 +182,25 @@ jobs:
           jq -e '.canonical_resolution.experiment_registry_template == "artifacts/results/research/{governing_task_id}/registry/{experiment_id}.json" and .canonical_resolution.authority_registry_template == "artifacts/authorities/{authority_id}.json" and .canonical_resolution.authority_copy_in_experiment == false and (.canonical_resolution.governed_effects | length) == 10' configs/research/mstr-research-ladder-v0.json
           jq -e '(.required | index("governing_task_id")) != null and (.required | index("promoted_result_id_or_na")) != null and (.required | index("q4_promotion_record_identity_or_na")) != null and (.required | index("governed_effects")) != null' schemas/mstr-research-experiment-v2.schema.json
           jq -e '."$defs".predecessor_promotion.required == ["experiment_id","experiment_record_sha256"] and ."$defs".external_effect_authority.required == ["authority_id","authority_record_sha256"] and (."$defs".governed_effects.required | length) == 10' schemas/mstr-research-experiment-v2.schema.json
-          grep -F 'artifacts/results/research' src/mstr_qualify/schemas.py
-          grep -F 'artifacts/authorities' src/mstr_qualify/schemas.py
-          grep -F 'must equal sum(material_results[*].paid_cost_usd)' src/mstr_qualify/schemas.py
-          grep -F 'L4 promotion requires concrete identity' src/mstr_qualify/schemas.py
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('src/mstr_qualify/schemas.py').read_text(encoding='utf-8')
+          required = (
+              'def _b026_repository_json(',
+              'hashlib.sha256(raw).hexdigest()',
+              'Path("artifacts")\n                    / "results"\n                    / "research"',
+              '/ "registry"\n                    / f"{predecessor_id}.json"',
+              'relative = Path("artifacts") / "authorities" / f"{authority_id}.json"',
+              'validation_errors(\n                            "mstr-research-experiment-v2"',
+              'does not match immutable predecessor record',
+              'does not match canonical authority record',
+              'must equal sum(material_results[*].paid_cost_usd)',
+              'promotion requires concrete identity',
+          )
+          missing = [needle for needle in required if needle not in text]
+          if missing:
+              raise SystemExit(f'missing canonical resolver proof markers: {missing}')
+          PY
           grep -F 'Fresh exact-head review findings on `08399fa64ed82f31feb5b5cff2f92420bde36308`' evidence/mstr-000b/B026-research-ladder.md
           grep -F 'These findings are not considered resolved by implementation text.' evidence/mstr-000b/B026-research-ladder.md
           for marker in \
