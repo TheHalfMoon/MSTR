@@ -135,7 +135,7 @@ jobs:
             'PRODUCTION_RELEASE = NONE'; do
             grep -F "$marker" evidence/mstr-000b/B026-research-ladder.md
           done
-          grep -F -- '- [ ] **B026 Freeze the Multi-Fidelity MSTR Research Ladder v0.**' specs/002-code-model-supremacy-foundation/tasks.md
+          grep -F -- '- [ ] **B026 Freeze multi-fidelity MSTR Research Ladder v0.**' specs/002-code-model-supremacy-foundation/tasks.md
           test ! -e artifacts/results/q4-promotion
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
 
