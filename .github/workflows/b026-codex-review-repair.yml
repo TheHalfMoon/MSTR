@@ -62,7 +62,7 @@ jobs:
             id="${spec%%|*}"
             needle="${spec#*|}"
             comment="$(gh api repos/${GITHUB_REPOSITORY}/pulls/comments/$id)"
-            test "$(jq -r '.user.login' <<<"$comment")" = "chatgpt-codex-connector"
+            test "$(jq -r '.user.login' <<<"$comment")" = "chatgpt-codex-connector[bot]"
             grep -F "$needle" <<<"$(jq -r '.body' <<<"$comment")"
           done
 
