@@ -1,0 +1,19 @@
+{
+  "campaign_id": "b027-offline-ladder-pilot-v0",
+  "canonical_entry_main": "312d40eee8400a0dab94633f891b206f66a82855",
+  "early_discard_before": "L2_EXECUTABLE_REPO",
+  "frozen_evaluation_identity": "sha256:7555257171e97989a007248a7ef90c77e8cd7f0cec230d36c7ded14d824fb1ab",
+  "harness_path": "scripts/research/b027_ladder_pilot.py",
+  "harness_sha256": "7555257171e97989a007248a7ef90c77e8cd7f0cec230d36c7ded14d824fb1ab",
+  "large_dataset_ingestion_authorized": false,
+  "max_paid_cost_usd": 0,
+  "model_execution_authorized": false,
+  "network_model_or_teacher_call_authorized": false,
+  "planned_levels": [
+    "L0_CONTRACT_SMOKE",
+    "L1_CODE_PROXY"
+  ],
+  "schema_version": "mstr.b027-ladder-pilot-manifest.v0",
+  "task_id": "B027",
+  "weight_changing_training_authorized": false
+}
