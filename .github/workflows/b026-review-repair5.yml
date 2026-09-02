@@ -119,6 +119,7 @@ jobs:
           set -euo pipefail
           candidate="$(git rev-parse HEAD)"
           git update-ref refs/heads/main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
           mstr-qualify task drift > /tmp/drift.json
           jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
           mstr-qualify task eligible B026 > /tmp/b026.json
@@ -131,7 +132,7 @@ jobs:
           test "$r11" -eq 1
           jq -e '.eligible == false and .state_consistency_result.observed_state == "PENDING"' /tmp/b027.json
           jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
-          test "$(git rev-parse refs/remotes/origin/main)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
 
       - name: Focused B026 tests
         run: python -m pytest tests/contract/test_research_ladder_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py -q
@@ -173,7 +174,7 @@ jobs:
           jq -e '.authority_boundary.contract_freeze_only == true and ([.authority_boundary | to_entries[] | select(.key != "contract_freeze_only") | .value] | all(. == false))' configs/research/mstr-research-ladder-v0.json
           for marker in 'MODEL_WEIGHT_ACCESS = NONE' 'MODEL_EXECUTION = NONE' 'RESEARCH_CAMPAIGN_EXECUTION = NONE' 'PAID_COMPUTE = NONE' 'NETWORK_MODEL_OR_TEACHER_CALL = NONE' 'LARGE_DATASET_INGESTION = NONE' 'WEIGHT_CHANGING_TRAINING = NONE' 'LARGE_SCALE_RL = NONE' 'PRODUCTION_RELEASE = NONE'; do grep -F "$marker" evidence/mstr-000b/B026-research-ladder.md; done
           test -z "$(git diff --name-only "$BASE_SHA...HEAD" -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json artifacts/authorities)"
-          test "$(git rev-parse refs/remotes/origin/main)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
 
       - name: Guarded fast-forward publication
         shell: bash
