@@ -440,3 +440,56 @@ def test_validate_explicit_b025_greenfield_fixture_passes(
     payload = parse_stdout(capsys)
     assert payload["status"] == "pass"
     assert payload["files"][0]["schema_version"] == "mstr.greenfield-task.v0"
+
+
+
+
+@pytest.mark.parametrize(
+    ("fixture_name", "schema_version"),
+    [
+        ("mstr-material-result-identity-v0.json", "mstr.material-result-identity.v0"),
+        ("mstr-research-experiment-v2.json", "mstr.research-experiment.v2"),
+    ],
+)
+def test_validate_explicit_b026_valid_fixtures_pass(
+    fixture_name: str,
+    schema_version: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "tests"
+        / "fixtures"
+        / "schemas"
+        / "valid"
+        / fixture_name
+    )
+    assert main(["validate", str(path)]) == 0
+    payload = parse_stdout(capsys)
+    assert payload["status"] == "pass"
+    assert payload["files"][0]["schema_version"] == schema_version
+
+
+@pytest.mark.parametrize(
+    "fixture_name",
+    [
+        "mstr-material-result-identity-v0.json",
+        "mstr-research-experiment-v2.json",
+    ],
+)
+def test_validate_explicit_b026_invalid_fixtures_fail(
+    fixture_name: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "tests"
+        / "fixtures"
+        / "schemas"
+        / "invalid"
+        / fixture_name
+    )
+    assert main(["validate", str(path)]) == 1
+    payload = parse_stdout(capsys)
+    assert payload["status"] == "fail"
+    assert payload["files"][0]["status"] == "fail"

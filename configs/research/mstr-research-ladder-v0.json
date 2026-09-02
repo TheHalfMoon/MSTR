@@ -10,7 +10,9 @@
     "weak_experiments_must_not_run_expensive_levels": true,
     "missing_material_identity_invalidates_promotion": true,
     "frozen_evaluation_identity_required": true,
-    "task_eligibility_never_grants_external_effect_authority": true
+    "task_eligibility_never_grants_external_effect_authority": true,
+    "predecessor_promotion_evidence_required": true,
+    "declared_budgets_semantically_enforced": true
   },
   "levels": [
     {

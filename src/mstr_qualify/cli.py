@@ -90,6 +90,9 @@ _SCHEMA_VERSION_TO_SCHEMA_NAME = {
     "mstr.test-generation-example.v0": "mstr-test-generation-example-v0",
     # MSTR-000B B025 greenfield/feature/synthesis task manifest contract.
     "mstr.greenfield-task.v0": "mstr-greenfield-task-v0",
+    # MSTR-000B B026 exact material-result and research-experiment contracts.
+    "mstr.material-result-identity.v0": "mstr-material-result-identity-v0",
+    "mstr.research-experiment.v2": "mstr-research-experiment-v2",
 }
 
 _REPOSITORY_ROOT = DEFAULT_SCHEMA_DIR.parent

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -131,3 +132,123 @@ def test_b026_config_grants_no_external_effect_authority() -> None:
     assert isinstance(boundary, dict)
     assert boundary["contract_freeze_only"] is True
     assert all(value is False for key, value in boundary.items() if key != "contract_freeze_only")
+
+
+
+
+def _valid_research_experiment() -> dict[str, object]:
+    return _json(FIXTURES / "valid" / "mstr-research-experiment-v2.json")
+
+
+def _predecessor(level: str, *, current: dict[str, object]) -> dict[str, object]:
+    return {
+        "experiment_id": "b026-predecessor-experiment",
+        "campaign_id": current["campaign_id"],
+        "fidelity_level": level,
+        "promotion_decision": "PROMOTE",
+        "frozen_evaluation_identity": current["frozen_evaluation_identity"],
+        "promoted_result_identity": "result:predecessor-promoted",
+        "evidence_identity": "evidence:predecessor-promotion",
+    }
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("model_id_or_na", "unknown"),
+        ("tokenizer_revision_or_na", "TBD"),
+        ("runtime_id_or_na", " latest "),
+        ("task_manifest_id", "none"),
+        ("verifier_manifest_id", "HEAD"),
+    ],
+)
+def test_material_result_identity_rejects_opaque_identity_sentinels(
+    field: str, value: str
+) -> None:
+    fixture = _json(FIXTURES / "valid" / "mstr-material-result-identity-v0.json")
+    fixture[field] = value
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-material-result-identity-v0", fixture)
+
+
+def test_material_result_identity_requires_real_sha256_when_applicable() -> None:
+    fixture = _json(FIXTURES / "valid" / "mstr-material-result-identity-v0.json")
+    fixture["model_artifact_sha256_or_na"] = "unknown"
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-material-result-identity-v0", fixture)
+
+    fixture["model_artifact_sha256_or_na"] = "a" * 64
+    validate_instance("mstr-material-result-identity-v0", fixture)
+
+
+def test_research_experiment_l0_requires_null_predecessor() -> None:
+    fixture = _valid_research_experiment()
+    fixture["predecessor_promotion"] = _predecessor("L0_CONTRACT_SMOKE", current=fixture)
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-research-experiment-v2", fixture)
+
+
+def test_research_experiment_l1_requires_immediate_same_lineage_predecessor() -> None:
+    fixture = _valid_research_experiment()
+    fixture["fidelity_level"] = "L1_CODE_PROXY"
+    fixture["parent_identity"] = "result:predecessor-promoted"
+    fixture["predecessor_promotion"] = None
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-research-experiment-v2", fixture)
+
+    predecessor = _predecessor("L0_CONTRACT_SMOKE", current=fixture)
+    fixture["predecessor_promotion"] = predecessor
+    validate_instance("mstr-research-experiment-v2", fixture)
+
+    predecessor["campaign_id"] = "other-campaign"
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-research-experiment-v2", fixture)
+
+
+def test_research_experiment_l4_cannot_skip_predecessor_level_or_parent_binding() -> None:
+    fixture = _valid_research_experiment()
+    fixture["fidelity_level"] = "L4_Q4_UNIVERSAL_LAPTOP"
+    fixture["parent_identity"] = "result:predecessor-promoted"
+    predecessor = _predecessor("L2_EXECUTABLE_REPO", current=fixture)
+    fixture["predecessor_promotion"] = predecessor
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-research-experiment-v2", fixture)
+
+    predecessor["fidelity_level"] = "L3_DIRECTION_TO_DONE"
+    predecessor["promoted_result_identity"] = "result:different-parent"
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-research-experiment-v2", fixture)
+
+
+def test_research_experiment_enforces_material_count_and_declared_budgets() -> None:
+    fixture = _valid_research_experiment()
+    aggregate = fixture["aggregate_resource_cost"]
+    budget = fixture["budget"]
+    assert isinstance(aggregate, dict)
+    assert isinstance(budget, dict)
+
+    aggregate["material_result_count"] = 2
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-research-experiment-v2", fixture)
+    aggregate["material_result_count"] = 1
+
+    aggregate["wall_time_seconds"] = 61
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-research-experiment-v2", fixture)
+    aggregate["wall_time_seconds"] = 0.01
+
+    aggregate["paid_cost_usd"] = 0.01
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-research-experiment-v2", fixture)
+    aggregate["paid_cost_usd"] = 0
+
+    results = fixture["material_results"]
+    assert isinstance(results, list)
+    second = deepcopy(results[0])
+    assert isinstance(second, dict)
+    second["result_id"] = "b026-l0-contract-smoke-002"
+    results.append(second)
+    budget["max_material_results"] = 1
+    aggregate["material_result_count"] = 2
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-research-experiment-v2", fixture)

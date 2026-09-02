@@ -725,6 +725,232 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
     return tuple(sorted(errors))
 
 
+
+_AMBIGUOUS_IDENTITY_SENTINELS = frozenset(
+    {
+        "unknown",
+        "tbd",
+        "unset",
+        "none",
+        "null",
+        "na",
+        "n/a",
+        "?",
+        "latest",
+        "main",
+        "master",
+        "head",
+    }
+)
+_B026_FIDELITY_LEVELS = (
+    "L0_CONTRACT_SMOKE",
+    "L1_CODE_PROXY",
+    "L2_EXECUTABLE_REPO",
+    "L3_DIRECTION_TO_DONE",
+    "L4_Q4_UNIVERSAL_LAPTOP",
+)
+_B026_IDENTITY_OR_NA_FIELDS = (
+    "model_id_or_na",
+    "model_revision_or_na",
+    "tokenizer_id_or_na",
+    "tokenizer_revision_or_na",
+    "quantization_method_or_na",
+    "quantizer_tool_revision_or_na",
+    "runtime_id_or_na",
+    "runtime_version_or_commit_or_na",
+    "runtime_build_flags_or_na",
+    "os_identity_or_na",
+    "cpu_identity_or_na",
+    "acceleration_backend_or_na",
+    "cache_state_or_na",
+    "interaction_contract_version_or_na",
+    "loop_contract_version_or_na",
+    "harness_profile_id_or_na",
+    "verifier_health_id_or_na",
+    "sampling_config_id_or_na",
+    "invalidation_reason_or_na",
+)
+
+
+def _is_ambiguous_identity(value: object) -> bool:
+    if not isinstance(value, str) or value == "N/A":
+        return False
+    return value != value.strip() or value.strip().casefold() in _AMBIGUOUS_IDENTITY_SENTINELS
+
+
+def _material_result_identity_semantic_errors(instance: Any) -> tuple[str, ...]:
+    """Reject opaque B026 identity values that cannot support material comparison."""
+
+    if not isinstance(instance, dict):
+        return ()
+
+    errors: list[str] = []
+    for field in _B026_IDENTITY_OR_NA_FIELDS:
+        value = instance.get(field)
+        if _is_ambiguous_identity(value):
+            errors.append(f"$.{field}: must be exact identity text or the literal 'N/A'")
+
+    for field in ("task_manifest_id", "verifier_manifest_id"):
+        value = instance.get(field)
+        if _is_ambiguous_identity(value) or value == "N/A":
+            errors.append(f"$.{field}: must be a concrete non-ambiguous identity")
+
+    return tuple(sorted(errors))
+
+
+def _research_experiment_semantic_errors(instance: Any) -> tuple[str, ...]:
+    """Enforce B026 predecessor lineage and declared-budget hard gates."""
+
+    if not isinstance(instance, dict):
+        return ()
+
+    errors: list[str] = []
+    level = instance.get("fidelity_level")
+    predecessor = instance.get("predecessor_promotion")
+
+    if level == _B026_FIDELITY_LEVELS[0]:
+        if predecessor is not None:
+            errors.append("$.predecessor_promotion: L0 must not claim a predecessor promotion")
+    elif level in _B026_FIDELITY_LEVELS[1:]:
+        expected_level = _B026_FIDELITY_LEVELS[_B026_FIDELITY_LEVELS.index(level) - 1]
+        if not isinstance(predecessor, dict):
+            errors.append(
+                "$.predecessor_promotion: L1-L4 require immediate-predecessor PROMOTE evidence"
+            )
+        else:
+            if predecessor.get("fidelity_level") != expected_level:
+                errors.append(
+                    "$.predecessor_promotion.fidelity_level: "
+                    "must be the immediate predecessor level"
+                )
+            if predecessor.get("promotion_decision") != "PROMOTE":
+                errors.append(
+                    "$.predecessor_promotion.promotion_decision: predecessor must be PROMOTE"
+                )
+            if predecessor.get("campaign_id") != instance.get("campaign_id"):
+                errors.append(
+                    "$.predecessor_promotion.campaign_id: must match current campaign_id"
+                )
+            if predecessor.get("frozen_evaluation_identity") != instance.get(
+                "frozen_evaluation_identity"
+            ):
+                errors.append(
+                    "$.predecessor_promotion.frozen_evaluation_identity: "
+                    "must match current frozen evaluation identity"
+                )
+            if predecessor.get("experiment_id") == instance.get("experiment_id"):
+                errors.append(
+                    "$.predecessor_promotion.experiment_id: "
+                    "predecessor must be a distinct experiment"
+                )
+            if predecessor.get("promoted_result_identity") != instance.get("parent_identity"):
+                errors.append(
+                    "$.parent_identity: must equal predecessor promoted_result_identity"
+                )
+            for field in (
+                "experiment_id",
+                "campaign_id",
+                "frozen_evaluation_identity",
+                "promoted_result_identity",
+                "evidence_identity",
+            ):
+                if _is_ambiguous_identity(predecessor.get(field)):
+                    errors.append(
+                        f"$.predecessor_promotion.{field}: "
+                        "must be a concrete non-ambiguous identity"
+                    )
+
+    material_results = instance.get("material_results")
+    if isinstance(material_results, list):
+        result_ids: list[str] = []
+        for index, result in enumerate(material_results):
+            if isinstance(result, dict):
+                result_id = result.get("result_id")
+                if isinstance(result_id, str):
+                    result_ids.append(result_id)
+                for message in _material_result_identity_semantic_errors(result):
+                    suffix = message[1:] if message.startswith("$") else f".{message}"
+                    errors.append(f"$.material_results[{index}]{suffix}")
+        if len(result_ids) != len(set(result_ids)):
+            errors.append("$.material_results: result_id values must be unique")
+
+    hard_gates = instance.get("hard_gate_results")
+    if isinstance(hard_gates, list):
+        gate_ids = [
+            gate.get("gate_id")
+            for gate in hard_gates
+            if isinstance(gate, dict) and isinstance(gate.get("gate_id"), str)
+        ]
+        if len(gate_ids) != len(set(gate_ids)):
+            errors.append("$.hard_gate_results: gate_id values must be unique")
+
+    budget = instance.get("budget")
+    aggregate = instance.get("aggregate_resource_cost")
+    if isinstance(material_results, list) and isinstance(budget, dict):
+        maximum = budget.get("max_material_results")
+        if (
+            isinstance(maximum, int)
+            and not isinstance(maximum, bool)
+            and len(material_results) > maximum
+        ):
+            errors.append("$.material_results: count exceeds budget.max_material_results")
+
+    if isinstance(material_results, list) and isinstance(aggregate, dict):
+        count = aggregate.get("material_result_count")
+        if (
+            isinstance(count, int)
+            and not isinstance(count, bool)
+            and count != len(material_results)
+        ):
+            errors.append(
+                "$.aggregate_resource_cost.material_result_count: "
+                "must equal material_results length"
+            )
+
+    if isinstance(budget, dict) and isinstance(aggregate, dict):
+        wall = aggregate.get("wall_time_seconds")
+        max_wall = budget.get("max_wall_time_seconds")
+        if (
+            isinstance(wall, (int, float))
+            and not isinstance(wall, bool)
+            and isinstance(max_wall, (int, float))
+            and not isinstance(max_wall, bool)
+            and wall > max_wall
+        ):
+            errors.append(
+                "$.aggregate_resource_cost.wall_time_seconds: exceeds budget.max_wall_time_seconds"
+            )
+        paid = aggregate.get("paid_cost_usd")
+        max_paid = budget.get("max_paid_cost_usd")
+        if (
+            isinstance(paid, (int, float))
+            and not isinstance(paid, bool)
+            and isinstance(max_paid, (int, float))
+            and not isinstance(max_paid, bool)
+            and paid > max_paid
+        ):
+            errors.append(
+                "$.aggregate_resource_cost.paid_cost_usd: exceeds budget.max_paid_cost_usd"
+            )
+
+        budget_class = budget.get("resource_class")
+        aggregate_class = aggregate.get("resource_class")
+        if budget_class == "CONTRACT_ONLY" and aggregate_class != "CONTRACT_ONLY":
+            errors.append(
+                "$.aggregate_resource_cost.resource_class: "
+                "CONTRACT_ONLY budget requires CONTRACT_ONLY aggregate"
+            )
+        if (
+            budget_class == "LOCAL_BOUNDED"
+            and aggregate_class == "AUTHORIZED_EXTERNAL_EFFECT"
+        ):
+            errors.append(
+                "$.aggregate_resource_cost.resource_class: "
+                "LOCAL_BOUNDED budget cannot record authorized external effect"
+            )
+
+    return tuple(sorted(errors))
+
 def _trajectory_manifest_semantic_errors(instance: Any) -> tuple[str, ...]:
     """Enforce A017 identity bindings without implementing A018 admission execution."""
 
@@ -777,6 +1003,10 @@ def validation_errors(
         formatted.extend(_difficulty_calibration_semantic_errors(instance))
     if name == "mstr-test-generation-example-v0":
         formatted.extend(_test_generation_semantic_errors(instance))
+    if name == "mstr-material-result-identity-v0":
+        formatted.extend(_material_result_identity_semantic_errors(instance))
+    if name == "mstr-research-experiment-v2":
+        formatted.extend(_research_experiment_semantic_errors(instance))
     if name == "mstr-trajectory-manifest-v0":
         formatted.extend(_trajectory_manifest_semantic_errors(instance))
     return tuple(sorted(formatted))

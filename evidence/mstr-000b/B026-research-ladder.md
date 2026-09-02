@@ -63,3 +63,15 @@ PRODUCTION_RELEASE = NONE
 ```
 
 B027 remains a separate canonical task. Any external effect required by a later campaign must pass its own exact-main eligibility and already-canonical authority gates; B026 task eligibility never creates or widens such authority.
+
+## Independent review findings and repair
+
+Fresh independent CodeRabbit review comment `5508683112` reviewed exact implementation head `a2414b1bf58a5bce3a69ee965e74d8ac9d0ba7a8` and found three High issues:
+
+1. explicit offline CLI validation did not dispatch either B026 schema version;
+2. exact-or-`N/A` identity fields admitted ambiguous sentinel values and the material-artifact SHA field did not require SHA-256 shape;
+3. predecessor promotion and declared-budget hard-reject semantics were prose-only rather than machine-enforced.
+
+The repair adds explicit CLI dispatch/tests, concrete identity rejection, SHA-256 shape enforcement, an explicit `predecessor_promotion` binding, immediate-predecessor/same-campaign/frozen-evaluation/parent-result semantic validation, material-result count checks, and declared budget ceilings. The task ledger and task-gate canonical state remain unchanged while B026 is implementation-active.
+
+No review finding is considered resolved merely by this text. Resolution requires a successful guarded repair build, fresh exact-head qualification, and a fresh independent review of the repaired head. The authority boundary below remains unchanged.

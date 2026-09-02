@@ -14,104 +14,965 @@
       "maxLength": 256
     },
     "model_id_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "model_revision_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "model_artifact_sha256_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{64}$"
+        }
+      ]
     },
     "tokenizer_id_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "tokenizer_revision_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "quantization_method_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "quantizer_tool_revision_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "runtime_id_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "runtime_version_or_commit_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "runtime_build_flags_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "os_identity_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "cpu_identity_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "acceleration_backend_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "cache_state_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "interaction_contract_version_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "loop_contract_version_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "harness_profile_id_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "verifier_health_id_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "sampling_config_id_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "invalidation_reason_or_na": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1024
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     },
     "total_ram_bytes_or_na": {
       "oneOf": [
@@ -172,16 +1033,86 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 512,
+      "pattern": ".*\\S.*",
       "not": {
-        "const": "N/A"
+        "enum": [
+          "N/A",
+          "?",
+          "HEAD",
+          "Head",
+          "LATEST",
+          "Latest",
+          "MAIN",
+          "MASTER",
+          "Main",
+          "Master",
+          "NA",
+          "NONE",
+          "NULL",
+          "Na",
+          "None",
+          "Null",
+          "TBD",
+          "Tbd",
+          "UNKNOWN",
+          "UNSET",
+          "Unknown",
+          "Unset",
+          "head",
+          "latest",
+          "main",
+          "master",
+          "n/a",
+          "na",
+          "none",
+          "null",
+          "tbd",
+          "unknown",
+          "unset"
+        ]
       }
     },
     "verifier_manifest_id": {
       "type": "string",
       "minLength": 1,
       "maxLength": 512,
+      "pattern": ".*\\S.*",
       "not": {
-        "const": "N/A"
+        "enum": [
+          "N/A",
+          "?",
+          "HEAD",
+          "Head",
+          "LATEST",
+          "Latest",
+          "MAIN",
+          "MASTER",
+          "Main",
+          "Master",
+          "NA",
+          "NONE",
+          "NULL",
+          "Na",
+          "None",
+          "Null",
+          "TBD",
+          "Tbd",
+          "UNKNOWN",
+          "UNSET",
+          "Unknown",
+          "Unset",
+          "head",
+          "latest",
+          "main",
+          "master",
+          "n/a",
+          "na",
+          "none",
+          "null",
+          "tbd",
+          "unknown",
+          "unset"
+        ]
       }
     },
     "result_classification": {

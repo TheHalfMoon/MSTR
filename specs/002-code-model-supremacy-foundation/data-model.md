@@ -367,6 +367,7 @@ ResearchExperimentRecordV2
 - mutation_identity
 - frozen_evaluation_identity
 - fidelity_level
+- predecessor_promotion
 - budget
 - material_results[] : MaterialResultIdentity
 - hard_gate_results
@@ -384,6 +385,8 @@ L2_EXECUTABLE_REPO
 L3_DIRECTION_TO_DONE
 L4_Q4_UNIVERSAL_LAPTOP
 ```
+
+`predecessor_promotion` is `null` only at L0. L1-L4 MUST bind an immediate-predecessor `PROMOTE` record from the same campaign and frozen evaluation identity, including the promoted result identity and immutable evidence identity; the current `parent_identity` MUST equal that promoted result identity. Material-result count and aggregate wall-time/paid-cost MUST remain within the predeclared budget. Missing or contradictory predecessor/budget evidence fails closed.
 
 ## 15. TrainingMethodCell
 
