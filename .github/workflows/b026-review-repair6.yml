@@ -52,6 +52,17 @@ jobs:
           grep -F 'Positive network resource evidence can bypass the network-model/teacher authority requirement' <<<"$body"
           grep -F 'Gate outcomes still depend on a self-authored verifier-evidence assertion' <<<"$body"
           cp .github/scripts/b026_review_repair6.py /tmp/repair6.py
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('/tmp/repair6.py')
+          text = path.read_text(encoding='utf-8')
+          old = 'evidence_path.write_text(evidence.rstrip() + append + "\\n", encoding="utf-8")'
+          new = 'evidence_path.write_text(evidence.rstrip() + append, encoding="utf-8")'
+          if text.count(old) != 1:
+              raise SystemExit('expected exactly one B026 evidence EOF writer')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
           python -m py_compile /tmp/repair6.py
           git checkout --detach "$OLD_HEAD"
           test -z "$(git status --porcelain)"
