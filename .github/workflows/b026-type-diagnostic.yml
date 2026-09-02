@@ -1,0 +1,43 @@
+name: Diagnose B026 candidate mypy line
+
+on:
+  push:
+    branches: [evidence/b026-review-repair4-633a8a4]
+
+permissions:
+  contents: read
+
+env:
+  OLD_HEAD: 633a8a4ed8717eeeee2c1c42d3045e5658d5fb25
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build exact unpublished candidate and inspect mypy line
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/scripts/b026_review_repair4_builder.py /tmp/builder.py
+          cp .github/scripts/b026_review_repair4_overlay.py /tmp/overlay.py
+          cp .github/scripts/b026_review_repair4_wrap.py /tmp/wrap.py
+          git checkout --detach "$OLD_HEAD"
+          python /tmp/builder.py
+          python /tmp/overlay.py
+          python /tmp/wrap.py
+          python -m pip install 'ruff<1,>=0.12' 'mypy<2,>=1.17'
+          python -m ruff format src/mstr_qualify/schemas.py tests/contract/test_research_ladder_contract.py
+          echo '--- schemas.py lines 1168-1192 ---'
+          nl -ba src/mstr_qualify/schemas.py | sed -n '1168,1192p'
+          echo '--- mypy ---'
+          set +e
+          python -m mypy src
+          rc=$?
+          set -e
+          test "$rc" -eq 1
