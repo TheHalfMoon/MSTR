@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import subprocess
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
@@ -805,7 +806,7 @@ def _is_ambiguous_identity(value: object) -> bool:
 
 
 def _material_result_identity_semantic_errors(instance: Any) -> tuple[str, ...]:
-    """Reject opaque B026 identity values that cannot support material comparison."""
+    """Reject opaque or causally incomplete B026 material-result identities."""
 
     if not isinstance(instance, dict):
         return ()
@@ -821,15 +822,31 @@ def _material_result_identity_semantic_errors(instance: Any) -> tuple[str, ...]:
         if _is_ambiguous_identity(value) or value == "N/A":
             errors.append(f"$.{field}: must be a concrete non-ambiguous identity")
 
+    evidence_kind = instance.get("evidence_kind")
+    model_id = instance.get("model_id_or_na")
+    execution_count = instance.get("model_execution_count_or_na")
+    if evidence_kind in {"EVALUATION", "TRAINING_EVIDENCE"} and model_id != "N/A":
+        if (
+            isinstance(execution_count, bool)
+            or not isinstance(execution_count, int)
+            or execution_count <= 0
+        ):
+            errors.append(
+                "$.model_execution_count_or_na: model evaluation/training evidence requires "
+                "a positive execution count"
+            )
+
     return tuple(sorted(errors))
 
 
 _B026_GOVERNED_EFFECTS = (
+    "MODEL_EXECUTION",
     "MODEL_WEIGHT_ACCESS",
     "GATED_TERMS_ACCEPTANCE",
     "PAID_MODEL_API_EXECUTION",
     "PAID_COMPUTE",
     "RENTED_COMPUTE",
+    "NETWORK_MODEL_OR_TEACHER_CALL",
     "LARGE_DATASET_INGESTION",
     "WEIGHT_CHANGING_TRAINING",
     "LONG_TRAINING",
@@ -859,6 +876,8 @@ _B026_LEVEL_CONCRETE_FIELDS: Mapping[str, tuple[str, ...]] = {
         "model_id_or_na",
         "model_revision_or_na",
         "model_artifact_sha256_or_na",
+        "model_artifact_size_bytes_or_na",
+        "model_execution_count_or_na",
         "tokenizer_id_or_na",
         "tokenizer_revision_or_na",
         "quantization_method_or_na",
@@ -885,30 +904,97 @@ def _b026_binding_id(value: object) -> bool:
     )
 
 
+def _b026_git(repository_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    """Run one read-only Git command against the repository."""
+
+    return subprocess.run(
+        ["git", *args],
+        cwd=repository_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _b026_commit_sha(value: object) -> str | None:
+    if not isinstance(value, str) or len(value) != 40:
+        return None
+    if any(character not in "0123456789abcdef" for character in value):
+        return None
+    return value
+
+
+def _b026_canonical_main_sha(repository_root: Path) -> str | None:
+    """Resolve canonical main without trusting a feature branch or dirty worktree."""
+
+    for ref in ("refs/remotes/origin/main", "refs/heads/main"):
+        result = _b026_git(repository_root, "rev-parse", "--verify", f"{ref}^{{commit}}")
+        candidate = result.stdout.strip() if result.returncode == 0 else ""
+        if _b026_commit_sha(candidate) is not None:
+            return candidate
+    return None
+
+
+def _b026_is_canonical_commit(repository_root: Path, commit_sha: object) -> bool:
+    candidate = _b026_commit_sha(commit_sha)
+    main_sha = _b026_canonical_main_sha(repository_root)
+    if candidate is None or main_sha is None:
+        return False
+    exists = _b026_git(repository_root, "cat-file", "-e", f"{candidate}^{{commit}}")
+    if exists.returncode != 0:
+        return False
+    ancestry = _b026_git(repository_root, "merge-base", "--is-ancestor", candidate, main_sha)
+    return ancestry.returncode == 0
+
+
+def _b026_strictly_precedes(repository_root: Path, older: object, newer: object) -> bool:
+    old_sha = _b026_commit_sha(older)
+    new_sha = _b026_commit_sha(newer)
+    if old_sha is None or new_sha is None or old_sha == new_sha:
+        return False
+    if not _b026_is_canonical_commit(repository_root, old_sha):
+        return False
+    if not _b026_is_canonical_commit(repository_root, new_sha):
+        return False
+    return (
+        _b026_git(repository_root, "merge-base", "--is-ancestor", old_sha, new_sha).returncode == 0
+    )
+
+
 def _b026_repository_json(
     repository_root: Path,
     relative_path: Path,
+    *,
+    canonical_commit_sha: object,
 ) -> tuple[dict[str, Any], str] | None:
-    """Load one repository-contained non-symlink JSON record and its SHA-256."""
+    """Load JSON only from one explicit canonical-main-ancestor Git blob."""
 
-    root = repository_root.resolve()
-    candidate = root / relative_path
-    cursor = root
-    for part in relative_path.parts:
-        cursor = cursor / part
-        if cursor.is_symlink():
-            return None
-    try:
-        resolved = candidate.resolve(strict=True)
-        resolved.relative_to(root)
-    except (OSError, ValueError):
+    commit_sha = _b026_commit_sha(canonical_commit_sha)
+    if commit_sha is None or not _b026_is_canonical_commit(repository_root, commit_sha):
         return None
-    if not resolved.is_file():
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        return None
+    path_text = relative_path.as_posix()
+    tree = _b026_git(repository_root, "ls-tree", commit_sha, "--", path_text)
+    if tree.returncode != 0:
+        return None
+    line = tree.stdout.strip()
+    if not line or "\t" not in line:
+        return None
+    metadata, observed_path = line.split("\t", 1)
+    fields = metadata.split()
+    if observed_path != path_text or len(fields) != 3:
+        return None
+    mode, object_type, _object_sha = fields
+    if object_type != "blob" or mode not in {"100644", "100755"}:
+        return None
+    blob = _b026_git(repository_root, "show", f"{commit_sha}:{path_text}")
+    if blob.returncode != 0:
         return None
     try:
-        raw = resolved.read_bytes()
-        decoded = json.loads(raw.decode("utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError):
+        raw = blob.stdout.encode("utf-8")
+        decoded = json.loads(blob.stdout)
+    except (UnicodeError, json.JSONDecodeError):
         return None
     if not isinstance(decoded, dict):
         return None
@@ -1015,8 +1101,10 @@ def _b026_promotion_policy_errors(
     instance: Mapping[str, Any],
     *,
     repository_root: Path,
+    freeze_commit_sha: object,
+    evidence_commit_sha: object,
 ) -> tuple[str, ...]:
-    """Resolve predeclared policy and immutable gate evidence, then recompute statuses."""
+    """Resolve predeclared policy and derive gate observations from canonical evidence."""
 
     errors: list[str] = []
     task_id = instance.get("governing_task_id")
@@ -1027,7 +1115,7 @@ def _b026_promotion_policy_errors(
     policy_identity = instance.get("promotion_policy_identity")
     digest = _b026_sha256_identity(policy_identity)
     if not isinstance(task_id, str) or digest is None:
-        return ("$.promotion_policy_identity: must bind a canonical predeclared policy",)
+        return ("$.promotion_policy_identity: CAMPAIGN_RESULT must bind a predeclared policy",)
 
     policy_path = (
         Path("artifacts")
@@ -1037,9 +1125,15 @@ def _b026_promotion_policy_errors(
         / "promotion-policies"
         / f"{digest}.json"
     )
-    loaded = _b026_repository_json(repository_root, policy_path)
+    loaded = _b026_repository_json(
+        repository_root,
+        policy_path,
+        canonical_commit_sha=freeze_commit_sha,
+    )
     if loaded is None:
-        return ("$.promotion_policy_identity: immutable predeclared policy record missing",)
+        return (
+            "$.promotion_policy_identity: policy missing from canonical campaign-freeze commit",
+        )
     policy, observed_sha = loaded
     if observed_sha != digest:
         errors.append("$.promotion_policy_identity: policy content address mismatch")
@@ -1126,7 +1220,11 @@ def _b026_promotion_policy_errors(
             / "gate-evidence"
             / f"{evidence_digest}.json"
         )
-        loaded_evidence = _b026_repository_json(repository_root, evidence_path)
+        loaded_evidence = _b026_repository_json(
+            repository_root,
+            evidence_path,
+            canonical_commit_sha=evidence_commit_sha,
+        )
         if loaded_evidence is None:
             errors.append(
                 f"$.hard_gate_results[{index}].evidence_identity: canonical evidence missing"
@@ -1143,22 +1241,95 @@ def _b026_promotion_policy_errors(
             "campaign_id",
             "experiment_id",
             "gate_id",
-            "observed_value",
+            "frozen_evaluation_identity",
+            "campaign_freeze_commit_sha",
+            "source_evidence_identity",
+            "source_json_pointer",
         }
         if set(evidence_record) != expected_evidence_keys:
             errors.append(f"$.hard_gate_results[{index}]: gate evidence fields are not canonical")
-        if evidence_record.get("schema_version") != "mstr.research-gate-evidence.v0":
+        if evidence_record.get("schema_version") != "mstr.research-gate-evidence.v1":
             errors.append(f"$.hard_gate_results[{index}]: unsupported gate evidence schema_version")
         for field, expected_evidence_value in (
             ("governing_task_id", task_id),
             ("campaign_id", campaign_id),
             ("experiment_id", experiment_id),
             ("gate_id", gate_id),
+            ("frozen_evaluation_identity", evaluation_id),
+            ("campaign_freeze_commit_sha", freeze_commit_sha),
         ):
             if evidence_record.get(field) != expected_evidence_value:
                 errors.append(
                     f"$.hard_gate_results[{index}]: gate evidence {field} must match experiment"
                 )
+
+        source_digest = _b026_sha256_identity(evidence_record.get("source_evidence_identity"))
+        if source_digest is None:
+            errors.append(f"$.hard_gate_results[{index}]: source evidence identity is invalid")
+            continue
+        source_path = (
+            Path("artifacts")
+            / "results"
+            / "research"
+            / task_id
+            / "verifier-evidence"
+            / f"{source_digest}.json"
+        )
+        loaded_source = _b026_repository_json(
+            repository_root,
+            source_path,
+            canonical_commit_sha=evidence_commit_sha,
+        )
+        if loaded_source is None:
+            errors.append(f"$.hard_gate_results[{index}]: underlying verifier evidence missing")
+            continue
+        source_record, source_sha = loaded_source
+        if source_sha != source_digest:
+            errors.append(
+                f"$.hard_gate_results[{index}]: verifier evidence content address mismatch"
+            )
+        expected_source_keys = {
+            "schema_version",
+            "governing_task_id",
+            "campaign_id",
+            "experiment_id",
+            "gate_id",
+            "frozen_evaluation_identity",
+            "verifier_manifest_id",
+            "verifier_health_identity",
+            "subject_identity",
+            "observed_value",
+        }
+        if set(source_record) != expected_source_keys:
+            errors.append(
+                f"$.hard_gate_results[{index}]: verifier evidence fields are not canonical"
+            )
+        if source_record.get("schema_version") != "mstr.research-verifier-evidence.v0":
+            errors.append(
+                f"$.hard_gate_results[{index}]: unsupported verifier evidence schema_version"
+            )
+        for field, expected_source_value in (
+            ("governing_task_id", task_id),
+            ("campaign_id", campaign_id),
+            ("experiment_id", experiment_id),
+            ("gate_id", gate_id),
+            ("frozen_evaluation_identity", evaluation_id),
+        ):
+            if source_record.get(field) != expected_source_value:
+                errors.append(
+                    f"$.hard_gate_results[{index}]: verifier evidence {field} must match experiment"
+                )
+        for field in ("verifier_manifest_id", "verifier_health_identity", "subject_identity"):
+            value = source_record.get(field)
+            if _is_ambiguous_identity(value) or value in {None, "N/A"}:
+                errors.append(
+                    f"$.hard_gate_results[{index}]: verifier evidence {field} must be concrete"
+                )
+        if evidence_record.get("source_json_pointer") != "/observed_value":
+            errors.append(f"$.hard_gate_results[{index}]: unsupported source_json_pointer")
+            continue
+
+        observed_value = source_record.get("observed_value")
         operator = criterion.get("operator")
         computed: str | None
         if operator == "EQ_PROMOTED_ARTIFACT":
@@ -1174,13 +1345,13 @@ def _b026_promotion_policy_errors(
                 "PASS"
                 if isinstance(promoted_artifact, str)
                 and promoted_artifact != "N/A"
-                and evidence_record.get("observed_value") == promoted_artifact
+                and observed_value == promoted_artifact
                 else "FAIL"
             )
         else:
             computed = _b026_compare_gate_value(
                 operator,
-                evidence_record.get("observed_value"),
+                observed_value,
                 criterion.get("expected_value"),
             )
         if computed is None:
@@ -1210,6 +1381,30 @@ def _research_experiment_semantic_errors(
     governing_task_id = instance.get("governing_task_id")
     predecessor = instance.get("predecessor_promotion")
     promotion_decision = instance.get("promotion_decision")
+    record_mode = instance.get("record_mode")
+    freeze_commit_sha = instance.get("campaign_freeze_commit_sha_or_na")
+    evidence_commit_sha = instance.get("canonical_evidence_commit_sha_or_na")
+
+    if record_mode == "CONTRACT_FIXTURE":
+        if governing_task_id != "B026":
+            errors.append("$.record_mode: CONTRACT_FIXTURE is reserved for B026 contract proof")
+        if promotion_decision == "PROMOTE":
+            errors.append("$.promotion_decision: CONTRACT_FIXTURE cannot claim PROMOTE")
+        for field in (
+            "campaign_freeze_commit_sha_or_na",
+            "canonical_evidence_commit_sha_or_na",
+            "promotion_policy_identity",
+            "q4_promotion_record_identity_or_na",
+            "q4_candidate_binding_identity_or_na",
+        ):
+            if instance.get(field) != "N/A":
+                errors.append(f"$.{field}: CONTRACT_FIXTURE requires literal N/A")
+    elif record_mode == "CAMPAIGN_RESULT":
+        if not _b026_strictly_precedes(repository_root, freeze_commit_sha, evidence_commit_sha):
+            errors.append(
+                "$.campaign_freeze_commit_sha_or_na: campaign freeze must be a strict "
+                "canonical-main ancestor of the evidence commit"
+            )
 
     material_results = instance.get("material_results")
     result_by_id: dict[str, dict[str, Any]] = {}
@@ -1284,7 +1479,11 @@ def _research_experiment_semantic_errors(
                 if registry_key in visited_records:
                     errors.append("$.predecessor_promotion: predecessor registry cycle detected")
                 else:
-                    loaded = _b026_repository_json(repository_root, relative)
+                    loaded = _b026_repository_json(
+                        repository_root,
+                        relative,
+                        canonical_commit_sha=freeze_commit_sha,
+                    )
                     if loaded is None:
                         errors.append(
                             "$.predecessor_promotion: immutable predecessor registry record missing"
@@ -1344,7 +1543,15 @@ def _research_experiment_semantic_errors(
                                 "$.parent_identity: must equal registry predecessor promoted result"
                             )
 
-    errors.extend(_b026_promotion_policy_errors(instance, repository_root=repository_root))
+    if record_mode == "CAMPAIGN_RESULT":
+        errors.extend(
+            _b026_promotion_policy_errors(
+                instance,
+                repository_root=repository_root,
+                freeze_commit_sha=freeze_commit_sha,
+                evidence_commit_sha=evidence_commit_sha,
+            )
+        )
 
     hard_gates = instance.get("hard_gate_results")
     gate_by_id: dict[str, dict[str, Any]] = {}
@@ -1379,20 +1586,56 @@ def _research_experiment_semantic_errors(
                     f"{level} promotion requires concrete identity"
                 )
         if level == "L4_Q4_UNIVERSAL_LAPTOP":
-            for field in (
-                "total_ram_bytes_or_na",
-                "thread_count_or_na",
-                "context_length_or_na",
+            ram = promoted_result.get("total_ram_bytes_or_na")
+            threads = promoted_result.get("thread_count_or_na")
+            context = promoted_result.get("context_length_or_na")
+            artifact_size = promoted_result.get("model_artifact_size_bytes_or_na")
+            backend = promoted_result.get("acceleration_backend_or_na")
+            execution_count = promoted_result.get("model_execution_count_or_na")
+            if isinstance(ram, bool) or not isinstance(ram, int) or ram <= 0 or ram > 8 * 1024**3:
+                errors.append(
+                    f"$.material_results[{promoted_result_id}].total_ram_bytes_or_na: "
+                    "L4 requires evidence at or below the 8 GB reference RAM envelope"
+                )
+            if isinstance(threads, bool) or not isinstance(threads, int) or threads <= 0:
+                errors.append(
+                    f"$.material_results[{promoted_result_id}].thread_count_or_na: "
+                    "L4 requires a positive thread count"
+                )
+            if context != 8192:
+                errors.append(
+                    f"$.material_results[{promoted_result_id}].context_length_or_na: "
+                    "L4 requires the 8K reference context"
+                )
+            if backend != "CPU":
+                errors.append(
+                    f"$.material_results[{promoted_result_id}].acceleration_backend_or_na: "
+                    "L4 requires CPU-only execution evidence"
+                )
+            if (
+                isinstance(artifact_size, bool)
+                or not isinstance(artifact_size, int)
+                or artifact_size <= 0
+                or artifact_size > 3 * 1024**3
             ):
-                value = promoted_result.get(field)
-                if isinstance(value, bool) or not isinstance(value, int):
-                    errors.append(
-                        f"$.material_results[{promoted_result_id}].{field}: "
-                        "L4 promotion requires a concrete integer identity"
-                    )
+                errors.append(
+                    f"$.material_results[{promoted_result_id}].model_artifact_size_bytes_or_na: "
+                    "L4 requires a positive Q4 artifact size at or below 3 GB"
+                )
+            if (
+                isinstance(execution_count, bool)
+                or not isinstance(execution_count, int)
+                or execution_count <= 0
+            ):
+                errors.append(
+                    f"$.material_results[{promoted_result_id}].model_execution_count_or_na: "
+                    "L4 requires positive model-execution evidence"
+                )
+
             q4_record_identity = instance.get("q4_promotion_record_identity_or_na")
             q4_digest = _b026_sha256_identity(q4_record_identity)
             artifact_sha = promoted_result.get("model_artifact_sha256_or_na")
+            resolved_q4_record: dict[str, Any] | None = None
             if q4_digest is None:
                 errors.append(
                     "$.q4_promotion_record_identity_or_na: L4 PROMOTE requires a "
@@ -1406,14 +1649,19 @@ def _research_experiment_semantic_errors(
                     / "registry"
                     / f"{q4_digest}.json"
                 )
-                loaded_q4 = _b026_repository_json(repository_root, q4_path)
+                loaded_q4 = _b026_repository_json(
+                    repository_root,
+                    q4_path,
+                    canonical_commit_sha=evidence_commit_sha,
+                )
                 if loaded_q4 is None:
                     errors.append(
                         "$.q4_promotion_record_identity_or_na: immutable Q4 promotion "
-                        "record missing"
+                        "record missing from canonical evidence commit"
                     )
                 else:
                     q4_record, observed_q4_sha = loaded_q4
+                    resolved_q4_record = q4_record
                     if observed_q4_sha != q4_digest:
                         errors.append(
                             "$.q4_promotion_record_identity_or_na: Q4 record content address "
@@ -1462,17 +1710,102 @@ def _research_experiment_semantic_errors(
                             "$.hard_gate_results[q4_promotion_record_promoted].evidence_identity: "
                             "must match resolved Q4 promotion-decision evidence"
                         )
-    if (
-        not (
-            promotion_decision == "PROMOTE"
-            and level == "L4_Q4_UNIVERSAL_LAPTOP"
-            and promoted_result is not None
-        )
-        and instance.get("q4_promotion_record_identity_or_na") != "N/A"
+
+            binding_identity = instance.get("q4_candidate_binding_identity_or_na")
+            binding_digest = _b026_sha256_identity(binding_identity)
+            if binding_digest is None:
+                errors.append(
+                    "$.q4_candidate_binding_identity_or_na: L4 PROMOTE requires a "
+                    "content-addressed candidate/Q4 lineage binding"
+                )
+            elif not isinstance(governing_task_id, str):
+                errors.append("$.governing_task_id: required to resolve Q4 candidate binding")
+            else:
+                binding_path = (
+                    Path("artifacts")
+                    / "results"
+                    / "research"
+                    / governing_task_id
+                    / "q4-bindings"
+                    / f"{binding_digest}.json"
+                )
+                loaded_binding = _b026_repository_json(
+                    repository_root,
+                    binding_path,
+                    canonical_commit_sha=evidence_commit_sha,
+                )
+                if loaded_binding is None:
+                    errors.append(
+                        "$.q4_candidate_binding_identity_or_na: canonical Q4 "
+                        "candidate binding missing"
+                    )
+                else:
+                    binding, binding_sha = loaded_binding
+                    if binding_sha != binding_digest:
+                        errors.append(
+                            "$.q4_candidate_binding_identity_or_na: binding content "
+                            "address mismatch"
+                        )
+                    expected_binding_keys = {
+                        "schema_version",
+                        "q4_promotion_record_identity",
+                        "model_id",
+                        "model_revision",
+                        "source_checkpoint_sha256",
+                        "canonical_q4_artifact_sha256",
+                    }
+                    if set(binding) != expected_binding_keys:
+                        errors.append(
+                            "$.q4_candidate_binding_identity_or_na: binding fields are "
+                            "not canonical"
+                        )
+                    if binding.get("schema_version") != "mstr.research-q4-candidate-binding.v0":
+                        errors.append(
+                            "$.q4_candidate_binding_identity_or_na: unsupported binding "
+                            "schema_version"
+                        )
+                    if binding.get("q4_promotion_record_identity") != q4_record_identity:
+                        errors.append(
+                            "$.q4_candidate_binding_identity_or_na: binding must reference "
+                            "resolved Q4 record"
+                        )
+                    if binding.get("model_id") != promoted_result.get("model_id_or_na"):
+                        errors.append(
+                            "$.q4_candidate_binding_identity_or_na: model_id must match "
+                            "promoted result"
+                        )
+                    if binding.get("model_revision") != promoted_result.get("model_revision_or_na"):
+                        errors.append(
+                            "$.q4_candidate_binding_identity_or_na: model_revision must "
+                            "match promoted result"
+                        )
+                    if isinstance(resolved_q4_record, dict) and binding.get(
+                        "source_checkpoint_sha256"
+                    ) != resolved_q4_record.get("source_checkpoint_sha256"):
+                        errors.append(
+                            "$.q4_candidate_binding_identity_or_na: source checkpoint must "
+                            "match Q4 record"
+                        )
+                    if binding.get("canonical_q4_artifact_sha256") != artifact_sha:
+                        errors.append(
+                            "$.q4_candidate_binding_identity_or_na: artifact must match "
+                            "promoted result"
+                        )
+    if not (
+        promotion_decision == "PROMOTE"
+        and level == "L4_Q4_UNIVERSAL_LAPTOP"
+        and promoted_result is not None
     ):
-        errors.append(
-            "$.q4_promotion_record_identity_or_na: only L4 PROMOTE may bind Q4 promotion evidence"
-        )
+        if instance.get("q4_promotion_record_identity_or_na") != "N/A":
+            errors.append(
+                "$.q4_promotion_record_identity_or_na: only L4 PROMOTE may "
+                "bind Q4 promotion evidence"
+            )
+        if instance.get("q4_candidate_binding_identity_or_na") != "N/A":
+            errors.append(
+                "$.q4_candidate_binding_identity_or_na: only L4 PROMOTE may "
+                "bind Q4 candidate lineage"
+            )
 
     budget = instance.get("budget")
     aggregate = instance.get("aggregate_resource_cost")
@@ -1552,6 +1885,8 @@ def _research_experiment_semantic_errors(
             )
 
     declared_effects = _b026_true_effects(instance)
+    model_execution_total = 0
+    network_model_call_total = 0
     if isinstance(material_results, list):
         for result in material_results:
             if not isinstance(result, dict):
@@ -1584,7 +1919,41 @@ def _research_experiment_semantic_errors(
                     "$.governed_effects.PAID_COMPUTE: positive paid cost requires "
                     "explicit true declaration"
                 )
-
+            model_executions = result.get("model_execution_count_or_na")
+            if isinstance(model_executions, int) and not isinstance(model_executions, bool):
+                model_execution_total += model_executions
+                if model_executions > 0 and "MODEL_EXECUTION" not in declared_effects:
+                    errors.append(
+                        "$.governed_effects.MODEL_EXECUTION: positive model execution count "
+                        "requires explicit true declaration"
+                    )
+            network_calls = result.get("network_model_or_teacher_call_count_or_na")
+            if isinstance(network_calls, int) and not isinstance(network_calls, bool):
+                network_model_call_total += network_calls
+                if network_calls > 0 and "NETWORK_MODEL_OR_TEACHER_CALL" not in declared_effects:
+                    errors.append(
+                        "$.governed_effects.NETWORK_MODEL_OR_TEACHER_CALL: "
+                        "positive network model/teacher "
+                        "call count requires explicit true declaration"
+                    )
+    if "MODEL_EXECUTION" in declared_effects and model_execution_total <= 0:
+        errors.append(
+            "$.governed_effects.MODEL_EXECUTION: true declaration requires "
+            "positive execution evidence"
+        )
+    if "NETWORK_MODEL_OR_TEACHER_CALL" in declared_effects and network_model_call_total <= 0:
+        errors.append(
+            "$.governed_effects.NETWORK_MODEL_OR_TEACHER_CALL: true declaration "
+            "requires positive call evidence"
+        )
+    if (
+        "PAID_MODEL_API_EXECUTION" in declared_effects
+        and "NETWORK_MODEL_OR_TEACHER_CALL" not in declared_effects
+    ):
+        errors.append(
+            "$.governed_effects.PAID_MODEL_API_EXECUTION: paid model API execution also requires "
+            "NETWORK_MODEL_OR_TEACHER_CALL=true"
+        )
     external_resource_class = bool(
         isinstance(budget, dict)
         and budget.get("resource_class") == "EXTERNAL_EFFECT_REQUIRES_SEPARATE_AUTHORITY"
@@ -1612,7 +1981,11 @@ def _research_experiment_semantic_errors(
                 )
             else:
                 relative = Path("artifacts") / "authorities" / f"{authority_id}.json"
-                loaded = _b026_repository_json(repository_root, relative)
+                loaded = _b026_repository_json(
+                    repository_root,
+                    relative,
+                    canonical_commit_sha=freeze_commit_sha,
+                )
                 if loaded is None:
                     errors.append(
                         "$.external_effect_authority: canonical authority record missing or invalid"

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -34,6 +35,9 @@ def test_material_result_identity_requires_every_exact_or_na_field() -> None:
         "model_id_or_na",
         "model_revision_or_na",
         "model_artifact_sha256_or_na",
+        "model_artifact_size_bytes_or_na",
+        "model_execution_count_or_na",
+        "network_model_or_teacher_call_count_or_na",
         "evidence_kind",
         "data_identity_or_na",
         "difficulty_identity_or_na",
@@ -84,15 +88,16 @@ def test_invalid_material_result_requires_concrete_invalidation_reason() -> None
     validate_instance("mstr-material-result-identity-v0", fixture)
 
 
-def test_research_experiment_promotion_requires_all_hard_gates_pass() -> None:
-    fixture = _json(FIXTURES / "valid" / "mstr-research-experiment-v2.json")
-    validate_instance("mstr-research-experiment-v2", fixture)
+def test_research_experiment_promotion_requires_all_hard_gates_pass(tmp_path: Path) -> None:
+    fixture = _make_level_record(0, task_id="B027", campaign_id="gate-status-fixture")
+    _prepare_policy_and_gate_evidence(tmp_path, fixture)
+    validate_instance("mstr-research-experiment-v2", fixture, repository_root=tmp_path)
     gates = fixture["hard_gate_results"]
     assert isinstance(gates, list)
     assert isinstance(gates[0], dict)
     gates[0]["status"] = "FAIL"
     with pytest.raises(ValueError, match="validation failed"):
-        validate_instance("mstr-research-experiment-v2", fixture)
+        validate_instance("mstr-research-experiment-v2", fixture, repository_root=tmp_path)
 
 
 def test_research_ladder_is_sequential_and_fail_closed() -> None:
@@ -143,11 +148,13 @@ def _valid_research_experiment() -> dict[str, object]:
 
 def _governed_effects(*enabled: str) -> dict[str, bool]:
     effects = {
+        "MODEL_EXECUTION": False,
         "MODEL_WEIGHT_ACCESS": False,
         "GATED_TERMS_ACCEPTANCE": False,
         "PAID_MODEL_API_EXECUTION": False,
         "PAID_COMPUTE": False,
         "RENTED_COMPUTE": False,
+        "NETWORK_MODEL_OR_TEACHER_CALL": False,
         "LARGE_DATASET_INGESTION": False,
         "WEIGHT_CHANGING_TRAINING": False,
         "LONG_TRAINING": False,
@@ -199,208 +206,26 @@ def _write_content_addressed(path: Path, value: dict[str, object]) -> str:
     return f"sha256:{digest}"
 
 
-def _prepare_policy_and_gate_evidence(root: Path, record: dict[str, object]) -> None:
-    task_id = str(record["governing_task_id"])
-    campaign_id = str(record["campaign_id"])
-    experiment_id = str(record["experiment_id"])
-    level = str(record["fidelity_level"])
-    policy = {
-        "schema_version": "mstr.research-promotion-policy.v0",
-        "governing_task_id": task_id,
-        "campaign_id": campaign_id,
-        "fidelity_level": level,
-        "frozen_evaluation_identity": str(record["frozen_evaluation_identity"]),
-        "criteria": [
-            (
-                {
-                    "gate_id": gate_id,
-                    "operator": "EQ_PROMOTED_ARTIFACT",
-                    "expected_value": "PROMOTED_RESULT_ARTIFACT",
-                }
-                if gate_id == "q4_artifact_identity"
-                else {"gate_id": gate_id, "operator": "EQ", "expected_value": True}
-            )
-            for gate_id in _required_gate_ids(level)
-        ],
-    }
-    record["promotion_policy_identity"] = _write_content_addressed(
-        root / "artifacts/results/research" / task_id / "promotion-policies",
-        policy,
-    )
-    gates = record["hard_gate_results"]
-    assert isinstance(gates, list)
-    for gate in gates:
-        assert isinstance(gate, dict)
-        gate_id = str(gate["gate_id"])
-        observed_value: object = True
-        if gate_id == "q4_artifact_identity":
-            results = record["material_results"]
-            promoted_id = record["promoted_result_id_or_na"]
-            assert isinstance(results, list)
-            promoted = next(
-                result
-                for result in results
-                if isinstance(result, dict) and result.get("result_id") == promoted_id
-            )
-            observed_value = promoted["model_artifact_sha256_or_na"]
-        evidence = {
-            "schema_version": "mstr.research-gate-evidence.v0",
-            "governing_task_id": task_id,
-            "campaign_id": campaign_id,
-            "experiment_id": experiment_id,
-            "gate_id": gate_id,
-            "observed_value": observed_value,
-        }
-        gate["evidence_identity"] = _write_content_addressed(
-            root / "artifacts/results/research" / task_id / "gate-evidence",
-            evidence,
-        )
-
-    if level == "L4_Q4_UNIVERSAL_LAPTOP":
-        results = record["material_results"]
-        assert isinstance(results, list) and isinstance(results[0], dict)
-        result = results[0]
-        gate_map = {str(gate["gate_id"]): gate for gate in gates if isinstance(gate, dict)}
-        q4_record: dict[str, object] = {
-            "schema_version": "mstr.q4-promotion.v0",
-            "source_training_run_id": "fixture-training-run",
-            "source_checkpoint_sha256": "b" * 64,
-            "merged_master_sha256": "c" * 64,
-            "export_tool_id": "fixture-export",
-            "export_tool_revision": "fixture-export-revision",
-            "export_recipe_hash": "d" * 64,
-            "quantizer_tool_id": "fixture-quantizer",
-            "quantizer_tool_revision": "fixture-quantizer-revision",
-            "quantization_recipe_hash": "e" * 64,
-            "canonical_q4_artifact_sha256": str(result["model_artifact_sha256_or_na"]),
-            "artifact_integrity_status": "PASS",
-            "q4_regression_manifest_id": "fixture-q4-regression",
-            "q4_regression_result": "PASS",
-            "universal_laptop_gate_result": "PASS",
-            "universal_laptop_gate_evidence_identity": str(
-                gate_map["universal_laptop_product_gates"]["evidence_identity"]
-            ),
-            "universal_laptop_gate_not_required_reason": None,
-            "promotion_status": "PROMOTED",
-            "rejection_reasons": [],
-            "promotion_decision_evidence_identity": str(
-                gate_map["q4_promotion_record_promoted"]["evidence_identity"]
-            ),
-        }
-        record["q4_promotion_record_identity_or_na"] = _write_content_addressed(
-            root / "artifacts/results/q4-promotion/registry",
-            q4_record,
-        )
+def _git(root: Path, *args: str) -> str:
+    completed = subprocess.run(["git", *args], cwd=root, check=True, capture_output=True, text=True)
+    return completed.stdout.strip()
 
 
-def _registry_path(root: Path, task_id: str, experiment_id: str) -> Path:
-    return (
-        root / "artifacts" / "results" / "research" / task_id / "registry" / f"{experiment_id}.json"
-    )
+def _ensure_git_repo(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    if not (root / ".git").exists():
+        subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+        _git(root, "config", "user.name", "MSTR Contract Test")
+        _git(root, "config", "user.email", "mstr-contract@example.invalid")
 
 
-def _make_level_record(
-    level_index: int,
-    *,
-    task_id: str,
-    campaign_id: str,
-    predecessor_id: str | None = None,
-    predecessor_sha: str | None = None,
-    predecessor_result: str | None = None,
-) -> dict[str, object]:
-    fixture = _valid_research_experiment()
-    level = LEVELS[level_index]
-    fixture["experiment_id"] = f"fixture-l{level_index}"
-    fixture["governing_task_id"] = task_id
-    fixture["campaign_id"] = campaign_id
-    fixture["fidelity_level"] = level
-    fixture["governed_effects"] = _governed_effects()
-    fixture["external_effect_authority"] = None
-    results = fixture["material_results"]
-    assert isinstance(results, list) and isinstance(results[0], dict)
-    result = results[0]
-    result_id = f"result-l{level_index}"
-    result["result_id"] = result_id
-    fixture["promoted_result_id_or_na"] = result_id
-    fixture["q4_promotion_record_identity_or_na"] = "N/A"
-    _set_required_gates(fixture, level)
-
-    if level_index == 0:
-        fixture["predecessor_promotion"] = None
-        fixture["parent_identity"] = "fixture-parent:N/A"
-    else:
-        assert predecessor_id is not None
-        assert predecessor_sha is not None
-        assert predecessor_result is not None
-        fixture["predecessor_promotion"] = {
-            "experiment_id": predecessor_id,
-            "experiment_record_sha256": predecessor_sha,
-        }
-        fixture["parent_identity"] = predecessor_result
-
-    if level == "L1_CODE_PROXY":
-        result["sampling_config_id_or_na"] = "sampling:fixture-v1"
-    elif level == "L2_EXECUTABLE_REPO":
-        result["cpu_identity_or_na"] = "cpu:fixture"
-        result["verifier_health_id_or_na"] = "verifier-health:fixture"
-    elif level == "L3_DIRECTION_TO_DONE":
-        result["interaction_contract_version_or_na"] = "interaction:fixture-v1"
-        result["loop_contract_version_or_na"] = "loop:fixture-v1"
-        result["harness_profile_id_or_na"] = "harness:fixture-v1"
-        result["verifier_health_id_or_na"] = "verifier-health:fixture"
-    elif level == "L4_Q4_UNIVERSAL_LAPTOP":
-        result.update(
-            {
-                "model_id_or_na": "fixture/model",
-                "model_revision_or_na": "revision-1",
-                "model_artifact_sha256_or_na": "a" * 64,
-                "tokenizer_id_or_na": "fixture/tokenizer",
-                "tokenizer_revision_or_na": "tokenizer-revision-1",
-                "quantization_method_or_na": "Q4_K_M",
-                "quantizer_tool_revision_or_na": "llama.cpp:fixture-revision",
-                "runtime_id_or_na": "llama.cpp",
-                "runtime_version_or_commit_or_na": "runtime-revision-1",
-                "runtime_build_flags_or_na": "CPU_ONLY=1",
-                "os_identity_or_na": "macOS-fixture",
-                "cpu_identity_or_na": "cpu:universal-laptop-fixture",
-                "total_ram_bytes_or_na": 8 * 1024 * 1024 * 1024,
-                "thread_count_or_na": 8,
-                "acceleration_backend_or_na": "CPU",
-                "context_length_or_na": 8192,
-                "cache_state_or_na": "cold",
-            }
-        )
-    return fixture
-
-
-def _write_promoted_chain(
-    root: Path, through_index: int
-) -> tuple[list[dict[str, object]], list[str]]:
-    task_id = "B027"
-    campaign_id = "campaign-registry-fixture"
-    records: list[dict[str, object]] = []
-    shas: list[str] = []
-    for index in range(through_index + 1):
-        predecessor = records[index - 1] if index else None
-        record = _make_level_record(
-            index,
-            task_id=task_id,
-            campaign_id=campaign_id,
-            predecessor_id=str(predecessor["experiment_id"]) if predecessor else None,
-            predecessor_sha=shas[index - 1] if predecessor else None,
-            predecessor_result=str(predecessor["promoted_result_id_or_na"])
-            if predecessor
-            else None,
-        )
-        _prepare_policy_and_gate_evidence(root, record)
-        validate_instance("mstr-research-experiment-v2", record, repository_root=root)
-        sha = _write_json_with_sha(
-            _registry_path(root, task_id, str(record["experiment_id"])),
-            record,
-        )
-        records.append(record)
-        shas.append(sha)
-    return records, shas
+def _commit_all(root: Path, message: str) -> str:
+    _ensure_git_repo(root)
+    _git(root, "add", "-A")
+    if not _git(root, "status", "--porcelain"):
+        raise AssertionError(f"expected changes before commit: {message}")
+    _git(root, "commit", "-m", message)
+    return _git(root, "rev-parse", "HEAD")
 
 
 def _write_authority(
@@ -437,6 +262,299 @@ def _write_authority(
         root / "artifacts" / "authorities" / f"{authority_id}.json",
         record,
     )
+
+
+def _prepare_policy_and_gate_evidence(root: Path, record: dict[str, object]) -> None:
+    _ensure_git_repo(root)
+    record["record_mode"] = "CAMPAIGN_RESULT"
+    record["promotion_decision"] = "PROMOTE"
+    record["decision_reason"] = "Synthetic contract test campaign satisfies all required gates."
+    task_id = str(record["governing_task_id"])
+    campaign_id = str(record["campaign_id"])
+    experiment_id = str(record["experiment_id"])
+    level = str(record["fidelity_level"])
+    effects = record["governed_effects"]
+    assert isinstance(effects, dict)
+    results = record["material_results"]
+    assert isinstance(results, list) and results and isinstance(results[0], dict)
+    if record.get("promoted_result_id_or_na") == "N/A":
+        promoted_result_id = results[0].get("result_id")
+        if not isinstance(promoted_result_id, str) or not promoted_result_id:
+            raise AssertionError("synthetic campaign requires one concrete material result_id")
+        record["promoted_result_id_or_na"] = promoted_result_id
+
+    enabled_effects = [name for name, enabled in effects.items() if enabled is True]
+    if enabled_effects and record.get("external_effect_authority") is None:
+        authority_id = f"AUTH-{task_id}-{experiment_id}"
+        authority_sha = _write_authority(
+            root,
+            authority_id=authority_id,
+            task_id=task_id,
+            campaign_id=campaign_id,
+            effects=enabled_effects,
+            max_paid=100.0,
+            max_wall=3600.0,
+            max_results=100,
+        )
+        record["external_effect_authority"] = {
+            "authority_id": authority_id,
+            "authority_record_sha256": authority_sha,
+        }
+
+    policy = {
+        "schema_version": "mstr.research-promotion-policy.v0",
+        "governing_task_id": task_id,
+        "campaign_id": campaign_id,
+        "fidelity_level": level,
+        "frozen_evaluation_identity": str(record["frozen_evaluation_identity"]),
+        "criteria": [
+            (
+                {
+                    "gate_id": gate_id,
+                    "operator": "EQ_PROMOTED_ARTIFACT",
+                    "expected_value": "PROMOTED_RESULT_ARTIFACT",
+                }
+                if gate_id == "q4_artifact_identity"
+                else {"gate_id": gate_id, "operator": "EQ", "expected_value": True}
+            )
+            for gate_id in _required_gate_ids(level)
+        ],
+    }
+    record["promotion_policy_identity"] = _write_content_addressed(
+        root / "artifacts/results/research" / task_id / "promotion-policies",
+        policy,
+    )
+    freeze_sha = _commit_all(root, f"freeze {experiment_id}")
+    record["campaign_freeze_commit_sha_or_na"] = freeze_sha
+
+    gates = record["hard_gate_results"]
+    assert isinstance(gates, list)
+    for gate in gates:
+        assert isinstance(gate, dict)
+        gate_id = str(gate["gate_id"])
+        observed_value: object = True
+        if gate_id == "q4_artifact_identity":
+            results = record["material_results"]
+            promoted_id = record["promoted_result_id_or_na"]
+            assert isinstance(results, list)
+            promoted = next(
+                result
+                for result in results
+                if isinstance(result, dict) and result.get("result_id") == promoted_id
+            )
+            observed_value = promoted["model_artifact_sha256_or_na"]
+        source = {
+            "schema_version": "mstr.research-verifier-evidence.v0",
+            "governing_task_id": task_id,
+            "campaign_id": campaign_id,
+            "experiment_id": experiment_id,
+            "gate_id": gate_id,
+            "frozen_evaluation_identity": str(record["frozen_evaluation_identity"]),
+            "verifier_manifest_id": "fixture-verifier-manifest",
+            "verifier_health_identity": "fixture-verifier-health",
+            "subject_identity": str(record["promoted_result_id_or_na"]),
+            "observed_value": observed_value,
+        }
+        source_identity = _write_content_addressed(
+            root / "artifacts/results/research" / task_id / "verifier-evidence",
+            source,
+        )
+        evidence = {
+            "schema_version": "mstr.research-gate-evidence.v1",
+            "governing_task_id": task_id,
+            "campaign_id": campaign_id,
+            "experiment_id": experiment_id,
+            "gate_id": gate_id,
+            "frozen_evaluation_identity": str(record["frozen_evaluation_identity"]),
+            "campaign_freeze_commit_sha": freeze_sha,
+            "source_evidence_identity": source_identity,
+            "source_json_pointer": "/observed_value",
+        }
+        gate["evidence_identity"] = _write_content_addressed(
+            root / "artifacts/results/research" / task_id / "gate-evidence",
+            evidence,
+        )
+
+    record["q4_promotion_record_identity_or_na"] = "N/A"
+    record["q4_candidate_binding_identity_or_na"] = "N/A"
+    if level == "L4_Q4_UNIVERSAL_LAPTOP":
+        results = record["material_results"]
+        assert isinstance(results, list) and isinstance(results[0], dict)
+        result = results[0]
+        gate_map = {str(gate["gate_id"]): gate for gate in gates if isinstance(gate, dict)}
+        q4_record: dict[str, object] = {
+            "schema_version": "mstr.q4-promotion.v0",
+            "source_training_run_id": "fixture-training-run",
+            "source_checkpoint_sha256": "b" * 64,
+            "merged_master_sha256": "c" * 64,
+            "export_tool_id": "fixture-export",
+            "export_tool_revision": "fixture-export-revision",
+            "export_recipe_hash": "d" * 64,
+            "quantizer_tool_id": "fixture-quantizer",
+            "quantizer_tool_revision": "fixture-quantizer-revision",
+            "quantization_recipe_hash": "e" * 64,
+            "canonical_q4_artifact_sha256": str(result["model_artifact_sha256_or_na"]),
+            "artifact_integrity_status": "PASS",
+            "q4_regression_manifest_id": "fixture-q4-regression",
+            "q4_regression_result": "PASS",
+            "universal_laptop_gate_result": "PASS",
+            "universal_laptop_gate_evidence_identity": str(
+                gate_map["universal_laptop_product_gates"]["evidence_identity"]
+            ),
+            "universal_laptop_gate_not_required_reason": None,
+            "promotion_status": "PROMOTED",
+            "rejection_reasons": [],
+            "promotion_decision_evidence_identity": str(
+                gate_map["q4_promotion_record_promoted"]["evidence_identity"]
+            ),
+        }
+        q4_identity = _write_content_addressed(
+            root / "artifacts/results/q4-promotion/registry",
+            q4_record,
+        )
+        record["q4_promotion_record_identity_or_na"] = q4_identity
+        binding = {
+            "schema_version": "mstr.research-q4-candidate-binding.v0",
+            "q4_promotion_record_identity": q4_identity,
+            "model_id": str(result["model_id_or_na"]),
+            "model_revision": str(result["model_revision_or_na"]),
+            "source_checkpoint_sha256": str(q4_record["source_checkpoint_sha256"]),
+            "canonical_q4_artifact_sha256": str(result["model_artifact_sha256_or_na"]),
+        }
+        record["q4_candidate_binding_identity_or_na"] = _write_content_addressed(
+            root / "artifacts/results/research" / task_id / "q4-bindings",
+            binding,
+        )
+
+    evidence_sha = _commit_all(root, f"evidence {experiment_id}")
+    record["canonical_evidence_commit_sha_or_na"] = evidence_sha
+
+
+def _registry_path(root: Path, task_id: str, experiment_id: str) -> Path:
+    return (
+        root / "artifacts" / "results" / "research" / task_id / "registry" / f"{experiment_id}.json"
+    )
+
+
+def _make_level_record(
+    level_index: int,
+    *,
+    task_id: str,
+    campaign_id: str,
+    predecessor_id: str | None = None,
+    predecessor_sha: str | None = None,
+    predecessor_result: str | None = None,
+) -> dict[str, object]:
+    fixture = _valid_research_experiment()
+    level = LEVELS[level_index]
+    fixture["record_mode"] = "CAMPAIGN_RESULT"
+    fixture["experiment_id"] = f"fixture-l{level_index}"
+    fixture["governing_task_id"] = task_id
+    fixture["campaign_id"] = campaign_id
+    fixture["fidelity_level"] = level
+    fixture["promotion_decision"] = "PROMOTE"
+    fixture["decision_reason"] = "Synthetic campaign result promoted for contract testing."
+    fixture["campaign_freeze_commit_sha_or_na"] = "N/A"
+    fixture["canonical_evidence_commit_sha_or_na"] = "N/A"
+    fixture["promotion_policy_identity"] = "N/A"
+    fixture["q4_candidate_binding_identity_or_na"] = "N/A"
+    fixture["governed_effects"] = _governed_effects()
+    fixture["external_effect_authority"] = None
+    results = fixture["material_results"]
+    assert isinstance(results, list) and isinstance(results[0], dict)
+    result = results[0]
+    result_id = f"result-l{level_index}"
+    result["result_id"] = result_id
+    result["model_execution_count_or_na"] = 0
+    result["network_model_or_teacher_call_count_or_na"] = 0
+    result["model_artifact_size_bytes_or_na"] = "N/A"
+    fixture["promoted_result_id_or_na"] = result_id
+    fixture["q4_promotion_record_identity_or_na"] = "N/A"
+    _set_required_gates(fixture, level)
+
+    if level_index == 0:
+        fixture["predecessor_promotion"] = None
+        fixture["parent_identity"] = "fixture-parent:N/A"
+    else:
+        assert predecessor_id is not None
+        assert predecessor_sha is not None
+        assert predecessor_result is not None
+        fixture["predecessor_promotion"] = {
+            "experiment_id": predecessor_id,
+            "experiment_record_sha256": predecessor_sha,
+        }
+        fixture["parent_identity"] = predecessor_result
+
+    if level == "L1_CODE_PROXY":
+        result["sampling_config_id_or_na"] = "sampling:fixture-v1"
+    elif level == "L2_EXECUTABLE_REPO":
+        result["cpu_identity_or_na"] = "cpu:fixture"
+        result["verifier_health_id_or_na"] = "verifier-health:fixture"
+    elif level == "L3_DIRECTION_TO_DONE":
+        result["interaction_contract_version_or_na"] = "interaction:fixture-v1"
+        result["loop_contract_version_or_na"] = "loop:fixture-v1"
+        result["harness_profile_id_or_na"] = "harness:fixture-v1"
+        result["verifier_health_id_or_na"] = "verifier-health:fixture"
+    elif level == "L4_Q4_UNIVERSAL_LAPTOP":
+        effects = fixture["governed_effects"]
+        assert isinstance(effects, dict)
+        effects["MODEL_EXECUTION"] = True
+        result.update(
+            {
+                "model_id_or_na": "fixture/model",
+                "model_revision_or_na": "revision-1",
+                "model_artifact_sha256_or_na": "a" * 64,
+                "model_artifact_size_bytes_or_na": 2 * 1024**3,
+                "model_execution_count_or_na": 1,
+                "network_model_or_teacher_call_count_or_na": 0,
+                "tokenizer_id_or_na": "fixture/tokenizer",
+                "tokenizer_revision_or_na": "tokenizer-revision-1",
+                "quantization_method_or_na": "Q4_K_M",
+                "quantizer_tool_revision_or_na": "llama.cpp:fixture-revision",
+                "runtime_id_or_na": "llama.cpp",
+                "runtime_version_or_commit_or_na": "runtime-revision-1",
+                "runtime_build_flags_or_na": "CPU_ONLY=1",
+                "os_identity_or_na": "macOS-fixture",
+                "cpu_identity_or_na": "cpu:universal-laptop-fixture",
+                "total_ram_bytes_or_na": 8 * 1024**3,
+                "thread_count_or_na": 8,
+                "acceleration_backend_or_na": "CPU",
+                "context_length_or_na": 8192,
+                "cache_state_or_na": "cold",
+            }
+        )
+    return fixture
+
+
+def _write_promoted_chain(
+    root: Path, through_index: int
+) -> tuple[list[dict[str, object]], list[str]]:
+    _ensure_git_repo(root)
+    task_id = "B027"
+    campaign_id = "campaign-registry-fixture"
+    records: list[dict[str, object]] = []
+    shas: list[str] = []
+    for index in range(through_index + 1):
+        predecessor = records[index - 1] if index else None
+        record = _make_level_record(
+            index,
+            task_id=task_id,
+            campaign_id=campaign_id,
+            predecessor_id=str(predecessor["experiment_id"]) if predecessor else None,
+            predecessor_sha=shas[index - 1] if predecessor else None,
+            predecessor_result=str(predecessor["promoted_result_id_or_na"])
+            if predecessor
+            else None,
+        )
+        _prepare_policy_and_gate_evidence(root, record)
+        validate_instance("mstr-research-experiment-v2", record, repository_root=root)
+        sha = _write_json_with_sha(
+            _registry_path(root, task_id, str(record["experiment_id"])),
+            record,
+        )
+        records.append(record)
+        shas.append(sha)
+    return records, shas
 
 
 @pytest.mark.parametrize(
@@ -678,6 +796,7 @@ def test_authority_scope_is_derived_not_self_attested(tmp_path: Path) -> None:
         "authority_id": authority_id,
         "authority_record_sha256": authority_sha,
     }
+    _prepare_policy_and_gate_evidence(tmp_path, fixture)
     with pytest.raises(ValueError, match="validation failed"):
         validate_instance("mstr-research-experiment-v2", fixture, repository_root=tmp_path)
 
@@ -721,7 +840,7 @@ def test_b026_runtime_and_spec_schema_pairs_are_byte_identical() -> None:
         assert runtime.read_bytes() == design.read_bytes()
 
 
-def test_promote_requires_every_required_gate_to_pass() -> None:
+def test_promote_requires_every_required_gate_to_pass(tmp_path: Path) -> None:
     config = _json(CONFIG)
     levels = config["levels"]
     assert isinstance(levels, list)
@@ -731,12 +850,14 @@ def test_promote_requires_every_required_gate_to_pass() -> None:
         assert isinstance(requirements, list)
         assert "every required hard gate has status PASS" in requirements
 
-    fixture = _valid_research_experiment()
+    fixture = _make_level_record(0, task_id="B027", campaign_id="all-gates-fixture")
+    _prepare_policy_and_gate_evidence(tmp_path, fixture)
+    validate_instance("mstr-research-experiment-v2", fixture, repository_root=tmp_path)
     gates = fixture["hard_gate_results"]
     assert isinstance(gates, list) and isinstance(gates[0], dict)
     gates[0]["status"] = "NOT_APPLICABLE"
     with pytest.raises(ValueError, match="validation failed"):
-        validate_instance("mstr-research-experiment-v2", fixture)
+        validate_instance("mstr-research-experiment-v2", fixture, repository_root=tmp_path)
 
 
 def test_non_l4_promote_rejects_q4_promotion_evidence() -> None:
@@ -760,6 +881,7 @@ def test_research_nested_validation_preserves_custom_schema_dir(tmp_path: Path) 
         predecessor_sha=shas[0],
         predecessor_result=str(predecessor["promoted_result_id_or_na"]),
     )
+    _prepare_policy_and_gate_evidence(tmp_path, current)
 
     custom_dir = tmp_path / "custom-schemas"
     custom_dir.mkdir()
@@ -817,12 +939,21 @@ def test_promotion_status_is_computed_from_predeclared_policy_and_content_bound_
     gates = record["hard_gate_results"]
     assert isinstance(gates, list) and isinstance(gates[0], dict)
     gate = gates[0]
-    digest = str(gate["evidence_identity"]).removeprefix("sha256:")
-    evidence_path = tmp_path / "artifacts/results/research/B027/gate-evidence" / f"{digest}.json"
-    evidence = _json(evidence_path)
-    evidence["observed_value"] = False
-    replacement_identity = _write_content_addressed(evidence_path.parent, evidence)
-    gate["evidence_identity"] = replacement_identity
+    gate_digest = str(gate["evidence_identity"]).removeprefix("sha256:")
+    gate_path = tmp_path / "artifacts/results/research/B027/gate-evidence" / f"{gate_digest}.json"
+    gate_evidence = _json(gate_path)
+    source_digest = str(gate_evidence["source_evidence_identity"]).removeprefix("sha256:")
+    source_path = (
+        tmp_path / "artifacts/results/research/B027/verifier-evidence" / f"{source_digest}.json"
+    )
+    source = _json(source_path)
+    source["observed_value"] = False
+    replacement_source = _write_content_addressed(source_path.parent, source)
+    gate_evidence["source_evidence_identity"] = replacement_source
+    gate["evidence_identity"] = _write_content_addressed(gate_path.parent, gate_evidence)
+    record["canonical_evidence_commit_sha_or_na"] = _commit_all(
+        tmp_path, "tamper canonical verifier observation for rejection test"
+    )
     with pytest.raises(ValueError, match="submitted status does not match predeclared criterion"):
         validate_instance("mstr-research-experiment-v2", record, repository_root=tmp_path)
 
@@ -831,7 +962,7 @@ def test_promotion_policy_missing_or_tampered_fails_closed(tmp_path: Path) -> No
     record = _make_level_record(0, task_id="B027", campaign_id="policy-fixture")
     _prepare_policy_and_gate_evidence(tmp_path, record)
     record["promotion_policy_identity"] = "sha256:" + "f" * 64
-    with pytest.raises(ValueError, match="predeclared policy record missing"):
+    with pytest.raises(ValueError, match="policy missing from canonical campaign-freeze commit"):
         validate_instance("mstr-research-experiment-v2", record, repository_root=tmp_path)
 
 
@@ -855,5 +986,79 @@ def test_l4_rejects_q4_record_with_mismatched_artifact(tmp_path: Path) -> None:
     q4 = _json(q4_path)
     q4["canonical_q4_artifact_sha256"] = "9" * 64
     l4["q4_promotion_record_identity_or_na"] = _write_content_addressed(q4_path.parent, q4)
+    l4["canonical_evidence_commit_sha_or_na"] = _commit_all(
+        tmp_path, "replace Q4 artifact for mismatch test"
+    )
     with pytest.raises(ValueError, match="Q4 record artifact must match promoted result"):
+        validate_instance("mstr-research-experiment-v2", l4, repository_root=tmp_path)
+
+
+def test_campaign_registry_rejects_worktree_only_records(tmp_path: Path) -> None:
+    record = _make_level_record(0, task_id="B027", campaign_id="history-fixture")
+    _prepare_policy_and_gate_evidence(tmp_path, record)
+    validate_instance("mstr-research-experiment-v2", record, repository_root=tmp_path)
+
+    digest = str(record["promotion_policy_identity"]).removeprefix("sha256:")
+    policy_path = tmp_path / "artifacts/results/research/B027/promotion-policies" / f"{digest}.json"
+    policy = _json(policy_path)
+    policy["criteria"][0]["expected_value"] = False
+    record["promotion_policy_identity"] = _write_content_addressed(policy_path.parent, policy)
+    with pytest.raises(ValueError, match="policy missing from canonical campaign-freeze commit"):
+        validate_instance("mstr-research-experiment-v2", record, repository_root=tmp_path)
+
+
+def test_campaign_policy_freeze_must_strictly_precede_evidence(tmp_path: Path) -> None:
+    record = _make_level_record(0, task_id="B027", campaign_id="ordering-fixture")
+    _prepare_policy_and_gate_evidence(tmp_path, record)
+    record["campaign_freeze_commit_sha_or_na"] = record["canonical_evidence_commit_sha_or_na"]
+    with pytest.raises(ValueError, match="strict canonical-main ancestor"):
+        validate_instance("mstr-research-experiment-v2", record, repository_root=tmp_path)
+
+
+def test_model_and_network_execution_require_explicit_governed_effects(tmp_path: Path) -> None:
+    record = _make_level_record(0, task_id="B027", campaign_id="effects-fixture")
+    results = record["material_results"]
+    assert isinstance(results, list) and isinstance(results[0], dict)
+    results[0]["model_execution_count_or_na"] = 1
+    results[0]["network_model_or_teacher_call_count_or_na"] = 1
+    _prepare_policy_and_gate_evidence(tmp_path, record)
+    with pytest.raises(ValueError, match="MODEL_EXECUTION"):
+        validate_instance("mstr-research-experiment-v2", record, repository_root=tmp_path)
+
+    effects = record["governed_effects"]
+    assert isinstance(effects, dict)
+    effects["MODEL_EXECUTION"] = True
+    with pytest.raises(ValueError, match="NETWORK_MODEL_OR_TEACHER_CALL"):
+        validate_instance("mstr-research-experiment-v2", record, repository_root=tmp_path)
+
+
+def test_l4_enforces_exact_universal_laptop_envelope(tmp_path: Path) -> None:
+    records, _ = _write_promoted_chain(tmp_path, 4)
+    l4 = records[4]
+    results = l4["material_results"]
+    assert isinstance(results, list) and isinstance(results[0], dict)
+    result = results[0]
+
+    mutations = (
+        ("total_ram_bytes_or_na", 64 * 1024**3, "8 GB reference RAM"),
+        ("thread_count_or_na", 0, "positive thread count"),
+        ("context_length_or_na", 32768, "8K reference context"),
+        ("acceleration_backend_or_na", "CUDA", "CPU-only execution"),
+        ("model_artifact_size_bytes_or_na", 4 * 1024**3, "at or below 3 GB"),
+    )
+    for field, bad_value, message in mutations:
+        original = result[field]
+        result[field] = bad_value
+        with pytest.raises(ValueError, match=message):
+            validate_instance("mstr-research-experiment-v2", l4, repository_root=tmp_path)
+        result[field] = original
+
+
+def test_l4_q4_candidate_binding_rejects_model_identity_relabel(tmp_path: Path) -> None:
+    records, _ = _write_promoted_chain(tmp_path, 4)
+    l4 = records[4]
+    results = l4["material_results"]
+    assert isinstance(results, list) and isinstance(results[0], dict)
+    results[0]["model_id_or_na"] = "different/model"
+    with pytest.raises(ValueError, match="model_id must match promoted result"):
         validate_instance("mstr-research-experiment-v2", l4, repository_root=tmp_path)

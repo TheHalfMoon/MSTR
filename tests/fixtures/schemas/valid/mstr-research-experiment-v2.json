@@ -62,7 +62,10 @@
       "invalidation_reason_or_na": "N/A",
       "evidence_kind": "CONTRACT_ONLY",
       "data_identity_or_na": "N/A",
-      "difficulty_identity_or_na": "N/A"
+      "difficulty_identity_or_na": "N/A",
+      "model_execution_count_or_na": 0,
+      "network_model_or_teacher_call_count_or_na": 0,
+      "model_artifact_size_bytes_or_na": "N/A"
     }
   ],
   "hard_gate_results": [
@@ -97,8 +100,8 @@
       "reason": "Required L0 hard gate passed."
     }
   ],
-  "promotion_decision": "PROMOTE",
-  "decision_reason": "All L0 contract-only hard gates pass.",
+  "promotion_decision": "STOP",
+  "decision_reason": "Contract fixture validates the frozen shape without claiming campaign execution.",
   "aggregate_resource_cost": {
     "wall_time_seconds": 0.01,
     "material_result_count": 1,
@@ -107,7 +110,7 @@
   },
   "external_effect_authority": null,
   "governing_task_id": "B026",
-  "promoted_result_id_or_na": "b026-l0-contract-smoke-001",
+  "promoted_result_id_or_na": "N/A",
   "q4_promotion_record_identity_or_na": "N/A",
   "governed_effects": {
     "MODEL_WEIGHT_ACCESS": false,
@@ -119,7 +122,13 @@
     "WEIGHT_CHANGING_TRAINING": false,
     "LONG_TRAINING": false,
     "LARGE_SCALE_RL": false,
-    "PRODUCTION_RELEASE": false
+    "PRODUCTION_RELEASE": false,
+    "MODEL_EXECUTION": false,
+    "NETWORK_MODEL_OR_TEACHER_CALL": false
   },
-  "promotion_policy_identity": "sha256:e33f2f6481b3f1200de2b01d3aadb5c49bc638b0aa544c6bca83e072c92ad505"
+  "promotion_policy_identity": "N/A",
+  "record_mode": "CONTRACT_FIXTURE",
+  "campaign_freeze_commit_sha_or_na": "N/A",
+  "canonical_evidence_commit_sha_or_na": "N/A",
+  "q4_candidate_binding_identity_or_na": "N/A"
 }

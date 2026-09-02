@@ -1312,6 +1312,39 @@
           }
         }
       ]
+    },
+    "model_execution_count_or_na": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "const": "N/A"
+        }
+      ]
+    },
+    "network_model_or_teacher_call_count_or_na": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "const": "N/A"
+        }
+      ]
+    },
+    "model_artifact_size_bytes_or_na": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "const": "N/A"
+        }
+      ]
     }
   },
   "required": [
@@ -1350,7 +1383,10 @@
     "result_classification",
     "metrics",
     "resource_cost",
-    "paid_cost_usd"
+    "paid_cost_usd",
+    "model_execution_count_or_na",
+    "network_model_or_teacher_call_count_or_na",
+    "model_artifact_size_bytes_or_na"
   ],
   "allOf": [
     {

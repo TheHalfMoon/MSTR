@@ -127,3 +127,11 @@ The B026 repository records added under `artifacts/results/research/B026/` are c
 These findings are not considered resolved by prose. Resolution requires guarded publication, fresh exact-head qualification, explicit thread reconciliation, and a new independent exact-head review.
 
 The `q4_artifact_identity` gate uses a predeclared symbolic criterion `EQ_PROMOTED_ARTIFACT`: its immutable gate-evidence record carries the observed artifact SHA-256, and validation compares that value to the selected promoted material result. This preserves content-addressed gate evidence without treating the gate-evidence identity itself as the model artifact identity.
+
+## Exact-head review repair — canonical history and causal evidence
+
+Codex review `PRR_kwDOUCYTYs8AAAABL4fRHw` on exact historical head `ffd526fd686c84572a023490c4ab69a3255b8780` identified six P1 defects: working-tree registry trust, missing model/network execution effects, missing pre-execution policy antecedence, self-declared gate observations, incomplete L4 universal-laptop enforcement, and missing Q4-to-candidate lineage binding.
+
+This repair is contract/configuration hardening only. `CAMPAIGN_RESULT` now requires explicit Git commits in canonical-main ancestry: policy/predecessor/authority resolve from a strict ancestor campaign-freeze commit, while gate/verifier/Q4 evidence resolves from the later canonical evidence commit. Gate evidence derives observations from separately content-addressed verifier evidence instead of accepting an `observed_value` field in the gate record. Model execution and network model/teacher calls are explicit governed effects. L4 enforces the 8 GiB / CPU / 8K / Q4 <= 3 GiB envelope and a content-addressed Q4 candidate/source-checkpoint binding. B026 contract fixtures are explicitly non-campaign and cannot claim promotion.
+
+The repair does not grant or execute model inference, model-weight access, network model/teacher calls, paid APIs or compute, dataset ingestion, training, RL, or release. Fresh exact-head qualification and fresh independent review remain required after publication of the repaired candidate.

@@ -22,7 +22,14 @@
     "aggregate_paid_cost_reconciliation_required": true,
     "per_level_material_identity_semantically_enforced": true,
     "l4_concrete_q4_identity_required": true,
-    "q4_gate_evidence_identity_binding_required": true
+    "q4_gate_evidence_identity_binding_required": true,
+    "canonical_git_history_resolution_required": true,
+    "promotion_policy_must_precede_evidence_commit": true,
+    "gate_observation_underlying_evidence_resolution_required": true,
+    "model_execution_authority_required": true,
+    "network_model_or_teacher_call_authority_required": true,
+    "l4_reference_envelope_semantically_enforced": true,
+    "q4_candidate_lineage_binding_required": true
   },
   "levels": [
     {
@@ -226,7 +233,7 @@
   "canonical_resolution": {
     "experiment_registry_template": "artifacts/results/research/{governing_task_id}/registry/{experiment_id}.json",
     "authority_registry_template": "artifacts/authorities/{authority_id}.json",
-    "record_integrity": "SHA-256 over exact repository file bytes",
+    "record_integrity": "SHA-256 over exact Git blob bytes resolved from an explicit canonical-main-ancestor commit",
     "authority_scope_source": "resolved canonical authority artifact only",
     "authority_copy_in_experiment": false,
     "governed_effects": [
@@ -239,12 +246,14 @@
       "WEIGHT_CHANGING_TRAINING",
       "LONG_TRAINING",
       "LARGE_SCALE_RL",
-      "PRODUCTION_RELEASE"
+      "PRODUCTION_RELEASE",
+      "MODEL_EXECUTION",
+      "NETWORK_MODEL_OR_TEACHER_CALL"
     ],
     "promotion_policy_registry_template": "artifacts/results/research/{governing_task_id}/promotion-policies/{sha256}.json",
     "gate_evidence_registry_template": "artifacts/results/research/{governing_task_id}/gate-evidence/{sha256}.json",
     "q4_promotion_registry_template": "artifacts/results/q4-promotion/registry/{sha256}.json",
-    "promotion_policy_binding": "promotion_policy_identity is sha256:<digest> of a predeclared policy record; each hard-gate evidence_identity is sha256:<digest> of an immutable observed-value record",
+    "promotion_policy_binding": "promotion_policy_identity resolves from the strict ancestor campaign-freeze commit; gate evidence resolves from the later canonical evidence commit and derives its observed value from separately content-addressed verifier evidence",
     "promotion_policy_record_contract": {
       "schema_version": "mstr.research-promotion-policy.v0",
       "required_fields": [
@@ -269,15 +278,48 @@
       "criteria_must_exactly_cover_required_gate_ids": true
     },
     "gate_evidence_record_contract": {
-      "schema_version": "mstr.research-gate-evidence.v0",
+      "schema_version": "mstr.research-gate-evidence.v1",
       "required_fields": [
         "governing_task_id",
         "campaign_id",
         "experiment_id",
         "gate_id",
-        "observed_value"
+        "frozen_evaluation_identity",
+        "campaign_freeze_commit_sha",
+        "source_evidence_identity",
+        "source_json_pointer"
       ],
-      "status_is_computed_from_predeclared_policy": true
+      "status_is_computed_from_predeclared_policy": true,
+      "observed_value_must_be_derived_from_source_evidence": true
+    },
+    "campaign_freeze_commit_field": "campaign_freeze_commit_sha_or_na",
+    "canonical_evidence_commit_field": "canonical_evidence_commit_sha_or_na",
+    "canonical_history_rule": "campaign freeze and evidence commits must both be ancestors of canonical main; freeze must be a strict ancestor of evidence",
+    "verifier_evidence_registry_template": "artifacts/results/research/{governing_task_id}/verifier-evidence/{sha256}.json",
+    "q4_candidate_binding_registry_template": "artifacts/results/research/{governing_task_id}/q4-bindings/{sha256}.json",
+    "verifier_evidence_record_contract": {
+      "schema_version": "mstr.research-verifier-evidence.v0",
+      "required_fields": [
+        "governing_task_id",
+        "campaign_id",
+        "experiment_id",
+        "gate_id",
+        "frozen_evaluation_identity",
+        "verifier_manifest_id",
+        "verifier_health_identity",
+        "subject_identity",
+        "observed_value"
+      ]
+    },
+    "q4_candidate_binding_record_contract": {
+      "schema_version": "mstr.research-q4-candidate-binding.v0",
+      "required_fields": [
+        "q4_promotion_record_identity",
+        "model_id",
+        "model_revision",
+        "source_checkpoint_sha256",
+        "canonical_q4_artifact_sha256"
+      ]
     }
   }
 }

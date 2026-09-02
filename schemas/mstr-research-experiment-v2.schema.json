@@ -1316,6 +1316,39 @@
               }
             }
           ]
+        },
+        "model_execution_count_or_na": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "N/A"
+            }
+          ]
+        },
+        "network_model_or_teacher_call_count_or_na": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "N/A"
+            }
+          ]
+        },
+        "model_artifact_size_bytes_or_na": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "N/A"
+            }
+          ]
         }
       },
       "required": [
@@ -1354,7 +1387,10 @@
         "result_classification",
         "metrics",
         "resource_cost",
-        "paid_cost_usd"
+        "paid_cost_usd",
+        "model_execution_count_or_na",
+        "network_model_or_teacher_call_count_or_na",
+        "model_artifact_size_bytes_or_na"
       ],
       "allOf": [
         {
@@ -1605,6 +1641,12 @@
         },
         "PRODUCTION_RELEASE": {
           "type": "boolean"
+        },
+        "MODEL_EXECUTION": {
+          "type": "boolean"
+        },
+        "NETWORK_MODEL_OR_TEACHER_CALL": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -1617,7 +1659,9 @@
         "WEIGHT_CHANGING_TRAINING",
         "LONG_TRAINING",
         "LARGE_SCALE_RL",
-        "PRODUCTION_RELEASE"
+        "PRODUCTION_RELEASE",
+        "MODEL_EXECUTION",
+        "NETWORK_MODEL_OR_TEACHER_CALL"
       ]
     }
   },
@@ -1795,9 +1839,54 @@
       "$ref": "#/$defs/governed_effects"
     },
     "promotion_policy_identity": {
-      "type": "string",
-      "pattern": "^sha256:[0-9a-f]{64}$",
-      "description": "Content address of the immutable predeclared promotion-policy record."
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      ]
+    },
+    "record_mode": {
+      "enum": [
+        "CONTRACT_FIXTURE",
+        "CAMPAIGN_RESULT"
+      ]
+    },
+    "campaign_freeze_commit_sha_or_na": {
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      ]
+    },
+    "canonical_evidence_commit_sha_or_na": {
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      ]
+    },
+    "q4_candidate_binding_identity_or_na": {
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      ]
     }
   },
   "required": [
@@ -1822,7 +1911,11 @@
     "decision_reason",
     "governed_effects",
     "external_effect_authority",
-    "aggregate_resource_cost"
+    "aggregate_resource_cost",
+    "record_mode",
+    "campaign_freeze_commit_sha_or_na",
+    "canonical_evidence_commit_sha_or_na",
+    "q4_candidate_binding_identity_or_na"
   ],
   "allOf": [
     {

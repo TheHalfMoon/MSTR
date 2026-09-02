@@ -83,3 +83,8 @@ B026 research records resolve lineage and authority from repository-local immuta
 Research promotion is not self-attested. `promotion_policy_identity` and every hard-gate `evidence_identity` are lowercase `sha256:<digest>` content addresses resolved from the canonical registry templates frozen in `configs/research/mstr-research-ladder-v0.json`. A policy must bind the same governing task, campaign, fidelity level and frozen evaluator, must exactly cover the required gate IDs, and must predeclare `EQ`, `GTE`, `LTE`, or `NOT_APPLICABLE` criteria. Gate evidence binds task/campaign/experiment/gate and an observed value. The validator computes the gate status and rejects a submitted status that disagrees.
 
 For L4, `q4_promotion_record_identity_or_na` is a content address into the Q4 promotion registry. The resolved existing `mstr.q4-promotion.v0` contract remains authoritative; B026 does not create Q4 execution, training, model, network, paid-compute, or release authority.
+
+
+## B026 canonical history boundary
+
+Campaign-result validation is Git-history-bound. Policy, predecessor, and external authority must already exist at an explicit canonical campaign-freeze commit. Gate/verifier/Q4 evidence must exist at a later canonical evidence commit. Both commits must be in `main` ancestry and the freeze commit must strictly precede the evidence commit. Working-tree presence is never sufficient.

@@ -43,5 +43,8 @@
   "invalidation_reason_or_na": "N/A",
   "evidence_kind": "CONTRACT_ONLY",
   "data_identity_or_na": "N/A",
-  "difficulty_identity_or_na": "N/A"
+  "difficulty_identity_or_na": "N/A",
+  "model_execution_count_or_na": 0,
+  "network_model_or_teacher_call_count_or_na": 0,
+  "model_artifact_size_bytes_or_na": "N/A"
 }
