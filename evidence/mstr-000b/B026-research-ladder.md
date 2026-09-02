@@ -115,3 +115,15 @@ The review also noted that canonical authority ceilings must not be treated as i
 The broad sentinel-schema deduplication and wholesale rewriting of every historical generic negative-test assertion were maintainability nitpicks, not correctness findings, and are not claimed as part of this bounded repair.
 
 These exact-head findings are not considered resolved by this evidence text. Resolution still requires guarded publication, fresh exact-head qualification, review-thread reconciliation, and a new independent exact-head substantive review.
+
+## Fresh exact-head Codex review findings on `633a8a4ed8717eeeee2c1c42d3045e5658d5fb25`
+
+Codex review `PRR_kwDOUCYTYs8AAAABL3vKoQ` reviewed exact head `633a8a4ed8717eeeee2c1c42d3045e5658d5fb25` after qualification run `33646862191` and produced two P1 findings: Q4 promotion evidence was not resolved to an immutable `mstr.q4-promotion.v0` record, and submitted hard-gate `PASS` values were not recomputed against a content-bound predeclared decision policy.
+
+This bounded repair introduces no research execution. It freezes content-addressed registry semantics for predeclared promotion policies and gate-observation evidence, makes every gate evidence identity a lowercase `sha256:<digest>` of exact repository bytes, recomputes the submitted gate status from the predeclared criterion, and rejects missing/tampered/mismatched policy or evidence records. L4 now resolves the existing B028 `mstr.q4-promotion.v0` contract by content address, requires `PROMOTED`, binds the canonical Q4 artifact SHA-256 to the promoted material result, requires an actual universal-laptop `PASS`, and binds the Q4 record's laptop and promotion-decision evidence identities to the corresponding B026 hard gates.
+
+The B026 repository records added under `artifacts/results/research/B026/` are contract fixtures for the existing valid schema fixture only. They are not a B027 campaign, model run, Q4 execution, training result, paid-compute result, or authority grant. No actual Q4 promotion artifact is added.
+
+These findings are not considered resolved by prose. Resolution requires guarded publication, fresh exact-head qualification, explicit thread reconciliation, and a new independent exact-head review.
+
+The `q4_artifact_identity` gate uses a predeclared symbolic criterion `EQ_PROMOTED_ARTIFACT`: its immutable gate-evidence record carries the observed artifact SHA-256, and validation compares that value to the selected promoted material result. This preserves content-addressed gate evidence without treating the gate-evidence identity itself as the model artifact identity.

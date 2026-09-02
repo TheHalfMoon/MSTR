@@ -77,3 +77,9 @@ mstr.candidate-pool-decision.v0
 Schema implementation belongs to the exact B-task named in `tasks.md`; an unimplemented planned contract has no runtime authority.
 
 B026 research records resolve lineage and authority from repository-local immutable artifacts rather than trusting inline claims. Predecessors are SHA-256-bound experiment-registry records under `artifacts/results/research/<task>/registry/`; external authority is a SHA-256-bound foreign key to `artifacts/authorities/<authority_id>.json`. Governed effects are exhaustively declared, canonical scope/ceilings are derived from the resolved authority artifact, and L4 promotion requires concrete Q4/runtime/hardware identity plus exact Q4 evidence bindings.
+
+### B026 content-addressed promotion policy and gate evidence
+
+Research promotion is not self-attested. `promotion_policy_identity` and every hard-gate `evidence_identity` are lowercase `sha256:<digest>` content addresses resolved from the canonical registry templates frozen in `configs/research/mstr-research-ladder-v0.json`. A policy must bind the same governing task, campaign, fidelity level and frozen evaluator, must exactly cover the required gate IDs, and must predeclare `EQ`, `GTE`, `LTE`, or `NOT_APPLICABLE` criteria. Gate evidence binds task/campaign/experiment/gate and an observed value. The validator computes the gate status and rejects a submitted status that disagrees.
+
+For L4, `q4_promotion_record_identity_or_na` is a content address into the Q4 promotion registry. The resolved existing `mstr.q4-promotion.v0` contract remains authoritative; B026 does not create Q4 execution, training, model, network, paid-compute, or release authority.

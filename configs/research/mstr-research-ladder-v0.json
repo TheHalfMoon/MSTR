@@ -240,6 +240,44 @@
       "LONG_TRAINING",
       "LARGE_SCALE_RL",
       "PRODUCTION_RELEASE"
-    ]
+    ],
+    "promotion_policy_registry_template": "artifacts/results/research/{governing_task_id}/promotion-policies/{sha256}.json",
+    "gate_evidence_registry_template": "artifacts/results/research/{governing_task_id}/gate-evidence/{sha256}.json",
+    "q4_promotion_registry_template": "artifacts/results/q4-promotion/registry/{sha256}.json",
+    "promotion_policy_binding": "promotion_policy_identity is sha256:<digest> of a predeclared policy record; each hard-gate evidence_identity is sha256:<digest> of an immutable observed-value record",
+    "promotion_policy_record_contract": {
+      "schema_version": "mstr.research-promotion-policy.v0",
+      "required_fields": [
+        "governing_task_id",
+        "campaign_id",
+        "fidelity_level",
+        "frozen_evaluation_identity",
+        "criteria"
+      ],
+      "criterion_fields": [
+        "gate_id",
+        "operator",
+        "expected_value"
+      ],
+      "operators": [
+        "EQ",
+        "GTE",
+        "LTE",
+        "NOT_APPLICABLE",
+        "EQ_PROMOTED_ARTIFACT"
+      ],
+      "criteria_must_exactly_cover_required_gate_ids": true
+    },
+    "gate_evidence_record_contract": {
+      "schema_version": "mstr.research-gate-evidence.v0",
+      "required_fields": [
+        "governing_task_id",
+        "campaign_id",
+        "experiment_id",
+        "gate_id",
+        "observed_value"
+      ],
+      "status_is_computed_from_predeclared_policy": true
+    }
   }
 }

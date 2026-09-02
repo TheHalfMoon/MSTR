@@ -69,31 +69,31 @@
     {
       "gate_id": "contracts_config_valid",
       "status": "PASS",
-      "evidence_identity": "fixture:contracts_config_valid",
+      "evidence_identity": "sha256:e8b1e2cd2c5d6dd5085743040e3bfcd6adfff1f551271aa567bcf11c2e4c064c",
       "reason": "Required L0 hard gate passed."
     },
     {
       "gate_id": "l0_smoke_checks",
       "status": "PASS",
-      "evidence_identity": "fixture:l0_smoke_checks",
+      "evidence_identity": "sha256:cb75019c2ad8f9451409fc4974d844298c23dad57e5cab2e94d685ffb76076db",
       "reason": "Required L0 hard gate passed."
     },
     {
       "gate_id": "frozen_evaluation_pinned",
       "status": "PASS",
-      "evidence_identity": "fixture:frozen_evaluation_pinned",
+      "evidence_identity": "sha256:61380d9c9de6e6f15ffd056fb64900c522e0adadb0ce9ff56a1691de9d8a766d",
       "reason": "Required L0 hard gate passed."
     },
     {
       "gate_id": "material_identity_complete",
       "status": "PASS",
-      "evidence_identity": "fixture:material_identity_complete",
+      "evidence_identity": "sha256:9fe18a896b8e584fc0df1d5cd783cef673784226493a5b4341b8ce5f6d7a07f5",
       "reason": "Required L0 hard gate passed."
     },
     {
       "gate_id": "authority_boundary_intact",
       "status": "PASS",
-      "evidence_identity": "fixture:authority_boundary_intact",
+      "evidence_identity": "sha256:ebb7e5d93e5f5ec04758800cfaa3a259daa9e48d2bdcf2ac42d8730863651e61",
       "reason": "Required L0 hard gate passed."
     }
   ],
@@ -120,5 +120,6 @@
     "LONG_TRAINING": false,
     "LARGE_SCALE_RL": false,
     "PRODUCTION_RELEASE": false
-  }
+  },
+  "promotion_policy_identity": "sha256:e33f2f6481b3f1200de2b01d3aadb5c49bc638b0aa544c6bca83e072c92ad505"
 }

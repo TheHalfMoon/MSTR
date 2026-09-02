@@ -191,15 +191,111 @@ def _write_json_with_sha(path: Path, value: dict[str, object]) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
+def _write_content_addressed(path: Path, value: dict[str, object]) -> str:
+    path.mkdir(parents=True, exist_ok=True)
+    raw = (json.dumps(value, indent=2) + "\n").encode()
+    digest = hashlib.sha256(raw).hexdigest()
+    (path / f"{digest}.json").write_bytes(raw)
+    return f"sha256:{digest}"
+
+
+def _prepare_policy_and_gate_evidence(root: Path, record: dict[str, object]) -> None:
+    task_id = str(record["governing_task_id"])
+    campaign_id = str(record["campaign_id"])
+    experiment_id = str(record["experiment_id"])
+    level = str(record["fidelity_level"])
+    policy = {
+        "schema_version": "mstr.research-promotion-policy.v0",
+        "governing_task_id": task_id,
+        "campaign_id": campaign_id,
+        "fidelity_level": level,
+        "frozen_evaluation_identity": str(record["frozen_evaluation_identity"]),
+        "criteria": [
+            (
+                {
+                    "gate_id": gate_id,
+                    "operator": "EQ_PROMOTED_ARTIFACT",
+                    "expected_value": "PROMOTED_RESULT_ARTIFACT",
+                }
+                if gate_id == "q4_artifact_identity"
+                else {"gate_id": gate_id, "operator": "EQ", "expected_value": True}
+            )
+            for gate_id in _required_gate_ids(level)
+        ],
+    }
+    record["promotion_policy_identity"] = _write_content_addressed(
+        root / "artifacts/results/research" / task_id / "promotion-policies",
+        policy,
+    )
+    gates = record["hard_gate_results"]
+    assert isinstance(gates, list)
+    for gate in gates:
+        assert isinstance(gate, dict)
+        gate_id = str(gate["gate_id"])
+        observed_value: object = True
+        if gate_id == "q4_artifact_identity":
+            results = record["material_results"]
+            promoted_id = record["promoted_result_id_or_na"]
+            assert isinstance(results, list)
+            promoted = next(
+                result
+                for result in results
+                if isinstance(result, dict) and result.get("result_id") == promoted_id
+            )
+            observed_value = promoted["model_artifact_sha256_or_na"]
+        evidence = {
+            "schema_version": "mstr.research-gate-evidence.v0",
+            "governing_task_id": task_id,
+            "campaign_id": campaign_id,
+            "experiment_id": experiment_id,
+            "gate_id": gate_id,
+            "observed_value": observed_value,
+        }
+        gate["evidence_identity"] = _write_content_addressed(
+            root / "artifacts/results/research" / task_id / "gate-evidence",
+            evidence,
+        )
+
+    if level == "L4_Q4_UNIVERSAL_LAPTOP":
+        results = record["material_results"]
+        assert isinstance(results, list) and isinstance(results[0], dict)
+        result = results[0]
+        gate_map = {str(gate["gate_id"]): gate for gate in gates if isinstance(gate, dict)}
+        q4_record: dict[str, object] = {
+            "schema_version": "mstr.q4-promotion.v0",
+            "source_training_run_id": "fixture-training-run",
+            "source_checkpoint_sha256": "b" * 64,
+            "merged_master_sha256": "c" * 64,
+            "export_tool_id": "fixture-export",
+            "export_tool_revision": "fixture-export-revision",
+            "export_recipe_hash": "d" * 64,
+            "quantizer_tool_id": "fixture-quantizer",
+            "quantizer_tool_revision": "fixture-quantizer-revision",
+            "quantization_recipe_hash": "e" * 64,
+            "canonical_q4_artifact_sha256": str(result["model_artifact_sha256_or_na"]),
+            "artifact_integrity_status": "PASS",
+            "q4_regression_manifest_id": "fixture-q4-regression",
+            "q4_regression_result": "PASS",
+            "universal_laptop_gate_result": "PASS",
+            "universal_laptop_gate_evidence_identity": str(
+                gate_map["universal_laptop_product_gates"]["evidence_identity"]
+            ),
+            "universal_laptop_gate_not_required_reason": None,
+            "promotion_status": "PROMOTED",
+            "rejection_reasons": [],
+            "promotion_decision_evidence_identity": str(
+                gate_map["q4_promotion_record_promoted"]["evidence_identity"]
+            ),
+        }
+        record["q4_promotion_record_identity_or_na"] = _write_content_addressed(
+            root / "artifacts/results/q4-promotion/registry",
+            q4_record,
+        )
+
+
 def _registry_path(root: Path, task_id: str, experiment_id: str) -> Path:
     return (
-        root
-        / "artifacts"
-        / "results"
-        / "research"
-        / task_id
-        / "registry"
-        / f"{experiment_id}.json"
+        root / "artifacts" / "results" / "research" / task_id / "registry" / f"{experiment_id}.json"
     )
 
 
@@ -274,16 +370,6 @@ def _make_level_record(
                 "cache_state_or_na": "cold",
             }
         )
-        q4_record = "q4-promotion:fixture-l4"
-        fixture["q4_promotion_record_identity_or_na"] = q4_record
-        gates = fixture["hard_gate_results"]
-        assert isinstance(gates, list)
-        for gate in gates:
-            assert isinstance(gate, dict)
-            if gate["gate_id"] == "q4_artifact_identity":
-                gate["evidence_identity"] = f"sha256:{'a' * 64}"
-            if gate["gate_id"] == "q4_promotion_record_promoted":
-                gate["evidence_identity"] = q4_record
     return fixture
 
 
@@ -306,6 +392,7 @@ def _write_promoted_chain(
             if predecessor
             else None,
         )
+        _prepare_policy_and_gate_evidence(root, record)
         validate_instance("mstr-research-experiment-v2", record, repository_root=root)
         sha = _write_json_with_sha(
             _registry_path(root, task_id, str(record["experiment_id"])),
@@ -362,9 +449,7 @@ def _write_authority(
         ("verifier_manifest_id", "HEAD"),
     ],
 )
-def test_material_result_identity_rejects_opaque_identity_sentinels(
-    field: str, value: str
-) -> None:
+def test_material_result_identity_rejects_opaque_identity_sentinels(field: str, value: str) -> None:
     fixture = _json(FIXTURES / "valid" / "mstr-material-result-identity-v0.json")
     fixture[field] = value
     with pytest.raises(ValueError, match="validation failed"):
@@ -392,6 +477,7 @@ def test_research_experiment_l0_requires_null_predecessor() -> None:
 
 def test_l1_requires_real_immutable_predecessor_registry_record(tmp_path: Path) -> None:
     l0 = _make_level_record(0, task_id="B027", campaign_id="campaign-registry-fixture")
+    _prepare_policy_and_gate_evidence(tmp_path, l0)
     l0_sha = _write_json_with_sha(_registry_path(tmp_path, "B027", "fixture-l0"), l0)
     l1 = _make_level_record(
         1,
@@ -401,6 +487,7 @@ def test_l1_requires_real_immutable_predecessor_registry_record(tmp_path: Path) 
         predecessor_sha=l0_sha,
         predecessor_result=str(l0["promoted_result_id_or_na"]),
     )
+    _prepare_policy_and_gate_evidence(tmp_path, l1)
     validate_instance("mstr-research-experiment-v2", l1, repository_root=tmp_path)
 
     predecessor = l1["predecessor_promotion"]
@@ -420,6 +507,7 @@ def test_predecessor_registry_digest_and_sequential_level_fail_closed(tmp_path: 
         predecessor_sha=shas[2],
         predecessor_result=str(records[2]["promoted_result_id_or_na"]),
     )
+    _prepare_policy_and_gate_evidence(tmp_path, l3)
     validate_instance("mstr-research-experiment-v2", l3, repository_root=tmp_path)
     predecessor = l3["predecessor_promotion"]
     assert isinstance(predecessor, dict)
@@ -551,6 +639,7 @@ def test_external_effect_resolves_canonical_authority_and_ceilings(tmp_path: Pat
         "authority_id": authority_id,
         "authority_record_sha256": authority_sha,
     }
+    _prepare_policy_and_gate_evidence(tmp_path, fixture)
     validate_instance("mstr-research-experiment-v2", fixture, repository_root=tmp_path)
 
     fixture["external_effect_authority"] = {
@@ -619,14 +708,12 @@ def test_b026_runtime_and_spec_schema_pairs_are_byte_identical() -> None:
     pairs = (
         (
             ROOT / "schemas/mstr-material-result-identity-v0.schema.json",
-            ROOT
-            / "specs/002-code-model-supremacy-foundation/contracts/"
+            ROOT / "specs/002-code-model-supremacy-foundation/contracts/"
             "mstr-material-result-identity-v0.schema.json",
         ),
         (
             ROOT / "schemas/mstr-research-experiment-v2.schema.json",
-            ROOT
-            / "specs/002-code-model-supremacy-foundation/contracts/"
+            ROOT / "specs/002-code-model-supremacy-foundation/contracts/"
             "mstr-research-experiment-v2.schema.json",
         ),
     )
@@ -686,9 +773,7 @@ def test_research_nested_validation_preserves_custom_schema_dir(tmp_path: Path) 
                 "required": ["fidelity_level"],
             },
             "then": {
-                "properties": {
-                    "decision_reason": {"const": "CUSTOM_SCHEMA_PREDECESSOR_SENTINEL"}
-                }
+                "properties": {"decision_reason": {"const": "CUSTOM_SCHEMA_PREDECESSOR_SENTINEL"}}
             },
         }
     )
@@ -707,9 +792,9 @@ def test_research_nested_validation_preserves_custom_schema_dir(tmp_path: Path) 
 
 
 def test_data_model_research_record_block_lists_all_required_b026_fields() -> None:
-    text = (
-        ROOT / "specs/002-code-model-supremacy-foundation/data-model.md"
-    ).read_text(encoding="utf-8")
+    text = (ROOT / "specs/002-code-model-supremacy-foundation/data-model.md").read_text(
+        encoding="utf-8"
+    )
     start = text.index("```text\nResearchExperimentRecordV2\n")
     end = text.index("\n```", start)
     block = text[start:end]
@@ -720,3 +805,55 @@ def test_data_model_research_record_block_lists_all_required_b026_fields() -> No
         "governed_effects",
     ):
         assert f"- {field}" in block
+
+
+def test_promotion_status_is_computed_from_predeclared_policy_and_content_bound_evidence(
+    tmp_path: Path,
+) -> None:
+    record = _make_level_record(0, task_id="B027", campaign_id="policy-fixture")
+    _prepare_policy_and_gate_evidence(tmp_path, record)
+    validate_instance("mstr-research-experiment-v2", record, repository_root=tmp_path)
+
+    gates = record["hard_gate_results"]
+    assert isinstance(gates, list) and isinstance(gates[0], dict)
+    gate = gates[0]
+    digest = str(gate["evidence_identity"]).removeprefix("sha256:")
+    evidence_path = tmp_path / "artifacts/results/research/B027/gate-evidence" / f"{digest}.json"
+    evidence = _json(evidence_path)
+    evidence["observed_value"] = False
+    replacement_identity = _write_content_addressed(evidence_path.parent, evidence)
+    gate["evidence_identity"] = replacement_identity
+    with pytest.raises(ValueError, match="submitted status does not match predeclared criterion"):
+        validate_instance("mstr-research-experiment-v2", record, repository_root=tmp_path)
+
+
+def test_promotion_policy_missing_or_tampered_fails_closed(tmp_path: Path) -> None:
+    record = _make_level_record(0, task_id="B027", campaign_id="policy-fixture")
+    _prepare_policy_and_gate_evidence(tmp_path, record)
+    record["promotion_policy_identity"] = "sha256:" + "f" * 64
+    with pytest.raises(ValueError, match="predeclared policy record missing"):
+        validate_instance("mstr-research-experiment-v2", record, repository_root=tmp_path)
+
+
+def test_l4_resolves_promoted_q4_record_and_binds_artifact_and_laptop_evidence(
+    tmp_path: Path,
+) -> None:
+    records, _ = _write_promoted_chain(tmp_path, 4)
+    l4 = records[4]
+    validate_instance("mstr-research-experiment-v2", l4, repository_root=tmp_path)
+
+    l4["q4_promotion_record_identity_or_na"] = "sha256:" + "f" * 64
+    with pytest.raises(ValueError, match="immutable Q4 promotion record missing"):
+        validate_instance("mstr-research-experiment-v2", l4, repository_root=tmp_path)
+
+
+def test_l4_rejects_q4_record_with_mismatched_artifact(tmp_path: Path) -> None:
+    records, _ = _write_promoted_chain(tmp_path, 4)
+    l4 = records[4]
+    q4_digest = str(l4["q4_promotion_record_identity_or_na"]).removeprefix("sha256:")
+    q4_path = tmp_path / "artifacts/results/q4-promotion/registry" / f"{q4_digest}.json"
+    q4 = _json(q4_path)
+    q4["canonical_q4_artifact_sha256"] = "9" * 64
+    l4["q4_promotion_record_identity_or_na"] = _write_content_addressed(q4_path.parent, q4)
+    with pytest.raises(ValueError, match="Q4 record artifact must match promoted result"):
+        validate_instance("mstr-research-experiment-v2", l4, repository_root=tmp_path)

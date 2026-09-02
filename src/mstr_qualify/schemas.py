@@ -483,10 +483,9 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
     post: dict[str, Any] | None = None
     if isinstance(patch, dict) and isinstance(proof, dict):
         artifact_sha = patch.get("test_artifact_sha256")
-        if (
-            proof.get("proof_kind") == "FAIL_BEFORE_PASS_AFTER"
-            and instance.get("base_revision") == instance.get("fix_revision")
-        ):
+        if proof.get("proof_kind") == "FAIL_BEFORE_PASS_AFTER" and instance.get(
+            "base_revision"
+        ) == instance.get("fix_revision"):
             errors.append(
                 "$.fix_revision: FAIL_BEFORE_PASS_AFTER requires a revision "
                 "distinct from base_revision"
@@ -515,13 +514,9 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
                     "$.behavioral_proof.post_fix_result.revision: must match fix_revision"
                 )
             if pre.get("environment_identity") != post.get("environment_identity"):
-                errors.append(
-                    "$.behavioral_proof: pre/post environment_identity must match"
-                )
+                errors.append("$.behavioral_proof: pre/post environment_identity must match")
             if pre.get("verifier_manifest_id") != post.get("verifier_manifest_id"):
-                errors.append(
-                    "$.behavioral_proof: pre/post verifier_manifest_id must match"
-                )
+                errors.append("$.behavioral_proof: pre/post verifier_manifest_id must match")
             if proof.get("proof_kind") == "TASK_SPECIFIC_BEHAVIOR":
                 raw_binding = proof.get("independent_acceptance_evidence_identity")
                 evidence_identity: str | None = None
@@ -568,9 +563,7 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
         changed_paths = patch.get("changed_paths")
         test_paths = patch.get("test_paths")
         if isinstance(changed_paths, list) and isinstance(test_paths, list):
-            changed_path_set = {
-                item for item in changed_paths if isinstance(item, str)
-            }
+            changed_path_set = {item for item in changed_paths if isinstance(item, str)}
             missing_test_paths = sorted(
                 item
                 for item in test_paths
@@ -589,9 +582,7 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
                 "$.integrity_checks.checked_patch_sha256: must match "
                 "generated_test_patch.patch_sha256"
             )
-        if integrity.get("checked_test_artifact_sha256") != patch.get(
-            "test_artifact_sha256"
-        ):
+        if integrity.get("checked_test_artifact_sha256") != patch.get("test_artifact_sha256"):
             errors.append(
                 "$.integrity_checks.checked_test_artifact_sha256: must match "
                 "generated_test_patch.test_artifact_sha256"
@@ -621,9 +612,8 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
             artifact_sha = patch.get("test_artifact_sha256")
             lineage_identity = provenance.get("lineage_identity")
             expected_suffix = f"|test-artifact-sha256:{artifact_sha}"
-            if (
-                not isinstance(lineage_identity, str)
-                or not lineage_identity.endswith(expected_suffix)
+            if not isinstance(lineage_identity, str) or not lineage_identity.endswith(
+                expected_suffix
             ):
                 errors.append(
                     "$.generated_test_provenance.lineage_identity: must bind the exact "
@@ -633,9 +623,7 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
     verifier_health = instance.get("verifier_health_binding")
     if isinstance(verifier_health, dict):
         if verifier_health.get("task_identity") != instance.get("task_identity"):
-            errors.append(
-                "$.verifier_health_binding.task_identity: must match task_identity"
-            )
+            errors.append("$.verifier_health_binding.task_identity: must match task_identity")
         if pre is not None and verifier_health.get("verifier_manifest_id") != pre.get(
             "verifier_manifest_id"
         ):
@@ -723,7 +711,6 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
                 )
 
     return tuple(sorted(errors))
-
 
 
 _AMBIGUOUS_IDENTITY_SENTINELS = frozenset(
@@ -987,11 +974,223 @@ def _b026_true_effects(instance: Mapping[str, Any]) -> set[str]:
     declared = instance.get("governed_effects")
     if not isinstance(declared, dict):
         return set()
-    return {
-        effect
-        for effect in _B026_GOVERNED_EFFECTS
-        if declared.get(effect) is True
+    return {effect for effect in _B026_GOVERNED_EFFECTS if declared.get(effect) is True}
+
+
+def _b026_sha256_identity(value: Any) -> str | None:
+    """Return the hex digest from one canonical sha256:<digest> identity."""
+
+    if not isinstance(value, str) or not value.startswith("sha256:"):
+        return None
+    digest = value.removeprefix("sha256:")
+    if len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest):
+        return None
+    return digest
+
+
+def _b026_compare_gate_value(operator: Any, observed: Any, expected: Any) -> str | None:
+    """Compute a gate status from one predeclared policy criterion."""
+
+    if operator == "NOT_APPLICABLE":
+        return "NOT_APPLICABLE" if observed is None else "FAIL"
+    if operator == "EQ":
+        return "PASS" if type(observed) is type(expected) and observed == expected else "FAIL"
+    if operator in {"GTE", "LTE"}:
+        if (
+            isinstance(observed, bool)
+            or isinstance(expected, bool)
+            or not isinstance(observed, (int, float))
+            or not isinstance(expected, (int, float))
+            or not math.isfinite(float(observed))
+            or not math.isfinite(float(expected))
+        ):
+            return None
+        if operator == "GTE":
+            return "PASS" if float(observed) >= float(expected) else "FAIL"
+        return "PASS" if float(observed) <= float(expected) else "FAIL"
+    return None
+
+
+def _b026_promotion_policy_errors(
+    instance: Mapping[str, Any],
+    *,
+    repository_root: Path,
+) -> tuple[str, ...]:
+    """Resolve predeclared policy and immutable gate evidence, then recompute statuses."""
+
+    errors: list[str] = []
+    task_id = instance.get("governing_task_id")
+    level = instance.get("fidelity_level")
+    campaign_id = instance.get("campaign_id")
+    experiment_id = instance.get("experiment_id")
+    evaluation_id = instance.get("frozen_evaluation_identity")
+    policy_identity = instance.get("promotion_policy_identity")
+    digest = _b026_sha256_identity(policy_identity)
+    if not isinstance(task_id, str) or digest is None:
+        return ("$.promotion_policy_identity: must bind a canonical predeclared policy",)
+
+    policy_path = (
+        Path("artifacts")
+        / "results"
+        / "research"
+        / task_id
+        / "promotion-policies"
+        / f"{digest}.json"
+    )
+    loaded = _b026_repository_json(repository_root, policy_path)
+    if loaded is None:
+        return ("$.promotion_policy_identity: immutable predeclared policy record missing",)
+    policy, observed_sha = loaded
+    if observed_sha != digest:
+        errors.append("$.promotion_policy_identity: policy content address mismatch")
+
+    expected_policy_keys = {
+        "schema_version",
+        "governing_task_id",
+        "campaign_id",
+        "fidelity_level",
+        "frozen_evaluation_identity",
+        "criteria",
     }
+    if set(policy) != expected_policy_keys:
+        errors.append("$.promotion_policy_identity: policy record fields are not canonical")
+    if policy.get("schema_version") != "mstr.research-promotion-policy.v0":
+        errors.append("$.promotion_policy_identity: unsupported policy schema_version")
+    for field, expected_policy_value in (
+        ("governing_task_id", task_id),
+        ("campaign_id", campaign_id),
+        ("fidelity_level", level),
+        ("frozen_evaluation_identity", evaluation_id),
+    ):
+        if policy.get(field) != expected_policy_value:
+            errors.append(f"$.promotion_policy_identity: policy {field} must match experiment")
+
+    criteria_raw = policy.get("criteria")
+    criteria: dict[str, dict[str, Any]] = {}
+    if not isinstance(criteria_raw, list):
+        errors.append("$.promotion_policy_identity: policy criteria must be an array")
+    else:
+        for criterion in criteria_raw:
+            if not isinstance(criterion, dict) or set(criterion) != {
+                "gate_id",
+                "operator",
+                "expected_value",
+            }:
+                errors.append("$.promotion_policy_identity: malformed policy criterion")
+                continue
+            gate_id = criterion.get("gate_id")
+            if not isinstance(gate_id, str) or gate_id in criteria:
+                errors.append("$.promotion_policy_identity: duplicate or invalid policy gate_id")
+                continue
+            if criterion.get("operator") not in {
+                "EQ",
+                "GTE",
+                "LTE",
+                "NOT_APPLICABLE",
+                "EQ_PROMOTED_ARTIFACT",
+            }:
+                errors.append("$.promotion_policy_identity: unsupported policy operator")
+                continue
+            criteria[gate_id] = criterion
+
+    if isinstance(level, str) and level in _B026_REQUIRED_GATE_IDS:
+        required = _B026_REQUIRED_GATE_IDS[level]
+        if set(criteria) != set(required) or len(criteria) != len(required):
+            errors.append(
+                "$.promotion_policy_identity: policy must exactly cover required gate ids"
+            )
+
+    gates = instance.get("hard_gate_results")
+    if not isinstance(gates, list):
+        return tuple(sorted(errors))
+    for index, gate in enumerate(gates):
+        if not isinstance(gate, dict):
+            continue
+        gate_id = gate.get("gate_id")
+        criterion = criteria.get(gate_id) if isinstance(gate_id, str) else None
+        if criterion is None:
+            errors.append(f"$.hard_gate_results[{index}]: no predeclared criterion for gate")
+            continue
+        evidence_identity = gate.get("evidence_identity")
+        evidence_digest = _b026_sha256_identity(evidence_identity)
+        if evidence_digest is None:
+            errors.append(
+                f"$.hard_gate_results[{index}].evidence_identity: must be sha256 content address"
+            )
+            continue
+        evidence_path = (
+            Path("artifacts")
+            / "results"
+            / "research"
+            / task_id
+            / "gate-evidence"
+            / f"{evidence_digest}.json"
+        )
+        loaded_evidence = _b026_repository_json(repository_root, evidence_path)
+        if loaded_evidence is None:
+            errors.append(
+                f"$.hard_gate_results[{index}].evidence_identity: canonical evidence missing"
+            )
+            continue
+        evidence_record, evidence_sha = loaded_evidence
+        if evidence_sha != evidence_digest:
+            errors.append(
+                f"$.hard_gate_results[{index}].evidence_identity: evidence content address mismatch"
+            )
+        expected_evidence_keys = {
+            "schema_version",
+            "governing_task_id",
+            "campaign_id",
+            "experiment_id",
+            "gate_id",
+            "observed_value",
+        }
+        if set(evidence_record) != expected_evidence_keys:
+            errors.append(f"$.hard_gate_results[{index}]: gate evidence fields are not canonical")
+        if evidence_record.get("schema_version") != "mstr.research-gate-evidence.v0":
+            errors.append(f"$.hard_gate_results[{index}]: unsupported gate evidence schema_version")
+        for field, expected_evidence_value in (
+            ("governing_task_id", task_id),
+            ("campaign_id", campaign_id),
+            ("experiment_id", experiment_id),
+            ("gate_id", gate_id),
+        ):
+            if evidence_record.get(field) != expected_evidence_value:
+                errors.append(
+                    f"$.hard_gate_results[{index}]: gate evidence {field} must match experiment"
+                )
+        operator = criterion.get("operator")
+        computed: str | None
+        if operator == "EQ_PROMOTED_ARTIFACT":
+            promoted_id = instance.get("promoted_result_id_or_na")
+            material_results = instance.get("material_results")
+            promoted_artifact: Any = None
+            if isinstance(promoted_id, str) and isinstance(material_results, list):
+                for result in material_results:
+                    if isinstance(result, dict) and result.get("result_id") == promoted_id:
+                        promoted_artifact = result.get("model_artifact_sha256_or_na")
+                        break
+            computed = (
+                "PASS"
+                if isinstance(promoted_artifact, str)
+                and promoted_artifact != "N/A"
+                and evidence_record.get("observed_value") == promoted_artifact
+                else "FAIL"
+            )
+        else:
+            computed = _b026_compare_gate_value(
+                operator,
+                evidence_record.get("observed_value"),
+                criterion.get("expected_value"),
+            )
+        if computed is None:
+            errors.append(f"$.hard_gate_results[{index}]: policy criterion cannot be evaluated")
+        elif gate.get("status") != computed:
+            errors.append(
+                f"$.hard_gate_results[{index}].status: submitted status does not match "
+                "predeclared criterion"
+            )
+    return tuple(sorted(errors))
 
 
 def _research_experiment_semantic_errors(
@@ -1145,6 +1344,8 @@ def _research_experiment_semantic_errors(
                                 "$.parent_identity: must equal registry predecessor promoted result"
                             )
 
+    errors.extend(_b026_promotion_policy_errors(instance, repository_root=repository_root))
+
     hard_gates = instance.get("hard_gate_results")
     gate_by_id: dict[str, dict[str, Any]] = {}
     if isinstance(hard_gates, list):
@@ -1189,40 +1390,86 @@ def _research_experiment_semantic_errors(
                         f"$.material_results[{promoted_result_id}].{field}: "
                         "L4 promotion requires a concrete integer identity"
                     )
-            q4_record = instance.get("q4_promotion_record_identity_or_na")
-            if not isinstance(q4_record, str) or q4_record == "N/A":
-                errors.append(
-                    "$.q4_promotion_record_identity_or_na: L4 PROMOTE requires "
-                    "concrete Q4 promotion evidence"
-                )
+            q4_record_identity = instance.get("q4_promotion_record_identity_or_na")
+            q4_digest = _b026_sha256_identity(q4_record_identity)
             artifact_sha = promoted_result.get("model_artifact_sha256_or_na")
-            artifact_gate = gate_by_id.get("q4_artifact_identity")
-            if (
-                isinstance(artifact_sha, str)
-                and artifact_sha != "N/A"
-                and isinstance(artifact_gate, dict)
-                and artifact_gate.get("evidence_identity") != f"sha256:{artifact_sha.lower()}"
-            ):
+            if q4_digest is None:
                 errors.append(
-                    "$.hard_gate_results[q4_artifact_identity].evidence_identity: "
-                    "must bind the promoted Q4 artifact SHA-256"
+                    "$.q4_promotion_record_identity_or_na: L4 PROMOTE requires a "
+                    "sha256-bound Q4 record"
                 )
-            promotion_gate = gate_by_id.get("q4_promotion_record_promoted")
-            if (
-                isinstance(q4_record, str)
-                and q4_record != "N/A"
-                and isinstance(promotion_gate, dict)
-                and promotion_gate.get("evidence_identity") != q4_record
-            ):
-                errors.append(
-                    "$.hard_gate_results[q4_promotion_record_promoted].evidence_identity: "
-                    "must bind q4_promotion_record_identity_or_na"
+            else:
+                q4_path = (
+                    Path("artifacts")
+                    / "results"
+                    / "q4-promotion"
+                    / "registry"
+                    / f"{q4_digest}.json"
                 )
-    if not (
-        promotion_decision == "PROMOTE"
-        and level == "L4_Q4_UNIVERSAL_LAPTOP"
-        and promoted_result is not None
-    ) and instance.get("q4_promotion_record_identity_or_na") != "N/A":
+                loaded_q4 = _b026_repository_json(repository_root, q4_path)
+                if loaded_q4 is None:
+                    errors.append(
+                        "$.q4_promotion_record_identity_or_na: immutable Q4 promotion "
+                        "record missing"
+                    )
+                else:
+                    q4_record, observed_q4_sha = loaded_q4
+                    if observed_q4_sha != q4_digest:
+                        errors.append(
+                            "$.q4_promotion_record_identity_or_na: Q4 record content address "
+                            "mismatch"
+                        )
+                    q4_errors = validation_errors(
+                        "mstr-q4-promotion-v0",
+                        q4_record,
+                        schema_dir=schema_dir,
+                        repository_root=repository_root,
+                    )
+                    if q4_errors:
+                        errors.append(
+                            "$.q4_promotion_record_identity_or_na: referenced Q4 promotion record "
+                            "is invalid"
+                        )
+                    if q4_record.get("promotion_status") != "PROMOTED":
+                        errors.append(
+                            "$.q4_promotion_record_identity_or_na: referenced Q4 record must be "
+                            "PROMOTED"
+                        )
+                    if q4_record.get("canonical_q4_artifact_sha256") != artifact_sha:
+                        errors.append(
+                            "$.q4_promotion_record_identity_or_na: Q4 record artifact must match "
+                            "promoted result"
+                        )
+                    if q4_record.get("universal_laptop_gate_result") != "PASS":
+                        errors.append(
+                            "$.q4_promotion_record_identity_or_na: L4 requires universal-laptop "
+                            "gate PASS"
+                        )
+                    laptop_gate = gate_by_id.get("universal_laptop_product_gates")
+                    if isinstance(laptop_gate, dict) and q4_record.get(
+                        "universal_laptop_gate_evidence_identity"
+                    ) != laptop_gate.get("evidence_identity"):
+                        errors.append(
+                            "$.hard_gate_results[universal_laptop_product_gates]."
+                            "evidence_identity: "
+                            "must match resolved Q4 universal-laptop evidence"
+                        )
+                    promotion_gate = gate_by_id.get("q4_promotion_record_promoted")
+                    if isinstance(promotion_gate, dict) and q4_record.get(
+                        "promotion_decision_evidence_identity"
+                    ) != promotion_gate.get("evidence_identity"):
+                        errors.append(
+                            "$.hard_gate_results[q4_promotion_record_promoted].evidence_identity: "
+                            "must match resolved Q4 promotion-decision evidence"
+                        )
+    if (
+        not (
+            promotion_decision == "PROMOTE"
+            and level == "L4_Q4_UNIVERSAL_LAPTOP"
+            and promoted_result is not None
+        )
+        and instance.get("q4_promotion_record_identity_or_na") != "N/A"
+    ):
         errors.append(
             "$.q4_promotion_record_identity_or_na: only L4 PROMOTE may bind Q4 promotion evidence"
         )
@@ -1354,9 +1601,7 @@ def _research_experiment_semantic_errors(
     authority = instance.get("external_effect_authority")
     if declared_effects:
         if not isinstance(authority, dict):
-            errors.append(
-                "$.external_effect_authority: required when any governed effect is true"
-            )
+            errors.append("$.external_effect_authority: required when any governed effect is true")
         else:
             authority_id = authority.get("authority_id")
             authority_sha = authority.get("authority_record_sha256")
@@ -1416,9 +1661,8 @@ def _research_experiment_semantic_errors(
                                 "scope mismatch"
                             )
                         research_effects = scope.get("research_effects")
-                        if (
-                            not isinstance(research_effects, list)
-                            or not declared_effects.issubset(set(research_effects))
+                        if not isinstance(research_effects, list) or not declared_effects.issubset(
+                            set(research_effects)
                         ):
                             errors.append(
                                 "$.external_effect_authority: canonical authority scope misses "
@@ -1489,9 +1733,7 @@ def _trajectory_manifest_semantic_errors(instance: Any) -> tuple[str, ...]:
             errors.append(
                 "$.verifier_health_binding.task_identity: must match run_identity.task_manifest_id"
             )
-        if verifier_health.get("verifier_manifest_id") != run_identity.get(
-            "verifier_manifest_id"
-        ):
+        if verifier_health.get("verifier_manifest_id") != run_identity.get("verifier_manifest_id"):
             errors.append(
                 "$.verifier_health_binding.verifier_manifest_id: must match "
                 "run_identity.verifier_manifest_id"

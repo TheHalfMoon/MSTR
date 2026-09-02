@@ -1,0 +1,8 @@
+{
+  "schema_version": "mstr.research-gate-evidence.v0",
+  "governing_task_id": "B026",
+  "campaign_id": "b026-fixture-campaign",
+  "experiment_id": "b026-fixture-experiment",
+  "gate_id": "frozen_evaluation_pinned",
+  "observed_value": true
+}

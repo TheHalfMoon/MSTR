@@ -1447,8 +1447,8 @@
         },
         "evidence_identity": {
           "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Content address of an immutable gate-evidence record. The submitted status is recomputed from that record under the predeclared promotion policy."
         },
         "reason": {
           "type": "string",
@@ -1786,51 +1786,18 @@
         },
         {
           "type": "string",
-          "minLength": 1,
-          "maxLength": 1024,
-          "pattern": ".*\\S.*",
-          "not": {
-            "enum": [
-              "N/A",
-              "?",
-              "HEAD",
-              "Head",
-              "LATEST",
-              "Latest",
-              "MAIN",
-              "MASTER",
-              "Main",
-              "Master",
-              "NA",
-              "NONE",
-              "NULL",
-              "Na",
-              "None",
-              "Null",
-              "TBD",
-              "Tbd",
-              "UNKNOWN",
-              "UNSET",
-              "Unknown",
-              "Unset",
-              "head",
-              "latest",
-              "main",
-              "master",
-              "n/a",
-              "na",
-              "none",
-              "null",
-              "tbd",
-              "unknown",
-              "unset"
-            ]
-          }
+          "pattern": "^sha256:[0-9a-f]{64}$"
         }
-      ]
+      ],
+      "description": "For L4 PROMOTE, content address of an immutable mstr.q4-promotion.v0 record; literal N/A everywhere else."
     },
     "governed_effects": {
       "$ref": "#/$defs/governed_effects"
+    },
+    "promotion_policy_identity": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Content address of the immutable predeclared promotion-policy record."
     }
   },
   "required": [
@@ -1844,6 +1811,7 @@
     "mutation_identity",
     "frozen_evaluation_identity",
     "fidelity_level",
+    "promotion_policy_identity",
     "promoted_result_id_or_na",
     "q4_promotion_record_identity_or_na",
     "predecessor_promotion",
