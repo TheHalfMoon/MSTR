@@ -34,6 +34,9 @@ def test_material_result_identity_requires_every_exact_or_na_field() -> None:
         "model_id_or_na",
         "model_revision_or_na",
         "model_artifact_sha256_or_na",
+        "evidence_kind",
+        "data_identity_or_na",
+        "difficulty_identity_or_na",
         "tokenizer_id_or_na",
         "tokenizer_revision_or_na",
         "quantization_method_or_na",
@@ -198,6 +201,7 @@ def test_research_experiment_l1_requires_immediate_same_lineage_predecessor() ->
 
     predecessor = _predecessor("L0_CONTRACT_SMOKE", current=fixture)
     fixture["predecessor_promotion"] = predecessor
+    _set_required_gates(fixture, "L1_CODE_PROXY")
     validate_instance("mstr-research-experiment-v2", fixture)
 
     predecessor["campaign_id"] = "other-campaign"
@@ -250,5 +254,141 @@ def test_research_experiment_enforces_material_count_and_declared_budgets() -> N
     results.append(second)
     budget["max_material_results"] = 1
     aggregate["material_result_count"] = 2
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-research-experiment-v2", fixture)
+
+
+def _required_gate_ids(level: str) -> list[str]:
+    config = _json(CONFIG)
+    levels = config["levels"]
+    assert isinstance(levels, list)
+    for item in levels:
+        assert isinstance(item, dict)
+        if item["level"] == level:
+            gate_ids = item["required_gate_ids"]
+            assert isinstance(gate_ids, list)
+            return [str(value) for value in gate_ids]
+    raise AssertionError(level)
+
+
+def _set_required_gates(fixture: dict[str, object], level: str) -> None:
+    fixture["hard_gate_results"] = [
+        {
+            "gate_id": gate_id,
+            "status": "PASS",
+            "evidence_identity": f"fixture:{gate_id}",
+            "reason": "Required hard gate passed.",
+        }
+        for gate_id in _required_gate_ids(level)
+    ]
+
+
+def test_training_evidence_requires_data_and_difficulty_identity() -> None:
+    fixture = _json(FIXTURES / "valid" / "mstr-material-result-identity-v0.json")
+    fixture["evidence_kind"] = "TRAINING_EVIDENCE"
+    fixture["data_identity_or_na"] = "N/A"
+    fixture["difficulty_identity_or_na"] = "N/A"
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-material-result-identity-v0", fixture)
+
+    fixture["data_identity_or_na"] = "data-manifest:fixture-v1"
+    fixture["difficulty_identity_or_na"] = "difficulty-calibration:fixture-v1"
+    validate_instance("mstr-material-result-identity-v0", fixture)
+
+
+def test_promotion_requires_exact_per_level_gate_coverage() -> None:
+    for index, level in enumerate(LEVELS):
+        fixture = _valid_research_experiment()
+        fixture["fidelity_level"] = level
+        if index == 0:
+            fixture["predecessor_promotion"] = None
+        else:
+            fixture["parent_identity"] = "result:predecessor-promoted"
+            fixture["predecessor_promotion"] = _predecessor(LEVELS[index - 1], current=fixture)
+        _set_required_gates(fixture, level)
+        validate_instance("mstr-research-experiment-v2", fixture)
+
+        gates = fixture["hard_gate_results"]
+        assert isinstance(gates, list)
+        removed = gates.pop()
+        with pytest.raises(ValueError, match="validation failed"):
+            validate_instance("mstr-research-experiment-v2", fixture)
+        gates.append(removed)
+
+        gates.append(
+            {
+                "gate_id": "invented_gate",
+                "status": "PASS",
+                "evidence_identity": "fixture:invented",
+                "reason": "Must not satisfy promotion.",
+            }
+        )
+        with pytest.raises(ValueError, match="validation failed"):
+            validate_instance("mstr-research-experiment-v2", fixture)
+
+
+def test_external_effect_records_require_canonical_authority_binding_and_ceilings() -> None:
+    fixture = _valid_research_experiment()
+    budget = fixture["budget"]
+    aggregate = fixture["aggregate_resource_cost"]
+    results = fixture["material_results"]
+    assert isinstance(budget, dict)
+    assert isinstance(aggregate, dict)
+    assert isinstance(results, list)
+    result = results[0]
+    assert isinstance(result, dict)
+    resource_cost = result["resource_cost"]
+    assert isinstance(resource_cost, dict)
+
+    budget["resource_class"] = "EXTERNAL_EFFECT_REQUIRES_SEPARATE_AUTHORITY"
+    budget["max_paid_cost_usd"] = 2
+    aggregate["resource_class"] = "AUTHORIZED_EXTERNAL_EFFECT"
+    aggregate["paid_cost_usd"] = 1
+    result["paid_cost_usd"] = 1
+    resource_cost["cost_class"] = "AUTHORIZED_REMOTE_COMPUTE"
+    resource_cost["network_bytes_or_na"] = 128
+    fixture["external_effect_authority"] = {
+        "authority_id": "authority:fixture-external-effect",
+        "authority_record_sha256": "a" * 64,
+        "canonical_evidence_identity": "evidence:fixture-authority",
+        "authorized_scopes": ["PAID_COMPUTE", "REMOTE_COMPUTE", "NETWORK"],
+        "max_paid_cost_usd": 2,
+        "max_wall_time_seconds": 60,
+        "max_material_results": 4,
+        "resource_class": "AUTHORIZED_EXTERNAL_EFFECT",
+    }
+    validate_instance("mstr-research-experiment-v2", fixture)
+
+    fixture["external_effect_authority"] = None
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-research-experiment-v2", fixture)
+
+    authority = {
+        "authority_id": "authority:fixture-external-effect",
+        "authority_record_sha256": "a" * 64,
+        "canonical_evidence_identity": "evidence:fixture-authority",
+        "authorized_scopes": ["REMOTE_COMPUTE", "NETWORK"],
+        "max_paid_cost_usd": 0.5,
+        "max_wall_time_seconds": 60,
+        "max_material_results": 4,
+        "resource_class": "AUTHORIZED_EXTERNAL_EFFECT",
+    }
+    fixture["external_effect_authority"] = authority
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-research-experiment-v2", fixture)
+
+
+def test_non_external_record_rejects_self_asserted_authority() -> None:
+    fixture = _valid_research_experiment()
+    fixture["external_effect_authority"] = {
+        "authority_id": "authority:unused",
+        "authority_record_sha256": "b" * 64,
+        "canonical_evidence_identity": "evidence:unused",
+        "authorized_scopes": ["PAID_COMPUTE"],
+        "max_paid_cost_usd": 1,
+        "max_wall_time_seconds": 60,
+        "max_material_results": 4,
+        "resource_class": "AUTHORIZED_EXTERNAL_EFFECT",
+    }
     with pytest.raises(ValueError, match="validation failed"):
         validate_instance("mstr-research-experiment-v2", fixture)

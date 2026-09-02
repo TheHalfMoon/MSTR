@@ -12,7 +12,10 @@
     "frozen_evaluation_identity_required": true,
     "task_eligibility_never_grants_external_effect_authority": true,
     "predecessor_promotion_evidence_required": true,
-    "declared_budgets_semantically_enforced": true
+    "declared_budgets_semantically_enforced": true,
+    "required_gate_coverage_semantically_enforced": true,
+    "external_effect_authority_binding_required": true,
+    "training_evidence_data_difficulty_identity_required": true
   },
   "levels": [
     {
@@ -38,6 +41,13 @@
         "evaluation identity missing or mutable",
         "protected evaluator or authority boundary violation",
         "declared budget exceeded"
+      ],
+      "required_gate_ids": [
+        "contracts_config_valid",
+        "l0_smoke_checks",
+        "frozen_evaluation_pinned",
+        "material_identity_complete",
+        "authority_boundary_intact"
       ]
     },
     {
@@ -63,6 +73,13 @@
         "frozen-evaluation regression beyond declared tolerance",
         "missing material-result identity",
         "declared budget exceeded"
+      ],
+      "required_gate_ids": [
+        "predecessor_promoted",
+        "code_proxy_thresholds",
+        "frozen_eval_tolerance",
+        "material_identity_complete",
+        "task_verifier_sampling_runtime_identity"
       ]
     },
     {
@@ -90,6 +107,13 @@
         "shortcut or protected-path violation",
         "missing material-result identity",
         "declared budget exceeded"
+      ],
+      "required_gate_ids": [
+        "predecessor_promoted",
+        "executable_repo_acceptance",
+        "verifier_health",
+        "shortcut_leakage_protection",
+        "environment_runtime_task_verifier_identity"
       ]
     },
     {
@@ -117,6 +141,13 @@
         "product hard gate regresses",
         "missing material-result identity",
         "declared budget exceeded"
+      ],
+      "required_gate_ids": [
+        "predecessor_promoted",
+        "direction_to_done_acceptance",
+        "hidden_acceptance_immutable",
+        "product_regression_clear",
+        "contract_harness_task_verifier_identity"
       ]
     },
     {
@@ -144,6 +175,13 @@
         "required Q4PromotionRecord absent or not PROMOTED",
         "missing material-result identity",
         "declared budget exceeded"
+      ],
+      "required_gate_ids": [
+        "predecessor_promoted",
+        "q4_artifact_identity",
+        "quantizer_runtime_hardware_identity",
+        "universal_laptop_product_gates",
+        "q4_promotion_record_promoted"
       ]
     }
   ],

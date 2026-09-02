@@ -1205,11 +1205,121 @@
     "paid_cost_usd": {
       "type": "number",
       "minimum": 0
+    },
+    "evidence_kind": {
+      "enum": [
+        "CONTRACT_ONLY",
+        "EVALUATION",
+        "TRAINING_EVIDENCE"
+      ]
+    },
+    "data_identity_or_na": {
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
+    },
+    "difficulty_identity_or_na": {
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
     }
   },
   "required": [
     "schema_version",
     "result_id",
+    "evidence_kind",
+    "data_identity_or_na",
+    "difficulty_identity_or_na",
     "model_id_or_na",
     "model_revision_or_na",
     "model_artifact_sha256_or_na",
@@ -1282,6 +1392,32 @@
         "properties": {
           "invalidation_reason_or_na": {
             "const": "N/A"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_kind": {
+            "const": "TRAINING_EVIDENCE"
+          }
+        },
+        "required": [
+          "evidence_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data_identity_or_na": {
+            "not": {
+              "const": "N/A"
+            }
+          },
+          "difficulty_identity_or_na": {
+            "not": {
+              "const": "N/A"
+            }
           }
         }
       }

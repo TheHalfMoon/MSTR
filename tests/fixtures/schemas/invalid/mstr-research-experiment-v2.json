@@ -59,15 +59,42 @@
         "peak_ram_bytes_or_na": "N/A"
       },
       "paid_cost_usd": 0,
-      "invalidation_reason_or_na": "N/A"
+      "invalidation_reason_or_na": "N/A",
+      "evidence_kind": "CONTRACT_ONLY",
+      "data_identity_or_na": "N/A",
+      "difficulty_identity_or_na": "N/A"
     }
   ],
   "hard_gate_results": [
     {
-      "gate_id": "identity-complete",
+      "gate_id": "contracts_config_valid",
       "status": "FAIL",
-      "evidence_identity": "fixture:identity-complete",
-      "reason": "All required identities are present or explicit N/A."
+      "evidence_identity": "fixture:contracts_config_valid",
+      "reason": "Intentional invalid fixture gate failure."
+    },
+    {
+      "gate_id": "l0_smoke_checks",
+      "status": "PASS",
+      "evidence_identity": "fixture:l0_smoke_checks",
+      "reason": "Required L0 hard gate passed."
+    },
+    {
+      "gate_id": "frozen_evaluation_pinned",
+      "status": "PASS",
+      "evidence_identity": "fixture:frozen_evaluation_pinned",
+      "reason": "Required L0 hard gate passed."
+    },
+    {
+      "gate_id": "material_identity_complete",
+      "status": "PASS",
+      "evidence_identity": "fixture:material_identity_complete",
+      "reason": "Required L0 hard gate passed."
+    },
+    {
+      "gate_id": "authority_boundary_intact",
+      "status": "PASS",
+      "evidence_identity": "fixture:authority_boundary_intact",
+      "reason": "Required L0 hard gate passed."
     }
   ],
   "promotion_decision": "PROMOTE",
@@ -77,5 +104,6 @@
     "material_result_count": 1,
     "paid_cost_usd": 0,
     "resource_class": "CONTRACT_ONLY"
-  }
+  },
+  "external_effect_authority": null
 }

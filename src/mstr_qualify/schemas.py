@@ -749,6 +749,43 @@ _B026_FIDELITY_LEVELS = (
     "L3_DIRECTION_TO_DONE",
     "L4_Q4_UNIVERSAL_LAPTOP",
 )
+_B026_REQUIRED_GATE_IDS: Mapping[str, tuple[str, ...]] = {
+    "L0_CONTRACT_SMOKE": (
+        "contracts_config_valid",
+        "l0_smoke_checks",
+        "frozen_evaluation_pinned",
+        "material_identity_complete",
+        "authority_boundary_intact",
+    ),
+    "L1_CODE_PROXY": (
+        "predecessor_promoted",
+        "code_proxy_thresholds",
+        "frozen_eval_tolerance",
+        "material_identity_complete",
+        "task_verifier_sampling_runtime_identity",
+    ),
+    "L2_EXECUTABLE_REPO": (
+        "predecessor_promoted",
+        "executable_repo_acceptance",
+        "verifier_health",
+        "shortcut_leakage_protection",
+        "environment_runtime_task_verifier_identity",
+    ),
+    "L3_DIRECTION_TO_DONE": (
+        "predecessor_promoted",
+        "direction_to_done_acceptance",
+        "hidden_acceptance_immutable",
+        "product_regression_clear",
+        "contract_harness_task_verifier_identity",
+    ),
+    "L4_Q4_UNIVERSAL_LAPTOP": (
+        "predecessor_promoted",
+        "q4_artifact_identity",
+        "quantizer_runtime_hardware_identity",
+        "universal_laptop_product_gates",
+        "q4_promotion_record_promoted",
+    ),
+}
 _B026_IDENTITY_OR_NA_FIELDS = (
     "model_id_or_na",
     "model_revision_or_na",
@@ -768,6 +805,8 @@ _B026_IDENTITY_OR_NA_FIELDS = (
     "harness_profile_id_or_na",
     "verifier_health_id_or_na",
     "sampling_config_id_or_na",
+    "data_identity_or_na",
+    "difficulty_identity_or_na",
     "invalidation_reason_or_na",
 )
 
@@ -883,6 +922,16 @@ def _research_experiment_semantic_errors(instance: Any) -> tuple[str, ...]:
         ]
         if len(gate_ids) != len(set(gate_ids)):
             errors.append("$.hard_gate_results: gate_id values must be unique")
+        if (
+            instance.get("promotion_decision") == "PROMOTE"
+            and isinstance(level, str)
+            and level in _B026_REQUIRED_GATE_IDS
+        ):
+            expected_gate_ids = _B026_REQUIRED_GATE_IDS[level]
+            if set(gate_ids) != set(expected_gate_ids) or len(gate_ids) != len(expected_gate_ids):
+                errors.append(
+                    "$.hard_gate_results: PROMOTE requires exact per-level required gate coverage"
+                )
 
     budget = instance.get("budget")
     aggregate = instance.get("aggregate_resource_cost")
@@ -948,6 +997,113 @@ def _research_experiment_semantic_errors(instance: Any) -> tuple[str, ...]:
                 "$.aggregate_resource_cost.resource_class: "
                 "LOCAL_BOUNDED budget cannot record authorized external effect"
             )
+
+    authority = instance.get("external_effect_authority")
+    external_effect = False
+    required_scopes: set[str] = set()
+    if isinstance(budget, dict) and budget.get("resource_class") == (
+        "EXTERNAL_EFFECT_REQUIRES_SEPARATE_AUTHORITY"
+    ):
+        external_effect = True
+    if isinstance(aggregate, dict):
+        if aggregate.get("resource_class") == "AUTHORIZED_EXTERNAL_EFFECT":
+            external_effect = True
+        aggregate_paid = aggregate.get("paid_cost_usd")
+        if (
+            isinstance(aggregate_paid, (int, float))
+            and not isinstance(aggregate_paid, bool)
+            and aggregate_paid > 0
+        ):
+            external_effect = True
+            required_scopes.add("PAID_COMPUTE")
+    if isinstance(material_results, list):
+        for result in material_results:
+            if not isinstance(result, dict):
+                continue
+            resource_cost = result.get("resource_cost")
+            if isinstance(resource_cost, dict):
+                if resource_cost.get("cost_class") == "AUTHORIZED_REMOTE_COMPUTE":
+                    external_effect = True
+                    required_scopes.add("REMOTE_COMPUTE")
+                    if result.get("model_id_or_na") != "N/A":
+                        required_scopes.add("MODEL_EXECUTION")
+                network_bytes = resource_cost.get("network_bytes_or_na")
+                if (
+                    isinstance(network_bytes, int)
+                    and not isinstance(network_bytes, bool)
+                    and network_bytes > 0
+                ):
+                    external_effect = True
+                    required_scopes.add("NETWORK")
+            result_paid = result.get("paid_cost_usd")
+            if (
+                isinstance(result_paid, (int, float))
+                and not isinstance(result_paid, bool)
+                and result_paid > 0
+            ):
+                external_effect = True
+                required_scopes.add("PAID_COMPUTE")
+
+    if external_effect:
+        if not isinstance(authority, dict):
+            errors.append(
+                "$.external_effect_authority: required for any external-effect "
+                "resource class or cost"
+            )
+        else:
+            for field in ("authority_id", "canonical_evidence_identity"):
+                if _is_ambiguous_identity(authority.get(field)):
+                    errors.append(
+                        f"$.external_effect_authority.{field}: must bind concrete "
+                        "canonical authority"
+                    )
+            scopes = authority.get("authorized_scopes")
+            if isinstance(scopes, list) and not required_scopes.issubset(set(scopes)):
+                errors.append(
+                    "$.external_effect_authority.authorized_scopes: missing scope "
+                    "required by recorded effect"
+                )
+            if isinstance(budget, dict):
+                for field, authority_field in (
+                    ("max_wall_time_seconds", "max_wall_time_seconds"),
+                    ("max_material_results", "max_material_results"),
+                    ("max_paid_cost_usd", "max_paid_cost_usd"),
+                ):
+                    declared = budget.get(field)
+                    ceiling = authority.get(authority_field)
+                    if (
+                        isinstance(declared, (int, float))
+                        and not isinstance(declared, bool)
+                        and isinstance(ceiling, (int, float))
+                        and not isinstance(ceiling, bool)
+                        and declared > ceiling
+                    ):
+                        errors.append(
+                            f"$.budget.{field}: exceeds canonical external-effect authority ceiling"
+                        )
+            if isinstance(aggregate, dict):
+                for field, authority_field in (
+                    ("wall_time_seconds", "max_wall_time_seconds"),
+                    ("material_result_count", "max_material_results"),
+                    ("paid_cost_usd", "max_paid_cost_usd"),
+                ):
+                    actual = aggregate.get(field)
+                    ceiling = authority.get(authority_field)
+                    if (
+                        isinstance(actual, (int, float))
+                        and not isinstance(actual, bool)
+                        and isinstance(ceiling, (int, float))
+                        and not isinstance(ceiling, bool)
+                        and actual > ceiling
+                    ):
+                        errors.append(
+                            f"$.aggregate_resource_cost.{field}: exceeds canonical "
+                            "authority ceiling"
+                        )
+    elif authority is not None:
+        errors.append(
+            "$.external_effect_authority: must be null when no external effect is recorded"
+        )
 
     return tuple(sorted(errors))
 

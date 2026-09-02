@@ -75,3 +75,10 @@ Fresh independent CodeRabbit review comment `5508683112` reviewed exact implemen
 The repair adds explicit CLI dispatch/tests, concrete identity rejection, SHA-256 shape enforcement, an explicit `predecessor_promotion` binding, immediate-predecessor/same-campaign/frozen-evaluation/parent-result semantic validation, material-result count checks, and declared budget ceilings. The task ledger and task-gate canonical state remain unchanged while B026 is implementation-active.
 
 No review finding is considered resolved merely by this text. Resolution requires a successful guarded repair build, fresh exact-head qualification, and a fresh independent review of the repaired head. The authority boundary below remains unchanged.
+
+
+## Codex review reconciliation — exact old head
+
+Codex review `PRR_kwDOUCYTYs8AAAABL1K_JQ` on historical head `a2414b1bf58a5bce3a69ee965e74d8ac9d0ba7a8` produced six actionable threads. The first repair at `45d9f9f0ded97ebd482c29d419d2ff41bd9e940a` closed predecessor adjacency, declared-budget enforcement, and SHA-256 identity semantics. This repair closes the remaining contract gaps by freezing exact per-level required gate IDs, binding any recorded external effect to an immutable separately canonical authority reference with scope/ceiling checks, and requiring concrete data/difficulty identity for `TRAINING_EVIDENCE`.
+
+The external-effect authority object is evidence about authority granted elsewhere. It is not an authority grant. B026 remains contract/configuration only.

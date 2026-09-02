@@ -344,6 +344,9 @@ MaterialResultIdentity
 - verifier_manifest_id
 - verifier_health_id_or_na
 - sampling_config_id_or_na
+- data_identity_or_na
+- difficulty_identity_or_na
+- evidence_kind
 - seed_or_na
 - result_classification
 - metrics
@@ -374,6 +377,7 @@ ResearchExperimentRecordV2
 - promotion_decision
 - decision_reason
 - aggregate_resource_cost
+- external_effect_authority
 ```
 
 Fidelity:
@@ -386,7 +390,7 @@ L3_DIRECTION_TO_DONE
 L4_Q4_UNIVERSAL_LAPTOP
 ```
 
-`predecessor_promotion` is `null` only at L0. L1-L4 MUST bind an immediate-predecessor `PROMOTE` record from the same campaign and frozen evaluation identity, including the promoted result identity and immutable evidence identity; the current `parent_identity` MUST equal that promoted result identity. Material-result count and aggregate wall-time/paid-cost MUST remain within the predeclared budget. Missing or contradictory predecessor/budget evidence fails closed.
+`predecessor_promotion` is `null` only at L0. L1-L4 MUST bind an immediate-predecessor `PROMOTE` record from the same campaign and frozen evaluation identity, including the promoted result identity and immutable evidence identity; the current `parent_identity` MUST equal that promoted result identity. Material-result count and aggregate wall-time/paid-cost MUST remain within the predeclared budget. Missing or contradictory predecessor/budget evidence fails closed. `PROMOTE` also requires exact machine-readable gate coverage for the selected fidelity level. Training evidence requires concrete data and checkpoint-relative difficulty identities. Any external-effect resource class or cost requires an immutable reference to a separately canonical authority record plus scope and ceiling checks; the research record never creates that authority.
 
 ## 15. TrainingMethodCell
 
