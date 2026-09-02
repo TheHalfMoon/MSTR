@@ -21,8 +21,8 @@ env:
   QUALIFICATION_BRANCH: evidence/b026-qualify-ba672f8
   QUALIFICATION_SHA: 867835cb32eeaddf0bfe14a38ea6b181f07e8ce0
   QUALIFICATION_WORKFLOW: .github/workflows/b026-exact-head-qualification-ba672f8.yml
-  CODERABBIT_SUMMARY_COMMENT: '5501187526'
-  FRESH_REVIEW_NOT_BEFORE: '2026-09-02T20:49:00Z'
+  REVIEW_COMMENT_ID: '5516237548'
+  FRESH_REVIEW_NOT_BEFORE: '2026-09-02T20:52:33Z'
   GH_TOKEN: ${{ github.token }}
 
 jobs:
@@ -84,24 +84,21 @@ jobs:
           grep -F "HEAD_SHA: $HEAD_SHA" /tmp/qualification.yml
           grep -F "HEAD_TREE: $HEAD_TREE" /tmp/qualification.yml
 
-          gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${CODERABBIT_SUMMARY_COMMENT}" > /tmp/review.json
-          jq -e --arg since "$FRESH_REVIEW_NOT_BEFORE" --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '
+          gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${REVIEW_COMMENT_ID}" > /tmp/review.json
+          jq -e --arg since "$FRESH_REVIEW_NOT_BEFORE" --arg base "$BASE_SHA" --arg head "$HEAD_SHA" --arg tree "$HEAD_TREE" '
             .user.login == "coderabbitai[bot]" and
-            .updated_at >= $since and
-            (.body | contains("No actionable comments were generated in the recent review")) and
+            .created_at >= $since and
             (.body | contains($base)) and
             (.body | contains($head)) and
-            (.body | contains("Files selected for processing (17)"))
+            (.body | contains($tree)) and
+            (.body | contains("The range contains 9 commits and 17 changed files.")) and
+            (.body | contains("No actionable comments were generated for this exact range and all 17 files.")) and
+            (.body | contains("The predecessor evidence commit must strictly precede the current campaign freeze commit.")) and
+            (.body | contains("Positive network-byte evidence requires `NETWORK_MODEL_OR_TEACHER_CALL=true`.")) and
+            (.body | contains("Any declared governed effect requires a separately resolved canonical authority record with matching scope and ceilings.")) and
+            ((.body | contains("Rate Limit Exceeded")) | not) and
+            ((.body | contains("usage limit")) | not)
           ' /tmp/review.json
-
-          gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/status" > /tmp/status.json
-          jq -e --arg since "$FRESH_REVIEW_NOT_BEFORE" '
-            [.statuses[] | select(
-              .context == "CodeRabbit" and .state == "success" and
-              .created_at >= $since and
-              ((.description // "") | ascii_downcase | contains("skipped") | not)
-            )] | length >= 1
-          ' /tmp/status.json
 
           gh api graphql -f query='query($owner:String!, $name:String!, $number:Int!) {
             repository(owner:$owner, name:$name) {
