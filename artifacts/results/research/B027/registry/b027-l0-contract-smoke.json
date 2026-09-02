@@ -1,0 +1,135 @@
+{
+  "aggregate_resource_cost": {
+    "material_result_count": 1,
+    "paid_cost_usd": 0,
+    "resource_class": "CONTRACT_ONLY",
+    "wall_time_seconds": 0.01
+  },
+  "budget": {
+    "budget_id": "b027-offline-zero-cost-v0",
+    "max_material_results": 2,
+    "max_paid_cost_usd": 0,
+    "max_wall_time_seconds": 120,
+    "resource_class": "CONTRACT_ONLY"
+  },
+  "campaign_freeze_commit_sha_or_na": "361779333904362e456d99389dd64ec78306643b",
+  "campaign_id": "b027-offline-ladder-pilot-v0",
+  "canonical_evidence_commit_sha_or_na": "b644f07801cd46439a7fc2844429a62c7ace6058",
+  "decision_reason": "All required L0 gates passed under the frozen offline evaluator.",
+  "experiment_id": "b027-l0-contract-smoke",
+  "external_effect_authority": null,
+  "fidelity_level": "L0_CONTRACT_SMOKE",
+  "frozen_evaluation_identity": "sha256:7555257171e97989a007248a7ef90c77e8cd7f0cec230d36c7ded14d824fb1ab",
+  "governed_effects": {
+    "GATED_TERMS_ACCEPTANCE": false,
+    "LARGE_DATASET_INGESTION": false,
+    "LARGE_SCALE_RL": false,
+    "LONG_TRAINING": false,
+    "MODEL_EXECUTION": false,
+    "MODEL_WEIGHT_ACCESS": false,
+    "NETWORK_MODEL_OR_TEACHER_CALL": false,
+    "PAID_COMPUTE": false,
+    "PAID_MODEL_API_EXECUTION": false,
+    "PRODUCTION_RELEASE": false,
+    "RENTED_COMPUTE": false,
+    "WEIGHT_CHANGING_TRAINING": false
+  },
+  "governing_task_id": "B027",
+  "hard_gate_results": [
+    {
+      "evidence_identity": "sha256:d9380778d475afaf59fb54f077ba6cbff00702fb0c2bc64ae1bd3456d5304d33",
+      "gate_id": "contracts_config_valid",
+      "reason": "Required gate passed under frozen evaluator.",
+      "status": "PASS"
+    },
+    {
+      "evidence_identity": "sha256:8543b44cbb79f3824a1edb9767f10be06743f4ab37ce5f5d3f81de8867724a90",
+      "gate_id": "l0_smoke_checks",
+      "reason": "Required gate passed under frozen evaluator.",
+      "status": "PASS"
+    },
+    {
+      "evidence_identity": "sha256:3678ddea06d1b743e96d6573a8f29a042f2bd269228d8049510af271a5b4a6eb",
+      "gate_id": "frozen_evaluation_pinned",
+      "reason": "Required gate passed under frozen evaluator.",
+      "status": "PASS"
+    },
+    {
+      "evidence_identity": "sha256:22e0333f6a39853156667611629920ff2e7f517bf2f6312c2332ee24140c59cb",
+      "gate_id": "material_identity_complete",
+      "reason": "Required gate passed under frozen evaluator.",
+      "status": "PASS"
+    },
+    {
+      "evidence_identity": "sha256:1a7270b52b4b3679429a095d493a7e84816e6a66dfceac3c0c3a40d2e937db86",
+      "gate_id": "authority_boundary_intact",
+      "reason": "Required gate passed under frozen evaluator.",
+      "status": "PASS"
+    }
+  ],
+  "hypothesis": "The frozen ladder promotes a clean offline L0 contract smoke.",
+  "material_results": [
+    {
+      "acceleration_backend_or_na": "N/A",
+      "cache_state_or_na": "N/A",
+      "context_length_or_na": "N/A",
+      "cpu_identity_or_na": "N/A",
+      "data_identity_or_na": "N/A",
+      "difficulty_identity_or_na": "N/A",
+      "evidence_kind": "CONTRACT_ONLY",
+      "harness_profile_id_or_na": "b027-offline-ladder-pilot-v0",
+      "interaction_contract_version_or_na": "N/A",
+      "invalidation_reason_or_na": "N/A",
+      "loop_contract_version_or_na": "N/A",
+      "metrics": {
+        "checks_passed": 5,
+        "checks_total": 5,
+        "controlled_regression_detected": 0
+      },
+      "model_artifact_sha256_or_na": "N/A",
+      "model_artifact_size_bytes_or_na": "N/A",
+      "model_execution_count_or_na": 0,
+      "model_id_or_na": "N/A",
+      "model_revision_or_na": "N/A",
+      "network_model_or_teacher_call_count_or_na": 0,
+      "os_identity_or_na": "ubuntu-24.04",
+      "paid_cost_usd": 0,
+      "quantization_method_or_na": "N/A",
+      "quantizer_tool_revision_or_na": "N/A",
+      "resource_cost": {
+        "accelerator_seconds_or_na": "N/A",
+        "cost_class": "NO_EXTERNAL_EFFECT",
+        "cpu_seconds_or_na": 0.01,
+        "network_bytes_or_na": 0,
+        "peak_ram_bytes_or_na": "N/A"
+      },
+      "result_classification": "PASS",
+      "result_id": "b027-l0-contract-smoke-result",
+      "runtime_build_flags_or_na": "N/A",
+      "runtime_id_or_na": "python",
+      "runtime_version_or_commit_or_na": "3.11",
+      "sampling_config_id_or_na": "N/A",
+      "schema_version": "mstr.material-result-identity.v0",
+      "seed_or_na": 0,
+      "task_manifest_id": "B027-bounded-offline-ladder-pilot",
+      "thread_count_or_na": "N/A",
+      "tokenizer_id_or_na": "N/A",
+      "tokenizer_revision_or_na": "N/A",
+      "total_ram_bytes_or_na": "N/A",
+      "verifier_health_id_or_na": "N/A",
+      "verifier_manifest_id": "b027-content-addressed-offline-evaluator-v0",
+      "wall_time_seconds_or_na": 0.01
+    }
+  ],
+  "mutable_surface": "repository-owned contract/config smoke",
+  "mutation_identity": "b027-mutation:none",
+  "parent_identity": "repository:312d40eee8400a0dab94633f891b206f66a82855",
+  "predecessor_promotion": null,
+  "promoted_result_id_or_na": "b027-l0-contract-smoke-result",
+  "promotion_decision": "PROMOTE",
+  "promotion_policy_identity": "sha256:2bfe60fd90513e9e829acea91e955813d9e465afc9d4b65a8067f38d9d7d6d1b",
+  "q4_candidate_binding_identity_or_na": "N/A",
+  "q4_promotion_record_identity_or_na": "N/A",
+  "record_mode": "CAMPAIGN_RESULT",
+  "schema_version": "mstr.research-experiment.v2"
+}
