@@ -151,7 +151,8 @@ jobs:
               'predecessor_evidence_sha = predecessor_record.get(',
               '"canonical_evidence_commit_sha_or_na"',
               '_b026_strictly_precedes( repository_root, predecessor_evidence_sha, freeze_commit_sha, )',
-              'predecessor canonical evidence must strictly precede current campaign freeze',
+              'predecessor canonical evidence must',
+              'strictly precede current campaign freeze',
           )
           missing = [marker for marker in required_source if marker not in normalized]
           if missing:
