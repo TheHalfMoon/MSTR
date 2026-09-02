@@ -166,10 +166,10 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          source = " ".join(Path("src/mstr_qualify/schemas.py").read_text(encoding="utf-8").split())
-          markers = (
+          source = Path("src/mstr_qualify/schemas.py").read_text(encoding="utf-8")
+          normalized = " ".join(source.split())
+          prose_markers = (
               "canonical-main-ancestor Git blob",
-              "strict canonical-main ancestor of the evidence commit",
               "mstr.research-gate-evidence.v1",
               "underlying verifier evidence missing",
               "MODEL_EXECUTION",
@@ -177,9 +177,18 @@ jobs:
               "8 GB reference RAM envelope",
               "8K reference context",
               "at or below 3 GB",
-              "model_id must match promoted result",
           )
-          missing = [marker for marker in markers if marker not in source]
+          missing = [marker for marker in prose_markers if marker not in normalized]
+          structural_markers = (
+              'if not _b026_strictly_precedes(repository_root, freeze_commit_sha, evidence_commit_sha):',
+              'canonical_commit_sha=freeze_commit_sha',
+              'canonical_commit_sha=evidence_commit_sha',
+              'binding.get("model_id") != promoted_result.get("model_id_or_na")',
+              'binding.get("model_revision") != promoted_result.get("model_revision_or_na")',
+              '"source_checkpoint_sha256"',
+              '"canonical_q4_artifact_sha256"',
+          )
+          missing.extend(marker for marker in structural_markers if marker not in normalized)
           if missing:
               raise SystemExit(f"missing semantic proof markers: {missing}")
           PY
