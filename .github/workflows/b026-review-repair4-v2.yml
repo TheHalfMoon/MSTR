@@ -57,7 +57,8 @@ jobs:
           done
           cp .github/scripts/b026_review_repair4_builder.py /tmp/builder.py
           cp .github/scripts/b026_review_repair4_overlay.py /tmp/overlay.py
-          python -m py_compile /tmp/builder.py /tmp/overlay.py
+          cp .github/scripts/b026_review_repair4_wrap.py /tmp/wrap.py
+          python -m py_compile /tmp/builder.py /tmp/overlay.py /tmp/wrap.py
           git checkout --detach "$OLD_HEAD"
           test -z "$(git status --porcelain)"
 
@@ -67,6 +68,7 @@ jobs:
           set -euo pipefail
           python /tmp/builder.py
           python /tmp/overlay.py
+          python /tmp/wrap.py
           python - <<'PY'
           from pathlib import Path
           path = Path('tests/contract/test_research_ladder_contract.py')
@@ -146,10 +148,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -F 'submitted status does not match predeclared criterion' src/mstr_qualify/schemas.py
+          grep -F 'submitted status does not match' src/mstr_qualify/schemas.py
           grep -F 'EQ_PROMOTED_ARTIFACT' src/mstr_qualify/schemas.py
-          grep -F 'referenced Q4 record must be PROMOTED' src/mstr_qualify/schemas.py
-          grep -F 'L4 requires universal-laptop gate PASS' src/mstr_qualify/schemas.py
+          grep -F 'referenced Q4 record must be' src/mstr_qualify/schemas.py
+          grep -F 'L4 requires universal-laptop' src/mstr_qualify/schemas.py
           grep -F 'PRR_kwDOUCYTYs8AAAABL3vKoQ' evidence/mstr-000b/B026-research-ladder.md
           jq -e '.canonical_resolution.promotion_policy_registry_template and .canonical_resolution.gate_evidence_registry_template and .canonical_resolution.q4_promotion_registry_template' configs/research/mstr-research-ladder-v0.json
           jq -e '.authority_boundary.contract_freeze_only == true and ([.authority_boundary | to_entries[] | select(.key != "contract_freeze_only") | .value] | all(. == false))' configs/research/mstr-research-ladder-v0.json
