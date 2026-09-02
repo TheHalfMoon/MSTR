@@ -1538,238 +1538,17 @@
         "experiment_id": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 256,
-          "pattern": ".*\\S.*",
-          "not": {
-            "enum": [
-              "N/A",
-              "?",
-              "HEAD",
-              "Head",
-              "LATEST",
-              "Latest",
-              "MAIN",
-              "MASTER",
-              "Main",
-              "Master",
-              "NA",
-              "NONE",
-              "NULL",
-              "Na",
-              "None",
-              "Null",
-              "TBD",
-              "Tbd",
-              "UNKNOWN",
-              "UNSET",
-              "Unknown",
-              "Unset",
-              "head",
-              "latest",
-              "main",
-              "master",
-              "n/a",
-              "na",
-              "none",
-              "null",
-              "tbd",
-              "unknown",
-              "unset"
-            ]
-          }
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
         },
-        "campaign_id": {
+        "experiment_record_sha256": {
           "type": "string",
-          "minLength": 1,
-          "maxLength": 256,
-          "pattern": ".*\\S.*",
-          "not": {
-            "enum": [
-              "N/A",
-              "?",
-              "HEAD",
-              "Head",
-              "LATEST",
-              "Latest",
-              "MAIN",
-              "MASTER",
-              "Main",
-              "Master",
-              "NA",
-              "NONE",
-              "NULL",
-              "Na",
-              "None",
-              "Null",
-              "TBD",
-              "Tbd",
-              "UNKNOWN",
-              "UNSET",
-              "Unknown",
-              "Unset",
-              "head",
-              "latest",
-              "main",
-              "master",
-              "n/a",
-              "na",
-              "none",
-              "null",
-              "tbd",
-              "unknown",
-              "unset"
-            ]
-          }
-        },
-        "fidelity_level": {
-          "enum": [
-            "L0_CONTRACT_SMOKE",
-            "L1_CODE_PROXY",
-            "L2_EXECUTABLE_REPO",
-            "L3_DIRECTION_TO_DONE"
-          ]
-        },
-        "promotion_decision": {
-          "const": "PROMOTE"
-        },
-        "frozen_evaluation_identity": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024,
-          "pattern": ".*\\S.*",
-          "not": {
-            "enum": [
-              "N/A",
-              "?",
-              "HEAD",
-              "Head",
-              "LATEST",
-              "Latest",
-              "MAIN",
-              "MASTER",
-              "Main",
-              "Master",
-              "NA",
-              "NONE",
-              "NULL",
-              "Na",
-              "None",
-              "Null",
-              "TBD",
-              "Tbd",
-              "UNKNOWN",
-              "UNSET",
-              "Unknown",
-              "Unset",
-              "head",
-              "latest",
-              "main",
-              "master",
-              "n/a",
-              "na",
-              "none",
-              "null",
-              "tbd",
-              "unknown",
-              "unset"
-            ]
-          }
-        },
-        "promoted_result_identity": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024,
-          "pattern": ".*\\S.*",
-          "not": {
-            "enum": [
-              "N/A",
-              "?",
-              "HEAD",
-              "Head",
-              "LATEST",
-              "Latest",
-              "MAIN",
-              "MASTER",
-              "Main",
-              "Master",
-              "NA",
-              "NONE",
-              "NULL",
-              "Na",
-              "None",
-              "Null",
-              "TBD",
-              "Tbd",
-              "UNKNOWN",
-              "UNSET",
-              "Unknown",
-              "Unset",
-              "head",
-              "latest",
-              "main",
-              "master",
-              "n/a",
-              "na",
-              "none",
-              "null",
-              "tbd",
-              "unknown",
-              "unset"
-            ]
-          }
-        },
-        "evidence_identity": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024,
-          "pattern": ".*\\S.*",
-          "not": {
-            "enum": [
-              "N/A",
-              "?",
-              "HEAD",
-              "Head",
-              "LATEST",
-              "Latest",
-              "MAIN",
-              "MASTER",
-              "Main",
-              "Master",
-              "NA",
-              "NONE",
-              "NULL",
-              "Na",
-              "None",
-              "Null",
-              "TBD",
-              "Tbd",
-              "UNKNOWN",
-              "UNSET",
-              "Unknown",
-              "Unset",
-              "head",
-              "latest",
-              "main",
-              "master",
-              "n/a",
-              "na",
-              "none",
-              "null",
-              "tbd",
-              "unknown",
-              "unset"
-            ]
-          }
+          "pattern": "^[0-9a-fA-F]{64}$"
         }
       },
       "required": [
         "experiment_id",
-        "campaign_id",
-        "fidelity_level",
-        "promotion_decision",
-        "frozen_evaluation_identity",
-        "promoted_result_identity",
-        "evidence_identity"
+        "experiment_record_sha256"
       ]
     },
     "external_effect_authority": {
@@ -1779,133 +1558,65 @@
         "authority_id": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 256,
-          "pattern": ".*\\S.*",
-          "not": {
-            "enum": [
-              "N/A",
-              "?",
-              "HEAD",
-              "Head",
-              "LATEST",
-              "Latest",
-              "MAIN",
-              "MASTER",
-              "Main",
-              "Master",
-              "NA",
-              "NONE",
-              "NULL",
-              "Na",
-              "None",
-              "Null",
-              "TBD",
-              "Tbd",
-              "UNKNOWN",
-              "UNSET",
-              "Unknown",
-              "Unset",
-              "head",
-              "latest",
-              "main",
-              "master",
-              "n/a",
-              "na",
-              "none",
-              "null",
-              "tbd",
-              "unknown",
-              "unset"
-            ]
-          }
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
         },
         "authority_record_sha256": {
           "type": "string",
           "pattern": "^[0-9a-fA-F]{64}$"
-        },
-        "canonical_evidence_identity": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024,
-          "pattern": ".*\\S.*",
-          "not": {
-            "enum": [
-              "N/A",
-              "?",
-              "HEAD",
-              "Head",
-              "LATEST",
-              "Latest",
-              "MAIN",
-              "MASTER",
-              "Main",
-              "Master",
-              "NA",
-              "NONE",
-              "NULL",
-              "Na",
-              "None",
-              "Null",
-              "TBD",
-              "Tbd",
-              "UNKNOWN",
-              "UNSET",
-              "Unknown",
-              "Unset",
-              "head",
-              "latest",
-              "main",
-              "master",
-              "n/a",
-              "na",
-              "none",
-              "null",
-              "tbd",
-              "unknown",
-              "unset"
-            ]
-          }
-        },
-        "authorized_scopes": {
-          "type": "array",
-          "minItems": 1,
-          "maxItems": 8,
-          "uniqueItems": true,
-          "items": {
-            "enum": [
-              "MODEL_EXECUTION",
-              "PAID_COMPUTE",
-              "REMOTE_COMPUTE",
-              "NETWORK"
-            ]
-          }
-        },
-        "max_paid_cost_usd": {
-          "type": "number",
-          "minimum": 0
-        },
-        "max_wall_time_seconds": {
-          "type": "number",
-          "exclusiveMinimum": 0
-        },
-        "max_material_results": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 10000
-        },
-        "resource_class": {
-          "const": "AUTHORIZED_EXTERNAL_EFFECT"
         }
       },
       "required": [
         "authority_id",
-        "authority_record_sha256",
-        "canonical_evidence_identity",
-        "authorized_scopes",
-        "max_paid_cost_usd",
-        "max_wall_time_seconds",
-        "max_material_results",
-        "resource_class"
+        "authority_record_sha256"
+      ]
+    },
+    "governed_effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "MODEL_WEIGHT_ACCESS": {
+          "type": "boolean"
+        },
+        "GATED_TERMS_ACCEPTANCE": {
+          "type": "boolean"
+        },
+        "PAID_MODEL_API_EXECUTION": {
+          "type": "boolean"
+        },
+        "PAID_COMPUTE": {
+          "type": "boolean"
+        },
+        "RENTED_COMPUTE": {
+          "type": "boolean"
+        },
+        "LARGE_DATASET_INGESTION": {
+          "type": "boolean"
+        },
+        "WEIGHT_CHANGING_TRAINING": {
+          "type": "boolean"
+        },
+        "LONG_TRAINING": {
+          "type": "boolean"
+        },
+        "LARGE_SCALE_RL": {
+          "type": "boolean"
+        },
+        "PRODUCTION_RELEASE": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "MODEL_WEIGHT_ACCESS",
+        "GATED_TERMS_ACCEPTANCE",
+        "PAID_MODEL_API_EXECUTION",
+        "PAID_COMPUTE",
+        "RENTED_COMPUTE",
+        "LARGE_DATASET_INGESTION",
+        "WEIGHT_CHANGING_TRAINING",
+        "LONG_TRAINING",
+        "LARGE_SCALE_RL",
+        "PRODUCTION_RELEASE"
       ]
     }
   },
@@ -1916,7 +1627,8 @@
     "experiment_id": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 256
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
     },
     "campaign_id": {
       "type": "string",
@@ -2011,11 +1723,119 @@
           "$ref": "#/$defs/external_effect_authority"
         }
       ]
+    },
+    "governing_task_id": {
+      "type": "string",
+      "pattern": "^[A-Z][0-9]{3}$"
+    },
+    "promoted_result_id_or_na": {
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
+    },
+    "q4_promotion_record_identity_or_na": {
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
+    },
+    "governed_effects": {
+      "$ref": "#/$defs/governed_effects"
     }
   },
   "required": [
     "schema_version",
     "experiment_id",
+    "governing_task_id",
     "campaign_id",
     "parent_identity",
     "hypothesis",
@@ -2023,12 +1843,15 @@
     "mutation_identity",
     "frozen_evaluation_identity",
     "fidelity_level",
+    "promoted_result_id_or_na",
+    "q4_promotion_record_identity_or_na",
     "predecessor_promotion",
     "budget",
     "material_results",
     "hard_gate_results",
     "promotion_decision",
     "decision_reason",
+    "governed_effects",
     "external_effect_authority",
     "aggregate_resource_cost"
   ],
@@ -2133,6 +1956,76 @@
               ]
             },
             "minContains": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "promotion_decision": {
+            "const": "PROMOTE"
+          }
+        },
+        "required": [
+          "promotion_decision"
+        ]
+      },
+      "then": {
+        "properties": {
+          "promoted_result_id_or_na": {
+            "not": {
+              "const": "N/A"
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "promoted_result_id_or_na": {
+            "const": "N/A"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "allOf": [
+          {
+            "properties": {
+              "fidelity_level": {
+                "const": "L4_Q4_UNIVERSAL_LAPTOP"
+              }
+            },
+            "required": [
+              "fidelity_level"
+            ]
+          },
+          {
+            "properties": {
+              "promotion_decision": {
+                "const": "PROMOTE"
+              }
+            },
+            "required": [
+              "promotion_decision"
+            ]
+          }
+        ]
+      },
+      "then": {
+        "properties": {
+          "q4_promotion_record_identity_or_na": {
+            "not": {
+              "const": "N/A"
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "q4_promotion_record_identity_or_na": {
+            "const": "N/A"
           }
         }
       }

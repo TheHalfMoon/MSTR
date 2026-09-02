@@ -837,15 +837,221 @@ def _material_result_identity_semantic_errors(instance: Any) -> tuple[str, ...]:
     return tuple(sorted(errors))
 
 
-def _research_experiment_semantic_errors(instance: Any) -> tuple[str, ...]:
-    """Enforce B026 predecessor lineage and declared-budget hard gates."""
+_B026_GOVERNED_EFFECTS = (
+    "MODEL_WEIGHT_ACCESS",
+    "GATED_TERMS_ACCEPTANCE",
+    "PAID_MODEL_API_EXECUTION",
+    "PAID_COMPUTE",
+    "RENTED_COMPUTE",
+    "LARGE_DATASET_INGESTION",
+    "WEIGHT_CHANGING_TRAINING",
+    "LONG_TRAINING",
+    "LARGE_SCALE_RL",
+    "PRODUCTION_RELEASE",
+)
+_B026_LEVEL_CONCRETE_FIELDS: Mapping[str, tuple[str, ...]] = {
+    "L1_CODE_PROXY": (
+        "sampling_config_id_or_na",
+        "runtime_id_or_na",
+        "runtime_version_or_commit_or_na",
+    ),
+    "L2_EXECUTABLE_REPO": (
+        "runtime_id_or_na",
+        "runtime_version_or_commit_or_na",
+        "os_identity_or_na",
+        "cpu_identity_or_na",
+        "verifier_health_id_or_na",
+    ),
+    "L3_DIRECTION_TO_DONE": (
+        "interaction_contract_version_or_na",
+        "loop_contract_version_or_na",
+        "harness_profile_id_or_na",
+        "verifier_health_id_or_na",
+    ),
+    "L4_Q4_UNIVERSAL_LAPTOP": (
+        "model_id_or_na",
+        "model_revision_or_na",
+        "model_artifact_sha256_or_na",
+        "tokenizer_id_or_na",
+        "tokenizer_revision_or_na",
+        "quantization_method_or_na",
+        "quantizer_tool_revision_or_na",
+        "runtime_id_or_na",
+        "runtime_version_or_commit_or_na",
+        "runtime_build_flags_or_na",
+        "os_identity_or_na",
+        "cpu_identity_or_na",
+        "acceleration_backend_or_na",
+        "cache_state_or_na",
+    ),
+}
+
+
+def _b026_binding_id(value: object) -> bool:
+    """Return whether *value* can safely address a canonical binding file."""
+
+    return bool(
+        isinstance(value, str)
+        and 1 <= len(value) <= 128
+        and value[0].isalnum()
+        and all(character.isalnum() or character in "._-" for character in value)
+    )
+
+
+def _b026_repository_json(
+    repository_root: Path,
+    relative_path: Path,
+) -> tuple[dict[str, Any], str] | None:
+    """Load one repository-contained non-symlink JSON record and its SHA-256."""
+
+    root = repository_root.resolve()
+    candidate = root / relative_path
+    cursor = root
+    for part in relative_path.parts:
+        cursor = cursor / part
+        if cursor.is_symlink():
+            return None
+    try:
+        resolved = candidate.resolve(strict=True)
+        resolved.relative_to(root)
+    except (OSError, ValueError):
+        return None
+    if not resolved.is_file():
+        return None
+    try:
+        raw = resolved.read_bytes()
+        decoded = json.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(decoded, dict):
+        return None
+    return decoded, hashlib.sha256(raw).hexdigest()
+
+
+def _b026_authority_limits(record: Mapping[str, Any]) -> dict[str, float]:
+    """Derive research ceilings only from the canonical authority artifact."""
+
+    ceiling = record.get("cost_resource_ceiling")
+    if not isinstance(ceiling, dict):
+        return {}
+    limits = ceiling.get("limits")
+    if not isinstance(limits, list):
+        return {}
+    derived: dict[str, float] = {}
+    for item in limits:
+        if not isinstance(item, dict):
+            continue
+        resource = item.get("resource")
+        unit = item.get("unit")
+        maximum = item.get("max")
+        if (
+            not isinstance(resource, str)
+            or not isinstance(unit, str)
+            or isinstance(maximum, bool)
+            or not isinstance(maximum, (int, float))
+            or not math.isfinite(float(maximum))
+            or maximum < 0
+        ):
+            continue
+        normalized_resource = resource.strip().casefold()
+        normalized_unit = unit.strip().casefold()
+        numeric = float(maximum)
+        if normalized_resource in {"paid_cost_usd", "paid_cost", "cost"}:
+            if normalized_unit == "usd":
+                derived["max_paid_cost_usd"] = numeric
+        elif normalized_resource in {"wall_time_seconds", "wall_time"}:
+            multipliers = {
+                "second": 1.0,
+                "seconds": 1.0,
+                "minute": 60.0,
+                "minutes": 60.0,
+                "hour": 3600.0,
+                "hours": 3600.0,
+            }
+            multiplier = multipliers.get(normalized_unit)
+            if multiplier is not None:
+                derived["max_wall_time_seconds"] = numeric * multiplier
+        elif normalized_resource in {
+            "material_results",
+            "material_result_count",
+            "result_count",
+        }:
+            if normalized_unit in {"count", "result", "results"}:
+                derived["max_material_results"] = numeric
+    return derived
+
+
+def _b026_true_effects(instance: Mapping[str, Any]) -> set[str]:
+    """Return explicitly declared governed external effects."""
+
+    declared = instance.get("governed_effects")
+    if not isinstance(declared, dict):
+        return set()
+    return {
+        effect
+        for effect in _B026_GOVERNED_EFFECTS
+        if declared.get(effect) is True
+    }
+
+
+def _research_experiment_semantic_errors(
+    instance: Any,
+    *,
+    repository_root: Path,
+    visited_records: frozenset[str] = frozenset(),
+) -> tuple[str, ...]:
+    """Enforce B026 lineage, material identity, budgets, and canonical authority."""
 
     if not isinstance(instance, dict):
         return ()
 
     errors: list[str] = []
     level = instance.get("fidelity_level")
+    governing_task_id = instance.get("governing_task_id")
     predecessor = instance.get("predecessor_promotion")
+    promotion_decision = instance.get("promotion_decision")
+
+    material_results = instance.get("material_results")
+    result_by_id: dict[str, dict[str, Any]] = {}
+    paid_result_total = 0.0
+    paid_result_total_valid = True
+    if isinstance(material_results, list):
+        result_ids: list[str] = []
+        for index, result in enumerate(material_results):
+            if not isinstance(result, dict):
+                continue
+            result_id = result.get("result_id")
+            if isinstance(result_id, str):
+                result_ids.append(result_id)
+                result_by_id[result_id] = result
+            paid = result.get("paid_cost_usd")
+            if isinstance(paid, (int, float)) and not isinstance(paid, bool):
+                paid_result_total += float(paid)
+            else:
+                paid_result_total_valid = False
+            for message in _material_result_identity_semantic_errors(result):
+                suffix = message[1:] if message.startswith("$") else f".{message}"
+                errors.append(f"$.material_results[{index}]{suffix}")
+        if len(result_ids) != len(set(result_ids)):
+            errors.append("$.material_results: result_id values must be unique")
+
+    promoted_result_id = instance.get("promoted_result_id_or_na")
+    promoted_result: dict[str, Any] | None = None
+    if promotion_decision == "PROMOTE":
+        if not isinstance(promoted_result_id, str) or promoted_result_id == "N/A":
+            errors.append("$.promoted_result_id_or_na: PROMOTE requires one concrete result_id")
+        else:
+            promoted_result = result_by_id.get(promoted_result_id)
+            if promoted_result is None:
+                errors.append(
+                    "$.promoted_result_id_or_na: must resolve to one material_results result_id"
+                )
+            elif promoted_result.get("result_classification") not in {"PASS", "PROMOTED"}:
+                errors.append(
+                    "$.promoted_result_id_or_na: promoted material result must be PASS or PROMOTED"
+                )
+    elif promoted_result_id != "N/A":
+        errors.append("$.promoted_result_id_or_na: non-PROMOTE decisions require literal N/A")
 
     if level == _B026_FIDELITY_LEVELS[0]:
         if predecessor is not None:
@@ -854,76 +1060,104 @@ def _research_experiment_semantic_errors(instance: Any) -> tuple[str, ...]:
         expected_level = _B026_FIDELITY_LEVELS[_B026_FIDELITY_LEVELS.index(level) - 1]
         if not isinstance(predecessor, dict):
             errors.append(
-                "$.predecessor_promotion: L1-L4 require immediate-predecessor PROMOTE evidence"
+                "$.predecessor_promotion: L1-L4 require immutable predecessor registry evidence"
             )
         else:
-            if predecessor.get("fidelity_level") != expected_level:
+            predecessor_id = predecessor.get("experiment_id")
+            predecessor_sha = predecessor.get("experiment_record_sha256")
+            if not _b026_binding_id(predecessor_id):
                 errors.append(
-                    "$.predecessor_promotion.fidelity_level: "
-                    "must be the immediate predecessor level"
+                    "$.predecessor_promotion.experiment_id: must be a path-safe stable binding id"
                 )
-            if predecessor.get("promotion_decision") != "PROMOTE":
-                errors.append(
-                    "$.predecessor_promotion.promotion_decision: predecessor must be PROMOTE"
+            elif not isinstance(governing_task_id, str):
+                errors.append("$.governing_task_id: required to resolve predecessor registry")
+            else:
+                relative = (
+                    Path("artifacts")
+                    / "results"
+                    / "research"
+                    / governing_task_id
+                    / "registry"
+                    / f"{predecessor_id}.json"
                 )
-            if predecessor.get("campaign_id") != instance.get("campaign_id"):
-                errors.append(
-                    "$.predecessor_promotion.campaign_id: must match current campaign_id"
-                )
-            if predecessor.get("frozen_evaluation_identity") != instance.get(
-                "frozen_evaluation_identity"
-            ):
-                errors.append(
-                    "$.predecessor_promotion.frozen_evaluation_identity: "
-                    "must match current frozen evaluation identity"
-                )
-            if predecessor.get("experiment_id") == instance.get("experiment_id"):
-                errors.append(
-                    "$.predecessor_promotion.experiment_id: "
-                    "predecessor must be a distinct experiment"
-                )
-            if predecessor.get("promoted_result_identity") != instance.get("parent_identity"):
-                errors.append(
-                    "$.parent_identity: must equal predecessor promoted_result_identity"
-                )
-            for field in (
-                "experiment_id",
-                "campaign_id",
-                "frozen_evaluation_identity",
-                "promoted_result_identity",
-                "evidence_identity",
-            ):
-                if _is_ambiguous_identity(predecessor.get(field)):
-                    errors.append(
-                        f"$.predecessor_promotion.{field}: "
-                        "must be a concrete non-ambiguous identity"
-                    )
-
-    material_results = instance.get("material_results")
-    if isinstance(material_results, list):
-        result_ids: list[str] = []
-        for index, result in enumerate(material_results):
-            if isinstance(result, dict):
-                result_id = result.get("result_id")
-                if isinstance(result_id, str):
-                    result_ids.append(result_id)
-                for message in _material_result_identity_semantic_errors(result):
-                    suffix = message[1:] if message.startswith("$") else f".{message}"
-                    errors.append(f"$.material_results[{index}]{suffix}")
-        if len(result_ids) != len(set(result_ids)):
-            errors.append("$.material_results: result_id values must be unique")
+                registry_key = relative.as_posix()
+                if registry_key in visited_records:
+                    errors.append("$.predecessor_promotion: predecessor registry cycle detected")
+                else:
+                    loaded = _b026_repository_json(repository_root, relative)
+                    if loaded is None:
+                        errors.append(
+                            "$.predecessor_promotion: immutable predecessor registry record missing"
+                        )
+                    else:
+                        predecessor_record, observed_sha = loaded
+                        if predecessor_sha != observed_sha:
+                            errors.append(
+                                "$.predecessor_promotion.experiment_record_sha256: "
+                                "does not match immutable predecessor record"
+                            )
+                        nested_errors = validation_errors(
+                            "mstr-research-experiment-v2",
+                            predecessor_record,
+                            repository_root=repository_root,
+                            _research_visited=visited_records | {registry_key},
+                        )
+                        if nested_errors:
+                            errors.append(
+                                "$.predecessor_promotion: referenced predecessor record is invalid"
+                            )
+                        if predecessor_record.get("experiment_id") != predecessor_id:
+                            errors.append(
+                                "$.predecessor_promotion.experiment_id: registry record "
+                                "identity mismatch"
+                            )
+                        if predecessor_record.get("governing_task_id") != governing_task_id:
+                            errors.append(
+                                "$.predecessor_promotion: predecessor governing task must match"
+                            )
+                        if predecessor_record.get("campaign_id") != instance.get("campaign_id"):
+                            errors.append(
+                                "$.predecessor_promotion: predecessor campaign_id must match"
+                            )
+                        if predecessor_record.get("fidelity_level") != expected_level:
+                            errors.append(
+                                "$.predecessor_promotion: registry record must be immediate "
+                                "predecessor level"
+                            )
+                        if predecessor_record.get("promotion_decision") != "PROMOTE":
+                            errors.append(
+                                "$.predecessor_promotion: registry predecessor must have "
+                                "PROMOTE decision"
+                            )
+                        if predecessor_record.get("frozen_evaluation_identity") != instance.get(
+                            "frozen_evaluation_identity"
+                        ):
+                            errors.append(
+                                "$.predecessor_promotion: frozen evaluation identity must match"
+                            )
+                        predecessor_result = predecessor_record.get("promoted_result_id_or_na")
+                        if predecessor_result == "N/A" or predecessor_result != instance.get(
+                            "parent_identity"
+                        ):
+                            errors.append(
+                                "$.parent_identity: must equal registry predecessor promoted result"
+                            )
 
     hard_gates = instance.get("hard_gate_results")
+    gate_by_id: dict[str, dict[str, Any]] = {}
     if isinstance(hard_gates, list):
         gate_ids = [
             gate.get("gate_id")
             for gate in hard_gates
             if isinstance(gate, dict) and isinstance(gate.get("gate_id"), str)
         ]
+        for gate in hard_gates:
+            if isinstance(gate, dict) and isinstance(gate.get("gate_id"), str):
+                gate_by_id[str(gate["gate_id"])] = gate
         if len(gate_ids) != len(set(gate_ids)):
             errors.append("$.hard_gate_results: gate_id values must be unique")
         if (
-            instance.get("promotion_decision") == "PROMOTE"
+            promotion_decision == "PROMOTE"
             and isinstance(level, str)
             and level in _B026_REQUIRED_GATE_IDS
         ):
@@ -932,6 +1166,60 @@ def _research_experiment_semantic_errors(instance: Any) -> tuple[str, ...]:
                 errors.append(
                     "$.hard_gate_results: PROMOTE requires exact per-level required gate coverage"
                 )
+
+    if promotion_decision == "PROMOTE" and isinstance(level, str) and promoted_result is not None:
+        for field in _B026_LEVEL_CONCRETE_FIELDS.get(level, ()):
+            value = promoted_result.get(field)
+            if value == "N/A" or value is None:
+                errors.append(
+                    f"$.material_results[{promoted_result_id}].{field}: "
+                    f"{level} promotion requires concrete identity"
+                )
+        if level == "L4_Q4_UNIVERSAL_LAPTOP":
+            for field in (
+                "total_ram_bytes_or_na",
+                "thread_count_or_na",
+                "context_length_or_na",
+            ):
+                value = promoted_result.get(field)
+                if isinstance(value, bool) or not isinstance(value, int):
+                    errors.append(
+                        f"$.material_results[{promoted_result_id}].{field}: "
+                        "L4 promotion requires a concrete integer identity"
+                    )
+            q4_record = instance.get("q4_promotion_record_identity_or_na")
+            if not isinstance(q4_record, str) or q4_record == "N/A":
+                errors.append(
+                    "$.q4_promotion_record_identity_or_na: L4 PROMOTE requires "
+                    "concrete Q4 promotion evidence"
+                )
+            artifact_sha = promoted_result.get("model_artifact_sha256_or_na")
+            artifact_gate = gate_by_id.get("q4_artifact_identity")
+            if (
+                isinstance(artifact_sha, str)
+                and artifact_sha != "N/A"
+                and isinstance(artifact_gate, dict)
+                and artifact_gate.get("evidence_identity") != f"sha256:{artifact_sha.lower()}"
+            ):
+                errors.append(
+                    "$.hard_gate_results[q4_artifact_identity].evidence_identity: "
+                    "must bind the promoted Q4 artifact SHA-256"
+                )
+            promotion_gate = gate_by_id.get("q4_promotion_record_promoted")
+            if (
+                isinstance(q4_record, str)
+                and q4_record != "N/A"
+                and isinstance(promotion_gate, dict)
+                and promotion_gate.get("evidence_identity") != q4_record
+            ):
+                errors.append(
+                    "$.hard_gate_results[q4_promotion_record_promoted].evidence_identity: "
+                    "must bind q4_promotion_record_identity_or_na"
+                )
+    elif instance.get("q4_promotion_record_identity_or_na") != "N/A":
+        errors.append(
+            "$.q4_promotion_record_identity_or_na: only L4 PROMOTE may bind Q4 promotion evidence"
+        )
 
     budget = instance.get("budget")
     aggregate = instance.get("aggregate_resource_cost")
@@ -952,8 +1240,24 @@ def _research_experiment_semantic_errors(instance: Any) -> tuple[str, ...]:
             and count != len(material_results)
         ):
             errors.append(
-                "$.aggregate_resource_cost.material_result_count: "
-                "must equal material_results length"
+                "$.aggregate_resource_cost.material_result_count: must equal "
+                "material_results length"
+            )
+        aggregate_paid = aggregate.get("paid_cost_usd")
+        if (
+            paid_result_total_valid
+            and isinstance(aggregate_paid, (int, float))
+            and not isinstance(aggregate_paid, bool)
+            and not math.isclose(
+                paid_result_total,
+                float(aggregate_paid),
+                rel_tol=0.0,
+                abs_tol=1e-9,
+            )
+        ):
+            errors.append(
+                "$.aggregate_resource_cost.paid_cost_usd: "
+                "must equal sum(material_results[*].paid_cost_usd)"
             )
 
     if isinstance(budget, dict) and isinstance(aggregate, dict):
@@ -981,7 +1285,6 @@ def _research_experiment_semantic_errors(instance: Any) -> tuple[str, ...]:
             errors.append(
                 "$.aggregate_resource_cost.paid_cost_usd: exceeds budget.max_paid_cost_usd"
             )
-
         budget_class = budget.get("resource_class")
         aggregate_class = aggregate.get("resource_class")
         if budget_class == "CONTRACT_ONLY" and aggregate_class != "CONTRACT_ONLY":
@@ -989,123 +1292,182 @@ def _research_experiment_semantic_errors(instance: Any) -> tuple[str, ...]:
                 "$.aggregate_resource_cost.resource_class: "
                 "CONTRACT_ONLY budget requires CONTRACT_ONLY aggregate"
             )
-        if (
-            budget_class == "LOCAL_BOUNDED"
-            and aggregate_class == "AUTHORIZED_EXTERNAL_EFFECT"
-        ):
+        if budget_class == "LOCAL_BOUNDED" and aggregate_class == "AUTHORIZED_EXTERNAL_EFFECT":
             errors.append(
                 "$.aggregate_resource_cost.resource_class: "
                 "LOCAL_BOUNDED budget cannot record authorized external effect"
             )
 
-    authority = instance.get("external_effect_authority")
-    external_effect = False
-    required_scopes: set[str] = set()
-    if isinstance(budget, dict) and budget.get("resource_class") == (
-        "EXTERNAL_EFFECT_REQUIRES_SEPARATE_AUTHORITY"
-    ):
-        external_effect = True
-    if isinstance(aggregate, dict):
-        if aggregate.get("resource_class") == "AUTHORIZED_EXTERNAL_EFFECT":
-            external_effect = True
-        aggregate_paid = aggregate.get("paid_cost_usd")
-        if (
-            isinstance(aggregate_paid, (int, float))
-            and not isinstance(aggregate_paid, bool)
-            and aggregate_paid > 0
-        ):
-            external_effect = True
-            required_scopes.add("PAID_COMPUTE")
+    declared_effects = _b026_true_effects(instance)
     if isinstance(material_results, list):
         for result in material_results:
             if not isinstance(result, dict):
                 continue
-            resource_cost = result.get("resource_cost")
-            if isinstance(resource_cost, dict):
-                if resource_cost.get("cost_class") == "AUTHORIZED_REMOTE_COMPUTE":
-                    external_effect = True
-                    required_scopes.add("REMOTE_COMPUTE")
-                    if result.get("model_id_or_na") != "N/A":
-                        required_scopes.add("MODEL_EXECUTION")
-                network_bytes = resource_cost.get("network_bytes_or_na")
-                if (
-                    isinstance(network_bytes, int)
-                    and not isinstance(network_bytes, bool)
-                    and network_bytes > 0
-                ):
-                    external_effect = True
-                    required_scopes.add("NETWORK")
-            result_paid = result.get("paid_cost_usd")
             if (
-                isinstance(result_paid, (int, float))
-                and not isinstance(result_paid, bool)
-                and result_paid > 0
+                result.get("evidence_kind") == "TRAINING_EVIDENCE"
+                and "WEIGHT_CHANGING_TRAINING" not in declared_effects
             ):
-                external_effect = True
-                required_scopes.add("PAID_COMPUTE")
+                errors.append(
+                    "$.governed_effects.WEIGHT_CHANGING_TRAINING: "
+                    "TRAINING_EVIDENCE requires explicit true declaration"
+                )
+            resource_cost = result.get("resource_cost")
+            if isinstance(resource_cost, dict) and (
+                resource_cost.get("cost_class") == "AUTHORIZED_REMOTE_COMPUTE"
+                and "RENTED_COMPUTE" not in declared_effects
+            ):
+                errors.append(
+                    "$.governed_effects.RENTED_COMPUTE: "
+                    "AUTHORIZED_REMOTE_COMPUTE requires explicit true declaration"
+                )
+            paid = result.get("paid_cost_usd")
+            if (
+                isinstance(paid, (int, float))
+                and not isinstance(paid, bool)
+                and paid > 0
+                and "PAID_COMPUTE" not in declared_effects
+            ):
+                errors.append(
+                    "$.governed_effects.PAID_COMPUTE: positive paid cost requires "
+                    "explicit true declaration"
+                )
 
-    if external_effect:
+    external_resource_class = bool(
+        isinstance(budget, dict)
+        and budget.get("resource_class") == "EXTERNAL_EFFECT_REQUIRES_SEPARATE_AUTHORITY"
+    ) or bool(
+        isinstance(aggregate, dict)
+        and aggregate.get("resource_class") == "AUTHORIZED_EXTERNAL_EFFECT"
+    )
+    if external_resource_class and not declared_effects:
+        errors.append(
+            "$.governed_effects: external-effect resource class requires at least "
+            "one true governed effect"
+        )
+
+    authority = instance.get("external_effect_authority")
+    if declared_effects:
         if not isinstance(authority, dict):
             errors.append(
-                "$.external_effect_authority: required for any external-effect "
-                "resource class or cost"
+                "$.external_effect_authority: required when any governed effect is true"
             )
         else:
-            for field in ("authority_id", "canonical_evidence_identity"):
-                if _is_ambiguous_identity(authority.get(field)):
-                    errors.append(
-                        f"$.external_effect_authority.{field}: must bind concrete "
-                        "canonical authority"
-                    )
-            scopes = authority.get("authorized_scopes")
-            if isinstance(scopes, list) and not required_scopes.issubset(set(scopes)):
+            authority_id = authority.get("authority_id")
+            authority_sha = authority.get("authority_record_sha256")
+            if not _b026_binding_id(authority_id):
                 errors.append(
-                    "$.external_effect_authority.authorized_scopes: missing scope "
-                    "required by recorded effect"
+                    "$.external_effect_authority.authority_id: must be a path-safe "
+                    "canonical binding id"
                 )
-            if isinstance(budget, dict):
-                for field, authority_field in (
-                    ("max_wall_time_seconds", "max_wall_time_seconds"),
-                    ("max_material_results", "max_material_results"),
-                    ("max_paid_cost_usd", "max_paid_cost_usd"),
-                ):
-                    declared = budget.get(field)
-                    ceiling = authority.get(authority_field)
-                    if (
-                        isinstance(declared, (int, float))
-                        and not isinstance(declared, bool)
-                        and isinstance(ceiling, (int, float))
-                        and not isinstance(ceiling, bool)
-                        and declared > ceiling
-                    ):
+            else:
+                relative = Path("artifacts") / "authorities" / f"{authority_id}.json"
+                loaded = _b026_repository_json(repository_root, relative)
+                if loaded is None:
+                    errors.append(
+                        "$.external_effect_authority: canonical authority record missing or invalid"
+                    )
+                else:
+                    authority_record, observed_sha = loaded
+                    if authority_sha != observed_sha:
                         errors.append(
-                            f"$.budget.{field}: exceeds canonical external-effect authority ceiling"
+                            "$.external_effect_authority.authority_record_sha256: "
+                            "does not match canonical authority record"
                         )
-            if isinstance(aggregate, dict):
-                for field, authority_field in (
-                    ("wall_time_seconds", "max_wall_time_seconds"),
-                    ("material_result_count", "max_material_results"),
-                    ("paid_cost_usd", "max_paid_cost_usd"),
-                ):
-                    actual = aggregate.get(field)
-                    ceiling = authority.get(authority_field)
-                    if (
-                        isinstance(actual, (int, float))
-                        and not isinstance(actual, bool)
-                        and isinstance(ceiling, (int, float))
-                        and not isinstance(ceiling, bool)
-                        and actual > ceiling
-                    ):
+                    if authority_record.get("authority_id") != authority_id:
                         errors.append(
-                            f"$.aggregate_resource_cost.{field}: exceeds canonical "
-                            "authority ceiling"
+                            "$.external_effect_authority.authority_id: canonical record "
+                            "identity mismatch"
                         )
+                    if authority_record.get("status") != "AUTHORIZED_CANONICAL":
+                        errors.append(
+                            "$.external_effect_authority: canonical authority status must "
+                            "be AUTHORIZED_CANONICAL"
+                        )
+                    if authority_record.get("task_id") != governing_task_id:
+                        errors.append(
+                            "$.external_effect_authority: canonical authority task_id must "
+                            "match governing_task_id"
+                        )
+                    if authority_record.get("external_effect_class") not in declared_effects:
+                        errors.append(
+                            "$.external_effect_authority: canonical strongest effect must "
+                            "be declared true"
+                        )
+                    scope = authority_record.get("scope")
+                    if not isinstance(scope, dict):
+                        errors.append(
+                            "$.external_effect_authority: canonical authority scope is invalid"
+                        )
+                    else:
+                        if scope.get("campaign_id") != instance.get("campaign_id"):
+                            errors.append(
+                                "$.external_effect_authority: canonical authority campaign "
+                                "scope mismatch"
+                            )
+                        if scope.get("research_ladder_id") != "mstr-research-ladder-v0":
+                            errors.append(
+                                "$.external_effect_authority: canonical authority ladder "
+                                "scope mismatch"
+                            )
+                        research_effects = scope.get("research_effects")
+                        if (
+                            not isinstance(research_effects, list)
+                            or not declared_effects.issubset(set(research_effects))
+                        ):
+                            errors.append(
+                                "$.external_effect_authority: canonical authority scope misses "
+                                "declared effect"
+                            )
+                    ceilings = _b026_authority_limits(authority_record)
+                    required_ceilings = {
+                        "max_paid_cost_usd",
+                        "max_wall_time_seconds",
+                        "max_material_results",
+                    }
+                    if not required_ceilings.issubset(ceilings):
+                        errors.append(
+                            "$.external_effect_authority: canonical authority lacks research "
+                            "resource ceilings"
+                        )
+                    else:
+                        if isinstance(budget, dict):
+                            for field in sorted(required_ceilings):
+                                declared = budget.get(field)
+                                if (
+                                    isinstance(declared, (int, float))
+                                    and not isinstance(declared, bool)
+                                    and float(declared) > ceilings[field]
+                                ):
+                                    errors.append(
+                                        f"$.budget.{field}: exceeds resolved canonical "
+                                        "authority ceiling"
+                                    )
+                        if isinstance(aggregate, dict):
+                            for field in sorted(required_ceilings):
+                                aggregate_field = (
+                                    "paid_cost_usd"
+                                    if field == "max_paid_cost_usd"
+                                    else "wall_time_seconds"
+                                    if field == "max_wall_time_seconds"
+                                    else "material_result_count"
+                                )
+                                actual = aggregate.get(aggregate_field)
+                                if (
+                                    isinstance(actual, (int, float))
+                                    and not isinstance(actual, bool)
+                                    and float(actual) > ceilings[field]
+                                ):
+                                    errors.append(
+                                        f"$.aggregate_resource_cost.{aggregate_field}: "
+                                        "exceeds resolved canonical authority ceiling"
+                                    )
     elif authority is not None:
         errors.append(
-            "$.external_effect_authority: must be null when no external effect is recorded"
+            "$.external_effect_authority: must be null when all governed effects are false"
         )
 
     return tuple(sorted(errors))
+
 
 def _trajectory_manifest_semantic_errors(instance: Any) -> tuple[str, ...]:
     """Enforce A017 identity bindings without implementing A018 admission execution."""
@@ -1137,6 +1499,8 @@ def validation_errors(
     instance: Any,
     *,
     schema_dir: Path | None = None,
+    repository_root: Path | None = None,
+    _research_visited: frozenset[str] | None = None,
 ) -> tuple[str, ...]:
     """Return deterministic, human-readable validation errors."""
 
@@ -1162,7 +1526,13 @@ def validation_errors(
     if name == "mstr-material-result-identity-v0":
         formatted.extend(_material_result_identity_semantic_errors(instance))
     if name == "mstr-research-experiment-v2":
-        formatted.extend(_research_experiment_semantic_errors(instance))
+        formatted.extend(
+            _research_experiment_semantic_errors(
+                instance,
+                repository_root=(repository_root or _REPOSITORY_ROOT).resolve(),
+                visited_records=_research_visited or frozenset(),
+            )
+        )
     if name == "mstr-trajectory-manifest-v0":
         formatted.extend(_trajectory_manifest_semantic_errors(instance))
     return tuple(sorted(formatted))
@@ -1173,10 +1543,16 @@ def validate_instance(
     instance: Any,
     *,
     schema_dir: Path | None = None,
+    repository_root: Path | None = None,
 ) -> None:
     """Validate an already-decoded JSON value and fail closed on any violation."""
 
-    errors = validation_errors(name, instance, schema_dir=schema_dir)
+    errors = validation_errors(
+        name,
+        instance,
+        schema_dir=schema_dir,
+        repository_root=repository_root,
+    )
     if errors:
         joined = "\n".join(f"- {message}" for message in errors)
         raise SchemaValidationError(

@@ -79,6 +79,23 @@ No review finding is considered resolved merely by this text. Resolution require
 
 ## Codex review reconciliation — exact old head
 
-Codex review `PRR_kwDOUCYTYs8AAAABL1K_JQ` on historical head `a2414b1bf58a5bce3a69ee965e74d8ac9d0ba7a8` produced six actionable threads. The first repair at `45d9f9f0ded97ebd482c29d419d2ff41bd9e940a` closed predecessor adjacency, declared-budget enforcement, and SHA-256 identity semantics. This repair closes the remaining contract gaps by freezing exact per-level required gate IDs, binding any recorded external effect to an immutable separately canonical authority reference with scope/ceiling checks, and requiring concrete data/difficulty identity for `TRAINING_EVIDENCE`.
+Codex review `PRR_kwDOUCYTYs8AAAABL1K_JQ` on historical head `a2414b1bf58a5bce3a69ee965e74d8ac9d0ba7a8` produced six actionable threads. The first repair at `45d9f9f0ded97ebd482c29d419d2ff41bd9e940a` addressed predecessor adjacency, declared-budget enforcement, and SHA-256 identity semantics. The later `08399fa64ed82f31feb5b5cff2f92420bde36308` candidate added exact gate coverage, an authority-reference shape, and training data/difficulty identity, but fresh exact-head review correctly found that predecessor and authority evidence were still self-attested.
 
 The external-effect authority object is evidence about authority granted elsewhere. It is not an authority grant. B026 remains contract/configuration only.
+
+
+## Fresh exact-head review findings on `08399fa64ed82f31feb5b5cff2f92420bde36308`
+
+Codex review `PRR_kwDOUCYTYs8AAAABL2PpKg` produced five actionable findings on the exact qualified head:
+
+1. L4 promotion did not require concrete Q4 artifact/quantizer/runtime/hardware identity or bind Q4 gate evidence to those identities.
+2. `predecessor_promotion` remained self-attested instead of resolving an immutable predecessor experiment record.
+3. `external_effect_authority` remained self-attested instead of resolving the canonical authority artifact and deriving scope/ceilings from it.
+4. governed external-effect classes were not exhaustively declared, allowing local/zero-cost training evidence to remain unbound.
+5. aggregate paid cost was not reconciled with the sum of per-result paid costs.
+
+CodeRabbit run `2b1e0aeb-8ecf-449f-bb4e-3ca2faa33ac6` independently confirmed the predecessor/authority resolution gaps and also required this evidence record to stop describing unresolved gaps as closed.
+
+This guarded candidate repair addresses those findings by deriving predecessor records from `artifacts/results/research/<governing_task_id>/registry/<experiment_id>.json`, deriving authority only from `artifacts/authorities/<authority_id>.json`, binding both files by SHA-256, requiring an explicit boolean declaration for every canonical governed effect class, reconciling per-result paid cost to the aggregate, and requiring concrete per-level material identity with strict L4 Q4 evidence binding. The experiment record carries no copied authority scopes or ceilings.
+
+These findings are not considered resolved by implementation text. Resolution still requires successful guarded repair gates, fresh exact-head qualification, thread reconciliation, and a new independent exact-head review.

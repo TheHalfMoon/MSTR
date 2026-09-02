@@ -75,3 +75,5 @@ mstr.candidate-pool-decision.v0
 12. Q4 product evidence remains separate from master-checkpoint evidence.
 
 Schema implementation belongs to the exact B-task named in `tasks.md`; an unimplemented planned contract has no runtime authority.
+
+B026 research records resolve lineage and authority from repository-local immutable artifacts rather than trusting inline claims. Predecessors are SHA-256-bound experiment-registry records under `artifacts/results/research/<task>/registry/`; external authority is a SHA-256-bound foreign key to `artifacts/authorities/<authority_id>.json`. Governed effects are exhaustively declared, canonical scope/ceilings are derived from the resolved authority artifact, and L4 promotion requires concrete Q4/runtime/hardware identity plus exact Q4 evidence bindings.

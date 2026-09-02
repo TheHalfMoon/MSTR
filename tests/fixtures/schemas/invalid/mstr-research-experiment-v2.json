@@ -105,5 +105,20 @@
     "paid_cost_usd": 0,
     "resource_class": "CONTRACT_ONLY"
   },
-  "external_effect_authority": null
+  "external_effect_authority": null,
+  "governing_task_id": "B026",
+  "promoted_result_id_or_na": "b026-l0-contract-smoke-001",
+  "q4_promotion_record_identity_or_na": "N/A",
+  "governed_effects": {
+    "MODEL_WEIGHT_ACCESS": false,
+    "GATED_TERMS_ACCEPTANCE": false,
+    "PAID_MODEL_API_EXECUTION": false,
+    "PAID_COMPUTE": false,
+    "RENTED_COMPUTE": false,
+    "LARGE_DATASET_INGESTION": false,
+    "WEIGHT_CHANGING_TRAINING": false,
+    "LONG_TRAINING": false,
+    "LARGE_SCALE_RL": false,
+    "PRODUCTION_RELEASE": false
+  }
 }

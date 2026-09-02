@@ -473,3 +473,11 @@ CandidatePoolDecision
 ```
 
 A pool is not stable when one candidate has materially weaker/missing evidence that could change the comparison outcome.
+
+### B026 canonical research resolution
+
+`mstr.research-experiment.v2` is fail-closed against self-attested promotion or authority. `governing_task_id` and `predecessor_promotion.experiment_id` derive the predecessor registry path `artifacts/results/research/<governing_task_id>/registry/<experiment_id>.json`; `experiment_record_sha256` binds the exact bytes. The resolved record must itself validate, belong to the same campaign/task/evaluator lineage, be the immediately preceding fidelity level, have decision `PROMOTE`, and expose the exact promoted result consumed as the current parent.
+
+Every experiment explicitly declares every governed external-effect class as `true` or `false`. Any true class requires `external_effect_authority`, whose path is derived only as `artifacts/authorities/<authority_id>.json`. The experiment stores only `authority_id` plus the canonical file SHA-256. Scope, campaign binding, strongest effect, and resource ceilings are derived from the resolved `AUTHORIZED_CANONICAL` artifact and are never copied into a mutable experiment authority surface.
+
+`PROMOTE` binds `promoted_result_id_or_na` to a material result. Per-level identity gates have concrete semantic requirements. L4 additionally requires exact model/Q4 artifact, tokenizer, quantizer, runtime/build, OS/CPU/RAM/thread/backend/context/cache identities and binds both `q4_artifact_identity` and `q4_promotion_record_promoted` gate evidence to the exact promoted artifact/Q4 record. Aggregate paid cost must equal the sum of per-result paid costs before budget or authority ceilings are evaluated.

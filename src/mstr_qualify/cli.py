@@ -345,7 +345,7 @@ def _validate_file(path: Path) -> dict[str, Any]:
         elif schema_name is not None:
             from .schemas import validate_instance
 
-            validate_instance(schema_name, data)
+            validate_instance(schema_name, data, repository_root=_REPOSITORY_ROOT)
         else:
             raise QualificationError(
                 "unsupported schema_version",
