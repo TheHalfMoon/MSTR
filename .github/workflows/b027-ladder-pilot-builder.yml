@@ -47,14 +47,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git checkout --detach "$EXPECTED_MAIN"
           git update-ref refs/heads/main "$EXPECTED_MAIN"
           git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
           mstr-qualify task drift > /tmp/drift.json
           jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
-          mkdir -p artifacts/results/research/B027
-          mstr-qualify task eligible B027 > artifacts/results/research/B027/entry-eligibility.json
-          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true and (.reasons | length) == 0 and ([.prerequisite_results[] | select(.task_id == "B026" and .observed_state == "COMPLETE_CANONICAL" and .satisfied == true)] | length == 1)' artifacts/results/research/B027/entry-eligibility.json
+          mkdir -p /tmp/b027-entry
+          mstr-qualify task eligible B027 > /tmp/b027-entry/entry-eligibility.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true and (.reasons | length) == 0 and ([.prerequisite_results[] | select(.task_id == "B026" and .observed_state == "COMPLETE_CANONICAL" and .satisfied == true)] | length == 1)' /tmp/b027-entry/entry-eligibility.json
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          git checkout "$CANDIDATE_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HARNESS_HEAD"
+          mkdir -p artifacts/results/research/B027
+          cp /tmp/b027-entry/entry-eligibility.json artifacts/results/research/B027/entry-eligibility.json
 
       - name: Execute bounded offline B027 campaign
         shell: bash
@@ -217,16 +222,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          candidate_head="$(git rev-parse HEAD)"
           python -m pytest tests/contract/test_b027_ladder_pilot.py tests/contract/test_research_ladder_contract.py -q
           python -m mstr_qualify validate
           python -m pytest -q
           python -m ruff check .
           python -m mypy src
+          git checkout --detach "$EXPECTED_MAIN"
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
           mstr-qualify task drift > /tmp/final-drift.json
           jq -e '.status == "clean" and (.findings | length) == 0' /tmp/final-drift.json
           mstr-qualify task eligible B027 > /tmp/final-b027.json
-          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and (.reasons | length) == 0' /tmp/final-b027.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true and (.reasons | length) == 0' /tmp/final-b027.json
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          git checkout "$CANDIDATE_BRANCH"
+          test "$(git rev-parse HEAD)" = "$candidate_head"
 
       - name: Publish exact qualified B027 candidate
         shell: bash
