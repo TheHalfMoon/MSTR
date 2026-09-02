@@ -91,6 +91,32 @@ jobs:
         run: |
           set -euo pipefail
           python -m ruff format src/mstr_qualify/schemas.py tests/contract/test_research_ladder_contract.py
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/mstr_qualify/schemas.py')
+          text = path.read_text(encoding='utf-8')
+          replacements = {
+              '                f"$.hard_gate_results[{index}]: verifier manifest identity must be content-addressed"\n':
+                  '                f"$.hard_gate_results[{index}]: verifier manifest identity "\n'
+                  '                "must be content-addressed"\n',
+              '                        f"$.hard_gate_results[{index}]: unsupported verifier manifest schema_version"\n':
+                  '                        f"$.hard_gate_results[{index}]: unsupported verifier manifest "\n'
+                  '                        "schema_version"\n',
+              '                        f"$.hard_gate_results[{index}]: verifier manifest evaluation identity mismatch"\n':
+                  '                        f"$.hard_gate_results[{index}]: verifier manifest evaluation "\n'
+                  '                        "identity mismatch"\n',
+              '                        f"$.hard_gate_results[{index}]: verifier health evaluation identity mismatch"\n':
+                  '                        f"$.hard_gate_results[{index}]: verifier health evaluation "\n'
+                  '                        "identity mismatch"\n',
+          }
+          for old, new in replacements.items():
+              if text.count(old) != 1:
+                  raise SystemExit(f'expected exactly one lint target: {old.strip()}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          python -m ruff format src/mstr_qualify/schemas.py tests/contract/test_research_ladder_contract.py
           git diff --check
           if ! git diff --quiet; then
             git add src/mstr_qualify/schemas.py tests/contract/test_research_ladder_contract.py
