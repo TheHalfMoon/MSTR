@@ -1,0 +1,123 @@
+name: Post-merge verification for B026 canonical closeout
+
+on:
+  push:
+    branches: [evidence/b026-closeout-postmerge-312d40e]
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+env:
+  EXPECTED_MAIN: 312d40eee8400a0dab94633f891b206f66a82855
+  EXPECTED_PARENT1: 1aed67793fa14e6c9a7bbe4067ad521d16617b26
+  EXPECTED_PARENT2: b6de64e6dd160920cfa4596cde0e75399be0bb3a
+  EXPECTED_TREE: 255a41837ac7608da6d4d407d05fa486ccfeeac8
+  PR_NUMBER: '140'
+  PREMERGE_RUN: '33685110921'
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  merge_identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+      - name: Verify exact guarded closeout merge identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_PARENT1"
+          test "$(git rev-parse HEAD^2)" = "$EXPECTED_PARENT2"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg merge "$EXPECTED_MAIN" --arg head "$EXPECTED_PARENT2" '.state == "closed" and .merged == true and .merge_commit_sha == $merge and .head.sha == $head and .commits == 1 and .changed_files == 5' /tmp/pr.json
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PREMERGE_RUN}" > /tmp/premerge.json
+          jq -e '.status == "completed" and .conclusion == "success" and (.name | contains("B026 canonical closeout mandatory premerge"))' /tmp/premerge.json
+
+  canonical_frontier:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Prove B026 terminal and B027 successor eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          set +e
+          mstr-qualify task eligible B026 > /tmp/b026.json; b026_rc=$?
+          mstr-qualify task eligible B011 > /tmp/b011.json; b011_rc=$?
+          set -e
+          test "$b026_rc" -eq 1
+          test "$b011_rc" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b026.json
+          mstr-qualify task eligible B027 > /tmp/b027.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true and (.reasons | length) == 0 and ([.prerequisite_results[] | select(.task_id == "B026" and .observed_state == "COMPLETE_CANONICAL" and .satisfied == true)] | length == 1)' /tmp/b027.json
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo 'B026_COMPLETE_CANONICAL=PASS'
+          echo 'B027_SUCCESSOR_ELIGIBLE=PASS'
+          echo 'B011_AUTHORITY_BLOCK_PRESERVED=PASS'
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Run canonical closeout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+
+  complete:
+    needs: [merge_identity, canonical_frontier, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+      - name: Final immutable canonical-main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_PARENT1"
+          test "$(git rev-parse HEAD^2)" = "$EXPECTED_PARENT2"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo "B026_CLOSEOUT_MAIN=$EXPECTED_MAIN"
+          echo 'B026_STATE=COMPLETE_CANONICAL'
+          echo 'B027_STATE=PENDING_ELIGIBLE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
