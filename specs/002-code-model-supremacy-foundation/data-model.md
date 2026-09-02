@@ -363,6 +363,7 @@ Fields that do not apply MUST carry an explicit `N/A`/not-applicable value rathe
 ```text
 ResearchExperimentRecordV2
 - experiment_id
+- governing_task_id
 - campaign_id
 - parent_identity
 - hypothesis
@@ -376,6 +377,9 @@ ResearchExperimentRecordV2
 - hard_gate_results
 - promotion_decision
 - decision_reason
+- promoted_result_id_or_na
+- q4_promotion_record_identity_or_na
+- governed_effects
 - aggregate_resource_cost
 - external_effect_authority
 ```
@@ -480,4 +484,4 @@ A pool is not stable when one candidate has materially weaker/missing evidence t
 
 Every experiment explicitly declares every governed external-effect class as `true` or `false`. Any true class requires `external_effect_authority`, whose path is derived only as `artifacts/authorities/<authority_id>.json`. The experiment stores only `authority_id` plus the canonical file SHA-256. Scope, campaign binding, strongest effect, and resource ceilings are derived from the resolved `AUTHORIZED_CANONICAL` artifact and are never copied into a mutable experiment authority surface.
 
-`PROMOTE` binds `promoted_result_id_or_na` to a material result. Per-level identity gates have concrete semantic requirements. L4 additionally requires exact model/Q4 artifact, tokenizer, quantizer, runtime/build, OS/CPU/RAM/thread/backend/context/cache identities and binds both `q4_artifact_identity` and `q4_promotion_record_promoted` gate evidence to the exact promoted artifact/Q4 record. Aggregate paid cost must equal the sum of per-result paid costs before budget or authority ceilings are evaluated.
+`PROMOTE` binds `promoted_result_id_or_na` to a material result. Per-level identity gates have concrete semantic requirements. L4 additionally requires exact model/Q4 artifact, tokenizer, quantizer, runtime/build, OS/CPU/RAM/thread/backend/context/cache identities and binds both `q4_artifact_identity` and `q4_promotion_record_promoted` gate evidence to the exact promoted artifact/Q4 record. Aggregate paid cost must equal the sum of per-result paid costs before budget or authority ceilings are evaluated. B026 validates an authority ceiling for one research record only; it does not create a cumulative-consumption ledger or authorize repeated use of an authority. Any future external-effect executor must prove cumulative authority consumption under its own canonical execution contract before relying on these records to act.

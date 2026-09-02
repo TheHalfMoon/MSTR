@@ -40,7 +40,7 @@
         "all L0 smoke checks pass",
         "frozen evaluation identity is pinned",
         "every material result has complete MaterialResultIdentity or explicit N/A fields",
-        "no hard gate is failed"
+        "every required hard gate has status PASS"
       ],
       "hard_reject_conditions": [
         "schema or config invalid",
@@ -72,7 +72,7 @@
         "predeclared code/FIM/edit/tool proxy thresholds pass",
         "no frozen-evaluation regression exceeds its declared tolerance",
         "every material result binds exact task/verifier/sampling/runtime identity or explicit N/A",
-        "no hard gate is failed"
+        "every required hard gate has status PASS"
       ],
       "hard_reject_conditions": [
         "L0 not promoted",
@@ -105,7 +105,7 @@
         "applicable verifier-health threshold is satisfied",
         "no shortcut, leakage, or protected-path violation is detected",
         "every material result preserves exact environment/runtime/task/verifier identity",
-        "no hard gate is failed"
+        "every required hard gate has status PASS"
       ],
       "hard_reject_conditions": [
         "L1 not promoted",
@@ -139,7 +139,7 @@
         "hidden acceptance and evaluator authority remain immutable",
         "no unresolved product hard-gate regression exists",
         "every material result preserves exact contract/harness/task/verifier identity",
-        "no hard gate is failed"
+        "every required hard gate has status PASS"
       ],
       "hard_reject_conditions": [
         "L2 not promoted",
@@ -172,7 +172,7 @@
         "quantizer/runtime/hardware identities are exact or explicit N/A only when genuinely inapplicable",
         "required universal-laptop product gates pass",
         "a required Q4PromotionRecord is PROMOTED before any material weight-changing checkpoint may parent another material stage",
-        "no hard gate is failed"
+        "every required hard gate has status PASS"
       ],
       "hard_reject_conditions": [
         "L3 not promoted",

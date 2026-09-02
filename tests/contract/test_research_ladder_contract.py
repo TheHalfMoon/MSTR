@@ -613,3 +613,110 @@ def test_non_external_record_rejects_authority_binding() -> None:
     }
     with pytest.raises(ValueError, match="validation failed"):
         validate_instance("mstr-research-experiment-v2", fixture)
+
+
+def test_b026_runtime_and_spec_schema_pairs_are_byte_identical() -> None:
+    pairs = (
+        (
+            ROOT / "schemas/mstr-material-result-identity-v0.schema.json",
+            ROOT
+            / "specs/002-code-model-supremacy-foundation/contracts/"
+            "mstr-material-result-identity-v0.schema.json",
+        ),
+        (
+            ROOT / "schemas/mstr-research-experiment-v2.schema.json",
+            ROOT
+            / "specs/002-code-model-supremacy-foundation/contracts/"
+            "mstr-research-experiment-v2.schema.json",
+        ),
+    )
+    for runtime, design in pairs:
+        assert runtime.read_bytes() == design.read_bytes()
+
+
+def test_promote_requires_every_required_gate_to_pass() -> None:
+    config = _json(CONFIG)
+    levels = config["levels"]
+    assert isinstance(levels, list)
+    for level in levels:
+        assert isinstance(level, dict)
+        requirements = level["promotion_requires"]
+        assert isinstance(requirements, list)
+        assert "every required hard gate has status PASS" in requirements
+
+    fixture = _valid_research_experiment()
+    gates = fixture["hard_gate_results"]
+    assert isinstance(gates, list) and isinstance(gates[0], dict)
+    gates[0]["status"] = "NOT_APPLICABLE"
+    with pytest.raises(ValueError, match="validation failed"):
+        validate_instance("mstr-research-experiment-v2", fixture)
+
+
+def test_non_l4_promote_rejects_q4_promotion_evidence() -> None:
+    fixture = _valid_research_experiment()
+    fixture["q4_promotion_record_identity_or_na"] = "q4-promotion:out-of-scope"
+    with pytest.raises(
+        ValueError,
+        match="only L4 PROMOTE may bind Q4 promotion evidence",
+    ):
+        validate_instance("mstr-research-experiment-v2", fixture)
+
+
+def test_research_nested_validation_preserves_custom_schema_dir(tmp_path: Path) -> None:
+    records, shas = _write_promoted_chain(tmp_path, 0)
+    predecessor = records[0]
+    current = _make_level_record(
+        1,
+        task_id="B027",
+        campaign_id=str(predecessor["campaign_id"]),
+        predecessor_id=str(predecessor["experiment_id"]),
+        predecessor_sha=shas[0],
+        predecessor_result=str(predecessor["promoted_result_id_or_na"]),
+    )
+
+    custom_dir = tmp_path / "custom-schemas"
+    custom_dir.mkdir()
+    schema = _json(ROOT / "schemas/mstr-research-experiment-v2.schema.json")
+    all_of = schema["allOf"]
+    assert isinstance(all_of, list)
+    all_of.append(
+        {
+            "if": {
+                "properties": {"fidelity_level": {"const": "L0_CONTRACT_SMOKE"}},
+                "required": ["fidelity_level"],
+            },
+            "then": {
+                "properties": {
+                    "decision_reason": {"const": "CUSTOM_SCHEMA_PREDECESSOR_SENTINEL"}
+                }
+            },
+        }
+    )
+    (custom_dir / "mstr-research-experiment-v2.schema.json").write_text(
+        json.dumps(schema, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="referenced predecessor record is invalid"):
+        validate_instance(
+            "mstr-research-experiment-v2",
+            current,
+            schema_dir=custom_dir,
+            repository_root=tmp_path,
+        )
+
+
+def test_data_model_research_record_block_lists_all_required_b026_fields() -> None:
+    text = (
+        ROOT / "specs/002-code-model-supremacy-foundation/data-model.md"
+    ).read_text(encoding="utf-8")
+    start = text.index("```text\nResearchExperimentRecordV2\n")
+    end = text.index("\n```", start)
+    block = text[start:end]
+    for field in (
+        "governing_task_id",
+        "promoted_result_id_or_na",
+        "q4_promotion_record_identity_or_na",
+        "governed_effects",
+    ):
+        assert f"- {field}" in block

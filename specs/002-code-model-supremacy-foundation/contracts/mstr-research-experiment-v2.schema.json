@@ -1442,7 +1442,8 @@
             "PASS",
             "FAIL",
             "NOT_APPLICABLE"
-          ]
+          ],
+          "description": "NOT_APPLICABLE is valid only for non-PROMOTE records; every required hard gate must be PASS when promotion_decision is PROMOTE."
         },
         "evidence_identity": {
           "type": "string",

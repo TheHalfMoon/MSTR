@@ -99,3 +99,19 @@ CodeRabbit run `2b1e0aeb-8ecf-449f-bb4e-3ca2faa33ac6` independently confirmed th
 This guarded candidate repair addresses those findings by deriving predecessor records from `artifacts/results/research/<governing_task_id>/registry/<experiment_id>.json`, deriving authority only from `artifacts/authorities/<authority_id>.json`, binding both files by SHA-256, requiring an explicit boolean declaration for every canonical governed effect class, reconciling per-result paid cost to the aggregate, and requiring concrete per-level material identity with strict L4 Q4 evidence binding. The experiment record carries no copied authority scopes or ceilings.
 
 These findings are not considered resolved by implementation text. Resolution still requires successful guarded repair gates, fresh exact-head qualification, thread reconciliation, and a new independent exact-head review.
+
+## Fresh exact-head CodeRabbit review findings on `87d31a1c6488c80d8c6e35a4aadaf84a42fa20ac`
+
+CodeRabbit review `PRR_kwDOUCYTYs8AAAABL3Tj7A` / run `2914d85c-a8dd-4db3-8d5c-3aef880343e0` reviewed the exact qualified 17-file head and completed with status `53388944096`. It produced three actionable findings:
+
+1. the contract text said only that no hard gate failed while the schema correctly required every required gate to be `PASS` for `PROMOTE`;
+2. the canonical `ResearchExperimentRecordV2` reading-order block omitted four schema-required fields;
+3. semantic validation could fail to reject concrete Q4 promotion evidence on a non-L4 `PROMOTE` record because of an `elif` fallthrough.
+
+This candidate chooses the stricter existing promotion semantics: every required gate must be `PASS`; `NOT_APPLICABLE` remains legal only for non-`PROMOTE` records. It synchronizes the ladder text and schema description, fixes the canonical data-model block, makes the Q4 restriction explicit at every non-L4/non-promote boundary, preserves caller-selected `schema_dir` for recursively resolved predecessor validation, adds byte-identity coverage for both B026 schema pairs, and binds the explicit CLI negative-fixture test to `schema.instance_invalid`.
+
+The review also noted that canonical authority ceilings must not be treated as indefinitely reusable execution budget. B026 performs per-record ceiling validation only and grants no execution authority; cumulative authority-consumption accounting remains a mandatory responsibility of any future separately authorized external-effect executor. No cumulative authority or execution right is created here.
+
+The broad sentinel-schema deduplication and wholesale rewriting of every historical generic negative-test assertion were maintainability nitpicks, not correctness findings, and are not claimed as part of this bounded repair.
+
+These exact-head findings are not considered resolved by this evidence text. Resolution still requires guarded publication, fresh exact-head qualification, review-thread reconciliation, and a new independent exact-head substantive review.

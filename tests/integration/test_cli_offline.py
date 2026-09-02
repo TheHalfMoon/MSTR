@@ -493,3 +493,4 @@ def test_validate_explicit_b026_invalid_fixtures_fail(
     payload = parse_stdout(capsys)
     assert payload["status"] == "fail"
     assert payload["files"][0]["status"] == "fail"
+    assert payload["files"][0]["code"] == "schema.instance_invalid"

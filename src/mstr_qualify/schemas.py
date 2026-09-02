@@ -998,6 +998,7 @@ def _research_experiment_semantic_errors(
     instance: Any,
     *,
     repository_root: Path,
+    schema_dir: Path | None = None,
     visited_records: frozenset[str] = frozenset(),
 ) -> tuple[str, ...]:
     """Enforce B026 lineage, material identity, budgets, and canonical authority."""
@@ -1099,6 +1100,7 @@ def _research_experiment_semantic_errors(
                         nested_errors = validation_errors(
                             "mstr-research-experiment-v2",
                             predecessor_record,
+                            schema_dir=schema_dir,
                             repository_root=repository_root,
                             _research_visited=visited_records | {registry_key},
                         )
@@ -1216,7 +1218,11 @@ def _research_experiment_semantic_errors(
                     "$.hard_gate_results[q4_promotion_record_promoted].evidence_identity: "
                     "must bind q4_promotion_record_identity_or_na"
                 )
-    elif instance.get("q4_promotion_record_identity_or_na") != "N/A":
+    if not (
+        promotion_decision == "PROMOTE"
+        and level == "L4_Q4_UNIVERSAL_LAPTOP"
+        and promoted_result is not None
+    ) and instance.get("q4_promotion_record_identity_or_na") != "N/A":
         errors.append(
             "$.q4_promotion_record_identity_or_na: only L4 PROMOTE may bind Q4 promotion evidence"
         )
@@ -1530,6 +1536,7 @@ def validation_errors(
             _research_experiment_semantic_errors(
                 instance,
                 repository_root=(repository_root or _REPOSITORY_ROOT).resolve(),
+                schema_dir=schema_dir,
                 visited_records=_research_visited or frozenset(),
             )
         )
