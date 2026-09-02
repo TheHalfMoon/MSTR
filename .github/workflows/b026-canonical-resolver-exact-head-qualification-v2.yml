@@ -1,0 +1,261 @@
+name: Requalify B026 canonical resolver exact implementation head
+
+on:
+  push:
+    branches: [evidence/b026-qualify2-87d31a1]
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+  issues: read
+
+env:
+  BASE_SHA: 823cd7ec3b4c537876a0795d0f0f8d4bd75acd85
+  INITIAL_HEAD: a2414b1bf58a5bce3a69ee965e74d8ac9d0ba7a8
+  FIRST_REPAIRED_HEAD: 45d9f9f0ded97ebd482c29d419d2ff41bd9e940a
+  PREVIOUS_HEAD: 08399fa64ed82f31feb5b5cff2f92420bde36308
+  HEAD_SHA: 87d31a1c6488c80d8c6e35a4aadaf84a42fa20ac
+  HEAD_TREE: 1b15df29644ba35f2c9ecfa053f7c5195f6b4dd7
+  TARGET_BRANCH: feat/000b-b026-research-ladder
+  PR_NUMBER: '137'
+  PREVIOUS_QUALIFICATION_RUN: '33632945344'
+  FINAL_REPAIR_RUN: '33640474391'
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '${{ env.HEAD_SHA }}'
+          fetch-depth: 0
+      - name: Verify exact head ancestry scope and stable historical review provenance
+        env:
+          GH_TOKEN: '${{ github.token }}'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^)" = "$PREVIOUS_HEAD"
+          test "$(git rev-parse HEAD^^)" = "$FIRST_REPAIRED_HEAD"
+          test "$(git rev-parse HEAD^^^)" = "$INITIAL_HEAD"
+          test "$(git rev-parse HEAD^^^^)" = "$BASE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+
+          pr="$(gh api repos/${GITHUB_REPOSITORY}/pulls/$PR_NUMBER)"
+          jq -e --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '
+            .state == "open" and .draft == false and .base.sha == $base and
+            .head.sha == $head and .commits == 4 and .changed_files == 17
+          ' <<<"$pr"
+
+          printf '%s\n' \
+            configs/research/mstr-research-ladder-v0.json \
+            evidence/mstr-000b/B026-research-ladder.md \
+            schemas/mstr-material-result-identity-v0.schema.json \
+            schemas/mstr-research-experiment-v2.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/README.md \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-material-result-identity-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-research-experiment-v2.schema.json \
+            specs/002-code-model-supremacy-foundation/data-model.md \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_research_ladder_contract.py \
+            tests/contract/test_schemas.py \
+            tests/fixtures/schemas/invalid/mstr-material-result-identity-v0.json \
+            tests/fixtures/schemas/invalid/mstr-research-experiment-v2.json \
+            tests/fixtures/schemas/valid/mstr-material-result-identity-v0.json \
+            tests/fixtures/schemas/valid/mstr-research-experiment-v2.json \
+            tests/integration/test_cli_offline.py | sort > /tmp/expected
+          git diff --name-only "$BASE_SHA...$HEAD_SHA" | sort > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          git diff --check "$BASE_SHA...$HEAD_SHA"
+          test -z "$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json artifacts/authorities artifacts/results/research)"
+
+          previous="$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/$PREVIOUS_QUALIFICATION_RUN)"
+          test "$(jq -r '.status' <<<"$previous")" = completed
+          test "$(jq -r '.conclusion' <<<"$previous")" = success
+          repair="$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/$FINAL_REPAIR_RUN)"
+          test "$(jq -r '.status' <<<"$repair")" = completed
+          test "$(jq -r '.conclusion' <<<"$repair")" = success
+          test "$(jq -r '.name' <<<"$repair")" = 'Guard B026 second exact-head review repair v5'
+          test "$(jq -r '.head_branch' <<<"$repair")" = evidence/b026-review-repair2-v4-08399fa
+
+          for spec in \
+            '3914444935|Require concrete Q4 identities before L4 promotion' \
+            '3914444949|Resolve the predecessor against the campaign ledger' \
+            '3914444959|Resolve authority envelopes against canonical records' \
+            '3914444971|Represent every governed external-effect scope' \
+            '3914444988|Reconcile per-result paid costs with the aggregate'; do
+            id="${spec%%|*}"; needle="${spec#*|}"
+            comment="$(gh api repos/${GITHUB_REPOSITORY}/pulls/comments/$id)"
+            test "$(jq -r '.user.login' <<<"$comment")" = 'chatgpt-codex-connector[bot]'
+            original="$(jq -r '.original_commit_id // empty' <<<"$comment")"
+            current="$(jq -r '.commit_id' <<<"$comment")"
+            test "$original" = "$PREVIOUS_HEAD" || test "$current" = "$PREVIOUS_HEAD"
+            grep -F "$needle" <<<"$(jq -r '.body' <<<"$comment")"
+          done
+
+          for spec in \
+            '3914479464|Record the still-open findings instead of describing the contract gaps as closed' \
+            '3914479498|Resolve the predecessor experiment before accepting promotion' \
+            '3914479510|Resolve external-effect authority from a canonical record'; do
+            id="${spec%%|*}"; needle="${spec#*|}"
+            comment="$(gh api repos/${GITHUB_REPOSITORY}/pulls/comments/$id)"
+            test "$(jq -r '.user.login' <<<"$comment")" = 'coderabbitai[bot]'
+            test "$(jq -r '.original_commit_id' <<<"$comment")" = "$PREVIOUS_HEAD"
+            current="$(jq -r '.commit_id' <<<"$comment")"
+            test "$current" = "$PREVIOUS_HEAD" || test "$current" = "$HEAD_SHA"
+            grep -F "$needle" <<<"$(jq -r '.body' <<<"$comment")"
+          done
+
+  machine_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '${{ env.HEAD_SHA }}'
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Re-prove exact B026 machine frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$HEAD_SHA"
+          git update-ref refs/remotes/origin/main "$HEAD_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          mstr-qualify task eligible B026 > /tmp/b026.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true and (.reasons | length) == 0' /tmp/b026.json
+          set +e
+          mstr-qualify task eligible B027 > /tmp/b027.json; b027_rc=$?
+          mstr-qualify task eligible B011 > /tmp/b011.json; b011_rc=$?
+          set -e
+          test "$b027_rc" -eq 1
+          test "$b011_rc" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "PENDING" and ([.prerequisite_results[] | select(.task_id == "B026" and .observed_state == "PENDING" and .satisfied == false)] | length == 1)' /tmp/b027.json
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '${{ env.HEAD_SHA }}'
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install development gates
+        run: python -m pip install -e '.[dev]'
+      - name: Focused B026 resolver tests
+        run: python -m pytest tests/contract/test_schemas.py tests/contract/test_research_ladder_contract.py tests/integration/test_cli_offline.py -q
+      - name: Offline schema and explicit B026 CLI validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify validate
+          python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-material-result-identity-v0.json
+          python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-research-experiment-v2.json
+          set +e
+          python -m mstr_qualify validate tests/fixtures/schemas/invalid/mstr-material-result-identity-v0.json; material_rc=$?
+          python -m mstr_qualify validate tests/fixtures/schemas/invalid/mstr-research-experiment-v2.json; experiment_rc=$?
+          set -e
+          test "$material_rc" -eq 1
+          test "$experiment_rc" -eq 1
+      - name: Full pytest
+        run: python -m pytest -q
+      - name: Ruff
+        run: python -m ruff check .
+      - name: Strict mypy
+        run: python -m mypy src
+      - name: Verify canonical resolver semantics and authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp schemas/mstr-material-result-identity-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-material-result-identity-v0.schema.json
+          cmp schemas/mstr-research-experiment-v2.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-research-experiment-v2.schema.json
+          jq -S 'del(."$schema", ."$id", .title)' schemas/mstr-material-result-identity-v0.schema.json > /tmp/material-standalone.json
+          jq -S '."$defs".material_result_identity' schemas/mstr-research-experiment-v2.schema.json > /tmp/material-embedded.json
+          cmp /tmp/material-standalone.json /tmp/material-embedded.json
+          jq -e '.promotion_policy.predecessor_registry_resolution_required == true and .promotion_policy.canonical_authority_record_resolution_required == true and .promotion_policy.governed_effect_declarations_complete == true and .promotion_policy.aggregate_paid_cost_reconciliation_required == true and .promotion_policy.per_level_material_identity_semantically_enforced == true and .promotion_policy.l4_concrete_q4_identity_required == true and .promotion_policy.q4_gate_evidence_identity_binding_required == true' configs/research/mstr-research-ladder-v0.json
+          jq -e '.canonical_resolution.experiment_registry_template == "artifacts/results/research/{governing_task_id}/registry/{experiment_id}.json" and .canonical_resolution.authority_registry_template == "artifacts/authorities/{authority_id}.json" and .canonical_resolution.authority_copy_in_experiment == false and (.canonical_resolution.governed_effects | length) == 10' configs/research/mstr-research-ladder-v0.json
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('src/mstr_qualify/schemas.py').read_text(encoding='utf-8')
+          required = (
+              'def _b026_repository_json(',
+              'hashlib.sha256(raw).hexdigest()',
+              'Path("artifacts")\n                    / "results"\n                    / "research"',
+              '/ "registry"\n                    / f"{predecessor_id}.json"',
+              'relative = Path("artifacts") / "authorities" / f"{authority_id}.json"',
+              'validation_errors(\n                            "mstr-research-experiment-v2"',
+              'does not match immutable predecessor record',
+              'does not match canonical authority record',
+              'must equal sum(material_results[*].paid_cost_usd)',
+              'promotion requires concrete identity',
+          )
+          missing = [needle for needle in required if needle not in text]
+          if missing:
+              raise SystemExit(f'missing canonical resolver proof markers: {missing}')
+          PY
+          grep -F '**State:** `IMPLEMENTATION_ACTIVE`' evidence/mstr-000b/B026-research-ladder.md
+          grep -F 'These findings are not considered resolved by implementation text.' evidence/mstr-000b/B026-research-ladder.md
+          for marker in \
+            'MODEL_WEIGHT_ACCESS = NONE' \
+            'MODEL_EXECUTION = NONE' \
+            'RESEARCH_CAMPAIGN_EXECUTION = NONE' \
+            'TEST_GENERATION_EXECUTION = NONE' \
+            'VERIFIER_EXECUTION = NONE' \
+            'TEACHER_API_EXECUTION = NONE' \
+            'PAID_MODEL_API = NONE' \
+            'PAID_COMPUTE = NONE' \
+            'NETWORK_MODEL_OR_TEACHER_CALL = NONE' \
+            'LARGE_DATASET_INGESTION = NONE' \
+            'PRIVATE_USER_DATA_INGESTION = NONE' \
+            'PRODUCTION_TRACE_INGESTION = NONE' \
+            'WEIGHT_CHANGING_TRAINING = NONE' \
+            'LARGE_SCALE_RL = NONE' \
+            'PRODUCTION_RELEASE = NONE'; do
+            grep -F "$marker" evidence/mstr-000b/B026-research-ladder.md
+          done
+          jq -e '.authority_boundary.contract_freeze_only == true and ([.authority_boundary | to_entries[] | select(.key != "contract_freeze_only") | .value] | all(. == false))' configs/research/mstr-research-ladder-v0.json
+          test -z "$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json artifacts/authorities artifacts/results/research)"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+
+  complete:
+    needs: [identity_scope, machine_gate, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '${{ env.HEAD_SHA }}'
+          fetch-depth: 0
+      - name: Final immutable exact-head recheck
+        env:
+          GH_TOKEN: '${{ github.token }}'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^)" = "$PREVIOUS_HEAD"
+          test "$(git rev-parse HEAD^^)" = "$FIRST_REPAIRED_HEAD"
+          test "$(git rev-parse HEAD^^^)" = "$INITIAL_HEAD"
+          test "$(git rev-parse HEAD^^^^)" = "$BASE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          gh api repos/${GITHUB_REPOSITORY}/pulls/$PR_NUMBER | jq -e --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .changed_files == 17 and .commits == 4'
+          echo 'B026_CANONICAL_RESOLVER_EXACT_HEAD_REQUALIFICATION=PASS'
