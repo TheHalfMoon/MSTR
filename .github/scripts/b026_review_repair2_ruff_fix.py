@@ -14,7 +14,7 @@ def replace_once(path: Path, old: str, new: str) -> None:
     path.write_text(text.replace(old, new), encoding="utf-8")
 
 
-def split_error_literal(text: str, prefix: str, suffix: str) -> str:
+def split_error_literal(prefix: str, suffix: str) -> str:
     return f'                                "{prefix}"\n                                "{suffix}"'
 
 
