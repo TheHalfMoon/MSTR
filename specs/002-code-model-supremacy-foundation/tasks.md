@@ -184,9 +184,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
 
 # Phase R — Research Efficiency, Q4, and Long-Horizon Quality
 
-- [ ] **B026 Freeze multi-fidelity MSTR Research Ladder v0.**  
+- [x] **B026 Freeze multi-fidelity MSTR Research Ladder v0.**
   L0 contract/smoke -> L1 code/FIM/edit/tool -> L2 executable repo -> L3 Direction-to-Done/feature/program -> L4 Q4 universal-laptop. Define per-level promotion/hard-reject criteria and exact material-result identity requirements.  
   Outputs: contract/config, `evidence/mstr-000b/B026-research-ladder.md`.
+  Canonical implementation: PR #137 / final head `ba672f8eaaa9fe96e9ffdcba39e10f6d4123e421` / merge `1aed67793fa14e6c9a7bbe4067ad521d16617b26`.
 
 - [ ] **B027 Qualify the research ladder with one non-weight-changing campaign.**  
   Use a bounded harness/config experiment. Demonstrate early discard, promotion, immutable evaluator authority, complete `MaterialResultIdentity` records and full ledger.  

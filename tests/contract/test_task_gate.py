@@ -1301,13 +1301,14 @@ def test_b024_is_terminal_after_canonical_closeout() -> None:
     assert predecessor["satisfied"] is True
     validate_instance("mstr-task-eligibility-v0", result)
 
-def test_b024_closeout_opens_b026_as_next_machine_eligible_task() -> None:
+def test_b026_is_terminal_after_canonical_closeout() -> None:
     result = evaluate_task_snapshot("B026", canonical_main=_CANONICAL_MAIN)
 
-    assert result["eligible"] is True
-    assert result["reasons"] == []
-    assert result["state_consistency_result"]["observed_state"] == "PENDING"
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
     assert result["authority_result"]["required"] is False
+    assert "task.already_terminal" in result["reasons"]
     assert {item["task_id"] for item in result["prerequisite_results"]} == {
         "B022",
         "B024",
@@ -1320,6 +1321,23 @@ def test_b024_closeout_opens_b026_as_next_machine_eligible_task() -> None:
     assert all(item["evidence_present"] is True for item in result["prerequisite_results"])
     assert all(item["satisfied"] is True for item in result["prerequisite_results"])
     validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b026_closeout_opens_b027_as_next_machine_eligible_task() -> None:
+    result = evaluate_task_snapshot("B027", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is True
+    assert result["reasons"] == []
+    assert result["state_consistency_result"]["observed_state"] == "PENDING"
+    assert result["authority_result"]["required"] is False
+    predecessor = next(
+        item for item in result["prerequisite_results"] if item["task_id"] == "B026"
+    )
+    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
+    assert predecessor["evidence_present"] is True
+    assert predecessor["satisfied"] is True
+    validate_instance("mstr-task-eligibility-v0", result)
+
 
 def test_b023_closeout_provenance_and_authority_boundary() -> None:
     evidence = (
@@ -1370,6 +1388,31 @@ def test_b024_closeout_provenance_and_authority_boundary() -> None:
     assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
 
 
+def test_b026_closeout_provenance_and_authority_boundary() -> None:
+    evidence = (
+        Path(__file__).resolve().parents[2]
+        / "evidence"
+        / "mstr-000b"
+        / "B026-research-ladder.md"
+    ).read_text(encoding="utf-8")
+
+    assert "**State:** COMPLETE_CANONICAL" in evidence
+    assert "**Implementation PR:** #137" in evidence
+    assert "`ba672f8eaaa9fe96e9ffdcba39e10f6d4123e421`" in evidence
+    assert "`1aed67793fa14e6c9a7bbe4067ad521d16617b26`" in evidence
+    assert "ENTRY_GATE_TASK = B026" in evidence
+    assert "ENTRY_GATE_CANONICAL_MAIN = 823cd7ec3b4c537876a0795d0f0f8d4bd75acd85" in evidence
+    assert "ENTRY_GATE_ELIGIBLE = true" in evidence
+    for run_id in ("33677458758", "33678090319", "33682188378", "33683456723"):
+        assert f"run `{run_id}` — SUCCESS" in evidence
+    assert "CodeRabbit comment `5516237548`" in evidence
+    assert "MODEL_EXECUTION = NONE" in evidence
+    assert "MODEL_WEIGHT_ACCESS = NONE" in evidence
+    assert "RESEARCH_CAMPAIGN_EXECUTION = NONE" in evidence
+    assert "VERIFIER_EXECUTION = NONE" in evidence
+    assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
+
+
 def test_b025_is_terminal_after_canonical_closeout() -> None:
     result = evaluate_task_snapshot("B025", canonical_main=_CANONICAL_MAIN)
 
@@ -1384,17 +1427,19 @@ def test_b025_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b025_prerequisite_remains_satisfied_after_b024_closeout() -> None:
+def test_b025_prerequisite_remains_recorded_after_b026_closeout() -> None:
     result = evaluate_task_snapshot("B026", canonical_main=_CANONICAL_MAIN)
 
-    assert result["eligible"] is True
-    assert result["reasons"] == []
-    assert result["state_consistency_result"]["observed_state"] == "PENDING"
-    predecessor = next(item for item in result["prerequisite_results"] if item["task_id"] == "B025")
+    assert result["eligible"] is False
+    assert "task.already_terminal" in result["reasons"]
+    predecessor = next(
+        item for item in result["prerequisite_results"] if item["task_id"] == "B025"
+    )
     assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
     assert predecessor["evidence_present"] is True
     assert predecessor["satisfied"] is True
     validate_instance("mstr-task-eligibility-v0", result)
+
 
 def test_b028_is_terminal_after_canonical_closeout() -> None:
     result = evaluate_task_snapshot("B028", canonical_main=_CANONICAL_MAIN)

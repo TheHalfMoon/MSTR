@@ -1,13 +1,19 @@
 # B026 — Multi-Fidelity Research Ladder v0 Evidence
 
 **Task:** `B026`
-**State:** `IMPLEMENTATION_ACTIVE`
+**Implementation PR:** #137
+**Final implementation head:** `ba672f8eaaa9fe96e9ffdcba39e10f6d4123e421`
+**Canonical implementation merge:** `1aed67793fa14e6c9a7bbe4067ad521d16617b26`
+**State:** COMPLETE_CANONICAL
 **Canonical entry main:** `823cd7ec3b4c537876a0795d0f0f8d4bd75acd85`
 **Entry proof:** post-B024-closeout run `33564300212` — SUCCESS
 
 ## Entry gate
 
 ```text
+ENTRY_GATE_TASK = B026
+ENTRY_GATE_CANONICAL_MAIN = 823cd7ec3b4c537876a0795d0f0f8d4bd75acd85
+ENTRY_GATE_ELIGIBLE = true
 TASK = B026
 CANONICAL_MAIN = 823cd7ec3b4c537876a0795d0f0f8d4bd75acd85
 TASK_DRIFT = clean
@@ -158,3 +164,20 @@ Fresh independent CodeRabbit issue review comment `5515461479` reviewed exact he
 This bounded repair makes predecessor evidence causality machine-enforced. For L1-L4 campaign records, the resolved predecessor's `canonical_evidence_commit_sha_or_na` must be a strict canonical-main ancestor of the current `campaign_freeze_commit_sha_or_na`. The ladder promotion policy records this antecedence rule explicitly. An adversarial merge-history test constructs a predecessor evidence commit on a sibling history path, makes the predecessor registry record visible at the current policy freeze, later merges both paths into canonical main, and proves validation rejects the causally unavailable predecessor outcome. The existing linear promoted-chain tests continue to prove valid sequential promotion.
 
 No task ledger, task-gate state, or authority artifact is changed. This repair grants no model execution, network model/teacher calls, paid compute/API, model-weight access, dataset ingestion, verifier execution, training/RL, research-campaign execution, Q4 execution, or production-release authority. The finding is not considered resolved by prose or a local patch; guarded publication, fresh exact-head qualification, fresh independent substantive review, zero unresolved actionable findings, and mandatory premerge verification remain required.
+
+## Canonical Implementation Closeout
+
+The B026 Multi-Fidelity MSTR Research Ladder v0 contract/configuration implementation merged and was re-verified on canonical main. This closeout records terminal task/provenance state only. It does not execute B027 and does not authorize model execution, model-weight access, verifier execution, teacher/API execution, paid compute/API, network model/teacher calls, data ingestion, training/RL, Q4 execution, or production release.
+
+- implementation PR: `#137`
+- final implementation head: `ba672f8eaaa9fe96e9ffdcba39e10f6d4123e421`
+- canonical implementation merge: `1aed67793fa14e6c9a7bbe4067ad521d16617b26`
+- guarded final causal-ordering repair builder: run `33677458758` — SUCCESS
+- exact-head qualification: run `33678090319` — SUCCESS
+- exact-head independent review: CodeRabbit comment `5516237548` — NO ACTIONABLE COMMENTS on exact base/head/tree, 9 commits, and all 17 changed files
+- mandatory exact-head pre-merge verification: run `33682188378` — SUCCESS
+- post-merge implementation verification: run `33683456723` — SUCCESS
+
+The final implementation review confirms canonical Git-blob resolution, strict campaign-freeze/evidence ordering, predecessor-evidence causality, verifier-evidence derivation, governed-effect authority binding, positive-network-byte effect derivation, and L4/Q4 identity controls. Earlier-head findings remain historical and are not represented as current findings.
+
+This closeout changes only B026 canonical state/provenance, the canonical task ledger, and closeout regression coverage. The frozen B026 schemas, semantic validator, ladder configuration, and source implementation are unchanged by this closeout. B027 becomes machine-eligible only because B026 is now canonically complete. B011 remains separately blocked on repository-specific external authority.
