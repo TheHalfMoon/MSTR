@@ -1,0 +1,228 @@
+name: Guard B026 remaining Codex review repair v4
+
+on:
+  push:
+    branches: [evidence/b026-codex-review-repair-45d9f9f]
+
+permissions:
+  contents: write
+  actions: read
+  pull-requests: read
+  issues: read
+
+env:
+  BASE_SHA: 823cd7ec3b4c537876a0795d0f0f8d4bd75acd85
+  OLD_HEAD: 45d9f9f0ded97ebd482c29d419d2ff41bd9e940a
+  OLD_TREE: a356c77fa3694f24b69c435dbf3aac37881b7ff7
+  TARGET_BRANCH: feat/000b-b026-research-ladder
+  PR_NUMBER: '137'
+  QUALIFICATION_RUN: '33625838318'
+  PRIOR_REPAIR_RUN: '33625504116'
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11', cache: pip, cache-dependency-path: pyproject.toml}
+
+      - name: Verify immutable entry and review provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$OLD_HEAD"
+          test "$(git rev-parse "$OLD_HEAD^{tree}")" = "$OLD_TREE"
+          pr="$(gh api repos/${GITHUB_REPOSITORY}/pulls/$PR_NUMBER)"
+          test "$(jq -r '.state' <<<"$pr")" = open
+          test "$(jq -r '.draft' <<<"$pr")" = false
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$BASE_SHA"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$OLD_HEAD"
+          for run_id in "$QUALIFICATION_RUN" "$PRIOR_REPAIR_RUN"; do
+            run="$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/$run_id)"
+            test "$(jq -r '.status' <<<"$run")" = completed
+            test "$(jq -r '.conclusion' <<<"$run")" = success
+          done
+          for spec in \
+            '3913543823|Require the complete per-level gate set before promotion' \
+            '3913543831|Require canonical authority for external-effect results' \
+            '3913543839|Add data and difficulty identities to material results'; do
+            id="${spec%%|*}"; needle="${spec#*|}"
+            comment="$(gh api repos/${GITHUB_REPOSITORY}/pulls/comments/$id)"
+            test "$(jq -r '.user.login' <<<"$comment")" = 'chatgpt-codex-connector[bot]'
+            grep -F "$needle" <<<"$(jq -r '.body' <<<"$comment")"
+          done
+          cp .github/scripts/b026_codex_review_repair_builder.py /tmp/builder.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('/tmp/builder.py')
+          text = path.read_text(encoding='utf-8')
+          old = 'TESTS.write_text(text.rstrip() + append + "\\n", encoding="utf-8")'
+          new = 'TESTS.write_text(text.rstrip() + append.rstrip() + "\\n", encoding="utf-8")'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one EOF normalization target, found {text.count(old)}')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+          python -m py_compile /tmp/builder.py
+          git checkout --detach "$OLD_HEAD"
+          test "$(git rev-parse HEAD)" = "$OLD_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$OLD_TREE"
+          test -z "$(git status --porcelain)"
+
+      - name: Build normalize and seal candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/builder.py
+          python - <<'PY'
+          from pathlib import Path
+
+          tests = Path('tests/contract/test_research_ladder_contract.py')
+          text = tests.read_text(encoding='utf-8')
+          old = '''    predecessor = _predecessor("L0_CONTRACT_SMOKE", current=fixture)\n    fixture["predecessor_promotion"] = predecessor\n    validate_instance("mstr-research-experiment-v2", fixture)\n'''
+          new = '''    predecessor = _predecessor("L0_CONTRACT_SMOKE", current=fixture)\n    fixture["predecessor_promotion"] = predecessor\n    _set_required_gates(fixture, "L1_CODE_PROXY")\n    validate_instance("mstr-research-experiment-v2", fixture)\n'''
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one legacy L1 fixture target, found {text.count(old)}')
+          tests.write_text(text.replace(old, new), encoding='utf-8')
+
+          source = Path('src/mstr_qualify/schemas.py')
+          text = source.read_text(encoding='utf-8')
+          replacements = {
+              '                "$.external_effect_authority: required for any external-effect resource class or cost"\n':
+                  '                "$.external_effect_authority: required for any external-effect "\n'
+                  '                "resource class or cost"\n',
+              '                        f"$.external_effect_authority.{field}: must bind concrete canonical authority"\n':
+                  '                        f"$.external_effect_authority.{field}: must bind concrete "\n'
+                  '                        "canonical authority"\n',
+              '                    "$.external_effect_authority.authorized_scopes: missing scope required by recorded effect"\n':
+                  '                    "$.external_effect_authority.authorized_scopes: missing scope "\n'
+                  '                    "required by recorded effect"\n',
+              '                            f"$.aggregate_resource_cost.{field}: exceeds canonical authority ceiling"\n':
+                  '                            f"$.aggregate_resource_cost.{field}: exceeds canonical "\n'
+                  '                            "authority ceiling"\n',
+          }
+          for old_line, new_lines in replacements.items():
+              if text.count(old_line) != 1:
+                  raise SystemExit(f'expected one lint target, found {text.count(old_line)}: {old_line!r}')
+              text = text.replace(old_line, new_lines)
+          source.write_text(text, encoding='utf-8')
+          PY
+
+          printf '%s\n' \
+            configs/research/mstr-research-ladder-v0.json \
+            evidence/mstr-000b/B026-research-ladder.md \
+            schemas/mstr-material-result-identity-v0.schema.json \
+            schemas/mstr-research-experiment-v2.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/README.md \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-material-result-identity-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-research-experiment-v2.schema.json \
+            specs/002-code-model-supremacy-foundation/data-model.md \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_research_ladder_contract.py \
+            tests/fixtures/schemas/invalid/mstr-material-result-identity-v0.json \
+            tests/fixtures/schemas/invalid/mstr-research-experiment-v2.json \
+            tests/fixtures/schemas/valid/mstr-material-result-identity-v0.json \
+            tests/fixtures/schemas/valid/mstr-research-experiment-v2.json | sort > /tmp/expected
+          git diff --name-only | sort > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          git diff --check
+          test -z "$(git diff --name-only -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json)"
+          cmp schemas/mstr-material-result-identity-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-material-result-identity-v0.schema.json
+          cmp schemas/mstr-research-experiment-v2.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-research-experiment-v2.schema.json
+          jq -S 'del(."$schema", ."$id", .title)' schemas/mstr-material-result-identity-v0.schema.json > /tmp/material-standalone.json
+          jq -S '."$defs".material_result_identity' schemas/mstr-research-experiment-v2.schema.json > /tmp/material-embedded.json
+          cmp /tmp/material-standalone.json /tmp/material-embedded.json
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add --pathspec-from-file=/tmp/expected
+          git commit -m 'fix(mstr-000b): reconcile remaining B026 review findings'
+          test "$(git rev-parse HEAD^)" = "$OLD_HEAD"
+          test "$(git diff --name-only "$OLD_HEAD...HEAD" | wc -l)" -eq 14
+          test -z "$(git status --porcelain)"
+
+      - name: Install development gates
+        run: python -m pip install -e '.[dev]'
+
+      - name: Re-prove bounded machine frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="$(git rev-parse HEAD)"
+          git update-ref refs/heads/main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          mstr-qualify task eligible B026 > /tmp/b026.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true and (.reasons | length) == 0' /tmp/b026.json
+          set +e
+          mstr-qualify task eligible B027 > /tmp/b027.json; b027_rc=$?
+          mstr-qualify task eligible B011 > /tmp/b011.json; b011_rc=$?
+          set -e
+          test "$b027_rc" -eq 1
+          test "$b011_rc" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "PENDING" and ([.prerequisite_results[] | select(.task_id == "B026" and .observed_state == "PENDING" and .satisfied == false)] | length == 1)' /tmp/b027.json
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+
+      - name: Focused reconciliation tests
+        run: python -m pytest tests/contract/test_research_ladder_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py -q
+
+      - name: Offline and explicit validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify validate
+          python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-material-result-identity-v0.json
+          python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-research-experiment-v2.json
+          set +e
+          python -m mstr_qualify validate tests/fixtures/schemas/invalid/mstr-material-result-identity-v0.json; material_rc=$?
+          python -m mstr_qualify validate tests/fixtures/schemas/invalid/mstr-research-experiment-v2.json; experiment_rc=$?
+          set -e
+          test "$material_rc" -eq 1
+          test "$experiment_rc" -eq 1
+
+      - name: Full pytest
+        run: python -m pytest -q
+      - name: Ruff
+        run: python -m ruff check .
+      - name: Strict mypy
+        run: python -m mypy src
+
+      - name: Verify repaired contracts and authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '.promotion_policy.required_gate_coverage_semantically_enforced == true and .promotion_policy.external_effect_authority_binding_required == true and .promotion_policy.training_evidence_data_difficulty_identity_required == true' configs/research/mstr-research-ladder-v0.json
+          jq -e '([.levels[] | (.required_gate_ids | length == 5)] | all)' configs/research/mstr-research-ladder-v0.json
+          jq -e '(.properties.evidence_kind.enum | index("TRAINING_EVIDENCE")) != null and (.required | index("data_identity_or_na")) != null and (.required | index("difficulty_identity_or_na")) != null' schemas/mstr-material-result-identity-v0.schema.json
+          jq -e '.properties.external_effect_authority != null and (.required | index("external_effect_authority")) != null and ."$defs".external_effect_authority.properties.authority_record_sha256.pattern == "^[0-9a-fA-F]{64}$"' schemas/mstr-research-experiment-v2.schema.json
+          grep -F '_B026_REQUIRED_GATE_IDS' src/mstr_qualify/schemas.py
+          grep -F 'PROMOTE requires exact per-level required gate coverage' src/mstr_qualify/schemas.py
+          grep -F '$.external_effect_authority: required for any external-effect ' src/mstr_qualify/schemas.py
+          grep -F '"resource class or cost"' src/mstr_qualify/schemas.py
+          grep -F 'data_identity_or_na' src/mstr_qualify/schemas.py
+          grep -F 'difficulty_identity_or_na' src/mstr_qualify/schemas.py
+          grep -F 'The external-effect authority object is evidence about authority granted elsewhere. It is not an authority grant.' evidence/mstr-000b/B026-research-ladder.md
+          grep -F 'RESEARCH_CAMPAIGN_EXECUTION = NONE' evidence/mstr-000b/B026-research-ladder.md
+          for marker in 'MODEL_WEIGHT_ACCESS = NONE' 'MODEL_EXECUTION = NONE' 'PAID_COMPUTE = NONE' 'NETWORK_MODEL_OR_TEACHER_CALL = NONE' 'LARGE_DATASET_INGESTION = NONE' 'PRIVATE_USER_DATA_INGESTION = NONE' 'WEIGHT_CHANGING_TRAINING = NONE' 'LARGE_SCALE_RL = NONE' 'PRODUCTION_RELEASE = NONE'; do grep -F "$marker" evidence/mstr-000b/B026-research-ladder.md; done
+          jq -e '.authority_boundary.contract_freeze_only == true and ([.authority_boundary | to_entries[] | select(.key != "contract_freeze_only") | .value] | all(. == false))' configs/research/mstr-research-ladder-v0.json
+          test -z "$(git diff --name-only "$BASE_SHA...HEAD" -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json)"
+
+      - name: Guarded fast-forward remaining repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$OLD_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$OLD_HEAD"
+          pr="$(gh api repos/${GITHUB_REPOSITORY}/pulls/$PR_NUMBER)"
+          test "$(jq -r '.state' <<<"$pr")" = open
+          test "$(jq -r '.draft' <<<"$pr")" = false
+          test "$(jq -r '.base.sha' <<<"$pr")" = "$BASE_SHA"
+          test "$(jq -r '.head.sha' <<<"$pr")" = "$OLD_HEAD"
+          git push origin "$candidate:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$candidate"
+          echo "B026_CODEX_REPAIRED_HEAD=$candidate"
