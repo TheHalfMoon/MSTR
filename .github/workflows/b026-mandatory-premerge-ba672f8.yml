@@ -1,0 +1,228 @@
+name: Prove B026 mandatory premerge gate ba672f8
+
+on:
+  push:
+    branches: [evidence/b026-premerge-ba672f8]
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  issues: read
+  statuses: read
+
+env:
+  BASE_SHA: 823cd7ec3b4c537876a0795d0f0f8d4bd75acd85
+  HEAD_SHA: ba672f8eaaa9fe96e9ffdcba39e10f6d4123e421
+  HEAD_TREE: 1080c3c7b894a2e17a71eae72546316156d816f2
+  TARGET_BRANCH: feat/000b-b026-research-ladder
+  PR_NUMBER: '137'
+  QUALIFICATION_RUN: '33678090319'
+  QUALIFICATION_BRANCH: evidence/b026-qualify-ba672f8
+  QUALIFICATION_SHA: 867835cb32eeaddf0bfe14a38ea6b181f07e8ce0
+  QUALIFICATION_WORKFLOW: .github/workflows/b026-exact-head-qualification-ba672f8.yml
+  CODERABBIT_SUMMARY_COMMENT: '5501187526'
+  FRESH_REVIEW_NOT_BEFORE: '2026-09-02T20:49:00Z'
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  identity_review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - name: Verify immutable identity, qualification, independent review, and conversations
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          test "$(git merge-base "$BASE_SHA" "$HEAD_SHA")" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '
+            .state == "open" and .draft == false and .mergeable == true and
+            .base.sha == $base and .head.sha == $head and
+            .commits == 9 and .changed_files == 17
+          ' /tmp/pr.json
+
+          printf '%s\n' \
+            configs/research/mstr-research-ladder-v0.json \
+            evidence/mstr-000b/B026-research-ladder.md \
+            schemas/mstr-material-result-identity-v0.schema.json \
+            schemas/mstr-research-experiment-v2.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/README.md \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-material-result-identity-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-research-experiment-v2.schema.json \
+            specs/002-code-model-supremacy-foundation/data-model.md \
+            src/mstr_qualify/cli.py \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_research_ladder_contract.py \
+            tests/contract/test_schemas.py \
+            tests/fixtures/schemas/invalid/mstr-material-result-identity-v0.json \
+            tests/fixtures/schemas/invalid/mstr-research-experiment-v2.json \
+            tests/fixtures/schemas/valid/mstr-material-result-identity-v0.json \
+            tests/fixtures/schemas/valid/mstr-research-experiment-v2.json \
+            tests/integration/test_cli_offline.py | sort > /tmp/expected-files
+          git diff --name-only "$BASE_SHA...$HEAD_SHA" | sort > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git diff --check "$BASE_SHA...$HEAD_SHA"
+          test -z "$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json artifacts/authorities)"
+          test ! -e artifacts/results/q4-promotion
+
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN}" > /tmp/qualification.json
+          jq -e --arg branch "$QUALIFICATION_BRANCH" --arg sha "$QUALIFICATION_SHA" --arg path "$QUALIFICATION_WORKFLOW" '
+            .status == "completed" and .conclusion == "success" and .event == "push" and
+            .head_branch == $branch and .head_sha == $sha and .path == $path
+          ' /tmp/qualification.json
+          gh api "repos/${GITHUB_REPOSITORY}/contents/${QUALIFICATION_WORKFLOW}?ref=${QUALIFICATION_SHA}" --jq .content | base64 -d > /tmp/qualification.yml
+          grep -F "BASE_SHA: $BASE_SHA" /tmp/qualification.yml
+          grep -F "HEAD_SHA: $HEAD_SHA" /tmp/qualification.yml
+          grep -F "HEAD_TREE: $HEAD_TREE" /tmp/qualification.yml
+
+          gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${CODERABBIT_SUMMARY_COMMENT}" > /tmp/review.json
+          jq -e --arg since "$FRESH_REVIEW_NOT_BEFORE" --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '
+            .user.login == "coderabbitai[bot]" and
+            .updated_at >= $since and
+            (.body | contains("No actionable comments were generated in the recent review")) and
+            (.body | contains($base)) and
+            (.body | contains($head)) and
+            (.body | contains("Files selected for processing (17)"))
+          ' /tmp/review.json
+
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/status" > /tmp/status.json
+          jq -e --arg since "$FRESH_REVIEW_NOT_BEFORE" '
+            [.statuses[] | select(
+              .context == "CodeRabbit" and .state == "success" and
+              .created_at >= $since and
+              ((.description // "") | ascii_downcase | contains("skipped") | not)
+            )] | length >= 1
+          ' /tmp/status.json
+
+          gh api graphql -f query='query($owner:String!, $name:String!, $number:Int!) {
+            repository(owner:$owner, name:$name) {
+              pullRequest(number:$number) {
+                reviewThreads(first:100) { nodes { isResolved } }
+              }
+            }
+          }' -f owner='TheHalfMoon' -f name='MSTR' -F number="$PR_NUMBER" > /tmp/threads.json
+          jq -e '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length == 0' /tmp/threads.json
+
+  canonical_machine_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Re-prove exact-main ordering and authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$BASE_SHA"
+          git update-ref refs/remotes/origin/main "$BASE_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          mstr-qualify task eligible B026 > /tmp/b026.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true and (.reasons | length) == 0' /tmp/b026.json
+          set +e
+          mstr-qualify task eligible B027 > /tmp/b027.json; r27=$?
+          mstr-qualify task eligible B011 > /tmp/b011.json; r11=$?
+          set -e
+          test "$r27" -eq 1
+          test "$r11" -eq 1
+          jq -e '.eligible == false and ([.prerequisite_results[] | select(.task_id == "B026" and .observed_state == "PENDING" and .satisfied == false)] | length == 1)' /tmp/b027.json
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+
+  candidate_quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install development gates
+        run: python -m pip install -e '.[dev]'
+      - name: Focused B026 contract tests
+        run: python -m pytest tests/contract/test_research_ladder_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py -q
+      - name: Offline schema validation
+        run: python -m mstr_qualify validate
+      - name: Full pytest
+        run: python -m pytest -q
+      - name: Ruff
+        run: python -m ruff check .
+      - name: Strict mypy
+        run: python -m mypy src
+      - name: Re-prove B026 semantic and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          cmp schemas/mstr-material-result-identity-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-material-result-identity-v0.schema.json
+          cmp schemas/mstr-research-experiment-v2.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-research-experiment-v2.schema.json
+          jq -e '
+            .authority_boundary.contract_freeze_only == true and
+            ([.authority_boundary | to_entries[] | select(.key != "contract_freeze_only") | .value] | all(. == false)) and
+            .promotion_policy.canonical_git_history_resolution_required == true and
+            .promotion_policy.promotion_policy_must_precede_evidence_commit == true and
+            .promotion_policy.gate_observation_underlying_evidence_resolution_required == true and
+            .promotion_policy.q4_candidate_lineage_binding_required == true and
+            .promotion_policy.verifier_underlying_artifact_resolution_required == true
+          ' configs/research/mstr-research-ladder-v0.json
+          for marker in \
+            'MODEL_WEIGHT_ACCESS = NONE' \
+            'MODEL_EXECUTION = NONE' \
+            'RESEARCH_CAMPAIGN_EXECUTION = NONE' \
+            'TEST_GENERATION_EXECUTION = NONE' \
+            'VERIFIER_EXECUTION = NONE' \
+            'TEACHER_API_EXECUTION = NONE' \
+            'PAID_MODEL_API = NONE' \
+            'PAID_COMPUTE = NONE' \
+            'NETWORK_MODEL_OR_TEACHER_CALL = NONE' \
+            'LARGE_DATASET_INGESTION = NONE' \
+            'PRIVATE_USER_DATA_INGESTION = NONE' \
+            'PRODUCTION_TRACE_INGESTION = NONE' \
+            'WEIGHT_CHANGING_TRAINING = NONE' \
+            'LARGE_SCALE_RL = NONE' \
+            'PRODUCTION_RELEASE = NONE'; do
+            grep -F "$marker" evidence/mstr-000b/B026-research-ladder.md
+          done
+          test ! -e artifacts/results/q4-promotion
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+
+  complete:
+    needs: [identity_review, canonical_machine_gate, candidate_quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - name: Final immutable premerge recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.mergeable' | grep -Fx true
+          echo 'B026_MANDATORY_PREMERGE=PASS'
