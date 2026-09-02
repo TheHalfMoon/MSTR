@@ -178,8 +178,11 @@ jobs:
           from pathlib import Path
 
           source = Path('src/mstr_qualify/schemas.py').read_text(encoding='utf-8')
-          required = (
-              'positive network byte evidence requires explicit true declaration',
+          tests = Path('tests/contract/test_research_ladder_contract.py').read_text(encoding='utf-8')
+          required_source = (
+              'network_byte_total += network_bytes',
+              'network_bytes > 0',
+              'NETWORK_MODEL_OR_TEACHER_CALL',
               'verifier-manifests',
               'verifier-health',
               'subject-evidence',
@@ -188,9 +191,17 @@ jobs:
               'canonical verifier result missing',
               'observed_value = verifier_result.get("observed_value")',
           )
-          missing = [marker for marker in required if marker not in source]
+          missing = [marker for marker in required_source if marker not in source]
           if missing:
               raise SystemExit(f'missing repair markers: {missing}')
+          required_tests = (
+              'test_positive_network_bytes_require_network_effect_declaration',
+              'test_verifier_evidence_rejects_unresolvable_underlying_result',
+              'test_verifier_subject_evidence_must_match_material_result',
+          )
+          missing_tests = [marker for marker in required_tests if marker not in tests]
+          if missing_tests:
+              raise SystemExit(f'missing adversarial repair tests: {missing_tests}')
           if 'observed_value = source_record.get("observed_value")' in source:
               raise SystemExit('self-authored verifier observation path still present')
           PY
