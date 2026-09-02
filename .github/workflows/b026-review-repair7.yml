@@ -1,0 +1,185 @@
+name: Guard B026 exact-head review repair 7
+
+on:
+  push:
+    branches: [evidence/b026-review-repair7-f0cee46]
+
+permissions:
+  contents: write
+  actions: read
+  pull-requests: read
+  issues: read
+
+env:
+  BASE_SHA: 823cd7ec3b4c537876a0795d0f0f8d4bd75acd85
+  OLD_HEAD: f0cee46975693b52fc5f7e38677116b94ca98420
+  OLD_TREE: 6537e40ac335a4598a82b082e2e863332de9f31d
+  TARGET_BRANCH: feat/000b-b026-research-ladder
+  PR_NUMBER: '137'
+  QUALIFICATION_RUN: '33674673122'
+  REVIEW_COMMENT_ID: '5515461479'
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Verify exact entry, qualification, and fresh review finding
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$OLD_HEAD"
+          test "$(git rev-parse "$OLD_HEAD^{tree}")" = "$OLD_TREE"
+          pr="$(gh api repos/${GITHUB_REPOSITORY}/pulls/$PR_NUMBER)"
+          jq -e --arg base "$BASE_SHA" --arg head "$OLD_HEAD" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .commits == 8 and .changed_files == 17' <<<"$pr"
+          qualification="$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/$QUALIFICATION_RUN)"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$qualification"
+          review="$(gh api repos/${GITHUB_REPOSITORY}/issues/comments/$REVIEW_COMMENT_ID)"
+          jq -e '.user.login == "coderabbitai[bot]"' <<<"$review"
+          body="$(jq -r '.body' <<<"$review")"
+          grep -F "$OLD_HEAD" <<<"$body"
+          grep -F "$OLD_TREE" <<<"$body"
+          grep -F 'A higher-level promotion can use predecessor evidence that was not available when the higher-level policy froze' <<<"$body"
+          cp .github/scripts/b026_review_repair7.py /tmp/repair7.py
+          python -m py_compile /tmp/repair7.py
+          git checkout --detach "$OLD_HEAD"
+          test -z "$(git status --porcelain)"
+
+      - name: Build bounded candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/repair7.py
+          git diff --check
+          test -z "$(git diff --name-only -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json artifacts/authorities)"
+          cmp schemas/mstr-research-experiment-v2.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-research-experiment-v2.schema.json
+          cmp schemas/mstr-material-result-identity-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-material-result-identity-v0.schema.json
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add -A
+          git commit -m 'fix(mstr-000b): enforce predecessor evidence causality'
+          test "$(git rev-parse HEAD^)" = "$OLD_HEAD"
+          test -z "$(git status --porcelain)"
+
+      - name: Install development gates
+        run: python -m pip install -e '.[dev]'
+
+      - name: Format candidate and preserve one repair commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m ruff format src/mstr_qualify/schemas.py tests/contract/test_research_ladder_contract.py
+          git diff --check
+          if ! git diff --quiet; then
+            git add src/mstr_qualify/schemas.py tests/contract/test_research_ladder_contract.py
+            git commit --amend --no-edit
+          fi
+          test "$(git rev-parse HEAD^)" = "$OLD_HEAD"
+          test -z "$(git status --porcelain)"
+          test -z "$(git diff --name-only "$BASE_SHA...HEAD" -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json artifacts/authorities)"
+          git fetch origin main:refs/remotes/origin/main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$BASE_SHA"
+
+      - name: Re-prove canonical machine frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="$(git rev-parse HEAD)"
+          git update-ref refs/heads/main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          mstr-qualify task eligible B026 > /tmp/b026.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true and (.reasons | length) == 0' /tmp/b026.json
+          set +e
+          mstr-qualify task eligible B027 > /tmp/b027.json; r27=$?
+          mstr-qualify task eligible B011 > /tmp/b011.json; r11=$?
+          set -e
+          test "$r27" -eq 1
+          test "$r11" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "PENDING" and ([.prerequisite_results[] | select(.task_id == "B026" and .observed_state == "PENDING" and .satisfied == false)] | length == 1)' /tmp/b027.json
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+
+      - name: Focused B026 tests
+        run: python -m pytest tests/contract/test_research_ladder_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py -q
+
+      - name: Offline validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify validate
+          python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-material-result-identity-v0.json
+          python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-research-experiment-v2.json
+          set +e
+          python -m mstr_qualify validate tests/fixtures/schemas/invalid/mstr-material-result-identity-v0.json >/tmp/material.json; material_rc=$?
+          python -m mstr_qualify validate tests/fixtures/schemas/invalid/mstr-research-experiment-v2.json >/tmp/research.json; research_rc=$?
+          set -e
+          test "$material_rc" -eq 1
+          test "$research_rc" -eq 1
+          jq -e '.status == "fail" and .files[0].code == "schema.instance_invalid"' /tmp/material.json
+          jq -e '.status == "fail" and .files[0].code == "schema.instance_invalid"' /tmp/research.json
+
+      - name: Full pytest
+        run: python -m pytest -q
+      - name: Ruff
+        run: python -m ruff check .
+      - name: Strict mypy
+        run: python -m mypy src
+
+      - name: Prove causal predecessor repair and unchanged authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path('src/mstr_qualify/schemas.py').read_text(encoding='utf-8')
+          tests = Path('tests/contract/test_research_ladder_contract.py').read_text(encoding='utf-8')
+          normalized = ' '.join(source.split())
+          required_source = (
+              'predecessor_evidence_sha = predecessor_record.get(',
+              '"canonical_evidence_commit_sha_or_na"',
+              '_b026_strictly_precedes( repository_root, predecessor_evidence_sha, freeze_commit_sha, )',
+              'predecessor canonical evidence must strictly precede current campaign freeze',
+          )
+          missing = [marker for marker in required_source if marker not in normalized]
+          if missing:
+              raise SystemExit(f'missing causal predecessor repair markers: {missing}')
+          required_test = 'test_predecessor_evidence_must_precede_current_policy_freeze_on_merge_history'
+          if required_test not in tests:
+              raise SystemExit('missing adversarial merge-history causality test')
+          if 'merge predecessor evidence after current policy freeze' not in tests:
+              raise SystemExit('adversarial merge-history construction missing')
+          PY
+          jq -e '.promotion_policy.predecessor_evidence_must_precede_current_policy_freeze == true' configs/research/mstr-research-ladder-v0.json
+          grep -F '5515461479' evidence/mstr-000b/B026-research-ladder.md
+          for marker in 'MODEL_WEIGHT_ACCESS = NONE' 'MODEL_EXECUTION = NONE' 'RESEARCH_CAMPAIGN_EXECUTION = NONE' 'PAID_COMPUTE = NONE' 'NETWORK_MODEL_OR_TEACHER_CALL = NONE' 'LARGE_DATASET_INGESTION = NONE' 'WEIGHT_CHANGING_TRAINING = NONE' 'LARGE_SCALE_RL = NONE' 'PRODUCTION_RELEASE = NONE'; do grep -F "$marker" evidence/mstr-000b/B026-research-ladder.md; done
+          test ! -e artifacts/results/q4-promotion
+          test -z "$(git diff --name-only "$BASE_SHA...HEAD" -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json artifacts/authorities)"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+
+      - name: Guarded fast-forward publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$OLD_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$OLD_HEAD"
+          pr="$(gh api repos/${GITHUB_REPOSITORY}/pulls/$PR_NUMBER)"
+          jq -e --arg base "$BASE_SHA" --arg head "$OLD_HEAD" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .commits == 8 and .changed_files == 17' <<<"$pr"
+          git push origin "$candidate:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$candidate"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          echo "B026_REVIEW_REPAIR7_HEAD=$candidate"
