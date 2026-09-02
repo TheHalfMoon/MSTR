@@ -60,7 +60,8 @@ jobs:
             grep -F "$needle" <<<"$(jq -r '.body' <<<"$comment")"
           done
           cp .github/scripts/b026_review_repair5_builder.py /tmp/builder.py
-          python -m py_compile /tmp/builder.py
+          cp .github/scripts/b026_review_repair5_normalize.py /tmp/normalize.py
+          python -m py_compile /tmp/builder.py /tmp/normalize.py
           git checkout --detach "$OLD_HEAD"
           test -z "$(git status --porcelain)"
 
@@ -69,6 +70,7 @@ jobs:
         run: |
           set -euo pipefail
           python /tmp/builder.py
+          python /tmp/normalize.py
           git diff --check
           test -z "$(git diff --name-only -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json artifacts/authorities)"
           cmp schemas/mstr-research-experiment-v2.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-research-experiment-v2.schema.json
