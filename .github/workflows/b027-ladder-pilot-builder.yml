@@ -1,0 +1,242 @@
+name: Build guarded B027 research ladder pilot
+
+on:
+  push:
+    branches: [evidence/b027-builder-312d40e]
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  EXPECTED_MAIN: 312d40eee8400a0dab94633f891b206f66a82855
+  EXPECTED_HARNESS_HEAD: 80fd9fec3b2c307dc075a04a8a2887f63ad56ed8
+  CANDIDATE_BRANCH: feat/000b-b027-ladder-pilot
+  POST_CLOSEOUT_RUN: '33690094117'
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_BRANCH }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Verify exact B027 entry and immutable harness head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HARNESS_HEAD"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$CANDIDATE_BRANCH | cut -f1)" = "$EXPECTED_HARNESS_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${POST_CLOSEOUT_RUN}" > /tmp/postcloseout.json
+          jq -e '.status == "completed" and .conclusion == "success" and (.name | contains("B026 canonical closeout"))' /tmp/postcloseout.json
+
+      - name: Install canonical development gates
+        run: python -m pip install -e '.[dev]'
+
+      - name: Re-prove B027 machine eligibility on exact canonical entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          mkdir -p artifacts/results/research/B027
+          mstr-qualify task eligible B027 > artifacts/results/research/B027/entry-eligibility.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true and (.reasons | length) == 0 and ([.prerequisite_results[] | select(.task_id == "B026" and .observed_state == "COMPLETE_CANONICAL" and .satisfied == true)] | length == 1)' artifacts/results/research/B027/entry-eligibility.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+
+      - name: Execute bounded offline B027 campaign
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          python scripts/research/b027_ladder_pilot.py | tee /tmp/b027-summary.json
+          jq -e '.campaign_id == "b027-offline-ladder-pilot-v0" and (.final_head | length) == 40 and (.frozen_evaluation_identity | startswith("sha256:"))' /tmp/b027-summary.json
+
+      - name: Add bounded pilot regression coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > tests/contract/test_b027_ladder_pilot.py <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          from pathlib import Path
+
+          ROOT = Path(__file__).resolve().parents[2]
+          RESULT_ROOT = ROOT / "artifacts" / "results" / "research" / "B027"
+
+
+          def _json(path: Path) -> dict[str, object]:
+              value = json.loads(path.read_text(encoding="utf-8"))
+              assert isinstance(value, dict)
+              return value
+
+
+          def _sha256(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+          def test_b027_pilot_proves_promotion_then_early_discard() -> None:
+              ledger = _json(RESULT_ROOT / "campaign-ledger.json")
+              sequence = ledger["sequence"]
+              assert isinstance(sequence, list)
+              assert [row["decision"] for row in sequence] == ["PROMOTE", "STOP"]
+              assert [row["level"] for row in sequence] == [
+                  "L0_CONTRACT_SMOKE",
+                  "L1_CODE_PROXY",
+              ]
+              assert sequence[1]["early_discard_gate"] == "code_proxy_thresholds"
+              assert ledger["levels_not_executed"] == [
+                  "L2_EXECUTABLE_REPO",
+                  "L3_DIRECTION_TO_DONE",
+                  "L4_Q4_UNIVERSAL_LAPTOP",
+              ]
+              assert ledger["campaign_result"] == "QUALIFIED_PROMOTION_AND_EARLY_DISCARD"
+
+
+          def test_b027_registry_records_are_content_bound_and_zero_external_effect() -> None:
+              ledger = _json(RESULT_ROOT / "campaign-ledger.json")
+              sequence = ledger["sequence"]
+              assert isinstance(sequence, list)
+              effects = ledger["governed_effects"]
+              assert isinstance(effects, dict)
+              assert not any(effects.values())
+              for row in sequence:
+                  assert isinstance(row, dict)
+                  path = RESULT_ROOT / "registry" / f"{row['experiment_id']}.json"
+                  record = _json(path)
+                  assert _sha256(path) == row["record_sha256"]
+                  assert record["governed_effects"] == effects
+                  assert record["external_effect_authority"] is None
+                  cost = record["aggregate_resource_cost"]
+                  assert isinstance(cost, dict)
+                  assert cost["paid_cost_usd"] == 0
+                  results = record["material_results"]
+                  assert isinstance(results, list) and len(results) == 1
+                  result = results[0]
+                  assert isinstance(result, dict)
+                  assert result["model_execution_count_or_na"] == 0
+                  assert result["network_model_or_teacher_call_count_or_na"] == 0
+                  resource = result["resource_cost"]
+                  assert isinstance(resource, dict)
+                  assert resource["network_bytes_or_na"] == 0
+
+
+          def test_b027_l1_consumes_exact_l0_and_stops_on_declared_gate() -> None:
+              ledger = _json(RESULT_ROOT / "campaign-ledger.json")
+              sequence = ledger["sequence"]
+              assert isinstance(sequence, list) and len(sequence) == 2
+              l0_row, l1_row = sequence
+              assert isinstance(l0_row, dict) and isinstance(l1_row, dict)
+              l0 = _json(RESULT_ROOT / "registry" / f"{l0_row['experiment_id']}.json")
+              l1 = _json(RESULT_ROOT / "registry" / f"{l1_row['experiment_id']}.json")
+              predecessor = l1["predecessor_promotion"]
+              assert isinstance(predecessor, dict)
+              assert predecessor["experiment_id"] == l0["experiment_id"]
+              assert predecessor["experiment_record_sha256"] == l0_row["record_sha256"]
+              assert l1["parent_identity"] == l0["promoted_result_id_or_na"]
+              gates = l1["hard_gate_results"]
+              assert isinstance(gates, list)
+              gate = next(
+                  row for row in gates
+                  if isinstance(row, dict) and row["gate_id"] == "code_proxy_thresholds"
+              )
+              assert gate["status"] == "FAIL"
+              assert l1["promotion_decision"] == "STOP"
+              assert l1["promoted_result_id_or_na"] == "N/A"
+              assert not (RESULT_ROOT / "registry" / "b027-l2.json").exists()
+
+
+          def test_b027_uses_one_immutable_evaluator_identity() -> None:
+              ledger = _json(RESULT_ROOT / "campaign-ledger.json")
+              evaluator = ledger["frozen_evaluation_identity"]
+              assert isinstance(evaluator, str) and evaluator.startswith("sha256:")
+              sequence = ledger["sequence"]
+              assert isinstance(sequence, list)
+              for row in sequence:
+                  assert isinstance(row, dict)
+                  record = _json(
+                      RESULT_ROOT / "registry" / f"{row['experiment_id']}.json"
+                  )
+                  assert record["frozen_evaluation_identity"] == evaluator
+          PY
+          git add tests/contract/test_b027_ladder_pilot.py
+          git commit -m 'test(mstr-000b): cover B027 promotion and early discard'
+
+      - name: Prove exact campaign semantics and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          final_head="$(git rev-parse HEAD)"
+          git update-ref refs/heads/main "$final_head"
+          git update-ref refs/remotes/origin/main "$final_head"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from mstr_qualify.schemas import validate_instance
+
+          root = Path.cwd()
+          registry = root / 'artifacts' / 'results' / 'research' / 'B027' / 'registry'
+          records = []
+          for name in ('b027-l0-contract-smoke.json', 'b027-l1-controlled-stop.json'):
+              record = json.loads((registry / name).read_text(encoding='utf-8'))
+              validate_instance('mstr-research-experiment-v2', record, repository_root=root)
+              records.append(record)
+          assert records[0]['promotion_decision'] == 'PROMOTE'
+          assert records[1]['promotion_decision'] == 'STOP'
+          assert all(not any(record['governed_effects'].values()) for record in records)
+          assert all(record['external_effect_authority'] is None for record in records)
+          PY
+          test ! -e artifacts/results/research/B027/registry/b027-l2.json
+          git diff --name-only "$EXPECTED_MAIN"..HEAD > /tmp/changed.txt
+          test -s /tmp/changed.txt
+          while IFS= read -r path; do
+            case "$path" in
+              scripts/research/b027_ladder_pilot.py|artifacts/results/research/B027/*|evidence/mstr-000b/B027-ladder-pilot.md|tests/contract/test_b027_ladder_pilot.py) ;;
+              *) echo "OUT_OF_SCOPE=$path" >&2; exit 1 ;;
+            esac
+          done < /tmp/changed.txt
+          test ! -e artifacts/authorities/B027.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+
+      - name: Run focused and full quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest tests/contract/test_b027_ladder_pilot.py tests/contract/test_research_ladder_contract.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          mstr-qualify task drift > /tmp/final-drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/final-drift.json
+          mstr-qualify task eligible B027 > /tmp/final-b027.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and (.reasons | length) == 0' /tmp/final-b027.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+
+      - name: Publish exact qualified B027 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote_head="$(git ls-remote origin refs/heads/$CANDIDATE_BRANCH | cut -f1)"
+          test "$remote_head" = "$EXPECTED_HARNESS_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin HEAD:"refs/heads/$CANDIDATE_BRANCH"
+          echo "B027_CANDIDATE_HEAD=$(git rev-parse HEAD)"
+          echo "B027_CANDIDATE_TREE=$(git rev-parse HEAD^{tree})"
+          echo "MODEL_EXECUTION=NONE"
+          echo "WEIGHT_CHANGING_TRAINING=NONE"
