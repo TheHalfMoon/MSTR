@@ -1,0 +1,194 @@
+name: Guard B026 content-bound promotion and Q4 repair
+
+on:
+  push:
+    branches: [evidence/b026-review-repair4-633a8a4]
+
+permissions:
+  contents: write
+  actions: read
+  pull-requests: read
+  issues: read
+
+env:
+  BASE_SHA: 823cd7ec3b4c537876a0795d0f0f8d4bd75acd85
+  OLD_HEAD: 633a8a4ed8717eeeee2c1c42d3045e5658d5fb25
+  OLD_TREE: 2ef1682452089e2d5747d32d446207d1e2420812
+  TARGET_BRANCH: feat/000b-b026-research-ladder
+  PR_NUMBER: '137'
+  QUALIFICATION_RUN: '33646862191'
+  QUALIFICATION_BRANCH: evidence/b026-qualify4-633a8a4
+  QUALIFICATION_WORKFLOW_HEAD: 9b948d6f1fcf763b46041a9bbea9989b9b684cb3
+  CODEX_REVIEW_ID: PRR_kwDOUCYTYs8AAAABL3vKoQ
+  CODEX_Q4_COMMENT: '3915714629'
+  CODEX_POLICY_COMMENT: '3915714640'
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Verify immutable entry and exact Codex findings
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$OLD_HEAD"
+          git cat-file -e "$OLD_HEAD^{commit}"
+          test "$(git rev-parse "$OLD_HEAD^{tree}")" = "$OLD_TREE"
+
+          pr="$(gh api repos/${GITHUB_REPOSITORY}/pulls/$PR_NUMBER)"
+          jq -e --arg base "$BASE_SHA" --arg head "$OLD_HEAD" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .commits == 5 and .changed_files == 17' <<<"$pr"
+
+          qualification="$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/$QUALIFICATION_RUN)"
+          test "$(jq -r '.status' <<<"$qualification")" = completed
+          test "$(jq -r '.conclusion' <<<"$qualification")" = success
+          test "$(jq -r '.head_branch' <<<"$qualification")" = "$QUALIFICATION_BRANCH"
+          test "$(jq -r '.head_sha' <<<"$qualification")" = "$QUALIFICATION_WORKFLOW_HEAD"
+
+          reviews="$(gh api repos/${GITHUB_REPOSITORY}/pulls/$PR_NUMBER/reviews?per_page=100)"
+          jq -e --arg id "$CODEX_REVIEW_ID" --arg head "${OLD_HEAD:0:10}" 'any(.[]; .node_id == $id and .user.login == "chatgpt-codex-connector[bot]" and (.body | contains("Reviewed commit:")) and (.body | contains($head)))' <<<"$reviews"
+
+          for spec in \
+            "$CODEX_Q4_COMMENT|Resolve the referenced Q4 promotion record" \
+            "$CODEX_POLICY_COMMENT|Bind PASS gates to predeclared decision criteria"; do
+            id="${spec%%|*}"; needle="${spec#*|}"
+            comment="$(gh api repos/${GITHUB_REPOSITORY}/pulls/comments/$id)"
+            test "$(jq -r '.user.login' <<<"$comment")" = 'chatgpt-codex-connector[bot]'
+            test "$(jq -r '.original_commit_id' <<<"$comment")" = "$OLD_HEAD"
+            grep -F "$needle" <<<"$(jq -r '.body' <<<"$comment")"
+          done
+
+          cp .github/scripts/b026_review_repair4_builder.py /tmp/builder.py
+          python -m py_compile /tmp/builder.py
+          git checkout --detach "$OLD_HEAD"
+          test "$(git rev-parse HEAD)" = "$OLD_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$OLD_TREE"
+          test -z "$(git status --porcelain)"
+
+      - name: Build bounded P1 repair candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/builder.py
+          git diff --check
+          test -z "$(git diff --name-only -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json artifacts/authorities)"
+          cmp schemas/mstr-research-experiment-v2.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-research-experiment-v2.schema.json
+          cmp schemas/mstr-material-result-identity-v0.schema.json specs/002-code-model-supremacy-foundation/contracts/mstr-material-result-identity-v0.schema.json
+          test "$(find artifacts/results/research/B026 -type f -name '*.json' | wc -l)" -eq 6
+          test -z "$(find artifacts/results/research/B026 -type f ! -name '*.json' -print)"
+          test ! -e artifacts/results/q4-promotion
+
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add configs/research/mstr-research-ladder-v0.json \
+            evidence/mstr-000b/B026-research-ladder.md \
+            schemas/mstr-research-experiment-v2.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-research-experiment-v2.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/README.md \
+            specs/002-code-model-supremacy-foundation/data-model.md \
+            src/mstr_qualify/schemas.py \
+            tests/contract/test_research_ladder_contract.py \
+            tests/fixtures/schemas/valid/mstr-research-experiment-v2.json \
+            artifacts/results/research/B026
+          git commit -m 'fix(mstr-000b): bind B026 promotion evidence and Q4 records'
+          test "$(git rev-parse HEAD^)" = "$OLD_HEAD"
+          test -z "$(git status --porcelain)"
+
+      - name: Install development gates
+        run: python -m pip install -e '.[dev]'
+
+      - name: Re-prove machine frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="$(git rev-parse HEAD)"
+          git update-ref refs/heads/main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          mstr-qualify task eligible B026 > /tmp/b026.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true and (.reasons | length) == 0' /tmp/b026.json
+          set +e
+          mstr-qualify task eligible B027 > /tmp/b027.json; b027_rc=$?
+          mstr-qualify task eligible B011 > /tmp/b011.json; b011_rc=$?
+          set -e
+          test "$b027_rc" -eq 1
+          test "$b011_rc" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "PENDING"' /tmp/b027.json
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+
+      - name: Focused B026 tests
+        run: python -m pytest tests/contract/test_research_ladder_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py -q
+
+      - name: Offline validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify validate
+          python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-material-result-identity-v0.json
+          python -m mstr_qualify validate tests/fixtures/schemas/valid/mstr-research-experiment-v2.json
+          set +e
+          python -m mstr_qualify validate tests/fixtures/schemas/invalid/mstr-research-experiment-v2.json; rc=$?
+          set -e
+          test "$rc" -eq 1
+
+      - name: Full pytest
+        run: python -m pytest -q
+
+      - name: Ruff
+        run: python -m ruff check .
+
+      - name: Strict mypy
+        run: python -m mypy src
+
+      - name: Prove content-bound semantics and authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '.canonical_resolution.promotion_policy_registry_template and .canonical_resolution.gate_evidence_registry_template and .canonical_resolution.q4_promotion_registry_template' configs/research/mstr-research-ladder-v0.json
+          grep -F 'mstr.research-promotion-policy.v0' src/mstr_qualify/schemas.py
+          grep -F 'submitted status does not match predeclared criterion' src/mstr_qualify/schemas.py
+          grep -F 'mstr-q4-promotion-v0' src/mstr_qualify/schemas.py
+          grep -F 'referenced Q4 record must be PROMOTED' src/mstr_qualify/schemas.py
+          grep -F 'L4 requires universal-laptop gate PASS' src/mstr_qualify/schemas.py
+          grep -F 'PRR_kwDOUCYTYs8AAAABL3vKoQ' evidence/mstr-000b/B026-research-ladder.md
+          grep -F '33646862191' evidence/mstr-000b/B026-research-ladder.md
+          for marker in \
+            'MODEL_WEIGHT_ACCESS = NONE' \
+            'MODEL_EXECUTION = NONE' \
+            'RESEARCH_CAMPAIGN_EXECUTION = NONE' \
+            'PAID_COMPUTE = NONE' \
+            'NETWORK_MODEL_OR_TEACHER_CALL = NONE' \
+            'LARGE_DATASET_INGESTION = NONE' \
+            'WEIGHT_CHANGING_TRAINING = NONE' \
+            'LARGE_SCALE_RL = NONE' \
+            'PRODUCTION_RELEASE = NONE'; do
+            grep -F "$marker" evidence/mstr-000b/B026-research-ladder.md
+          done
+          jq -e '.authority_boundary.contract_freeze_only == true and ([.authority_boundary | to_entries[] | select(.key != "contract_freeze_only") | .value] | all(. == false))' configs/research/mstr-research-ladder-v0.json
+          test -z "$(git diff --name-only "$BASE_SHA...HEAD" -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json artifacts/authorities)"
+
+      - name: Guarded fast-forward target branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$OLD_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$OLD_HEAD"
+          pr="$(gh api repos/${GITHUB_REPOSITORY}/pulls/$PR_NUMBER)"
+          jq -e --arg base "$BASE_SHA" --arg head "$OLD_HEAD" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head' <<<"$pr"
+          git push origin "$candidate:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$candidate"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          echo "B026_P1_REPAIRED_HEAD=$candidate"
