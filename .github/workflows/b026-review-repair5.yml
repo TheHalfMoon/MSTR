@@ -2,7 +2,7 @@ name: Guard B026 canonical-history P1 repair
 
 on:
   push:
-    branches: [evidence/b026-review-repair5-ffd526f]
+    branches: [evidence/b026-review-repair5b-ffd526f]
 
 permissions:
   contents: write
@@ -61,6 +61,17 @@ jobs:
           done
           cp .github/scripts/b026_review_repair5_builder.py /tmp/builder.py
           cp .github/scripts/b026_review_repair5_normalize.py /tmp/normalize.py
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('/tmp/builder.py')
+          text = path.read_text(encoding='utf-8')
+          old = 'updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)'
+          new = 'updated, count = re.subn(pattern, lambda _match: replacement, text, count=1, flags=re.S)'
+          if text.count(old) != 1:
+              raise SystemExit('unexpected replace_regex implementation')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
           python -m py_compile /tmp/builder.py /tmp/normalize.py
           git checkout --detach "$OLD_HEAD"
           test -z "$(git status --porcelain)"
