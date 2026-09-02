@@ -44,6 +44,7 @@ def patch_validator() -> None:
         )
 ''',
         '''        operator = criterion.get("operator")
+        computed: str | None
         if operator == "EQ_PROMOTED_ARTIFACT":
             promoted_id = instance.get("promoted_result_id_or_na")
             material_results = instance.get("material_results")
