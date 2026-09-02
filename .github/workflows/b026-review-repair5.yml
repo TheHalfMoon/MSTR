@@ -163,16 +163,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -F 'canonical-main-ancestor Git blob' src/mstr_qualify/schemas.py
-          grep -F 'strict canonical-main ancestor of the evidence commit' src/mstr_qualify/schemas.py
-          grep -F 'mstr.research-gate-evidence.v1' src/mstr_qualify/schemas.py
-          grep -F 'underlying verifier evidence missing' src/mstr_qualify/schemas.py
-          grep -F 'MODEL_EXECUTION' src/mstr_qualify/schemas.py
-          grep -F 'NETWORK_MODEL_OR_TEACHER_CALL' src/mstr_qualify/schemas.py
-          grep -F '8 GB reference RAM envelope' src/mstr_qualify/schemas.py
-          grep -F '8K reference context' src/mstr_qualify/schemas.py
-          grep -F 'at or below 3 GB' src/mstr_qualify/schemas.py
-          grep -F 'model_id must match promoted result' src/mstr_qualify/schemas.py
+          python - <<'PY'
+          from pathlib import Path
+
+          source = " ".join(Path("src/mstr_qualify/schemas.py").read_text(encoding="utf-8").split())
+          markers = (
+              "canonical-main-ancestor Git blob",
+              "strict canonical-main ancestor of the evidence commit",
+              "mstr.research-gate-evidence.v1",
+              "underlying verifier evidence missing",
+              "MODEL_EXECUTION",
+              "NETWORK_MODEL_OR_TEACHER_CALL",
+              "8 GB reference RAM envelope",
+              "8K reference context",
+              "at or below 3 GB",
+              "model_id must match promoted result",
+          )
+          missing = [marker for marker in markers if marker not in source]
+          if missing:
+              raise SystemExit(f"missing semantic proof markers: {missing}")
+          PY
           grep -F 'PRR_kwDOUCYTYs8AAAABL4fRHw' evidence/mstr-000b/B026-research-ladder.md
           jq -e '.promotion_policy.canonical_git_history_resolution_required == true and .promotion_policy.promotion_policy_must_precede_evidence_commit == true and .promotion_policy.gate_observation_underlying_evidence_resolution_required == true and .promotion_policy.model_execution_authority_required == true and .promotion_policy.network_model_or_teacher_call_authority_required == true and .promotion_policy.l4_reference_envelope_semantically_enforced == true and .promotion_policy.q4_candidate_lineage_binding_required == true' configs/research/mstr-research-ladder-v0.json
           jq -e '.authority_boundary.contract_freeze_only == true and ([.authority_boundary | to_entries[] | select(.key != "contract_freeze_only") | .value] | all(. == false))' configs/research/mstr-research-ladder-v0.json
