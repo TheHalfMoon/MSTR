@@ -31,7 +31,8 @@
     "l4_reference_envelope_semantically_enforced": true,
     "q4_candidate_lineage_binding_required": true,
     "network_resource_evidence_authority_required": true,
-    "verifier_underlying_artifact_resolution_required": true
+    "verifier_underlying_artifact_resolution_required": true,
+    "predecessor_evidence_must_precede_current_policy_freeze": true
   },
   "levels": [
     {

@@ -691,6 +691,60 @@ def test_predecessor_registry_digest_and_sequential_level_fail_closed(tmp_path: 
         validate_instance("mstr-research-experiment-v2", l3, repository_root=tmp_path)
 
 
+def test_predecessor_evidence_must_precede_current_policy_freeze_on_merge_history(
+    tmp_path: Path,
+) -> None:
+    task_id = "B027"
+    campaign_id = "predecessor-causality-fixture"
+    l0 = _make_level_record(0, task_id=task_id, campaign_id=campaign_id)
+    _prepare_policy_and_gate_evidence(tmp_path, l0)
+    l0_freeze = str(l0["campaign_freeze_commit_sha_or_na"])
+    l0_evidence = str(l0["canonical_evidence_commit_sha_or_na"])
+    _git(tmp_path, "branch", "predecessor-evidence", l0_evidence)
+
+    _git(tmp_path, "checkout", "-b", "current-policy", l0_freeze)
+    l0_sha = _write_json_with_sha(
+        _registry_path(tmp_path, task_id, str(l0["experiment_id"])),
+        l0,
+    )
+    l1 = _make_level_record(
+        1,
+        task_id=task_id,
+        campaign_id=campaign_id,
+        predecessor_id=str(l0["experiment_id"]),
+        predecessor_sha=l0_sha,
+        predecessor_result=str(l0["promoted_result_id_or_na"]),
+    )
+    _prepare_policy_and_gate_evidence(tmp_path, l1)
+    l1_freeze = str(l1["campaign_freeze_commit_sha_or_na"])
+
+    ancestry = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", l0_evidence, l1_freeze],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert ancestry.returncode == 1
+
+    _git(
+        tmp_path,
+        "merge",
+        "--no-ff",
+        "predecessor-evidence",
+        "-m",
+        "merge predecessor evidence after current policy freeze",
+    )
+    canonical_main = _git(tmp_path, "rev-parse", "HEAD")
+    _git(tmp_path, "branch", "-f", "main", canonical_main)
+
+    with pytest.raises(
+        ValueError,
+        match="predecessor canonical evidence must strictly precede current campaign freeze",
+    ):
+        validate_instance("mstr-research-experiment-v2", l1, repository_root=tmp_path)
+
+
 def test_research_experiment_enforces_material_count_and_declared_budgets() -> None:
     fixture = _valid_research_experiment()
     aggregate = fixture["aggregate_resource_cost"]

@@ -1771,6 +1771,18 @@ def _research_experiment_semantic_errors(
                             errors.append(
                                 "$.predecessor_promotion: referenced predecessor record is invalid"
                             )
+                        predecessor_evidence_sha = predecessor_record.get(
+                            "canonical_evidence_commit_sha_or_na"
+                        )
+                        if not _b026_strictly_precedes(
+                            repository_root,
+                            predecessor_evidence_sha,
+                            freeze_commit_sha,
+                        ):
+                            errors.append(
+                                "$.predecessor_promotion: predecessor canonical evidence must "
+                                "strictly precede current campaign freeze"
+                            )
                         if predecessor_record.get("experiment_id") != predecessor_id:
                             errors.append(
                                 "$.predecessor_promotion.experiment_id: registry record "
