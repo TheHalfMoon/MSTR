@@ -1,0 +1,83 @@
+name: Request fresh CodeRabbit review for B026 ba672f8
+
+on:
+  push:
+    branches: [evidence/b026-coderabbit-request-ba672f8]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+env:
+  BASE_SHA: 823cd7ec3b4c537876a0795d0f0f8d4bd75acd85
+  HEAD_SHA: ba672f8eaaa9fe96e9ffdcba39e10f6d4123e421
+  HEAD_TREE: 1080c3c7b894a2e17a71eae72546316156d816f2
+  TARGET_BRANCH: feat/000b-b026-research-ladder
+  PR_NUMBER: '137'
+  QUALIFICATION_RUN: '33678090319'
+  REVIEW_NOT_BEFORE: '2026-09-02T20:50:20Z'
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  request:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify exact review target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          pr="$(gh api repos/${GITHUB_REPOSITORY}/pulls/$PR_NUMBER)"
+          jq -e --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '
+            .state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and
+            .commits == 9 and .changed_files == 17
+          ' <<<"$pr"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/git/commits/$HEAD_SHA --jq '.tree.sha')" = "$HEAD_TREE"
+          qualification="$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/$QUALIFICATION_RUN)"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$qualification"
+
+      - name: Respect documented review-rate reset
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="$(date -u -d "$REVIEW_NOT_BEFORE" +%s)"
+          now="$(date -u +%s)"
+          if [ "$now" -lt "$target" ]; then
+            sleep "$((target-now))"
+          fi
+          test "$(date -u +%s)" -ge "$target"
+
+      - name: Request fresh full review
+        shell: bash
+        run: |
+          set -euo pipefail
+          body=$(cat <<'EOF'
+          @coderabbitai full review
+
+          Please perform a fresh independent substantive semantic review of the complete cumulative PR #137 diff at this exact qualified identity. Earlier-head reviews are stale and must not be treated as evidence for this head.
+
+          Exact review binding:
+          - Base: `823cd7ec3b4c537876a0795d0f0f8d4bd75acd85`
+          - Head: `ba672f8eaaa9fe96e9ffdcba39e10f6d4123e421`
+          - Tree: `1080c3c7b894a2e17a71eae72546316156d816f2`
+          - Qualification: run `33678090319` — SUCCESS
+          - Cumulative commits: 9
+          - Cumulative changed files: 17
+
+          Review correctness, integrity, security, governance, provenance, authority derivation, canonical Git-history resolution, promotion-policy antecedence, verifier-evidence provenance, L4 universal-laptop enforcement, Q4 candidate lineage, positive-network-byte effect derivation, underlying verifier-artifact binding, and predecessor-evidence causality. Report every actionable finding. If none remain, explicitly state that no actionable comments were generated for the exact base-to-head range above and all 17 files.
+
+          B026 is contract/configuration/evidence freeze only and grants no model execution, model-weight access, verifier execution, research-campaign execution, teacher/API execution, paid compute/API, network model/teacher calls, data ingestion, training/RL, Q4 execution, or production-release authority.
+          EOF
+          )
+          gh api repos/${GITHUB_REPOSITORY}/issues/$PR_NUMBER/comments -f body="$body" --jq '.id'
+
+      - name: Final immutable review-target recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          pr="$(gh api repos/${GITHUB_REPOSITORY}/pulls/$PR_NUMBER)"
+          jq -e --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '.state == "open" and .base.sha == $base and .head.sha == $head' <<<"$pr"
