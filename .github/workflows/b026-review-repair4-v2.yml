@@ -88,6 +88,20 @@ jobs:
       - name: Install gates
         run: python -m pip install -e '.[dev]'
 
+      - name: Format candidate and preserve single-parent identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m ruff format src/mstr_qualify/schemas.py tests/contract/test_research_ladder_contract.py
+          git diff --check
+          if ! git diff --quiet; then
+            git add src/mstr_qualify/schemas.py tests/contract/test_research_ladder_contract.py
+            git commit --amend --no-edit
+          fi
+          test "$(git rev-parse HEAD^)" = "$OLD_HEAD"
+          test -z "$(git status --porcelain)"
+          test -z "$(git diff --name-only "$OLD_HEAD...HEAD" -- specs/002-code-model-supremacy-foundation/tasks.md configs/task-gate/mstr-000b.json artifacts/authorities)"
+
       - name: Re-prove canonical machine frontier
         shell: bash
         run: |
