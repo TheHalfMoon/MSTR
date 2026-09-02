@@ -330,7 +330,7 @@ def test_data_model_research_record_block_lists_all_required_b026_fields() -> No
     marker = "def test_b026_runtime_and_spec_schema_pairs_are_byte_identical() -> None:"
     if marker in text:
         raise SystemExit("contract review-repair tests already present")
-    CONTRACT_TESTS.write_text(text.rstrip() + contract_addition + "\n", encoding="utf-8")
+    CONTRACT_TESTS.write_text(text.rstrip() + contract_addition, encoding="utf-8")
 
     replace_once(
         CLI_TESTS,
@@ -350,7 +350,7 @@ def update_evidence() -> None:
     if heading in text:
         raise SystemExit("fresh review evidence already present")
     appendix = f'''\n\n{heading}\n\nCodeRabbit review `PRR_kwDOUCYTYs8AAAABL3Tj7A` / run `2914d85c-a8dd-4db3-8d5c-3aef880343e0` reviewed the exact qualified 17-file head and completed with status `53388944096`. It produced three actionable findings:\n\n1. the contract text said only that no hard gate failed while the schema correctly required every required gate to be `PASS` for `PROMOTE`;\n2. the canonical `ResearchExperimentRecordV2` reading-order block omitted four schema-required fields;\n3. semantic validation could fail to reject concrete Q4 promotion evidence on a non-L4 `PROMOTE` record because of an `elif` fallthrough.\n\nThis candidate chooses the stricter existing promotion semantics: every required gate must be `PASS`; `NOT_APPLICABLE` remains legal only for non-`PROMOTE` records. It synchronizes the ladder text and schema description, fixes the canonical data-model block, makes the Q4 restriction explicit at every non-L4/non-promote boundary, preserves caller-selected `schema_dir` for recursively resolved predecessor validation, adds byte-identity coverage for both B026 schema pairs, and binds the explicit CLI negative-fixture test to `schema.instance_invalid`.\n\nThe review also noted that canonical authority ceilings must not be treated as indefinitely reusable execution budget. B026 performs per-record ceiling validation only and grants no execution authority; cumulative authority-consumption accounting remains a mandatory responsibility of any future separately authorized external-effect executor. No cumulative authority or execution right is created here.\n\nThe broad sentinel-schema deduplication and wholesale rewriting of every historical generic negative-test assertion were maintainability nitpicks, not correctness findings, and are not claimed as part of this bounded repair.\n\nThese exact-head findings are not considered resolved by this evidence text. Resolution still requires guarded publication, fresh exact-head qualification, review-thread reconciliation, and a new independent exact-head substantive review.\n'''
-    EVIDENCE.write_text(text + appendix + "\n", encoding="utf-8")
+    EVIDENCE.write_text(text + appendix, encoding="utf-8")
 
 
 def main() -> None:
