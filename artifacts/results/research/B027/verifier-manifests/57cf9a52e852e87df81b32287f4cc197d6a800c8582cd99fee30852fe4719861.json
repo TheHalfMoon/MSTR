@@ -1,0 +1,6 @@
+{
+  "frozen_evaluation_identity": "sha256:7555257171e97989a007248a7ef90c77e8cd7f0cec230d36c7ded14d824fb1ab",
+  "gate_id": "l0_smoke_checks",
+  "schema_version": "mstr.research-verifier-manifest.v0",
+  "verifier_manifest_id": "b027-offline-verifier:l0_smoke_checks"
+}

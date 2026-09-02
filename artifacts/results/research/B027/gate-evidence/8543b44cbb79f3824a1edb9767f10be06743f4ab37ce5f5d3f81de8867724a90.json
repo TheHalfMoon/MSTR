@@ -1,0 +1,11 @@
+{
+  "campaign_freeze_commit_sha": "361779333904362e456d99389dd64ec78306643b",
+  "campaign_id": "b027-offline-ladder-pilot-v0",
+  "experiment_id": "b027-l0-contract-smoke",
+  "frozen_evaluation_identity": "sha256:7555257171e97989a007248a7ef90c77e8cd7f0cec230d36c7ded14d824fb1ab",
+  "gate_id": "l0_smoke_checks",
+  "governing_task_id": "B027",
+  "schema_version": "mstr.research-gate-evidence.v1",
+  "source_evidence_identity": "sha256:0eb97a1e647843ba60c0aff4e0adfddcf70b6d5710a0041367476712dbca9eb9",
+  "source_json_pointer": "/observed_value"
+}
