@@ -1,8 +1,8 @@
-name: Guard B026 second exact-head review repair v3
+name: Guard B026 second exact-head review repair v4
 
 on:
   push:
-    branches: [evidence/b026-review-repair2-v3-08399fa]
+    branches: [evidence/b026-review-repair2-v4-08399fa]
 
 permissions:
   contents: write
@@ -43,7 +43,6 @@ jobs:
           test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$OLD_HEAD"
           git cat-file -e "$OLD_HEAD^{commit}"
           test "$(git rev-parse "$OLD_HEAD^{tree}")" = "$OLD_TREE"
-
           pr="$(gh api repos/${GITHUB_REPOSITORY}/pulls/$PR_NUMBER)"
           test "$(jq -r '.state' <<<"$pr")" = open
           test "$(jq -r '.draft' <<<"$pr")" = false
@@ -51,17 +50,14 @@ jobs:
           test "$(jq -r '.head.sha' <<<"$pr")" = "$OLD_HEAD"
           test "$(jq -r '.changed_files' <<<"$pr")" -eq 17
           test "$(jq -r '.commits' <<<"$pr")" -eq 3
-
           qualification="$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/$QUALIFICATION_RUN)"
           test "$(jq -r '.status' <<<"$qualification")" = completed
           test "$(jq -r '.conclusion' <<<"$qualification")" = success
           test "$(jq -r '.head_branch' <<<"$qualification")" = evidence/b026-qualify-08399fa
-
           reviews="$(gh api repos/${GITHUB_REPOSITORY}/pulls/$PR_NUMBER/reviews?per_page=100)"
           jq -e --arg id "$CODEX_REVIEW_ID" --arg head "${OLD_HEAD:0:10}" '
             any(.[]; .node_id == $id and .user.login == "chatgpt-codex-connector[bot]" and (.body | contains($head)))
           ' <<<"$reviews"
-
           for spec in \
             '3914444935|Require concrete Q4 identities before L4 promotion' \
             '3914444949|Resolve the predecessor against the campaign ledger' \
@@ -74,12 +70,10 @@ jobs:
             test "$(jq -r '.commit_id' <<<"$comment")" = "$OLD_HEAD"
             grep -F "$needle" <<<"$(jq -r '.body' <<<"$comment")"
           done
-
           status="$(gh api repos/${GITHUB_REPOSITORY}/commits/$OLD_HEAD/status)"
           jq -e --argjson status_id "$CODERABBIT_STATUS_ID" '
             any(.statuses[]; .id == $status_id and .context == "CodeRabbit" and .state == "success" and .description == "Review completed")
           ' <<<"$status"
-
           for spec in \
             '3914479464|Record the still-open findings instead of describing the contract gaps as closed' \
             '3914479498|Resolve the predecessor experiment before accepting promotion' \
@@ -90,19 +84,20 @@ jobs:
             test "$(jq -r '.commit_id' <<<"$comment")" = "$OLD_HEAD"
             grep -F "$needle" <<<"$(jq -r '.body' <<<"$comment")"
           done
-
           cp .github/scripts/b026_review_repair2_builder.py /tmp/b026_review_repair2_builder.py
-          python -m py_compile /tmp/b026_review_repair2_builder.py
+          cp .github/scripts/b026_review_repair2_ruff_fix.py /tmp/b026_review_repair2_ruff_fix.py
+          python -m py_compile /tmp/b026_review_repair2_builder.py /tmp/b026_review_repair2_ruff_fix.py
           git checkout --detach "$OLD_HEAD"
           test "$(git rev-parse HEAD)" = "$OLD_HEAD"
           test "$(git rev-parse HEAD^{tree})" = "$OLD_TREE"
           test -z "$(git status --porcelain)"
 
-      - name: Build and seal canonical resolver repair candidate
+      - name: Build and lint-harden canonical resolver repair candidate
         shell: bash
         run: |
           set -euo pipefail
           python /tmp/b026_review_repair2_builder.py
+          python /tmp/b026_review_repair2_ruff_fix.py
           printf '%s\n' \
             configs/research/mstr-research-ladder-v0.json \
             evidence/mstr-000b/B026-research-ladder.md \
