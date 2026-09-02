@@ -323,6 +323,9 @@ MaterialResultIdentity
 - model_id_or_na
 - model_revision_or_na
 - model_artifact_sha256_or_na
+- model_artifact_size_bytes_or_na
+- model_execution_count_or_na
+- network_model_or_teacher_call_count_or_na
 - tokenizer_id_or_na
 - tokenizer_revision_or_na
 - quantization_method_or_na
@@ -344,6 +347,9 @@ MaterialResultIdentity
 - verifier_manifest_id
 - verifier_health_id_or_na
 - sampling_config_id_or_na
+- data_identity_or_na
+- difficulty_identity_or_na
+- evidence_kind
 - seed_or_na
 - result_classification
 - metrics
@@ -360,6 +366,7 @@ Fields that do not apply MUST carry an explicit `N/A`/not-applicable value rathe
 ```text
 ResearchExperimentRecordV2
 - experiment_id
+- governing_task_id
 - campaign_id
 - parent_identity
 - hypothesis
@@ -367,12 +374,22 @@ ResearchExperimentRecordV2
 - mutation_identity
 - frozen_evaluation_identity
 - fidelity_level
+- record_mode
+- campaign_freeze_commit_sha_or_na
+- canonical_evidence_commit_sha_or_na
+- promotion_policy_identity
+- predecessor_promotion
 - budget
 - material_results[] : MaterialResultIdentity
 - hard_gate_results
 - promotion_decision
 - decision_reason
+- promoted_result_id_or_na
+- q4_promotion_record_identity_or_na
+- q4_candidate_binding_identity_or_na
+- governed_effects
 - aggregate_resource_cost
+- external_effect_authority
 ```
 
 Fidelity:
@@ -384,6 +401,8 @@ L2_EXECUTABLE_REPO
 L3_DIRECTION_TO_DONE
 L4_Q4_UNIVERSAL_LAPTOP
 ```
+
+`predecessor_promotion` is `null` only at L0. L1-L4 MUST bind an immediate-predecessor `PROMOTE` record from the same campaign and frozen evaluation identity, including the promoted result identity and immutable evidence identity; the current `parent_identity` MUST equal that promoted result identity. Material-result count and aggregate wall-time/paid-cost MUST remain within the predeclared budget. Missing or contradictory predecessor/budget evidence fails closed. `PROMOTE` also requires exact machine-readable gate coverage for the selected fidelity level. Training evidence requires concrete data and checkpoint-relative difficulty identities. Any external-effect resource class or cost requires an immutable reference to a separately canonical authority record plus scope and ceiling checks; the research record never creates that authority.
 
 ## 15. TrainingMethodCell
 
@@ -466,3 +485,18 @@ CandidatePoolDecision
 ```
 
 A pool is not stable when one candidate has materially weaker/missing evidence that could change the comparison outcome.
+
+### B026 canonical research resolution
+
+`mstr.research-experiment.v2` is fail-closed against self-attested promotion or authority. `governing_task_id` and `predecessor_promotion.experiment_id` derive the predecessor registry path `artifacts/results/research/<governing_task_id>/registry/<experiment_id>.json`; `experiment_record_sha256` binds the exact bytes. The resolved record must itself validate, belong to the same campaign/task/evaluator lineage, be the immediately preceding fidelity level, have decision `PROMOTE`, and expose the exact promoted result consumed as the current parent.
+
+Every experiment explicitly declares every governed external-effect class as `true` or `false`. Any true class requires `external_effect_authority`, whose path is derived only as `artifacts/authorities/<authority_id>.json`. The experiment stores only `authority_id` plus the canonical file SHA-256. Scope, campaign binding, strongest effect, and resource ceilings are derived from the resolved `AUTHORIZED_CANONICAL` artifact and are never copied into a mutable experiment authority surface.
+
+Every research record binds `promotion_policy_identity` to the SHA-256 content address of a predeclared policy artifact. Each policy criterion exactly covers one required gate and freezes its comparison operator and expected value. Each hard-gate `evidence_identity` is the SHA-256 content address of an immutable observed-value record; validation recomputes PASS/FAIL from the predeclared criterion instead of trusting the submitted status. `PROMOTE` binds `promoted_result_id_or_na` to a material result. Per-level identity gates have concrete semantic requirements. L4 additionally resolves `q4_promotion_record_identity_or_na` as an immutable `mstr.q4-promotion.v0` record, requires `promotion_status=PROMOTED`, exact Q4 artifact identity, and an applicable universal-laptop PASS, with the Q4 record evidence identities bound back to the corresponding hard gates. Aggregate paid cost must equal the sum of per-result paid costs before budget or authority ceilings are evaluated. B026 validates an authority ceiling for one research record only; it does not create a cumulative-consumption ledger or authorize repeated use of an authority. Any future external-effect executor must prove cumulative authority consumption under its own canonical execution contract before relying on these records to act.
+
+
+### B026 canonical-history hardening
+
+`CAMPAIGN_RESULT` records resolve policy, predecessor, authority, gate evidence, verifier evidence, Q4 promotion, and Q4 candidate binding from explicit Git commits in canonical `main` ancestry. `campaign_freeze_commit_sha_or_na` MUST be a strict ancestor of `canonical_evidence_commit_sha_or_na`; policy/predecessor/authority are resolved at freeze time, while gate/verifier/Q4 evidence is resolved at the later evidence commit. Dirty-worktree or feature-branch-only files are never canonical evidence. `CONTRACT_FIXTURE` exists only for B026 shape validation and cannot claim `PROMOTE`.
+
+Gate evidence does not carry a self-declared observed value. It content-addresses canonical verifier evidence, and that wrapper carries no observed value of its own. Instead it content-addresses the verifier manifest, verifier-health record, subject material evidence, and verifier execution result from the canonical evidence commit. Validation verifies every digest and cross-binding, requires healthy verifier evidence, requires the subject artifact to exactly match one material result in the experiment, and reads the observed value only from the content-addressed verifier result at the frozen `/observed_value` pointer. Positive `resource_cost.network_bytes_or_na` is governed network evidence even when the model/teacher call counter is zero; it therefore requires `NETWORK_MODEL_OR_TEACHER_CALL=true` and the separately canonical authority binding required by that effect. L4 additionally enforces RAM <= 8 GiB, CPU execution, context = 8192, a positive thread count, Q4 artifact size <= 3 GiB, positive model-execution evidence, and an immutable candidate/Q4 binding that ties model id/revision and source checkpoint to the resolved Q4 record.

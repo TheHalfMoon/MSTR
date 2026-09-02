@@ -1,0 +1,356 @@
+{
+  "config_version": "mstr.research-ladder.v0",
+  "task_id": "B026",
+  "material_result_identity_schema": "mstr.material-result-identity.v0",
+  "research_experiment_schema": "mstr.research-experiment.v2",
+  "promotion_policy": {
+    "sequential_only": true,
+    "promotion_criteria_predeclared": true,
+    "hard_reject_is_terminal_for_current_experiment": true,
+    "weak_experiments_must_not_run_expensive_levels": true,
+    "missing_material_identity_invalidates_promotion": true,
+    "frozen_evaluation_identity_required": true,
+    "task_eligibility_never_grants_external_effect_authority": true,
+    "predecessor_promotion_evidence_required": true,
+    "declared_budgets_semantically_enforced": true,
+    "required_gate_coverage_semantically_enforced": true,
+    "external_effect_authority_binding_required": true,
+    "training_evidence_data_difficulty_identity_required": true,
+    "predecessor_registry_resolution_required": true,
+    "canonical_authority_record_resolution_required": true,
+    "governed_effect_declarations_complete": true,
+    "aggregate_paid_cost_reconciliation_required": true,
+    "per_level_material_identity_semantically_enforced": true,
+    "l4_concrete_q4_identity_required": true,
+    "q4_gate_evidence_identity_binding_required": true,
+    "canonical_git_history_resolution_required": true,
+    "promotion_policy_must_precede_evidence_commit": true,
+    "gate_observation_underlying_evidence_resolution_required": true,
+    "model_execution_authority_required": true,
+    "network_model_or_teacher_call_authority_required": true,
+    "l4_reference_envelope_semantically_enforced": true,
+    "q4_candidate_lineage_binding_required": true,
+    "network_resource_evidence_authority_required": true,
+    "verifier_underlying_artifact_resolution_required": true,
+    "predecessor_evidence_must_precede_current_policy_freeze": true
+  },
+  "levels": [
+    {
+      "level": "L0_CONTRACT_SMOKE",
+      "ordinal": 0,
+      "cost_class": "CHEAP",
+      "scope": [
+        "contract-validation",
+        "schema-validation",
+        "unit-smoke",
+        "configuration-smoke"
+      ],
+      "promotion_requires": [
+        "all required contracts/configs validate",
+        "all L0 smoke checks pass",
+        "frozen evaluation identity is pinned",
+        "every material result has complete MaterialResultIdentity or explicit N/A fields",
+        "every required hard gate has status PASS"
+      ],
+      "hard_reject_conditions": [
+        "schema or config invalid",
+        "missing or opaque material-result identity",
+        "evaluation identity missing or mutable",
+        "protected evaluator or authority boundary violation",
+        "declared budget exceeded"
+      ],
+      "required_gate_ids": [
+        "contracts_config_valid",
+        "l0_smoke_checks",
+        "frozen_evaluation_pinned",
+        "material_identity_complete",
+        "authority_boundary_intact"
+      ]
+    },
+    {
+      "level": "L1_CODE_PROXY",
+      "ordinal": 1,
+      "cost_class": "LOW",
+      "scope": [
+        "direct-code",
+        "fim",
+        "edit",
+        "tool-schema"
+      ],
+      "promotion_requires": [
+        "L0 is PROMOTE for the same experiment lineage",
+        "predeclared code/FIM/edit/tool proxy thresholds pass",
+        "no frozen-evaluation regression exceeds its declared tolerance",
+        "every material result binds exact task/verifier/sampling/runtime identity or explicit N/A",
+        "every required hard gate has status PASS"
+      ],
+      "hard_reject_conditions": [
+        "L0 not promoted",
+        "task or verifier identity mismatch",
+        "frozen-evaluation regression beyond declared tolerance",
+        "missing material-result identity",
+        "declared budget exceeded"
+      ],
+      "required_gate_ids": [
+        "predecessor_promoted",
+        "code_proxy_thresholds",
+        "frozen_eval_tolerance",
+        "material_identity_complete",
+        "task_verifier_sampling_runtime_identity"
+      ]
+    },
+    {
+      "level": "L2_EXECUTABLE_REPO",
+      "ordinal": 2,
+      "cost_class": "MODERATE",
+      "scope": [
+        "executable-small-repository",
+        "build",
+        "tests",
+        "bounded-repair"
+      ],
+      "promotion_requires": [
+        "L1 is PROMOTE for the same experiment lineage",
+        "predeclared executable-repository acceptance passes",
+        "applicable verifier-health threshold is satisfied",
+        "no shortcut, leakage, or protected-path violation is detected",
+        "every material result preserves exact environment/runtime/task/verifier identity",
+        "every required hard gate has status PASS"
+      ],
+      "hard_reject_conditions": [
+        "L1 not promoted",
+        "repository cannot execute under the frozen environment",
+        "verifier is broken, leaked, tampered, or below the declared threshold",
+        "shortcut or protected-path violation",
+        "missing material-result identity",
+        "declared budget exceeded"
+      ],
+      "required_gate_ids": [
+        "predecessor_promoted",
+        "executable_repo_acceptance",
+        "verifier_health",
+        "shortcut_leakage_protection",
+        "environment_runtime_task_verifier_identity"
+      ]
+    },
+    {
+      "level": "L3_DIRECTION_TO_DONE",
+      "ordinal": 3,
+      "cost_class": "HIGH",
+      "scope": [
+        "direction-to-done",
+        "feature",
+        "bounded-program",
+        "recovery"
+      ],
+      "promotion_requires": [
+        "L2 is PROMOTE for the same experiment lineage",
+        "predeclared Direction-to-Done or feature/program acceptance passes",
+        "hidden acceptance and evaluator authority remain immutable",
+        "no unresolved product hard-gate regression exists",
+        "every material result preserves exact contract/harness/task/verifier identity",
+        "every required hard gate has status PASS"
+      ],
+      "hard_reject_conditions": [
+        "L2 not promoted",
+        "hidden-evaluation leakage",
+        "evaluator authority or protected acceptance mutated",
+        "product hard gate regresses",
+        "missing material-result identity",
+        "declared budget exceeded"
+      ],
+      "required_gate_ids": [
+        "predecessor_promoted",
+        "direction_to_done_acceptance",
+        "hidden_acceptance_immutable",
+        "product_regression_clear",
+        "contract_harness_task_verifier_identity"
+      ]
+    },
+    {
+      "level": "L4_Q4_UNIVERSAL_LAPTOP",
+      "ordinal": 4,
+      "cost_class": "MOST_EXPENSIVE",
+      "scope": [
+        "release-relevant-q4",
+        "universal-laptop",
+        "product-regression"
+      ],
+      "promotion_requires": [
+        "L3 is PROMOTE for the same experiment lineage",
+        "release-relevant Q4 artifact identity is exact",
+        "quantizer/runtime/hardware identities are exact or explicit N/A only when genuinely inapplicable",
+        "required universal-laptop product gates pass",
+        "a required Q4PromotionRecord is PROMOTED before any material weight-changing checkpoint may parent another material stage",
+        "every required hard gate has status PASS"
+      ],
+      "hard_reject_conditions": [
+        "L3 not promoted",
+        "Q4 artifact or quantizer identity missing",
+        "required universal-laptop product gate fails",
+        "8GB/CPU/8K/Q4<=3GB product floor is silently weakened",
+        "required Q4PromotionRecord absent or not PROMOTED",
+        "missing material-result identity",
+        "declared budget exceeded"
+      ],
+      "required_gate_ids": [
+        "predecessor_promoted",
+        "q4_artifact_identity",
+        "quantizer_runtime_hardware_identity",
+        "universal_laptop_product_gates",
+        "q4_promotion_record_promoted"
+      ]
+    }
+  ],
+  "promotion_edges": [
+    {
+      "from": "L0_CONTRACT_SMOKE",
+      "to": "L1_CODE_PROXY"
+    },
+    {
+      "from": "L1_CODE_PROXY",
+      "to": "L2_EXECUTABLE_REPO"
+    },
+    {
+      "from": "L2_EXECUTABLE_REPO",
+      "to": "L3_DIRECTION_TO_DONE"
+    },
+    {
+      "from": "L3_DIRECTION_TO_DONE",
+      "to": "L4_Q4_UNIVERSAL_LAPTOP"
+    }
+  ],
+  "authority_boundary": {
+    "contract_freeze_only": true,
+    "research_campaign_execution_authorized": false,
+    "model_execution_authorized": false,
+    "model_weight_access_authorized": false,
+    "paid_compute_authorized": false,
+    "network_model_calls_authorized": false,
+    "large_dataset_ingestion_authorized": false,
+    "private_or_production_data_ingestion_authorized": false,
+    "weight_changing_training_authorized": false,
+    "large_scale_rl_authorized": false,
+    "production_release_authorized": false
+  },
+  "canonical_resolution": {
+    "experiment_registry_template": "artifacts/results/research/{governing_task_id}/registry/{experiment_id}.json",
+    "authority_registry_template": "artifacts/authorities/{authority_id}.json",
+    "record_integrity": "SHA-256 over exact Git blob bytes resolved from an explicit canonical-main-ancestor commit",
+    "authority_scope_source": "resolved canonical authority artifact only",
+    "authority_copy_in_experiment": false,
+    "governed_effects": [
+      "MODEL_WEIGHT_ACCESS",
+      "GATED_TERMS_ACCEPTANCE",
+      "PAID_MODEL_API_EXECUTION",
+      "PAID_COMPUTE",
+      "RENTED_COMPUTE",
+      "LARGE_DATASET_INGESTION",
+      "WEIGHT_CHANGING_TRAINING",
+      "LONG_TRAINING",
+      "LARGE_SCALE_RL",
+      "PRODUCTION_RELEASE",
+      "MODEL_EXECUTION",
+      "NETWORK_MODEL_OR_TEACHER_CALL"
+    ],
+    "promotion_policy_registry_template": "artifacts/results/research/{governing_task_id}/promotion-policies/{sha256}.json",
+    "gate_evidence_registry_template": "artifacts/results/research/{governing_task_id}/gate-evidence/{sha256}.json",
+    "q4_promotion_registry_template": "artifacts/results/q4-promotion/registry/{sha256}.json",
+    "promotion_policy_binding": "promotion_policy_identity resolves from the strict ancestor campaign-freeze commit; gate evidence resolves from the later canonical evidence commit and derives its observed value only from a content-addressed verifier result bound to content-addressed verifier manifest, verifier-health, and subject material evidence",
+    "promotion_policy_record_contract": {
+      "schema_version": "mstr.research-promotion-policy.v0",
+      "required_fields": [
+        "governing_task_id",
+        "campaign_id",
+        "fidelity_level",
+        "frozen_evaluation_identity",
+        "criteria"
+      ],
+      "criterion_fields": [
+        "gate_id",
+        "operator",
+        "expected_value"
+      ],
+      "operators": [
+        "EQ",
+        "GTE",
+        "LTE",
+        "NOT_APPLICABLE",
+        "EQ_PROMOTED_ARTIFACT"
+      ],
+      "criteria_must_exactly_cover_required_gate_ids": true
+    },
+    "gate_evidence_record_contract": {
+      "schema_version": "mstr.research-gate-evidence.v1",
+      "required_fields": [
+        "governing_task_id",
+        "campaign_id",
+        "experiment_id",
+        "gate_id",
+        "frozen_evaluation_identity",
+        "campaign_freeze_commit_sha",
+        "source_evidence_identity",
+        "source_json_pointer"
+      ],
+      "status_is_computed_from_predeclared_policy": true,
+      "observed_value_must_be_derived_from_source_evidence": true
+    },
+    "campaign_freeze_commit_field": "campaign_freeze_commit_sha_or_na",
+    "canonical_evidence_commit_field": "canonical_evidence_commit_sha_or_na",
+    "canonical_history_rule": "campaign freeze and evidence commits must both be ancestors of canonical main; freeze must be a strict ancestor of evidence",
+    "verifier_evidence_registry_template": "artifacts/results/research/{governing_task_id}/verifier-evidence/{sha256}.json",
+    "q4_candidate_binding_registry_template": "artifacts/results/research/{governing_task_id}/q4-bindings/{sha256}.json",
+    "verifier_evidence_record_contract": {
+      "schema_version": "mstr.research-verifier-evidence.v0",
+      "required_fields": [
+        "governing_task_id",
+        "campaign_id",
+        "experiment_id",
+        "gate_id",
+        "frozen_evaluation_identity",
+        "verifier_manifest_identity",
+        "verifier_health_identity",
+        "subject_identity",
+        "subject_evidence_identity",
+        "verifier_result_identity",
+        "verifier_result_json_pointer"
+      ],
+      "observed_value_is_forbidden_in_wrapper": true,
+      "underlying_artifacts_must_resolve_from_canonical_evidence_commit": true
+    },
+    "q4_candidate_binding_record_contract": {
+      "schema_version": "mstr.research-q4-candidate-binding.v0",
+      "required_fields": [
+        "q4_promotion_record_identity",
+        "model_id",
+        "model_revision",
+        "source_checkpoint_sha256",
+        "canonical_q4_artifact_sha256"
+      ]
+    },
+    "verifier_manifest_registry_template": "artifacts/results/research/{governing_task_id}/verifier-manifests/{sha256}.json",
+    "verifier_health_registry_template": "artifacts/results/research/{governing_task_id}/verifier-health/{sha256}.json",
+    "subject_evidence_registry_template": "artifacts/results/research/{governing_task_id}/subject-evidence/{sha256}.json",
+    "verifier_result_registry_template": "artifacts/results/research/{governing_task_id}/verifier-results/{sha256}.json",
+    "verifier_manifest_record_contract": {
+      "schema_version": "mstr.research-verifier-manifest.v0",
+      "content_addressed": true
+    },
+    "verifier_health_record_contract": {
+      "schema_version": "mstr.research-verifier-health.v0",
+      "content_addressed": true,
+      "required_status": "HEALTHY"
+    },
+    "subject_evidence_record_contract": {
+      "schema_version": "mstr.research-subject-evidence.v0",
+      "content_addressed": true,
+      "must_exactly_match_experiment_material_result": true
+    },
+    "verifier_result_record_contract": {
+      "schema_version": "mstr.research-verifier-result.v0",
+      "content_addressed": true,
+      "observed_value_pointer": "/observed_value",
+      "must_bind_manifest_health_and_subject": true
+    }
+  }
+}

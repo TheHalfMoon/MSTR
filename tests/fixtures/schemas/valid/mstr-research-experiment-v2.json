@@ -1,0 +1,134 @@
+{
+  "schema_version": "mstr.research-experiment.v2",
+  "experiment_id": "b026-fixture-experiment",
+  "campaign_id": "b026-fixture-campaign",
+  "parent_identity": "fixture-parent:N/A",
+  "hypothesis": "Contract-only L0 smoke preserves exact identity and gates.",
+  "mutable_surface": "schema-and-config-only",
+  "mutation_identity": "fixture-mutation:none",
+  "frozen_evaluation_identity": "fixture-evaluator:mstr-local-json-schema-validator",
+  "fidelity_level": "L0_CONTRACT_SMOKE",
+  "predecessor_promotion": null,
+  "budget": {
+    "budget_id": "b026-contract-only",
+    "max_wall_time_seconds": 60,
+    "max_material_results": 4,
+    "max_paid_cost_usd": 0,
+    "resource_class": "CONTRACT_ONLY"
+  },
+  "material_results": [
+    {
+      "schema_version": "mstr.material-result-identity.v0",
+      "result_id": "b026-l0-contract-smoke-001",
+      "model_id_or_na": "N/A",
+      "model_revision_or_na": "N/A",
+      "model_artifact_sha256_or_na": "N/A",
+      "tokenizer_id_or_na": "N/A",
+      "tokenizer_revision_or_na": "N/A",
+      "quantization_method_or_na": "N/A",
+      "quantizer_tool_revision_or_na": "N/A",
+      "runtime_id_or_na": "python",
+      "runtime_version_or_commit_or_na": "3.11",
+      "runtime_build_flags_or_na": "N/A",
+      "os_identity_or_na": "ubuntu-24.04",
+      "cpu_identity_or_na": "N/A",
+      "total_ram_bytes_or_na": "N/A",
+      "thread_count_or_na": "N/A",
+      "acceleration_backend_or_na": "N/A",
+      "context_length_or_na": "N/A",
+      "cache_state_or_na": "N/A",
+      "interaction_contract_version_or_na": "N/A",
+      "loop_contract_version_or_na": "N/A",
+      "harness_profile_id_or_na": "N/A",
+      "task_manifest_id": "B026-contract-smoke",
+      "verifier_manifest_id": "mstr-local-json-schema-validator",
+      "verifier_health_id_or_na": "N/A",
+      "sampling_config_id_or_na": "N/A",
+      "seed_or_na": "N/A",
+      "result_classification": "PASS",
+      "metrics": {
+        "schema_checks": 2,
+        "failed_checks": 0
+      },
+      "wall_time_seconds_or_na": 0.01,
+      "resource_cost": {
+        "cost_class": "NO_EXTERNAL_EFFECT",
+        "cpu_seconds_or_na": 0.01,
+        "accelerator_seconds_or_na": "N/A",
+        "network_bytes_or_na": 0,
+        "peak_ram_bytes_or_na": "N/A"
+      },
+      "paid_cost_usd": 0,
+      "invalidation_reason_or_na": "N/A",
+      "evidence_kind": "CONTRACT_ONLY",
+      "data_identity_or_na": "N/A",
+      "difficulty_identity_or_na": "N/A",
+      "model_execution_count_or_na": 0,
+      "network_model_or_teacher_call_count_or_na": 0,
+      "model_artifact_size_bytes_or_na": "N/A"
+    }
+  ],
+  "hard_gate_results": [
+    {
+      "gate_id": "contracts_config_valid",
+      "status": "PASS",
+      "evidence_identity": "sha256:e8b1e2cd2c5d6dd5085743040e3bfcd6adfff1f551271aa567bcf11c2e4c064c",
+      "reason": "Required L0 hard gate passed."
+    },
+    {
+      "gate_id": "l0_smoke_checks",
+      "status": "PASS",
+      "evidence_identity": "sha256:cb75019c2ad8f9451409fc4974d844298c23dad57e5cab2e94d685ffb76076db",
+      "reason": "Required L0 hard gate passed."
+    },
+    {
+      "gate_id": "frozen_evaluation_pinned",
+      "status": "PASS",
+      "evidence_identity": "sha256:61380d9c9de6e6f15ffd056fb64900c522e0adadb0ce9ff56a1691de9d8a766d",
+      "reason": "Required L0 hard gate passed."
+    },
+    {
+      "gate_id": "material_identity_complete",
+      "status": "PASS",
+      "evidence_identity": "sha256:9fe18a896b8e584fc0df1d5cd783cef673784226493a5b4341b8ce5f6d7a07f5",
+      "reason": "Required L0 hard gate passed."
+    },
+    {
+      "gate_id": "authority_boundary_intact",
+      "status": "PASS",
+      "evidence_identity": "sha256:ebb7e5d93e5f5ec04758800cfaa3a259daa9e48d2bdcf2ac42d8730863651e61",
+      "reason": "Required L0 hard gate passed."
+    }
+  ],
+  "promotion_decision": "STOP",
+  "decision_reason": "Contract fixture validates the frozen shape without claiming campaign execution.",
+  "aggregate_resource_cost": {
+    "wall_time_seconds": 0.01,
+    "material_result_count": 1,
+    "paid_cost_usd": 0,
+    "resource_class": "CONTRACT_ONLY"
+  },
+  "external_effect_authority": null,
+  "governing_task_id": "B026",
+  "promoted_result_id_or_na": "N/A",
+  "q4_promotion_record_identity_or_na": "N/A",
+  "governed_effects": {
+    "MODEL_WEIGHT_ACCESS": false,
+    "GATED_TERMS_ACCEPTANCE": false,
+    "PAID_MODEL_API_EXECUTION": false,
+    "PAID_COMPUTE": false,
+    "RENTED_COMPUTE": false,
+    "LARGE_DATASET_INGESTION": false,
+    "WEIGHT_CHANGING_TRAINING": false,
+    "LONG_TRAINING": false,
+    "LARGE_SCALE_RL": false,
+    "PRODUCTION_RELEASE": false,
+    "MODEL_EXECUTION": false,
+    "NETWORK_MODEL_OR_TEACHER_CALL": false
+  },
+  "promotion_policy_identity": "N/A",
+  "record_mode": "CONTRACT_FIXTURE",
+  "campaign_freeze_commit_sha_or_na": "N/A",
+  "canonical_evidence_commit_sha_or_na": "N/A",
+  "q4_candidate_binding_identity_or_na": "N/A"
+}

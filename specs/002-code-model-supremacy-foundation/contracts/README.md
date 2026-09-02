@@ -23,6 +23,16 @@ schemas/mstr-task-eligibility-v0.schema.json
 
 For authority-gated external effects, `required_authority_id` is a foreign-key identity for an **already-canonical authority record/envelope**. The referenced authority—not the TaskNode—owns the exact authorized effect scope and any applicable cost/resource ceilings required by the constitution and canonical task. Task schema validation and B002 eligibility verification never create, widen, or replace that authority. Duplicating mutable scope/cost limits into TaskNode would create a second authority surface and is therefore intentionally avoided.
 
+
+## Frozen by B026
+
+```text
+mstr.material-result-identity.v0
+mstr.research-experiment.v2
+```
+
+B026 freezes exact material-result identity and a single-fidelity research-experiment record for the L0 -> L4 research ladder. Every material result carries exact model/artifact/tokenizer/quantizer/runtime/hardware/context/contracts/task/verifier/sampling/classification/cost identity where applicable and explicit `N/A` otherwise; training evidence additionally requires concrete data and checkpoint-relative difficulty identities. Ambiguous sentinels are invalid and a material artifact hash, when applicable, is an actual SHA-256. A promoted experiment binds one frozen evaluation identity, one fidelity level, complete material results, a predeclared budget, and the exact machine-readable hard-gate set for that fidelity level with every required gate passing. L1-L4 records require explicit immediate-predecessor `PROMOTE` evidence from the same campaign and frozen evaluation identity, and `parent_identity` must bind the predecessor's promoted result. Semantic validation enforces material-result count, declared wall-time/material-count/paid-cost ceilings, exact gate coverage, and external-effect authority references. Any external-effect resource class or cost must bind an immutable separately canonical authority record and remain within its declared scopes and ceilings; validation never creates or widens that authority. B026 also freezes `configs/research/mstr-research-ladder-v0.json`; it grants no campaign, model, weight, paid-compute, data-ingestion, training, RL, or release authority.
+
 ## Frozen by B028
 
 ```text
@@ -45,8 +55,6 @@ mstr.difficulty-calibration.v0
 mstr.verifier-health.v0
 mstr.test-generation-example.v0
 mstr.greenfield-task.v0
-mstr.material-result-identity.v0
-mstr.research-experiment.v2
 mstr.repository-health.v0
 mstr.candidate-pool-decision.v0
 ```
@@ -67,3 +75,16 @@ mstr.candidate-pool-decision.v0
 12. Q4 product evidence remains separate from master-checkpoint evidence.
 
 Schema implementation belongs to the exact B-task named in `tasks.md`; an unimplemented planned contract has no runtime authority.
+
+B026 research records resolve lineage and authority from repository-local immutable artifacts rather than trusting inline claims. Predecessors are SHA-256-bound experiment-registry records under `artifacts/results/research/<task>/registry/`; external authority is a SHA-256-bound foreign key to `artifacts/authorities/<authority_id>.json`. Governed effects are exhaustively declared, canonical scope/ceilings are derived from the resolved authority artifact, and L4 promotion requires concrete Q4/runtime/hardware identity plus exact Q4 evidence bindings.
+
+### B026 content-addressed promotion policy and gate evidence
+
+Research promotion is not self-attested. `promotion_policy_identity` and every hard-gate `evidence_identity` are lowercase `sha256:<digest>` content addresses resolved from the canonical registry templates frozen in `configs/research/mstr-research-ladder-v0.json`. A policy must bind the same governing task, campaign, fidelity level and frozen evaluator, must exactly cover the required gate IDs, and must predeclare `EQ`, `GTE`, `LTE`, or `NOT_APPLICABLE` criteria. Gate evidence binds task/campaign/experiment/gate and an observed value. The validator computes the gate status and rejects a submitted status that disagrees.
+
+For L4, `q4_promotion_record_identity_or_na` is a content address into the Q4 promotion registry. The resolved existing `mstr.q4-promotion.v0` contract remains authoritative; B026 does not create Q4 execution, training, model, network, paid-compute, or release authority.
+
+
+## B026 canonical history boundary
+
+Campaign-result validation is Git-history-bound. Policy, predecessor, and external authority must already exist at an explicit canonical campaign-freeze commit. Gate/verifier/Q4 evidence must exist at a later canonical evidence commit. Both commits must be in `main` ancestry and the freeze commit must strictly precede the evidence commit. Working-tree presence is never sufficient.

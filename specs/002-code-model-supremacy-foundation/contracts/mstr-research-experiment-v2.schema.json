@@ -1,0 +1,2096 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mstr.local/schemas/mstr-research-experiment-v2.json",
+  "title": "MSTR Research Experiment v2",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "material_result_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "mstr.material-result-identity.v0"
+        },
+        "result_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "model_id_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "model_revision_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "model_artifact_sha256_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{64}$"
+            }
+          ]
+        },
+        "tokenizer_id_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "tokenizer_revision_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "quantization_method_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "quantizer_tool_revision_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "runtime_id_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "runtime_version_or_commit_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "runtime_build_flags_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "os_identity_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "cpu_identity_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "acceleration_backend_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "cache_state_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "interaction_contract_version_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "loop_contract_version_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "harness_profile_id_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "verifier_health_id_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "sampling_config_id_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "invalidation_reason_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "total_ram_bytes_or_na": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "N/A"
+            }
+          ]
+        },
+        "thread_count_or_na": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "N/A"
+            }
+          ]
+        },
+        "context_length_or_na": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "N/A"
+            }
+          ]
+        },
+        "seed_or_na": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "N/A"
+            }
+          ]
+        },
+        "wall_time_seconds_or_na": {
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "const": "N/A"
+            }
+          ]
+        },
+        "task_manifest_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        },
+        "verifier_manifest_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        },
+        "result_classification": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "INVALID",
+            "CRASHED",
+            "DISCARDED",
+            "PROMOTED"
+          ]
+        },
+        "metrics": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 128,
+          "additionalProperties": {
+            "type": [
+              "number",
+              "string",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "resource_cost": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cost_class": {
+              "enum": [
+                "NO_EXTERNAL_EFFECT",
+                "LOCAL_COMPUTE",
+                "AUTHORIZED_REMOTE_COMPUTE"
+              ]
+            },
+            "cpu_seconds_or_na": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "const": "N/A"
+                }
+              ]
+            },
+            "accelerator_seconds_or_na": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "const": "N/A"
+                }
+              ]
+            },
+            "network_bytes_or_na": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "const": "N/A"
+                }
+              ]
+            },
+            "peak_ram_bytes_or_na": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "const": "N/A"
+                }
+              ]
+            }
+          },
+          "required": [
+            "cost_class",
+            "cpu_seconds_or_na",
+            "accelerator_seconds_or_na",
+            "network_bytes_or_na",
+            "peak_ram_bytes_or_na"
+          ]
+        },
+        "paid_cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "evidence_kind": {
+          "enum": [
+            "CONTRACT_ONLY",
+            "EVALUATION",
+            "TRAINING_EVIDENCE"
+          ]
+        },
+        "data_identity_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "difficulty_identity_or_na": {
+          "oneOf": [
+            {
+              "const": "N/A"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": ".*\\S.*",
+              "not": {
+                "enum": [
+                  "N/A",
+                  "?",
+                  "HEAD",
+                  "Head",
+                  "LATEST",
+                  "Latest",
+                  "MAIN",
+                  "MASTER",
+                  "Main",
+                  "Master",
+                  "NA",
+                  "NONE",
+                  "NULL",
+                  "Na",
+                  "None",
+                  "Null",
+                  "TBD",
+                  "Tbd",
+                  "UNKNOWN",
+                  "UNSET",
+                  "Unknown",
+                  "Unset",
+                  "head",
+                  "latest",
+                  "main",
+                  "master",
+                  "n/a",
+                  "na",
+                  "none",
+                  "null",
+                  "tbd",
+                  "unknown",
+                  "unset"
+                ]
+              }
+            }
+          ]
+        },
+        "model_execution_count_or_na": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "N/A"
+            }
+          ]
+        },
+        "network_model_or_teacher_call_count_or_na": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "N/A"
+            }
+          ]
+        },
+        "model_artifact_size_bytes_or_na": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "N/A"
+            }
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "result_id",
+        "evidence_kind",
+        "data_identity_or_na",
+        "difficulty_identity_or_na",
+        "model_id_or_na",
+        "model_revision_or_na",
+        "model_artifact_sha256_or_na",
+        "tokenizer_id_or_na",
+        "tokenizer_revision_or_na",
+        "quantization_method_or_na",
+        "quantizer_tool_revision_or_na",
+        "runtime_id_or_na",
+        "runtime_version_or_commit_or_na",
+        "runtime_build_flags_or_na",
+        "os_identity_or_na",
+        "cpu_identity_or_na",
+        "acceleration_backend_or_na",
+        "cache_state_or_na",
+        "interaction_contract_version_or_na",
+        "loop_contract_version_or_na",
+        "harness_profile_id_or_na",
+        "verifier_health_id_or_na",
+        "sampling_config_id_or_na",
+        "invalidation_reason_or_na",
+        "total_ram_bytes_or_na",
+        "thread_count_or_na",
+        "context_length_or_na",
+        "seed_or_na",
+        "wall_time_seconds_or_na",
+        "task_manifest_id",
+        "verifier_manifest_id",
+        "result_classification",
+        "metrics",
+        "resource_cost",
+        "paid_cost_usd",
+        "model_execution_count_or_na",
+        "network_model_or_teacher_call_count_or_na",
+        "model_artifact_size_bytes_or_na"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "result_classification": {
+                "const": "INVALID"
+              }
+            },
+            "required": [
+              "result_classification"
+            ]
+          },
+          "then": {
+            "properties": {
+              "invalidation_reason_or_na": {
+                "not": {
+                  "const": "N/A"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "result_classification": {
+                "enum": [
+                  "PASS",
+                  "PROMOTED"
+                ]
+              }
+            },
+            "required": [
+              "result_classification"
+            ]
+          },
+          "then": {
+            "properties": {
+              "invalidation_reason_or_na": {
+                "const": "N/A"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evidence_kind": {
+                "const": "TRAINING_EVIDENCE"
+              }
+            },
+            "required": [
+              "evidence_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "data_identity_or_na": {
+                "not": {
+                  "const": "N/A"
+                }
+              },
+              "difficulty_identity_or_na": {
+                "not": {
+                  "const": "N/A"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "hard_gate_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "gate_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "NOT_APPLICABLE"
+          ],
+          "description": "NOT_APPLICABLE is valid only for non-PROMOTE records; every required hard gate must be PASS when promotion_decision is PROMOTE."
+        },
+        "evidence_identity": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Content address of an immutable gate-evidence record. The submitted status is recomputed from that record under the predeclared promotion policy."
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "gate_id",
+        "status",
+        "evidence_identity",
+        "reason"
+      ]
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "budget_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "max_wall_time_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "max_material_results": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "max_paid_cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "resource_class": {
+          "enum": [
+            "CONTRACT_ONLY",
+            "LOCAL_BOUNDED",
+            "EXTERNAL_EFFECT_REQUIRES_SEPARATE_AUTHORITY"
+          ]
+        }
+      },
+      "required": [
+        "budget_id",
+        "max_wall_time_seconds",
+        "max_material_results",
+        "max_paid_cost_usd",
+        "resource_class"
+      ]
+    },
+    "aggregate_resource_cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "wall_time_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "material_result_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "paid_cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "resource_class": {
+          "enum": [
+            "CONTRACT_ONLY",
+            "LOCAL_BOUNDED",
+            "AUTHORIZED_EXTERNAL_EFFECT"
+          ]
+        }
+      },
+      "required": [
+        "wall_time_seconds",
+        "material_result_count",
+        "paid_cost_usd",
+        "resource_class"
+      ]
+    },
+    "predecessor_promotion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "experiment_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "experiment_record_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{64}$"
+        }
+      },
+      "required": [
+        "experiment_id",
+        "experiment_record_sha256"
+      ]
+    },
+    "external_effect_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "authority_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "authority_record_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{64}$"
+        }
+      },
+      "required": [
+        "authority_id",
+        "authority_record_sha256"
+      ]
+    },
+    "governed_effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "MODEL_WEIGHT_ACCESS": {
+          "type": "boolean"
+        },
+        "GATED_TERMS_ACCEPTANCE": {
+          "type": "boolean"
+        },
+        "PAID_MODEL_API_EXECUTION": {
+          "type": "boolean"
+        },
+        "PAID_COMPUTE": {
+          "type": "boolean"
+        },
+        "RENTED_COMPUTE": {
+          "type": "boolean"
+        },
+        "LARGE_DATASET_INGESTION": {
+          "type": "boolean"
+        },
+        "WEIGHT_CHANGING_TRAINING": {
+          "type": "boolean"
+        },
+        "LONG_TRAINING": {
+          "type": "boolean"
+        },
+        "LARGE_SCALE_RL": {
+          "type": "boolean"
+        },
+        "PRODUCTION_RELEASE": {
+          "type": "boolean"
+        },
+        "MODEL_EXECUTION": {
+          "type": "boolean"
+        },
+        "NETWORK_MODEL_OR_TEACHER_CALL": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "MODEL_WEIGHT_ACCESS",
+        "GATED_TERMS_ACCEPTANCE",
+        "PAID_MODEL_API_EXECUTION",
+        "PAID_COMPUTE",
+        "RENTED_COMPUTE",
+        "LARGE_DATASET_INGESTION",
+        "WEIGHT_CHANGING_TRAINING",
+        "LONG_TRAINING",
+        "LARGE_SCALE_RL",
+        "PRODUCTION_RELEASE",
+        "MODEL_EXECUTION",
+        "NETWORK_MODEL_OR_TEACHER_CALL"
+      ]
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "mstr.research-experiment.v2"
+    },
+    "experiment_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "campaign_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "parent_identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "hypothesis": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "mutable_surface": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "mutation_identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "frozen_evaluation_identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "fidelity_level": {
+      "enum": [
+        "L0_CONTRACT_SMOKE",
+        "L1_CODE_PROXY",
+        "L2_EXECUTABLE_REPO",
+        "L3_DIRECTION_TO_DONE",
+        "L4_Q4_UNIVERSAL_LAPTOP"
+      ]
+    },
+    "predecessor_promotion": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/predecessor_promotion"
+        }
+      ]
+    },
+    "budget": {
+      "$ref": "#/$defs/budget"
+    },
+    "material_results": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10000,
+      "items": {
+        "$ref": "#/$defs/material_result_identity"
+      }
+    },
+    "hard_gate_results": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/hard_gate_result"
+      }
+    },
+    "promotion_decision": {
+      "enum": [
+        "PROMOTE",
+        "REJECT",
+        "STOP",
+        "INVALID"
+      ]
+    },
+    "decision_reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "aggregate_resource_cost": {
+      "$ref": "#/$defs/aggregate_resource_cost"
+    },
+    "external_effect_authority": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/external_effect_authority"
+        }
+      ]
+    },
+    "governing_task_id": {
+      "type": "string",
+      "pattern": "^[A-Z][0-9]{3}$"
+    },
+    "promoted_result_id_or_na": {
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": ".*\\S.*",
+          "not": {
+            "enum": [
+              "N/A",
+              "?",
+              "HEAD",
+              "Head",
+              "LATEST",
+              "Latest",
+              "MAIN",
+              "MASTER",
+              "Main",
+              "Master",
+              "NA",
+              "NONE",
+              "NULL",
+              "Na",
+              "None",
+              "Null",
+              "TBD",
+              "Tbd",
+              "UNKNOWN",
+              "UNSET",
+              "Unknown",
+              "Unset",
+              "head",
+              "latest",
+              "main",
+              "master",
+              "n/a",
+              "na",
+              "none",
+              "null",
+              "tbd",
+              "unknown",
+              "unset"
+            ]
+          }
+        }
+      ]
+    },
+    "q4_promotion_record_identity_or_na": {
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      ],
+      "description": "For L4 PROMOTE, content address of an immutable mstr.q4-promotion.v0 record; literal N/A everywhere else."
+    },
+    "governed_effects": {
+      "$ref": "#/$defs/governed_effects"
+    },
+    "promotion_policy_identity": {
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      ]
+    },
+    "record_mode": {
+      "enum": [
+        "CONTRACT_FIXTURE",
+        "CAMPAIGN_RESULT"
+      ]
+    },
+    "campaign_freeze_commit_sha_or_na": {
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      ]
+    },
+    "canonical_evidence_commit_sha_or_na": {
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      ]
+    },
+    "q4_candidate_binding_identity_or_na": {
+      "oneOf": [
+        {
+          "const": "N/A"
+        },
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "experiment_id",
+    "governing_task_id",
+    "campaign_id",
+    "parent_identity",
+    "hypothesis",
+    "mutable_surface",
+    "mutation_identity",
+    "frozen_evaluation_identity",
+    "fidelity_level",
+    "promotion_policy_identity",
+    "promoted_result_id_or_na",
+    "q4_promotion_record_identity_or_na",
+    "predecessor_promotion",
+    "budget",
+    "material_results",
+    "hard_gate_results",
+    "promotion_decision",
+    "decision_reason",
+    "governed_effects",
+    "external_effect_authority",
+    "aggregate_resource_cost",
+    "record_mode",
+    "campaign_freeze_commit_sha_or_na",
+    "canonical_evidence_commit_sha_or_na",
+    "q4_candidate_binding_identity_or_na"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "fidelity_level": {
+            "const": "L0_CONTRACT_SMOKE"
+          }
+        },
+        "required": [
+          "fidelity_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "predecessor_promotion": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "fidelity_level": {
+            "enum": [
+              "L1_CODE_PROXY",
+              "L2_EXECUTABLE_REPO",
+              "L3_DIRECTION_TO_DONE",
+              "L4_Q4_UNIVERSAL_LAPTOP"
+            ]
+          }
+        },
+        "required": [
+          "fidelity_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "predecessor_promotion": {
+            "$ref": "#/$defs/predecessor_promotion"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "promotion_decision": {
+            "const": "PROMOTE"
+          }
+        },
+        "required": [
+          "promotion_decision"
+        ]
+      },
+      "then": {
+        "properties": {
+          "hard_gate_results": {
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/hard_gate_result"
+                },
+                {
+                  "properties": {
+                    "status": {
+                      "const": "PASS"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "promotion_decision": {
+            "const": "INVALID"
+          }
+        },
+        "required": [
+          "promotion_decision"
+        ]
+      },
+      "then": {
+        "properties": {
+          "material_results": {
+            "contains": {
+              "properties": {
+                "result_classification": {
+                  "const": "INVALID"
+                }
+              },
+              "required": [
+                "result_classification"
+              ]
+            },
+            "minContains": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "promotion_decision": {
+            "const": "PROMOTE"
+          }
+        },
+        "required": [
+          "promotion_decision"
+        ]
+      },
+      "then": {
+        "properties": {
+          "promoted_result_id_or_na": {
+            "not": {
+              "const": "N/A"
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "promoted_result_id_or_na": {
+            "const": "N/A"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "allOf": [
+          {
+            "properties": {
+              "fidelity_level": {
+                "const": "L4_Q4_UNIVERSAL_LAPTOP"
+              }
+            },
+            "required": [
+              "fidelity_level"
+            ]
+          },
+          {
+            "properties": {
+              "promotion_decision": {
+                "const": "PROMOTE"
+              }
+            },
+            "required": [
+              "promotion_decision"
+            ]
+          }
+        ]
+      },
+      "then": {
+        "properties": {
+          "q4_promotion_record_identity_or_na": {
+            "not": {
+              "const": "N/A"
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "q4_promotion_record_identity_or_na": {
+            "const": "N/A"
+          }
+        }
+      }
+    }
+  ]
+}

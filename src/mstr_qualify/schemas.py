@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import subprocess
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
@@ -61,6 +62,9 @@ SCHEMA_FILES: Mapping[str, str] = {
     "mstr-test-generation-example-v0": "mstr-test-generation-example-v0.schema.json",
     # MSTR-000B B025: greenfield/feature/synthesis task manifest contract.
     "mstr-greenfield-task-v0": "mstr-greenfield-task-v0.schema.json",
+    # MSTR-000B B026: exact material-result identity and multi-fidelity research record.
+    "mstr-material-result-identity-v0": "mstr-material-result-identity-v0.schema.json",
+    "mstr-research-experiment-v2": "mstr-research-experiment-v2.schema.json",
     # MSTR-000B B028: training-method preflight and fail-closed Q4 promotion.
     "mstr-training-method-cell-v0": "mstr-training-method-cell-v0.schema.json",
     "mstr-q4-promotion-v0": "mstr-q4-promotion-v0.schema.json",
@@ -480,10 +484,9 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
     post: dict[str, Any] | None = None
     if isinstance(patch, dict) and isinstance(proof, dict):
         artifact_sha = patch.get("test_artifact_sha256")
-        if (
-            proof.get("proof_kind") == "FAIL_BEFORE_PASS_AFTER"
-            and instance.get("base_revision") == instance.get("fix_revision")
-        ):
+        if proof.get("proof_kind") == "FAIL_BEFORE_PASS_AFTER" and instance.get(
+            "base_revision"
+        ) == instance.get("fix_revision"):
             errors.append(
                 "$.fix_revision: FAIL_BEFORE_PASS_AFTER requires a revision "
                 "distinct from base_revision"
@@ -512,13 +515,9 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
                     "$.behavioral_proof.post_fix_result.revision: must match fix_revision"
                 )
             if pre.get("environment_identity") != post.get("environment_identity"):
-                errors.append(
-                    "$.behavioral_proof: pre/post environment_identity must match"
-                )
+                errors.append("$.behavioral_proof: pre/post environment_identity must match")
             if pre.get("verifier_manifest_id") != post.get("verifier_manifest_id"):
-                errors.append(
-                    "$.behavioral_proof: pre/post verifier_manifest_id must match"
-                )
+                errors.append("$.behavioral_proof: pre/post verifier_manifest_id must match")
             if proof.get("proof_kind") == "TASK_SPECIFIC_BEHAVIOR":
                 raw_binding = proof.get("independent_acceptance_evidence_identity")
                 evidence_identity: str | None = None
@@ -565,9 +564,7 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
         changed_paths = patch.get("changed_paths")
         test_paths = patch.get("test_paths")
         if isinstance(changed_paths, list) and isinstance(test_paths, list):
-            changed_path_set = {
-                item for item in changed_paths if isinstance(item, str)
-            }
+            changed_path_set = {item for item in changed_paths if isinstance(item, str)}
             missing_test_paths = sorted(
                 item
                 for item in test_paths
@@ -586,9 +583,7 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
                 "$.integrity_checks.checked_patch_sha256: must match "
                 "generated_test_patch.patch_sha256"
             )
-        if integrity.get("checked_test_artifact_sha256") != patch.get(
-            "test_artifact_sha256"
-        ):
+        if integrity.get("checked_test_artifact_sha256") != patch.get("test_artifact_sha256"):
             errors.append(
                 "$.integrity_checks.checked_test_artifact_sha256: must match "
                 "generated_test_patch.test_artifact_sha256"
@@ -618,9 +613,8 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
             artifact_sha = patch.get("test_artifact_sha256")
             lineage_identity = provenance.get("lineage_identity")
             expected_suffix = f"|test-artifact-sha256:{artifact_sha}"
-            if (
-                not isinstance(lineage_identity, str)
-                or not lineage_identity.endswith(expected_suffix)
+            if not isinstance(lineage_identity, str) or not lineage_identity.endswith(
+                expected_suffix
             ):
                 errors.append(
                     "$.generated_test_provenance.lineage_identity: must bind the exact "
@@ -630,9 +624,7 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
     verifier_health = instance.get("verifier_health_binding")
     if isinstance(verifier_health, dict):
         if verifier_health.get("task_identity") != instance.get("task_identity"):
-            errors.append(
-                "$.verifier_health_binding.task_identity: must match task_identity"
-            )
+            errors.append("$.verifier_health_binding.task_identity: must match task_identity")
         if pre is not None and verifier_health.get("verifier_manifest_id") != pre.get(
             "verifier_manifest_id"
         ):
@@ -722,6 +714,1678 @@ def _test_generation_semantic_errors(instance: Any) -> tuple[str, ...]:
     return tuple(sorted(errors))
 
 
+_AMBIGUOUS_IDENTITY_SENTINELS = frozenset(
+    {
+        "unknown",
+        "tbd",
+        "unset",
+        "none",
+        "null",
+        "na",
+        "n/a",
+        "?",
+        "latest",
+        "main",
+        "master",
+        "head",
+    }
+)
+_B026_FIDELITY_LEVELS = (
+    "L0_CONTRACT_SMOKE",
+    "L1_CODE_PROXY",
+    "L2_EXECUTABLE_REPO",
+    "L3_DIRECTION_TO_DONE",
+    "L4_Q4_UNIVERSAL_LAPTOP",
+)
+_B026_REQUIRED_GATE_IDS: Mapping[str, tuple[str, ...]] = {
+    "L0_CONTRACT_SMOKE": (
+        "contracts_config_valid",
+        "l0_smoke_checks",
+        "frozen_evaluation_pinned",
+        "material_identity_complete",
+        "authority_boundary_intact",
+    ),
+    "L1_CODE_PROXY": (
+        "predecessor_promoted",
+        "code_proxy_thresholds",
+        "frozen_eval_tolerance",
+        "material_identity_complete",
+        "task_verifier_sampling_runtime_identity",
+    ),
+    "L2_EXECUTABLE_REPO": (
+        "predecessor_promoted",
+        "executable_repo_acceptance",
+        "verifier_health",
+        "shortcut_leakage_protection",
+        "environment_runtime_task_verifier_identity",
+    ),
+    "L3_DIRECTION_TO_DONE": (
+        "predecessor_promoted",
+        "direction_to_done_acceptance",
+        "hidden_acceptance_immutable",
+        "product_regression_clear",
+        "contract_harness_task_verifier_identity",
+    ),
+    "L4_Q4_UNIVERSAL_LAPTOP": (
+        "predecessor_promoted",
+        "q4_artifact_identity",
+        "quantizer_runtime_hardware_identity",
+        "universal_laptop_product_gates",
+        "q4_promotion_record_promoted",
+    ),
+}
+_B026_IDENTITY_OR_NA_FIELDS = (
+    "model_id_or_na",
+    "model_revision_or_na",
+    "tokenizer_id_or_na",
+    "tokenizer_revision_or_na",
+    "quantization_method_or_na",
+    "quantizer_tool_revision_or_na",
+    "runtime_id_or_na",
+    "runtime_version_or_commit_or_na",
+    "runtime_build_flags_or_na",
+    "os_identity_or_na",
+    "cpu_identity_or_na",
+    "acceleration_backend_or_na",
+    "cache_state_or_na",
+    "interaction_contract_version_or_na",
+    "loop_contract_version_or_na",
+    "harness_profile_id_or_na",
+    "verifier_health_id_or_na",
+    "sampling_config_id_or_na",
+    "data_identity_or_na",
+    "difficulty_identity_or_na",
+    "invalidation_reason_or_na",
+)
+
+
+def _is_ambiguous_identity(value: object) -> bool:
+    if not isinstance(value, str) or value == "N/A":
+        return False
+    return value != value.strip() or value.strip().casefold() in _AMBIGUOUS_IDENTITY_SENTINELS
+
+
+def _material_result_identity_semantic_errors(instance: Any) -> tuple[str, ...]:
+    """Reject opaque or causally incomplete B026 material-result identities."""
+
+    if not isinstance(instance, dict):
+        return ()
+
+    errors: list[str] = []
+    for field in _B026_IDENTITY_OR_NA_FIELDS:
+        value = instance.get(field)
+        if _is_ambiguous_identity(value):
+            errors.append(f"$.{field}: must be exact identity text or the literal 'N/A'")
+
+    for field in ("task_manifest_id", "verifier_manifest_id"):
+        value = instance.get(field)
+        if _is_ambiguous_identity(value) or value == "N/A":
+            errors.append(f"$.{field}: must be a concrete non-ambiguous identity")
+
+    evidence_kind = instance.get("evidence_kind")
+    model_id = instance.get("model_id_or_na")
+    execution_count = instance.get("model_execution_count_or_na")
+    if evidence_kind in {"EVALUATION", "TRAINING_EVIDENCE"} and model_id != "N/A":
+        if (
+            isinstance(execution_count, bool)
+            or not isinstance(execution_count, int)
+            or execution_count <= 0
+        ):
+            errors.append(
+                "$.model_execution_count_or_na: model evaluation/training evidence requires "
+                "a positive execution count"
+            )
+
+    return tuple(sorted(errors))
+
+
+_B026_GOVERNED_EFFECTS = (
+    "MODEL_EXECUTION",
+    "MODEL_WEIGHT_ACCESS",
+    "GATED_TERMS_ACCEPTANCE",
+    "PAID_MODEL_API_EXECUTION",
+    "PAID_COMPUTE",
+    "RENTED_COMPUTE",
+    "NETWORK_MODEL_OR_TEACHER_CALL",
+    "LARGE_DATASET_INGESTION",
+    "WEIGHT_CHANGING_TRAINING",
+    "LONG_TRAINING",
+    "LARGE_SCALE_RL",
+    "PRODUCTION_RELEASE",
+)
+_B026_LEVEL_CONCRETE_FIELDS: Mapping[str, tuple[str, ...]] = {
+    "L1_CODE_PROXY": (
+        "sampling_config_id_or_na",
+        "runtime_id_or_na",
+        "runtime_version_or_commit_or_na",
+    ),
+    "L2_EXECUTABLE_REPO": (
+        "runtime_id_or_na",
+        "runtime_version_or_commit_or_na",
+        "os_identity_or_na",
+        "cpu_identity_or_na",
+        "verifier_health_id_or_na",
+    ),
+    "L3_DIRECTION_TO_DONE": (
+        "interaction_contract_version_or_na",
+        "loop_contract_version_or_na",
+        "harness_profile_id_or_na",
+        "verifier_health_id_or_na",
+    ),
+    "L4_Q4_UNIVERSAL_LAPTOP": (
+        "model_id_or_na",
+        "model_revision_or_na",
+        "model_artifact_sha256_or_na",
+        "model_artifact_size_bytes_or_na",
+        "model_execution_count_or_na",
+        "tokenizer_id_or_na",
+        "tokenizer_revision_or_na",
+        "quantization_method_or_na",
+        "quantizer_tool_revision_or_na",
+        "runtime_id_or_na",
+        "runtime_version_or_commit_or_na",
+        "runtime_build_flags_or_na",
+        "os_identity_or_na",
+        "cpu_identity_or_na",
+        "acceleration_backend_or_na",
+        "cache_state_or_na",
+    ),
+}
+
+
+def _b026_binding_id(value: object) -> bool:
+    """Return whether *value* can safely address a canonical binding file."""
+
+    return bool(
+        isinstance(value, str)
+        and 1 <= len(value) <= 128
+        and value[0].isalnum()
+        and all(character.isalnum() or character in "._-" for character in value)
+    )
+
+
+def _b026_git(repository_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    """Run one read-only Git command against the repository."""
+
+    return subprocess.run(
+        ["git", *args],
+        cwd=repository_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _b026_commit_sha(value: object) -> str | None:
+    if not isinstance(value, str) or len(value) != 40:
+        return None
+    if any(character not in "0123456789abcdef" for character in value):
+        return None
+    return value
+
+
+def _b026_canonical_main_sha(repository_root: Path) -> str | None:
+    """Resolve canonical main without trusting a feature branch or dirty worktree."""
+
+    for ref in ("refs/remotes/origin/main", "refs/heads/main"):
+        result = _b026_git(repository_root, "rev-parse", "--verify", f"{ref}^{{commit}}")
+        candidate = result.stdout.strip() if result.returncode == 0 else ""
+        if _b026_commit_sha(candidate) is not None:
+            return candidate
+    return None
+
+
+def _b026_is_canonical_commit(repository_root: Path, commit_sha: object) -> bool:
+    candidate = _b026_commit_sha(commit_sha)
+    main_sha = _b026_canonical_main_sha(repository_root)
+    if candidate is None or main_sha is None:
+        return False
+    exists = _b026_git(repository_root, "cat-file", "-e", f"{candidate}^{{commit}}")
+    if exists.returncode != 0:
+        return False
+    ancestry = _b026_git(repository_root, "merge-base", "--is-ancestor", candidate, main_sha)
+    return ancestry.returncode == 0
+
+
+def _b026_strictly_precedes(repository_root: Path, older: object, newer: object) -> bool:
+    old_sha = _b026_commit_sha(older)
+    new_sha = _b026_commit_sha(newer)
+    if old_sha is None or new_sha is None or old_sha == new_sha:
+        return False
+    if not _b026_is_canonical_commit(repository_root, old_sha):
+        return False
+    if not _b026_is_canonical_commit(repository_root, new_sha):
+        return False
+    return (
+        _b026_git(repository_root, "merge-base", "--is-ancestor", old_sha, new_sha).returncode == 0
+    )
+
+
+def _b026_repository_json(
+    repository_root: Path,
+    relative_path: Path,
+    *,
+    canonical_commit_sha: object,
+) -> tuple[dict[str, Any], str] | None:
+    """Load JSON only from one explicit canonical-main-ancestor Git blob."""
+
+    commit_sha = _b026_commit_sha(canonical_commit_sha)
+    if commit_sha is None or not _b026_is_canonical_commit(repository_root, commit_sha):
+        return None
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        return None
+    path_text = relative_path.as_posix()
+    tree = _b026_git(repository_root, "ls-tree", commit_sha, "--", path_text)
+    if tree.returncode != 0:
+        return None
+    line = tree.stdout.strip()
+    if not line or "\t" not in line:
+        return None
+    metadata, observed_path = line.split("\t", 1)
+    fields = metadata.split()
+    if observed_path != path_text or len(fields) != 3:
+        return None
+    mode, object_type, _object_sha = fields
+    if object_type != "blob" or mode not in {"100644", "100755"}:
+        return None
+    blob = _b026_git(repository_root, "show", f"{commit_sha}:{path_text}")
+    if blob.returncode != 0:
+        return None
+    try:
+        raw = blob.stdout.encode("utf-8")
+        decoded = json.loads(blob.stdout)
+    except (UnicodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(decoded, dict):
+        return None
+    return decoded, hashlib.sha256(raw).hexdigest()
+
+
+def _b026_authority_limits(record: Mapping[str, Any]) -> dict[str, float]:
+    """Derive research ceilings only from the canonical authority artifact."""
+
+    ceiling = record.get("cost_resource_ceiling")
+    if not isinstance(ceiling, dict):
+        return {}
+    limits = ceiling.get("limits")
+    if not isinstance(limits, list):
+        return {}
+    derived: dict[str, float] = {}
+    for item in limits:
+        if not isinstance(item, dict):
+            continue
+        resource = item.get("resource")
+        unit = item.get("unit")
+        maximum = item.get("max")
+        if (
+            not isinstance(resource, str)
+            or not isinstance(unit, str)
+            or isinstance(maximum, bool)
+            or not isinstance(maximum, (int, float))
+            or not math.isfinite(float(maximum))
+            or maximum < 0
+        ):
+            continue
+        normalized_resource = resource.strip().casefold()
+        normalized_unit = unit.strip().casefold()
+        numeric = float(maximum)
+        if normalized_resource in {"paid_cost_usd", "paid_cost", "cost"}:
+            if normalized_unit == "usd":
+                derived["max_paid_cost_usd"] = numeric
+        elif normalized_resource in {"wall_time_seconds", "wall_time"}:
+            multipliers = {
+                "second": 1.0,
+                "seconds": 1.0,
+                "minute": 60.0,
+                "minutes": 60.0,
+                "hour": 3600.0,
+                "hours": 3600.0,
+            }
+            multiplier = multipliers.get(normalized_unit)
+            if multiplier is not None:
+                derived["max_wall_time_seconds"] = numeric * multiplier
+        elif normalized_resource in {
+            "material_results",
+            "material_result_count",
+            "result_count",
+        }:
+            if normalized_unit in {"count", "result", "results"}:
+                derived["max_material_results"] = numeric
+    return derived
+
+
+def _b026_true_effects(instance: Mapping[str, Any]) -> set[str]:
+    """Return explicitly declared governed external effects."""
+
+    declared = instance.get("governed_effects")
+    if not isinstance(declared, dict):
+        return set()
+    return {effect for effect in _B026_GOVERNED_EFFECTS if declared.get(effect) is True}
+
+
+def _b026_sha256_identity(value: Any) -> str | None:
+    """Return the hex digest from one canonical sha256:<digest> identity."""
+
+    if not isinstance(value, str) or not value.startswith("sha256:"):
+        return None
+    digest = value.removeprefix("sha256:")
+    if len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest):
+        return None
+    return digest
+
+
+def _b026_research_artifact_path(
+    task_id: object,
+    registry: str,
+    identity: object,
+) -> tuple[Path, str] | None:
+    """Derive one content-addressed B026 research-artifact path."""
+
+    digest = _b026_sha256_identity(identity)
+    if not isinstance(task_id, str) or not _b026_binding_id(task_id) or digest is None:
+        return None
+    return (
+        Path("artifacts") / "results" / "research" / task_id / registry / f"{digest}.json",
+        digest,
+    )
+
+
+def _b026_compare_gate_value(operator: Any, observed: Any, expected: Any) -> str | None:
+    """Compute a gate status from one predeclared policy criterion."""
+
+    if operator == "NOT_APPLICABLE":
+        return "NOT_APPLICABLE" if observed is None else "FAIL"
+    if operator == "EQ":
+        return "PASS" if type(observed) is type(expected) and observed == expected else "FAIL"
+    if operator in {"GTE", "LTE"}:
+        if (
+            isinstance(observed, bool)
+            or isinstance(expected, bool)
+            or not isinstance(observed, (int, float))
+            or not isinstance(expected, (int, float))
+            or not math.isfinite(float(observed))
+            or not math.isfinite(float(expected))
+        ):
+            return None
+        if operator == "GTE":
+            return "PASS" if float(observed) >= float(expected) else "FAIL"
+        return "PASS" if float(observed) <= float(expected) else "FAIL"
+    return None
+
+
+def _b026_promotion_policy_errors(
+    instance: Mapping[str, Any],
+    *,
+    repository_root: Path,
+    freeze_commit_sha: object,
+    evidence_commit_sha: object,
+) -> tuple[str, ...]:
+    """Resolve predeclared policy and derive gate observations from canonical evidence."""
+
+    errors: list[str] = []
+    task_id = instance.get("governing_task_id")
+    level = instance.get("fidelity_level")
+    campaign_id = instance.get("campaign_id")
+    experiment_id = instance.get("experiment_id")
+    evaluation_id = instance.get("frozen_evaluation_identity")
+    policy_identity = instance.get("promotion_policy_identity")
+    digest = _b026_sha256_identity(policy_identity)
+    if not isinstance(task_id, str) or digest is None:
+        return ("$.promotion_policy_identity: CAMPAIGN_RESULT must bind a predeclared policy",)
+
+    policy_path = (
+        Path("artifacts")
+        / "results"
+        / "research"
+        / task_id
+        / "promotion-policies"
+        / f"{digest}.json"
+    )
+    loaded = _b026_repository_json(
+        repository_root,
+        policy_path,
+        canonical_commit_sha=freeze_commit_sha,
+    )
+    if loaded is None:
+        return (
+            "$.promotion_policy_identity: policy missing from canonical campaign-freeze commit",
+        )
+    policy, observed_sha = loaded
+    if observed_sha != digest:
+        errors.append("$.promotion_policy_identity: policy content address mismatch")
+
+    expected_policy_keys = {
+        "schema_version",
+        "governing_task_id",
+        "campaign_id",
+        "fidelity_level",
+        "frozen_evaluation_identity",
+        "criteria",
+    }
+    if set(policy) != expected_policy_keys:
+        errors.append("$.promotion_policy_identity: policy record fields are not canonical")
+    if policy.get("schema_version") != "mstr.research-promotion-policy.v0":
+        errors.append("$.promotion_policy_identity: unsupported policy schema_version")
+    for field, expected_policy_value in (
+        ("governing_task_id", task_id),
+        ("campaign_id", campaign_id),
+        ("fidelity_level", level),
+        ("frozen_evaluation_identity", evaluation_id),
+    ):
+        if policy.get(field) != expected_policy_value:
+            errors.append(f"$.promotion_policy_identity: policy {field} must match experiment")
+
+    criteria_raw = policy.get("criteria")
+    criteria: dict[str, dict[str, Any]] = {}
+    if not isinstance(criteria_raw, list):
+        errors.append("$.promotion_policy_identity: policy criteria must be an array")
+    else:
+        for criterion in criteria_raw:
+            if not isinstance(criterion, dict) or set(criterion) != {
+                "gate_id",
+                "operator",
+                "expected_value",
+            }:
+                errors.append("$.promotion_policy_identity: malformed policy criterion")
+                continue
+            gate_id = criterion.get("gate_id")
+            if not isinstance(gate_id, str) or gate_id in criteria:
+                errors.append("$.promotion_policy_identity: duplicate or invalid policy gate_id")
+                continue
+            if criterion.get("operator") not in {
+                "EQ",
+                "GTE",
+                "LTE",
+                "NOT_APPLICABLE",
+                "EQ_PROMOTED_ARTIFACT",
+            }:
+                errors.append("$.promotion_policy_identity: unsupported policy operator")
+                continue
+            criteria[gate_id] = criterion
+
+    if isinstance(level, str) and level in _B026_REQUIRED_GATE_IDS:
+        required = _B026_REQUIRED_GATE_IDS[level]
+        if set(criteria) != set(required) or len(criteria) != len(required):
+            errors.append(
+                "$.promotion_policy_identity: policy must exactly cover required gate ids"
+            )
+
+    gates = instance.get("hard_gate_results")
+    if not isinstance(gates, list):
+        return tuple(sorted(errors))
+    for index, gate in enumerate(gates):
+        if not isinstance(gate, dict):
+            continue
+        gate_id = gate.get("gate_id")
+        criterion = criteria.get(gate_id) if isinstance(gate_id, str) else None
+        if criterion is None:
+            errors.append(f"$.hard_gate_results[{index}]: no predeclared criterion for gate")
+            continue
+        evidence_identity = gate.get("evidence_identity")
+        evidence_digest = _b026_sha256_identity(evidence_identity)
+        if evidence_digest is None:
+            errors.append(
+                f"$.hard_gate_results[{index}].evidence_identity: must be sha256 content address"
+            )
+            continue
+        evidence_path = (
+            Path("artifacts")
+            / "results"
+            / "research"
+            / task_id
+            / "gate-evidence"
+            / f"{evidence_digest}.json"
+        )
+        loaded_evidence = _b026_repository_json(
+            repository_root,
+            evidence_path,
+            canonical_commit_sha=evidence_commit_sha,
+        )
+        if loaded_evidence is None:
+            errors.append(
+                f"$.hard_gate_results[{index}].evidence_identity: canonical evidence missing"
+            )
+            continue
+        evidence_record, evidence_sha = loaded_evidence
+        if evidence_sha != evidence_digest:
+            errors.append(
+                f"$.hard_gate_results[{index}].evidence_identity: evidence content address mismatch"
+            )
+        expected_evidence_keys = {
+            "schema_version",
+            "governing_task_id",
+            "campaign_id",
+            "experiment_id",
+            "gate_id",
+            "frozen_evaluation_identity",
+            "campaign_freeze_commit_sha",
+            "source_evidence_identity",
+            "source_json_pointer",
+        }
+        if set(evidence_record) != expected_evidence_keys:
+            errors.append(f"$.hard_gate_results[{index}]: gate evidence fields are not canonical")
+        if evidence_record.get("schema_version") != "mstr.research-gate-evidence.v1":
+            errors.append(f"$.hard_gate_results[{index}]: unsupported gate evidence schema_version")
+        for field, expected_evidence_value in (
+            ("governing_task_id", task_id),
+            ("campaign_id", campaign_id),
+            ("experiment_id", experiment_id),
+            ("gate_id", gate_id),
+            ("frozen_evaluation_identity", evaluation_id),
+            ("campaign_freeze_commit_sha", freeze_commit_sha),
+        ):
+            if evidence_record.get(field) != expected_evidence_value:
+                errors.append(
+                    f"$.hard_gate_results[{index}]: gate evidence {field} must match experiment"
+                )
+
+        source_digest = _b026_sha256_identity(evidence_record.get("source_evidence_identity"))
+        if source_digest is None:
+            errors.append(f"$.hard_gate_results[{index}]: source evidence identity is invalid")
+            continue
+        source_path = (
+            Path("artifacts")
+            / "results"
+            / "research"
+            / task_id
+            / "verifier-evidence"
+            / f"{source_digest}.json"
+        )
+        loaded_source = _b026_repository_json(
+            repository_root,
+            source_path,
+            canonical_commit_sha=evidence_commit_sha,
+        )
+        if loaded_source is None:
+            errors.append(f"$.hard_gate_results[{index}]: underlying verifier evidence missing")
+            continue
+        source_record, source_sha = loaded_source
+        if source_sha != source_digest:
+            errors.append(
+                f"$.hard_gate_results[{index}]: verifier evidence content address mismatch"
+            )
+        expected_source_keys = {
+            "schema_version",
+            "governing_task_id",
+            "campaign_id",
+            "experiment_id",
+            "gate_id",
+            "frozen_evaluation_identity",
+            "verifier_manifest_identity",
+            "verifier_health_identity",
+            "subject_identity",
+            "subject_evidence_identity",
+            "verifier_result_identity",
+            "verifier_result_json_pointer",
+        }
+        if set(source_record) != expected_source_keys:
+            errors.append(
+                f"$.hard_gate_results[{index}]: verifier evidence fields are not canonical"
+            )
+        if source_record.get("schema_version") != "mstr.research-verifier-evidence.v0":
+            errors.append(
+                f"$.hard_gate_results[{index}]: unsupported verifier evidence schema_version"
+            )
+        for field, expected_source_value in (
+            ("governing_task_id", task_id),
+            ("campaign_id", campaign_id),
+            ("experiment_id", experiment_id),
+            ("gate_id", gate_id),
+            ("frozen_evaluation_identity", evaluation_id),
+        ):
+            if source_record.get(field) != expected_source_value:
+                errors.append(
+                    f"$.hard_gate_results[{index}]: verifier evidence {field} must match experiment"
+                )
+        subject_identity = source_record.get("subject_identity")
+        if _is_ambiguous_identity(subject_identity) or subject_identity in {None, "N/A"}:
+            errors.append(
+                f"$.hard_gate_results[{index}]: verifier evidence subject_identity must be concrete"
+            )
+
+        manifest_spec = _b026_research_artifact_path(
+            task_id,
+            "verifier-manifests",
+            source_record.get("verifier_manifest_identity"),
+        )
+        manifest_record: dict[str, Any] | None = None
+        if manifest_spec is None:
+            errors.append(
+                f"$.hard_gate_results[{index}]: verifier manifest identity "
+                "must be content-addressed"
+            )
+        else:
+            manifest_path, manifest_digest = manifest_spec
+            loaded_manifest = _b026_repository_json(
+                repository_root,
+                manifest_path,
+                canonical_commit_sha=evidence_commit_sha,
+            )
+            if loaded_manifest is None:
+                errors.append(f"$.hard_gate_results[{index}]: canonical verifier manifest missing")
+            else:
+                manifest_record, observed_manifest_sha = loaded_manifest
+                if observed_manifest_sha != manifest_digest:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier manifest content address mismatch"
+                    )
+                expected_manifest_keys = {
+                    "schema_version",
+                    "verifier_manifest_id",
+                    "gate_id",
+                    "frozen_evaluation_identity",
+                }
+                if set(manifest_record) != expected_manifest_keys:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier manifest fields are not canonical"
+                    )
+                if manifest_record.get("schema_version") != "mstr.research-verifier-manifest.v0":
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: unsupported verifier manifest "
+                        "schema_version"
+                    )
+                if manifest_record.get("gate_id") != gate_id:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier manifest gate_id mismatch"
+                    )
+                if manifest_record.get("frozen_evaluation_identity") != evaluation_id:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier manifest evaluation "
+                        "identity mismatch"
+                    )
+                manifest_id = manifest_record.get("verifier_manifest_id")
+                if _is_ambiguous_identity(manifest_id) or manifest_id in {None, "N/A"}:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier manifest id must be concrete"
+                    )
+
+        health_spec = _b026_research_artifact_path(
+            task_id,
+            "verifier-health",
+            source_record.get("verifier_health_identity"),
+        )
+        if health_spec is None:
+            errors.append(
+                f"$.hard_gate_results[{index}]: verifier health identity must be content-addressed"
+            )
+        else:
+            health_path, health_digest = health_spec
+            loaded_health = _b026_repository_json(
+                repository_root,
+                health_path,
+                canonical_commit_sha=evidence_commit_sha,
+            )
+            if loaded_health is None:
+                errors.append(f"$.hard_gate_results[{index}]: canonical verifier health missing")
+            else:
+                health_record, observed_health_sha = loaded_health
+                if observed_health_sha != health_digest:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier health content address mismatch"
+                    )
+                expected_health_keys = {
+                    "schema_version",
+                    "verifier_health_id",
+                    "verifier_manifest_identity",
+                    "frozen_evaluation_identity",
+                    "status",
+                }
+                if set(health_record) != expected_health_keys:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier health fields are not canonical"
+                    )
+                if health_record.get("schema_version") != "mstr.research-verifier-health.v0":
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: unsupported verifier health schema_version"
+                    )
+                if health_record.get("verifier_manifest_identity") != source_record.get(
+                    "verifier_manifest_identity"
+                ):
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier health must bind resolved manifest"
+                    )
+                if health_record.get("frozen_evaluation_identity") != evaluation_id:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier health evaluation "
+                        "identity mismatch"
+                    )
+                if health_record.get("status") != "HEALTHY":
+                    errors.append(f"$.hard_gate_results[{index}]: verifier health must be HEALTHY")
+                health_id = health_record.get("verifier_health_id")
+                if _is_ambiguous_identity(health_id) or health_id in {None, "N/A"}:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier health id must be concrete"
+                    )
+
+        subject_spec = _b026_research_artifact_path(
+            task_id,
+            "subject-evidence",
+            source_record.get("subject_evidence_identity"),
+        )
+        if subject_spec is None:
+            errors.append(
+                f"$.hard_gate_results[{index}]: subject evidence identity must be content-addressed"
+            )
+        else:
+            subject_path, subject_digest = subject_spec
+            loaded_subject = _b026_repository_json(
+                repository_root,
+                subject_path,
+                canonical_commit_sha=evidence_commit_sha,
+            )
+            if loaded_subject is None:
+                errors.append(f"$.hard_gate_results[{index}]: canonical subject evidence missing")
+            else:
+                subject_record, observed_subject_sha = loaded_subject
+                if observed_subject_sha != subject_digest:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: subject evidence content address mismatch"
+                    )
+                expected_subject_keys = {
+                    "schema_version",
+                    "governing_task_id",
+                    "campaign_id",
+                    "experiment_id",
+                    "subject_identity",
+                    "material_result",
+                }
+                if set(subject_record) != expected_subject_keys:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: subject evidence fields are not canonical"
+                    )
+                if subject_record.get("schema_version") != "mstr.research-subject-evidence.v0":
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: unsupported subject evidence schema_version"
+                    )
+                for field, expected_subject_value in (
+                    ("governing_task_id", task_id),
+                    ("campaign_id", campaign_id),
+                    ("experiment_id", experiment_id),
+                    ("subject_identity", subject_identity),
+                ):
+                    if subject_record.get(field) != expected_subject_value:
+                        errors.append(
+                            f"$.hard_gate_results[{index}]: subject evidence {field} mismatch"
+                        )
+                material_results = instance.get("material_results")
+                material_result = subject_record.get("material_result")
+                matching_subject = False
+                if isinstance(material_results, list) and isinstance(material_result, dict):
+                    matching_subject = any(
+                        isinstance(candidate, dict)
+                        and candidate.get("result_id") == subject_identity
+                        and candidate == material_result
+                        for candidate in material_results
+                    )
+                if not matching_subject:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: subject material evidence must exactly "
+                        "match one experiment material result"
+                    )
+
+        result_spec = _b026_research_artifact_path(
+            task_id,
+            "verifier-results",
+            source_record.get("verifier_result_identity"),
+        )
+        verifier_result: dict[str, Any] | None = None
+        if result_spec is None:
+            errors.append(
+                f"$.hard_gate_results[{index}]: verifier result identity must be content-addressed"
+            )
+        else:
+            result_path, result_digest = result_spec
+            loaded_result = _b026_repository_json(
+                repository_root,
+                result_path,
+                canonical_commit_sha=evidence_commit_sha,
+            )
+            if loaded_result is None:
+                errors.append(f"$.hard_gate_results[{index}]: canonical verifier result missing")
+            else:
+                verifier_result, observed_result_sha = loaded_result
+                if observed_result_sha != result_digest:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier result content address mismatch"
+                    )
+                expected_result_keys = {
+                    "schema_version",
+                    "governing_task_id",
+                    "campaign_id",
+                    "experiment_id",
+                    "gate_id",
+                    "frozen_evaluation_identity",
+                    "verifier_manifest_identity",
+                    "verifier_health_identity",
+                    "subject_identity",
+                    "subject_evidence_identity",
+                    "observed_value",
+                }
+                if set(verifier_result) != expected_result_keys:
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: verifier result fields are not canonical"
+                    )
+                if verifier_result.get("schema_version") != "mstr.research-verifier-result.v0":
+                    errors.append(
+                        f"$.hard_gate_results[{index}]: unsupported verifier result schema_version"
+                    )
+                for field, expected_result_value in (
+                    ("governing_task_id", task_id),
+                    ("campaign_id", campaign_id),
+                    ("experiment_id", experiment_id),
+                    ("gate_id", gate_id),
+                    ("frozen_evaluation_identity", evaluation_id),
+                    ("verifier_manifest_identity", source_record.get("verifier_manifest_identity")),
+                    ("verifier_health_identity", source_record.get("verifier_health_identity")),
+                    ("subject_identity", subject_identity),
+                    ("subject_evidence_identity", source_record.get("subject_evidence_identity")),
+                ):
+                    if verifier_result.get(field) != expected_result_value:
+                        errors.append(
+                            f"$.hard_gate_results[{index}]: verifier result {field} mismatch"
+                        )
+
+        if evidence_record.get("source_json_pointer") != "/observed_value":
+            errors.append(f"$.hard_gate_results[{index}]: unsupported source_json_pointer")
+            continue
+        if source_record.get("verifier_result_json_pointer") != "/observed_value":
+            errors.append(f"$.hard_gate_results[{index}]: unsupported verifier_result_json_pointer")
+            continue
+        if verifier_result is None or "observed_value" not in verifier_result:
+            errors.append(f"$.hard_gate_results[{index}]: verifier result lacks observed value")
+            continue
+        observed_value = verifier_result.get("observed_value")
+        operator = criterion.get("operator")
+        computed: str | None
+        if operator == "EQ_PROMOTED_ARTIFACT":
+            promoted_id = instance.get("promoted_result_id_or_na")
+            material_results = instance.get("material_results")
+            promoted_artifact: Any = None
+            if isinstance(promoted_id, str) and isinstance(material_results, list):
+                for result in material_results:
+                    if isinstance(result, dict) and result.get("result_id") == promoted_id:
+                        promoted_artifact = result.get("model_artifact_sha256_or_na")
+                        break
+            computed = (
+                "PASS"
+                if isinstance(promoted_artifact, str)
+                and promoted_artifact != "N/A"
+                and observed_value == promoted_artifact
+                else "FAIL"
+            )
+        else:
+            computed = _b026_compare_gate_value(
+                operator,
+                observed_value,
+                criterion.get("expected_value"),
+            )
+        if computed is None:
+            errors.append(f"$.hard_gate_results[{index}]: policy criterion cannot be evaluated")
+        elif gate.get("status") != computed:
+            errors.append(
+                f"$.hard_gate_results[{index}].status: submitted status does not match "
+                "predeclared criterion"
+            )
+    return tuple(sorted(errors))
+
+
+def _research_experiment_semantic_errors(
+    instance: Any,
+    *,
+    repository_root: Path,
+    schema_dir: Path | None = None,
+    visited_records: frozenset[str] = frozenset(),
+) -> tuple[str, ...]:
+    """Enforce B026 lineage, material identity, budgets, and canonical authority."""
+
+    if not isinstance(instance, dict):
+        return ()
+
+    errors: list[str] = []
+    level = instance.get("fidelity_level")
+    governing_task_id = instance.get("governing_task_id")
+    predecessor = instance.get("predecessor_promotion")
+    promotion_decision = instance.get("promotion_decision")
+    record_mode = instance.get("record_mode")
+    freeze_commit_sha = instance.get("campaign_freeze_commit_sha_or_na")
+    evidence_commit_sha = instance.get("canonical_evidence_commit_sha_or_na")
+
+    if record_mode == "CONTRACT_FIXTURE":
+        if governing_task_id != "B026":
+            errors.append("$.record_mode: CONTRACT_FIXTURE is reserved for B026 contract proof")
+        if promotion_decision == "PROMOTE":
+            errors.append("$.promotion_decision: CONTRACT_FIXTURE cannot claim PROMOTE")
+        for field in (
+            "campaign_freeze_commit_sha_or_na",
+            "canonical_evidence_commit_sha_or_na",
+            "promotion_policy_identity",
+            "q4_promotion_record_identity_or_na",
+            "q4_candidate_binding_identity_or_na",
+        ):
+            if instance.get(field) != "N/A":
+                errors.append(f"$.{field}: CONTRACT_FIXTURE requires literal N/A")
+    elif record_mode == "CAMPAIGN_RESULT":
+        if not _b026_strictly_precedes(repository_root, freeze_commit_sha, evidence_commit_sha):
+            errors.append(
+                "$.campaign_freeze_commit_sha_or_na: campaign freeze must be a strict "
+                "canonical-main ancestor of the evidence commit"
+            )
+
+    material_results = instance.get("material_results")
+    result_by_id: dict[str, dict[str, Any]] = {}
+    paid_result_total = 0.0
+    paid_result_total_valid = True
+    if isinstance(material_results, list):
+        result_ids: list[str] = []
+        for index, result in enumerate(material_results):
+            if not isinstance(result, dict):
+                continue
+            result_id = result.get("result_id")
+            if isinstance(result_id, str):
+                result_ids.append(result_id)
+                result_by_id[result_id] = result
+            paid = result.get("paid_cost_usd")
+            if isinstance(paid, (int, float)) and not isinstance(paid, bool):
+                paid_result_total += float(paid)
+            else:
+                paid_result_total_valid = False
+            for message in _material_result_identity_semantic_errors(result):
+                suffix = message[1:] if message.startswith("$") else f".{message}"
+                errors.append(f"$.material_results[{index}]{suffix}")
+        if len(result_ids) != len(set(result_ids)):
+            errors.append("$.material_results: result_id values must be unique")
+
+    promoted_result_id = instance.get("promoted_result_id_or_na")
+    promoted_result: dict[str, Any] | None = None
+    if promotion_decision == "PROMOTE":
+        if not isinstance(promoted_result_id, str) or promoted_result_id == "N/A":
+            errors.append("$.promoted_result_id_or_na: PROMOTE requires one concrete result_id")
+        else:
+            promoted_result = result_by_id.get(promoted_result_id)
+            if promoted_result is None:
+                errors.append(
+                    "$.promoted_result_id_or_na: must resolve to one material_results result_id"
+                )
+            elif promoted_result.get("result_classification") not in {"PASS", "PROMOTED"}:
+                errors.append(
+                    "$.promoted_result_id_or_na: promoted material result must be PASS or PROMOTED"
+                )
+    elif promoted_result_id != "N/A":
+        errors.append("$.promoted_result_id_or_na: non-PROMOTE decisions require literal N/A")
+
+    if level == _B026_FIDELITY_LEVELS[0]:
+        if predecessor is not None:
+            errors.append("$.predecessor_promotion: L0 must not claim a predecessor promotion")
+    elif level in _B026_FIDELITY_LEVELS[1:]:
+        expected_level = _B026_FIDELITY_LEVELS[_B026_FIDELITY_LEVELS.index(level) - 1]
+        if not isinstance(predecessor, dict):
+            errors.append(
+                "$.predecessor_promotion: L1-L4 require immutable predecessor registry evidence"
+            )
+        else:
+            predecessor_id = predecessor.get("experiment_id")
+            predecessor_sha = predecessor.get("experiment_record_sha256")
+            if not _b026_binding_id(predecessor_id):
+                errors.append(
+                    "$.predecessor_promotion.experiment_id: must be a path-safe stable binding id"
+                )
+            elif not isinstance(governing_task_id, str):
+                errors.append("$.governing_task_id: required to resolve predecessor registry")
+            else:
+                relative = (
+                    Path("artifacts")
+                    / "results"
+                    / "research"
+                    / governing_task_id
+                    / "registry"
+                    / f"{predecessor_id}.json"
+                )
+                registry_key = relative.as_posix()
+                if registry_key in visited_records:
+                    errors.append("$.predecessor_promotion: predecessor registry cycle detected")
+                else:
+                    loaded = _b026_repository_json(
+                        repository_root,
+                        relative,
+                        canonical_commit_sha=freeze_commit_sha,
+                    )
+                    if loaded is None:
+                        errors.append(
+                            "$.predecessor_promotion: immutable predecessor registry record missing"
+                        )
+                    else:
+                        predecessor_record, observed_sha = loaded
+                        if predecessor_sha != observed_sha:
+                            errors.append(
+                                "$.predecessor_promotion.experiment_record_sha256: "
+                                "does not match immutable predecessor record"
+                            )
+                        nested_errors = validation_errors(
+                            "mstr-research-experiment-v2",
+                            predecessor_record,
+                            schema_dir=schema_dir,
+                            repository_root=repository_root,
+                            _research_visited=visited_records | {registry_key},
+                        )
+                        if nested_errors:
+                            errors.append(
+                                "$.predecessor_promotion: referenced predecessor record is invalid"
+                            )
+                        predecessor_evidence_sha = predecessor_record.get(
+                            "canonical_evidence_commit_sha_or_na"
+                        )
+                        if not _b026_strictly_precedes(
+                            repository_root,
+                            predecessor_evidence_sha,
+                            freeze_commit_sha,
+                        ):
+                            errors.append(
+                                "$.predecessor_promotion: predecessor canonical evidence must "
+                                "strictly precede current campaign freeze"
+                            )
+                        if predecessor_record.get("experiment_id") != predecessor_id:
+                            errors.append(
+                                "$.predecessor_promotion.experiment_id: registry record "
+                                "identity mismatch"
+                            )
+                        if predecessor_record.get("governing_task_id") != governing_task_id:
+                            errors.append(
+                                "$.predecessor_promotion: predecessor governing task must match"
+                            )
+                        if predecessor_record.get("campaign_id") != instance.get("campaign_id"):
+                            errors.append(
+                                "$.predecessor_promotion: predecessor campaign_id must match"
+                            )
+                        if predecessor_record.get("fidelity_level") != expected_level:
+                            errors.append(
+                                "$.predecessor_promotion: registry record must be immediate "
+                                "predecessor level"
+                            )
+                        if predecessor_record.get("promotion_decision") != "PROMOTE":
+                            errors.append(
+                                "$.predecessor_promotion: registry predecessor must have "
+                                "PROMOTE decision"
+                            )
+                        if predecessor_record.get("frozen_evaluation_identity") != instance.get(
+                            "frozen_evaluation_identity"
+                        ):
+                            errors.append(
+                                "$.predecessor_promotion: frozen evaluation identity must match"
+                            )
+                        predecessor_result = predecessor_record.get("promoted_result_id_or_na")
+                        if predecessor_result == "N/A" or predecessor_result != instance.get(
+                            "parent_identity"
+                        ):
+                            errors.append(
+                                "$.parent_identity: must equal registry predecessor promoted result"
+                            )
+
+    if record_mode == "CAMPAIGN_RESULT":
+        errors.extend(
+            _b026_promotion_policy_errors(
+                instance,
+                repository_root=repository_root,
+                freeze_commit_sha=freeze_commit_sha,
+                evidence_commit_sha=evidence_commit_sha,
+            )
+        )
+
+    hard_gates = instance.get("hard_gate_results")
+    gate_by_id: dict[str, dict[str, Any]] = {}
+    if isinstance(hard_gates, list):
+        gate_ids = [
+            gate.get("gate_id")
+            for gate in hard_gates
+            if isinstance(gate, dict) and isinstance(gate.get("gate_id"), str)
+        ]
+        for gate in hard_gates:
+            if isinstance(gate, dict) and isinstance(gate.get("gate_id"), str):
+                gate_by_id[str(gate["gate_id"])] = gate
+        if len(gate_ids) != len(set(gate_ids)):
+            errors.append("$.hard_gate_results: gate_id values must be unique")
+        if (
+            promotion_decision == "PROMOTE"
+            and isinstance(level, str)
+            and level in _B026_REQUIRED_GATE_IDS
+        ):
+            expected_gate_ids = _B026_REQUIRED_GATE_IDS[level]
+            if set(gate_ids) != set(expected_gate_ids) or len(gate_ids) != len(expected_gate_ids):
+                errors.append(
+                    "$.hard_gate_results: PROMOTE requires exact per-level required gate coverage"
+                )
+
+    if promotion_decision == "PROMOTE" and isinstance(level, str) and promoted_result is not None:
+        for field in _B026_LEVEL_CONCRETE_FIELDS.get(level, ()):
+            value = promoted_result.get(field)
+            if value == "N/A" or value is None:
+                errors.append(
+                    f"$.material_results[{promoted_result_id}].{field}: "
+                    f"{level} promotion requires concrete identity"
+                )
+        if level == "L4_Q4_UNIVERSAL_LAPTOP":
+            ram = promoted_result.get("total_ram_bytes_or_na")
+            threads = promoted_result.get("thread_count_or_na")
+            context = promoted_result.get("context_length_or_na")
+            artifact_size = promoted_result.get("model_artifact_size_bytes_or_na")
+            backend = promoted_result.get("acceleration_backend_or_na")
+            execution_count = promoted_result.get("model_execution_count_or_na")
+            if isinstance(ram, bool) or not isinstance(ram, int) or ram <= 0 or ram > 8 * 1024**3:
+                errors.append(
+                    f"$.material_results[{promoted_result_id}].total_ram_bytes_or_na: "
+                    "L4 requires evidence at or below the 8 GB reference RAM envelope"
+                )
+            if isinstance(threads, bool) or not isinstance(threads, int) or threads <= 0:
+                errors.append(
+                    f"$.material_results[{promoted_result_id}].thread_count_or_na: "
+                    "L4 requires a positive thread count"
+                )
+            if context != 8192:
+                errors.append(
+                    f"$.material_results[{promoted_result_id}].context_length_or_na: "
+                    "L4 requires the 8K reference context"
+                )
+            if backend != "CPU":
+                errors.append(
+                    f"$.material_results[{promoted_result_id}].acceleration_backend_or_na: "
+                    "L4 requires CPU-only execution evidence"
+                )
+            if (
+                isinstance(artifact_size, bool)
+                or not isinstance(artifact_size, int)
+                or artifact_size <= 0
+                or artifact_size > 3 * 1024**3
+            ):
+                errors.append(
+                    f"$.material_results[{promoted_result_id}].model_artifact_size_bytes_or_na: "
+                    "L4 requires a positive Q4 artifact size at or below 3 GB"
+                )
+            if (
+                isinstance(execution_count, bool)
+                or not isinstance(execution_count, int)
+                or execution_count <= 0
+            ):
+                errors.append(
+                    f"$.material_results[{promoted_result_id}].model_execution_count_or_na: "
+                    "L4 requires positive model-execution evidence"
+                )
+
+            q4_record_identity = instance.get("q4_promotion_record_identity_or_na")
+            q4_digest = _b026_sha256_identity(q4_record_identity)
+            artifact_sha = promoted_result.get("model_artifact_sha256_or_na")
+            resolved_q4_record: dict[str, Any] | None = None
+            if q4_digest is None:
+                errors.append(
+                    "$.q4_promotion_record_identity_or_na: L4 PROMOTE requires a "
+                    "sha256-bound Q4 record"
+                )
+            else:
+                q4_path = (
+                    Path("artifacts")
+                    / "results"
+                    / "q4-promotion"
+                    / "registry"
+                    / f"{q4_digest}.json"
+                )
+                loaded_q4 = _b026_repository_json(
+                    repository_root,
+                    q4_path,
+                    canonical_commit_sha=evidence_commit_sha,
+                )
+                if loaded_q4 is None:
+                    errors.append(
+                        "$.q4_promotion_record_identity_or_na: immutable Q4 promotion "
+                        "record missing from canonical evidence commit"
+                    )
+                else:
+                    q4_record, observed_q4_sha = loaded_q4
+                    resolved_q4_record = q4_record
+                    if observed_q4_sha != q4_digest:
+                        errors.append(
+                            "$.q4_promotion_record_identity_or_na: Q4 record content address "
+                            "mismatch"
+                        )
+                    q4_errors = validation_errors(
+                        "mstr-q4-promotion-v0",
+                        q4_record,
+                        schema_dir=schema_dir,
+                        repository_root=repository_root,
+                    )
+                    if q4_errors:
+                        errors.append(
+                            "$.q4_promotion_record_identity_or_na: referenced Q4 promotion record "
+                            "is invalid"
+                        )
+                    if q4_record.get("promotion_status") != "PROMOTED":
+                        errors.append(
+                            "$.q4_promotion_record_identity_or_na: referenced Q4 record must be "
+                            "PROMOTED"
+                        )
+                    if q4_record.get("canonical_q4_artifact_sha256") != artifact_sha:
+                        errors.append(
+                            "$.q4_promotion_record_identity_or_na: Q4 record artifact must match "
+                            "promoted result"
+                        )
+                    if q4_record.get("universal_laptop_gate_result") != "PASS":
+                        errors.append(
+                            "$.q4_promotion_record_identity_or_na: L4 requires universal-laptop "
+                            "gate PASS"
+                        )
+                    laptop_gate = gate_by_id.get("universal_laptop_product_gates")
+                    if isinstance(laptop_gate, dict) and q4_record.get(
+                        "universal_laptop_gate_evidence_identity"
+                    ) != laptop_gate.get("evidence_identity"):
+                        errors.append(
+                            "$.hard_gate_results[universal_laptop_product_gates]."
+                            "evidence_identity: "
+                            "must match resolved Q4 universal-laptop evidence"
+                        )
+                    promotion_gate = gate_by_id.get("q4_promotion_record_promoted")
+                    if isinstance(promotion_gate, dict) and q4_record.get(
+                        "promotion_decision_evidence_identity"
+                    ) != promotion_gate.get("evidence_identity"):
+                        errors.append(
+                            "$.hard_gate_results[q4_promotion_record_promoted].evidence_identity: "
+                            "must match resolved Q4 promotion-decision evidence"
+                        )
+
+            binding_identity = instance.get("q4_candidate_binding_identity_or_na")
+            binding_digest = _b026_sha256_identity(binding_identity)
+            if binding_digest is None:
+                errors.append(
+                    "$.q4_candidate_binding_identity_or_na: L4 PROMOTE requires a "
+                    "content-addressed candidate/Q4 lineage binding"
+                )
+            elif not isinstance(governing_task_id, str):
+                errors.append("$.governing_task_id: required to resolve Q4 candidate binding")
+            else:
+                binding_path = (
+                    Path("artifacts")
+                    / "results"
+                    / "research"
+                    / governing_task_id
+                    / "q4-bindings"
+                    / f"{binding_digest}.json"
+                )
+                loaded_binding = _b026_repository_json(
+                    repository_root,
+                    binding_path,
+                    canonical_commit_sha=evidence_commit_sha,
+                )
+                if loaded_binding is None:
+                    errors.append(
+                        "$.q4_candidate_binding_identity_or_na: canonical Q4 "
+                        "candidate binding missing"
+                    )
+                else:
+                    binding, binding_sha = loaded_binding
+                    if binding_sha != binding_digest:
+                        errors.append(
+                            "$.q4_candidate_binding_identity_or_na: binding content "
+                            "address mismatch"
+                        )
+                    expected_binding_keys = {
+                        "schema_version",
+                        "q4_promotion_record_identity",
+                        "model_id",
+                        "model_revision",
+                        "source_checkpoint_sha256",
+                        "canonical_q4_artifact_sha256",
+                    }
+                    if set(binding) != expected_binding_keys:
+                        errors.append(
+                            "$.q4_candidate_binding_identity_or_na: binding fields are "
+                            "not canonical"
+                        )
+                    if binding.get("schema_version") != "mstr.research-q4-candidate-binding.v0":
+                        errors.append(
+                            "$.q4_candidate_binding_identity_or_na: unsupported binding "
+                            "schema_version"
+                        )
+                    if binding.get("q4_promotion_record_identity") != q4_record_identity:
+                        errors.append(
+                            "$.q4_candidate_binding_identity_or_na: binding must reference "
+                            "resolved Q4 record"
+                        )
+                    if binding.get("model_id") != promoted_result.get("model_id_or_na"):
+                        errors.append(
+                            "$.q4_candidate_binding_identity_or_na: model_id must match "
+                            "promoted result"
+                        )
+                    if binding.get("model_revision") != promoted_result.get("model_revision_or_na"):
+                        errors.append(
+                            "$.q4_candidate_binding_identity_or_na: model_revision must "
+                            "match promoted result"
+                        )
+                    if isinstance(resolved_q4_record, dict) and binding.get(
+                        "source_checkpoint_sha256"
+                    ) != resolved_q4_record.get("source_checkpoint_sha256"):
+                        errors.append(
+                            "$.q4_candidate_binding_identity_or_na: source checkpoint must "
+                            "match Q4 record"
+                        )
+                    if binding.get("canonical_q4_artifact_sha256") != artifact_sha:
+                        errors.append(
+                            "$.q4_candidate_binding_identity_or_na: artifact must match "
+                            "promoted result"
+                        )
+    if not (
+        promotion_decision == "PROMOTE"
+        and level == "L4_Q4_UNIVERSAL_LAPTOP"
+        and promoted_result is not None
+    ):
+        if instance.get("q4_promotion_record_identity_or_na") != "N/A":
+            errors.append(
+                "$.q4_promotion_record_identity_or_na: only L4 PROMOTE may "
+                "bind Q4 promotion evidence"
+            )
+        if instance.get("q4_candidate_binding_identity_or_na") != "N/A":
+            errors.append(
+                "$.q4_candidate_binding_identity_or_na: only L4 PROMOTE may "
+                "bind Q4 candidate lineage"
+            )
+
+    budget = instance.get("budget")
+    aggregate = instance.get("aggregate_resource_cost")
+    if isinstance(material_results, list) and isinstance(budget, dict):
+        maximum = budget.get("max_material_results")
+        if (
+            isinstance(maximum, int)
+            and not isinstance(maximum, bool)
+            and len(material_results) > maximum
+        ):
+            errors.append("$.material_results: count exceeds budget.max_material_results")
+
+    if isinstance(material_results, list) and isinstance(aggregate, dict):
+        count = aggregate.get("material_result_count")
+        if (
+            isinstance(count, int)
+            and not isinstance(count, bool)
+            and count != len(material_results)
+        ):
+            errors.append(
+                "$.aggregate_resource_cost.material_result_count: must equal "
+                "material_results length"
+            )
+        aggregate_paid = aggregate.get("paid_cost_usd")
+        if (
+            paid_result_total_valid
+            and isinstance(aggregate_paid, (int, float))
+            and not isinstance(aggregate_paid, bool)
+            and not math.isclose(
+                paid_result_total,
+                float(aggregate_paid),
+                rel_tol=0.0,
+                abs_tol=1e-9,
+            )
+        ):
+            errors.append(
+                "$.aggregate_resource_cost.paid_cost_usd: "
+                "must equal sum(material_results[*].paid_cost_usd)"
+            )
+
+    if isinstance(budget, dict) and isinstance(aggregate, dict):
+        wall = aggregate.get("wall_time_seconds")
+        max_wall = budget.get("max_wall_time_seconds")
+        if (
+            isinstance(wall, (int, float))
+            and not isinstance(wall, bool)
+            and isinstance(max_wall, (int, float))
+            and not isinstance(max_wall, bool)
+            and wall > max_wall
+        ):
+            errors.append(
+                "$.aggregate_resource_cost.wall_time_seconds: exceeds budget.max_wall_time_seconds"
+            )
+        paid = aggregate.get("paid_cost_usd")
+        max_paid = budget.get("max_paid_cost_usd")
+        if (
+            isinstance(paid, (int, float))
+            and not isinstance(paid, bool)
+            and isinstance(max_paid, (int, float))
+            and not isinstance(max_paid, bool)
+            and paid > max_paid
+        ):
+            errors.append(
+                "$.aggregate_resource_cost.paid_cost_usd: exceeds budget.max_paid_cost_usd"
+            )
+        budget_class = budget.get("resource_class")
+        aggregate_class = aggregate.get("resource_class")
+        if budget_class == "CONTRACT_ONLY" and aggregate_class != "CONTRACT_ONLY":
+            errors.append(
+                "$.aggregate_resource_cost.resource_class: "
+                "CONTRACT_ONLY budget requires CONTRACT_ONLY aggregate"
+            )
+        if budget_class == "LOCAL_BOUNDED" and aggregate_class == "AUTHORIZED_EXTERNAL_EFFECT":
+            errors.append(
+                "$.aggregate_resource_cost.resource_class: "
+                "LOCAL_BOUNDED budget cannot record authorized external effect"
+            )
+
+    declared_effects = _b026_true_effects(instance)
+    model_execution_total = 0
+    network_model_call_total = 0
+    network_byte_total = 0
+    if isinstance(material_results, list):
+        for result in material_results:
+            if not isinstance(result, dict):
+                continue
+            if (
+                result.get("evidence_kind") == "TRAINING_EVIDENCE"
+                and "WEIGHT_CHANGING_TRAINING" not in declared_effects
+            ):
+                errors.append(
+                    "$.governed_effects.WEIGHT_CHANGING_TRAINING: "
+                    "TRAINING_EVIDENCE requires explicit true declaration"
+                )
+            resource_cost = result.get("resource_cost")
+            if isinstance(resource_cost, dict) and (
+                resource_cost.get("cost_class") == "AUTHORIZED_REMOTE_COMPUTE"
+                and "RENTED_COMPUTE" not in declared_effects
+            ):
+                errors.append(
+                    "$.governed_effects.RENTED_COMPUTE: "
+                    "AUTHORIZED_REMOTE_COMPUTE requires explicit true declaration"
+                )
+            if isinstance(resource_cost, dict):
+                network_bytes = resource_cost.get("network_bytes_or_na")
+                if isinstance(network_bytes, int) and not isinstance(network_bytes, bool):
+                    network_byte_total += network_bytes
+                    if (
+                        network_bytes > 0
+                        and "NETWORK_MODEL_OR_TEACHER_CALL" not in declared_effects
+                    ):
+                        errors.append(
+                            "$.governed_effects.NETWORK_MODEL_OR_TEACHER_CALL: positive network "
+                            "byte evidence requires explicit true declaration"
+                        )
+            paid = result.get("paid_cost_usd")
+            if (
+                isinstance(paid, (int, float))
+                and not isinstance(paid, bool)
+                and paid > 0
+                and "PAID_COMPUTE" not in declared_effects
+            ):
+                errors.append(
+                    "$.governed_effects.PAID_COMPUTE: positive paid cost requires "
+                    "explicit true declaration"
+                )
+            model_executions = result.get("model_execution_count_or_na")
+            if isinstance(model_executions, int) and not isinstance(model_executions, bool):
+                model_execution_total += model_executions
+                if model_executions > 0 and "MODEL_EXECUTION" not in declared_effects:
+                    errors.append(
+                        "$.governed_effects.MODEL_EXECUTION: positive model execution count "
+                        "requires explicit true declaration"
+                    )
+            network_calls = result.get("network_model_or_teacher_call_count_or_na")
+            if isinstance(network_calls, int) and not isinstance(network_calls, bool):
+                network_model_call_total += network_calls
+                if network_calls > 0 and "NETWORK_MODEL_OR_TEACHER_CALL" not in declared_effects:
+                    errors.append(
+                        "$.governed_effects.NETWORK_MODEL_OR_TEACHER_CALL: "
+                        "positive network model/teacher "
+                        "call count requires explicit true declaration"
+                    )
+    if "MODEL_EXECUTION" in declared_effects and model_execution_total <= 0:
+        errors.append(
+            "$.governed_effects.MODEL_EXECUTION: true declaration requires "
+            "positive execution evidence"
+        )
+    if (
+        "NETWORK_MODEL_OR_TEACHER_CALL" in declared_effects
+        and network_model_call_total <= 0
+        and network_byte_total <= 0
+    ):
+        errors.append(
+            "$.governed_effects.NETWORK_MODEL_OR_TEACHER_CALL: true declaration "
+            "requires positive call or network-byte evidence"
+        )
+    if (
+        "PAID_MODEL_API_EXECUTION" in declared_effects
+        and "NETWORK_MODEL_OR_TEACHER_CALL" not in declared_effects
+    ):
+        errors.append(
+            "$.governed_effects.PAID_MODEL_API_EXECUTION: paid model API execution also requires "
+            "NETWORK_MODEL_OR_TEACHER_CALL=true"
+        )
+    external_resource_class = bool(
+        isinstance(budget, dict)
+        and budget.get("resource_class") == "EXTERNAL_EFFECT_REQUIRES_SEPARATE_AUTHORITY"
+    ) or bool(
+        isinstance(aggregate, dict)
+        and aggregate.get("resource_class") == "AUTHORIZED_EXTERNAL_EFFECT"
+    )
+    if external_resource_class and not declared_effects:
+        errors.append(
+            "$.governed_effects: external-effect resource class requires at least "
+            "one true governed effect"
+        )
+
+    authority = instance.get("external_effect_authority")
+    if declared_effects:
+        if not isinstance(authority, dict):
+            errors.append("$.external_effect_authority: required when any governed effect is true")
+        else:
+            authority_id = authority.get("authority_id")
+            authority_sha = authority.get("authority_record_sha256")
+            if not _b026_binding_id(authority_id):
+                errors.append(
+                    "$.external_effect_authority.authority_id: must be a path-safe "
+                    "canonical binding id"
+                )
+            else:
+                relative = Path("artifacts") / "authorities" / f"{authority_id}.json"
+                loaded = _b026_repository_json(
+                    repository_root,
+                    relative,
+                    canonical_commit_sha=freeze_commit_sha,
+                )
+                if loaded is None:
+                    errors.append(
+                        "$.external_effect_authority: canonical authority record missing or invalid"
+                    )
+                else:
+                    authority_record, observed_sha = loaded
+                    if authority_sha != observed_sha:
+                        errors.append(
+                            "$.external_effect_authority.authority_record_sha256: "
+                            "does not match canonical authority record"
+                        )
+                    if authority_record.get("authority_id") != authority_id:
+                        errors.append(
+                            "$.external_effect_authority.authority_id: canonical record "
+                            "identity mismatch"
+                        )
+                    if authority_record.get("status") != "AUTHORIZED_CANONICAL":
+                        errors.append(
+                            "$.external_effect_authority: canonical authority status must "
+                            "be AUTHORIZED_CANONICAL"
+                        )
+                    if authority_record.get("task_id") != governing_task_id:
+                        errors.append(
+                            "$.external_effect_authority: canonical authority task_id must "
+                            "match governing_task_id"
+                        )
+                    if authority_record.get("external_effect_class") not in declared_effects:
+                        errors.append(
+                            "$.external_effect_authority: canonical strongest effect must "
+                            "be declared true"
+                        )
+                    scope = authority_record.get("scope")
+                    if not isinstance(scope, dict):
+                        errors.append(
+                            "$.external_effect_authority: canonical authority scope is invalid"
+                        )
+                    else:
+                        if scope.get("campaign_id") != instance.get("campaign_id"):
+                            errors.append(
+                                "$.external_effect_authority: canonical authority campaign "
+                                "scope mismatch"
+                            )
+                        if scope.get("research_ladder_id") != "mstr-research-ladder-v0":
+                            errors.append(
+                                "$.external_effect_authority: canonical authority ladder "
+                                "scope mismatch"
+                            )
+                        research_effects = scope.get("research_effects")
+                        if not isinstance(research_effects, list) or not declared_effects.issubset(
+                            set(research_effects)
+                        ):
+                            errors.append(
+                                "$.external_effect_authority: canonical authority scope misses "
+                                "declared effect"
+                            )
+                    ceilings = _b026_authority_limits(authority_record)
+                    required_ceilings = {
+                        "max_paid_cost_usd",
+                        "max_wall_time_seconds",
+                        "max_material_results",
+                    }
+                    if not required_ceilings.issubset(ceilings):
+                        errors.append(
+                            "$.external_effect_authority: canonical authority lacks research "
+                            "resource ceilings"
+                        )
+                    else:
+                        if isinstance(budget, dict):
+                            for field in sorted(required_ceilings):
+                                declared = budget.get(field)
+                                if (
+                                    isinstance(declared, (int, float))
+                                    and not isinstance(declared, bool)
+                                    and float(declared) > ceilings[field]
+                                ):
+                                    errors.append(
+                                        f"$.budget.{field}: exceeds resolved canonical "
+                                        "authority ceiling"
+                                    )
+                        if isinstance(aggregate, dict):
+                            for field in sorted(required_ceilings):
+                                aggregate_field = (
+                                    "paid_cost_usd"
+                                    if field == "max_paid_cost_usd"
+                                    else "wall_time_seconds"
+                                    if field == "max_wall_time_seconds"
+                                    else "material_result_count"
+                                )
+                                actual = aggregate.get(aggregate_field)
+                                if (
+                                    isinstance(actual, (int, float))
+                                    and not isinstance(actual, bool)
+                                    and float(actual) > ceilings[field]
+                                ):
+                                    errors.append(
+                                        f"$.aggregate_resource_cost.{aggregate_field}: "
+                                        "exceeds resolved canonical authority ceiling"
+                                    )
+    elif authority is not None:
+        errors.append(
+            "$.external_effect_authority: must be null when all governed effects are false"
+        )
+
+    return tuple(sorted(errors))
+
+
 def _trajectory_manifest_semantic_errors(instance: Any) -> tuple[str, ...]:
     """Enforce A017 identity bindings without implementing A018 admission execution."""
 
@@ -736,9 +2400,7 @@ def _trajectory_manifest_semantic_errors(instance: Any) -> tuple[str, ...]:
             errors.append(
                 "$.verifier_health_binding.task_identity: must match run_identity.task_manifest_id"
             )
-        if verifier_health.get("verifier_manifest_id") != run_identity.get(
-            "verifier_manifest_id"
-        ):
+        if verifier_health.get("verifier_manifest_id") != run_identity.get("verifier_manifest_id"):
             errors.append(
                 "$.verifier_health_binding.verifier_manifest_id: must match "
                 "run_identity.verifier_manifest_id"
@@ -752,6 +2414,8 @@ def validation_errors(
     instance: Any,
     *,
     schema_dir: Path | None = None,
+    repository_root: Path | None = None,
+    _research_visited: frozenset[str] | None = None,
 ) -> tuple[str, ...]:
     """Return deterministic, human-readable validation errors."""
 
@@ -774,6 +2438,17 @@ def validation_errors(
         formatted.extend(_difficulty_calibration_semantic_errors(instance))
     if name == "mstr-test-generation-example-v0":
         formatted.extend(_test_generation_semantic_errors(instance))
+    if name == "mstr-material-result-identity-v0":
+        formatted.extend(_material_result_identity_semantic_errors(instance))
+    if name == "mstr-research-experiment-v2":
+        formatted.extend(
+            _research_experiment_semantic_errors(
+                instance,
+                repository_root=(repository_root or _REPOSITORY_ROOT).resolve(),
+                schema_dir=schema_dir,
+                visited_records=_research_visited or frozenset(),
+            )
+        )
     if name == "mstr-trajectory-manifest-v0":
         formatted.extend(_trajectory_manifest_semantic_errors(instance))
     return tuple(sorted(formatted))
@@ -784,10 +2459,16 @@ def validate_instance(
     instance: Any,
     *,
     schema_dir: Path | None = None,
+    repository_root: Path | None = None,
 ) -> None:
     """Validate an already-decoded JSON value and fail closed on any violation."""
 
-    errors = validation_errors(name, instance, schema_dir=schema_dir)
+    errors = validation_errors(
+        name,
+        instance,
+        schema_dir=schema_dir,
+        repository_root=repository_root,
+    )
     if errors:
         joined = "\n".join(f"- {message}" for message in errors)
         raise SchemaValidationError(

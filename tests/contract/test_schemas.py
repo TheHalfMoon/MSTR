@@ -76,6 +76,20 @@ DESIGN_SCHEMA_OVERRIDES = {
         / "contracts"
         / "mstr-greenfield-task-v0.schema.json"
     ),
+    "mstr-material-result-identity-v0": (
+        ROOT
+        / "specs"
+        / "002-code-model-supremacy-foundation"
+        / "contracts"
+        / "mstr-material-result-identity-v0.schema.json"
+    ),
+    "mstr-research-experiment-v2": (
+        ROOT
+        / "specs"
+        / "002-code-model-supremacy-foundation"
+        / "contracts"
+        / "mstr-research-experiment-v2.schema.json"
+    ),
     "mstr-training-method-cell-v0": (
         ROOT
         / "specs"
