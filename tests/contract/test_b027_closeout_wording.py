@@ -46,6 +46,7 @@ def _is_guarded_expected_head_merge_conditional(assertion: str) -> bool:
     lowered = assertion.lower()
     return (
         "merge" in lowered
+        and "exact closeout head" in lowered
         and "expected-head" in lowered
         and "guard" in lowered
         and ("only when" in lowered or "only by" in lowered)
@@ -108,6 +109,18 @@ def test_b027_closeout_detector_binds_guard_to_each_status_assertion() -> None:
     assert assertions[0] == "B027 is accepted on canonical main"
     assert not _is_guarded_expected_head_merge_conditional(assertions[0])
     assert _is_guarded_expected_head_merge_conditional(assertions[1])
+
+
+def test_b027_closeout_detector_rejects_generic_guarded_merge_without_exact_head() -> None:
+    generic = (
+        "B027 becomes canonical only when it is merged into canonical `main` through the required "
+        "expected-head guard."
+    )
+
+    detected = _terminal_closeout_status_assertions(generic)
+
+    assert detected == [generic.removesuffix(".")]
+    assert not _is_guarded_expected_head_merge_conditional(detected[0])
 
 
 def test_b027_closeout_detector_accepts_independently_guarded_status_assertions() -> None:
