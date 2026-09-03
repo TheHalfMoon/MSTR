@@ -1,0 +1,58 @@
+{
+  "campaign_id": "b027-offline-ladder-pilot-v0",
+  "campaign_result": "QUALIFIED_PROMOTION_AND_EARLY_DISCARD",
+  "candidate_validation_kind": "PROSPECTIVE_NO_CANONICAL_REF_REWRITE",
+  "canonical_entry_main": "312d40eee8400a0dab94633f891b206f66a82855",
+  "canonical_history_status": "PENDING_POST_MERGE_VALIDATION",
+  "external_effect_authority_required": false,
+  "frozen_evaluation_identity": "sha256:3803e9ab85feed79523f3610b5e20e1cb286a20cf41db99de28e55475a2bcf5c",
+  "governed_effects": {
+    "GATED_TERMS_ACCEPTANCE": false,
+    "LARGE_DATASET_INGESTION": false,
+    "LARGE_SCALE_RL": false,
+    "LONG_TRAINING": false,
+    "MODEL_EXECUTION": false,
+    "MODEL_WEIGHT_ACCESS": false,
+    "NETWORK_MODEL_OR_TEACHER_CALL": false,
+    "PAID_COMPUTE": false,
+    "PAID_MODEL_API_EXECUTION": false,
+    "PRODUCTION_RELEASE": false,
+    "RENTED_COMPUTE": false,
+    "WEIGHT_CHANGING_TRAINING": false
+  },
+  "large_dataset_ingestion": false,
+  "levels_not_executed": [
+    "L2_EXECUTABLE_REPO",
+    "L3_DIRECTION_TO_DONE",
+    "L4_Q4_UNIVERSAL_LAPTOP"
+  ],
+  "model_execution_count": 0,
+  "network_model_or_teacher_call_count": 0,
+  "paid_cost_usd": 0,
+  "schema_version": "mstr.b027-ladder-pilot-ledger.v0",
+  "sequence": [
+    {
+      "decision": "PROMOTE",
+      "evidence_commit": "500c3e144c4f7b504eb1bb721ff4dcd101147e07",
+      "experiment_id": "b027-l0-contract-smoke",
+      "freeze_commit": "a2b1b2e8faa5f9e42af0b260a3eaa6953288adad",
+      "level": "L0_CONTRACT_SMOKE",
+      "promoted_result_id": "b027-l0-contract-smoke-result",
+      "record_sha256": "578b478ff01110c8d4cb5fadbe85ba21df0afe62b442a64a4f31ba353ad0e692",
+      "registry_commit": "8e02b06320279ba5e4659d62456f60004f2b15f3"
+    },
+    {
+      "decision": "STOP",
+      "early_discard_gate": "code_proxy_thresholds",
+      "evidence_commit": "553565c8624341c165722dedc7d18eca614fb8a8",
+      "experiment_id": "b027-l1-controlled-stop",
+      "freeze_commit": "add2e228aa8326c90ff416fc90d03f360d987040",
+      "level": "L1_CODE_PROXY",
+      "promoted_result_id": "N/A",
+      "record_sha256": "1b99d5d3bdcb8ecbd7726f2da04730a150ce093b14a345583561c3739eebf671",
+      "registry_commit": "3fcacd85baf8c8a2e947289db6130380ce39ff31"
+    }
+  ],
+  "task_id": "B027",
+  "weight_changing_training": false
+}
