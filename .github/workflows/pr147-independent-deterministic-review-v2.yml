@@ -1,0 +1,202 @@
+name: Independent deterministic review PR 147 v2
+
+on:
+  push:
+    branches:
+      - evidence/pr147-independent-deterministic-review-v2
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: b20349c23ada1130f98e28c0e1e3db56ed692d13
+      EXPECTED_HEAD: be51ea1975790657b0ca6056a3ccc19f85f1b78f
+      EXPECTED_TREE: ccddbded39bb1a475ed144c51cda0bd65edf4823
+      TARGET_BRANCH: fix/000b-convergence-cross-workstream-bindings-v5
+      PR_NUMBER: '147'
+    steps:
+      - name: Checkout canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          path: canonical
+          persist-credentials: false
+
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify live exact identities
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C canonical fetch origin main "$TARGET_BRANCH"
+          git -C candidate fetch origin main "$TARGET_BRANCH"
+          test "$(git -C canonical rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git -C canonical rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git -C candidate rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git -C candidate rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git -C candidate rev-parse refs/remotes/origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')" = "$EXPECTED_HEAD"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.sha')" = "$EXPECTED_MAIN"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')" = 'open'
+          echo 'PR147_EXACT_IDENTITY_REVIEW=PASS'
+
+      - name: Independently verify exact scope and authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B029-B031-cross-workstream-binding-reconciliation.md \
+            tests/contract/test_convergence_external_bindings.py | sort > /tmp/expected
+          git -C candidate diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          git -C candidate diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          test -z "$(grep '^\.github/' /tmp/actual || true)"
+          test -z "$(grep '^specs/' /tmp/actual || true)"
+          test -z "$(grep '^artifacts/authorities/' /tmp/actual || true)"
+          echo 'PR147_SCOPE_AUTHORITY_REVIEW=PASS'
+
+      - name: Independently reconstruct canonical prerequisite semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('candidate')
+          tasks_text = (root / 'specs/002-code-model-supremacy-foundation/tasks.md').read_text(encoding='utf-8')
+          required_sentence = 'Exact prerequisites: A019 `COMPLETE_CANONICAL`, A020 `COMPLETE_CANONICAL`, B002/B003/B004 `COMPLETE_CANONICAL`, B015/B017/B019/B021/B023/B024/B025/B027/B028/B029/B030 `COMPLETE_CANONICAL`, plus exact-main `eligible=true`.'
+          assert required_sentence in tasks_text
+          catalog = json.loads((root / 'configs/task-gate/mstr-000b.json').read_text(encoding='utf-8'))
+          tasks = catalog['tasks']
+          external = catalog['external_prerequisites']
+          assert tasks['B029']['prerequisites'] == ['A005', 'A006', 'A008', 'A010', 'B020']
+          assert tasks['B030']['prerequisites'] == ['A007', 'A008', 'A009', 'B024', 'B025']
+          assert tasks['B031']['prerequisites'] == [
+              'A019', 'A020', 'B002', 'B003', 'B004', 'B015', 'B017', 'B019',
+              'B021', 'B023', 'B024', 'B025', 'B027', 'B028', 'B029', 'B030',
+          ]
+          assert set(catalog['unresolved_bindings']) == {'B011', 'B013'}
+          assert tasks['B011']['canonical_state'] == 'BLOCKED'
+          assert tasks['B013']['canonical_state'] == 'BLOCKED'
+          for tid in ('A005', 'A006', 'A007', 'A008', 'A009', 'A010', 'A019', 'A020'):
+              binding = external[tid]
+              assert binding['workstream_id'] == 'MSTR-000A'
+              assert binding['tasks_file'] == 'specs/001-agent-harness-verified-loop-foundation/tasks.md'
+              assert binding['required_state'] == 'COMPLETE_CANONICAL'
+              assert binding['task_identity'] == f'MSTR-000A / {tid}'
+              assert binding['state_evidence'] in binding['evidence_outputs']
+          evidence = (root / 'evidence/mstr-000b/B029-B031-cross-workstream-binding-reconciliation.md').read_text(encoding='utf-8')
+          for marker in (
+              'B011_AUTHORITY_CHANGE = NONE',
+              'B013_CANDIDATE_POOL_BINDING_CHANGE = NONE',
+              'MODEL_WEIGHT_ACCESS = NONE',
+              'MODEL_EXECUTION = NONE',
+              'PAID_COMPUTE = NONE',
+              'WEIGHT_CHANGING_TRAINING = NONE',
+              'PRODUCTION_RELEASE = NONE',
+          ):
+              assert marker in evidence, marker
+          print('PR147_CANONICAL_SEMANTIC_REVIEW=PASS')
+          PY
+
+      - name: Install exact candidate tooling
+        run: python -m pip install -e './candidate[dev]'
+
+      - name: Independently verify machine fail-closed frontier in isolated topology
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --no-hardlinks candidate frontier
+          git -C frontier checkout --detach "$EXPECTED_HEAD"
+          git -C frontier update-ref refs/heads/main "$EXPECTED_HEAD"
+          git -C frontier update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          (cd frontier && mstr-qualify task drift > /tmp/drift.json)
+          python - <<'PY'
+          import json
+          d = json.load(open('/tmp/drift.json', encoding='utf-8'))
+          assert d['status'] == 'clean' and d['findings'] == [], d
+          PY
+          (cd frontier && mstr-qualify task eligible B029 > /tmp/b029.json)
+          (cd frontier && mstr-qualify task eligible B030 > /tmp/b030.json)
+          set +e
+          (cd frontier && mstr-qualify task eligible B031 > /tmp/b031.json); rc31=$?
+          (cd frontier && mstr-qualify task eligible B011 > /tmp/b011.json); rc11=$?
+          (cd frontier && mstr-qualify task eligible B013 > /tmp/b013.json); rc13=$?
+          set -e
+          test "$rc31" -eq 1
+          test "$rc11" -eq 1
+          test "$rc13" -eq 1
+          python - <<'PY'
+          import json
+          load = lambda p: json.load(open(p, encoding='utf-8'))
+          b029, b030, b031, b011, b013 = map(load, ['/tmp/b029.json', '/tmp/b030.json', '/tmp/b031.json', '/tmp/b011.json', '/tmp/b013.json'])
+          assert b029['eligible'] is True, b029
+          assert b030['eligible'] is True, b030
+          assert b031['eligible'] is False, b031
+          rows = {r['task_id']: r for r in b031['prerequisite_results']}
+          for tid in ('A019', 'A020'):
+              assert rows[tid]['satisfied'] is False, rows[tid]
+              assert 'prerequisite.missing_task_binding' not in rows[tid]['reasons'], rows[tid]
+          assert b011['eligible'] is False and b011['authority_result']['required'] is True and b011['authority_result']['satisfied'] is False, b011
+          assert b013['eligible'] is False, b013
+          print('PR147_FAIL_CLOSED_MACHINE_REVIEW=PASS')
+          PY
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          echo 'PR147_CANDIDATE_TOPOLOGY_UNMUTATED=PASS'
+
+      - name: Targeted governance tests
+        working-directory: candidate
+        run: python -m pytest tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py tests/integration/test_task_gate_cli.py -q
+
+      - name: Full test suite
+        working-directory: candidate
+        run: python -m pytest -q
+
+      - name: Ruff
+        working-directory: candidate
+        run: python -m ruff check .
+
+      - name: Strict mypy
+        working-directory: candidate
+        run: python -m mypy src
+
+      - name: Validate
+        working-directory: candidate
+        run: python -m mstr_qualify validate
+
+      - name: Re-verify live exact identities after review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git -C candidate rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')" = "$EXPECTED_HEAD"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.sha')" = "$EXPECTED_MAIN"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')" = 'open'
+          echo 'INDEPENDENT_DETERMINISTIC_EXACT_HEAD_REVIEW=PASS'
