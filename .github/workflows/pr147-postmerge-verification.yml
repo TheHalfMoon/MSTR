@@ -1,0 +1,135 @@
+name: Post-merge verification PR 147
+
+on:
+  push:
+    branches:
+      - evidence/pr147-postmerge-766f7df
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_OLD_MAIN: b20349c23ada1130f98e28c0e1e3db56ed692d13
+      EXPECTED_HEAD: be51ea1975790657b0ca6056a3ccc19f85f1b78f
+      EXPECTED_NEW_MAIN: 766f7df376eb1fd7b9b68dcd1d029eccdb362d76
+      EXPECTED_TREE: ccddbded39bb1a475ed144c51cda0bd65edf4823
+      PR_NUMBER: '147'
+    steps:
+      - name: Checkout live canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          path: canonical
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify exact merge identity, parents, tree, scope, and PR state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C canonical rev-parse HEAD)" = "$EXPECTED_NEW_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_NEW_MAIN"
+          test "$(git -C canonical rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          read -r merge p1 p2 extra <<<"$(git -C canonical rev-list --parents -n 1 HEAD)"
+          test "$merge" = "$EXPECTED_NEW_MAIN"
+          test "$p1" = "$EXPECTED_OLD_MAIN"
+          test "$p2" = "$EXPECTED_HEAD"
+          test -z "${extra:-}"
+          git -C canonical merge-base --is-ancestor "$EXPECTED_HEAD" "$EXPECTED_NEW_MAIN"
+
+          printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B029-B031-cross-workstream-binding-reconciliation.md \
+            tests/contract/test_convergence_external_bindings.py | sort > /tmp/expected-files
+          git -C canonical diff --name-only "$EXPECTED_OLD_MAIN...$EXPECTED_NEW_MAIN" | sort > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git -C canonical diff --check "$EXPECTED_OLD_MAIN...$EXPECTED_NEW_MAIN"
+
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg merge "$EXPECTED_NEW_MAIN" --arg head "$EXPECTED_HEAD" '
+            .state == "closed" and
+            .merged == true and
+            .merge_commit_sha == $merge and
+            .head.sha == $head
+          ' /tmp/pr.json >/dev/null
+          echo 'POSTMERGE_IDENTITY_SCOPE_PR=PASS'
+
+      - name: Install canonical tooling
+        run: python -m pip install -e './canonical[dev]'
+
+      - name: Verify canonical machine frontier
+        working-directory: canonical
+        shell: bash
+        run: |
+          set -euo pipefail
+          mstr-qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          d = json.load(open('/tmp/drift.json', encoding='utf-8'))
+          assert d['status'] == 'clean' and d['findings'] == [], d
+          PY
+
+          mstr-qualify task eligible B029 > /tmp/b029.json
+          mstr-qualify task eligible B030 > /tmp/b030.json
+          set +e
+          mstr-qualify task eligible B031 > /tmp/b031.json; rc31=$?
+          mstr-qualify task eligible B011 > /tmp/b011.json; rc11=$?
+          mstr-qualify task eligible B013 > /tmp/b013.json; rc13=$?
+          set -e
+          test "$rc31" -eq 1
+          test "$rc11" -eq 1
+          test "$rc13" -eq 1
+          python - <<'PY'
+          import json
+          load = lambda p: json.load(open(p, encoding='utf-8'))
+          b029, b030, b031, b011, b013 = map(load, ['/tmp/b029.json', '/tmp/b030.json', '/tmp/b031.json', '/tmp/b011.json', '/tmp/b013.json'])
+          assert b029['eligible'] is True, b029
+          assert b030['eligible'] is True, b030
+          assert b031['eligible'] is False, b031
+          rows = {r['task_id']: r for r in b031['prerequisite_results']}
+          for tid in ('A019', 'A020'):
+              assert rows[tid]['satisfied'] is False, rows[tid]
+              assert 'prerequisite.missing_task_binding' not in rows[tid]['reasons'], rows[tid]
+          assert b011['eligible'] is False, b011
+          assert b013['eligible'] is False, b013
+          print('POSTMERGE_MACHINE_FRONTIER=PASS')
+          PY
+
+      - name: Targeted governance tests
+        working-directory: canonical
+        run: python -m pytest tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py tests/integration/test_task_gate_cli.py -q
+
+      - name: Full test suite
+        working-directory: canonical
+        run: python -m pytest -q
+
+      - name: Ruff
+        working-directory: canonical
+        run: python -m ruff check .
+
+      - name: Strict mypy
+        working-directory: canonical
+        run: python -m mypy src
+
+      - name: Validate
+        working-directory: canonical
+        run: python -m mstr_qualify validate
+
+      - name: Re-verify immutable live main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C canonical rev-parse HEAD)" = "$EXPECTED_NEW_MAIN"
+          test "$(git -C canonical rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_NEW_MAIN"
+          echo 'POSTMERGE_VERIFICATION=PASS'
