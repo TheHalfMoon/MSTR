@@ -7,11 +7,15 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from mstr_qualify.schemas import validate_instance
+from jsonschema import Draft202012Validator
+
+from mstr_qualify.schemas import load_schema, validate_instance
 
 ROOT = Path(__file__).resolve().parents[2]
 TASK_ID = "B027"
 CAMPAIGN_ID = "b027-offline-ladder-pilot-v0"
+CANONICAL_ENTRY_MAIN = "312d40eee8400a0dab94633f891b206f66a82855"
+_CANONICAL_REFS = ("refs/heads/main", "refs/remotes/origin/main")
 RESULT_ROOT = ROOT / "artifacts" / "results" / "research" / TASK_ID
 CONFIG = ROOT / "configs" / "research" / "mstr-research-ladder-v0.json"
 FIXTURE = (
@@ -392,14 +396,135 @@ def _registry_write(record: dict[str, Any]) -> tuple[Path, str]:
     return path, _write_json(path, record)
 
 
-def _set_local_main(sha: str) -> None:
-    _git("update-ref", "refs/heads/main", sha)
-    _git("update-ref", "refs/remotes/origin/main", sha)
+def _resolve_ref(ref: str) -> str | None:
+    completed = subprocess.run(
+        ["git", "rev-parse", "--verify", f"{ref}^{{commit}}"],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    value = completed.stdout.strip()
+    return value if completed.returncode == 0 and value else None
 
 
-def _validate_record(record: dict[str, Any], head_sha: str) -> None:
-    _set_local_main(head_sha)
-    validate_instance("mstr-research-experiment-v2", record, repository_root=ROOT)
+def _canonical_ref_snapshot() -> dict[str, str | None]:
+    return {ref: _resolve_ref(ref) for ref in _CANONICAL_REFS}
+
+
+def _require_trusted_canonical_entry(
+    expected_sha: str = CANONICAL_ENTRY_MAIN,
+) -> dict[str, str | None]:
+    snapshot = _canonical_ref_snapshot()
+    origin_main = snapshot["refs/remotes/origin/main"]
+    local_main = snapshot["refs/heads/main"]
+    if origin_main != expected_sha:
+        raise RuntimeError(
+            f"origin/main is not the trusted B027 canonical entry: {origin_main!r}"
+        )
+    if local_main is not None and local_main != expected_sha:
+        raise RuntimeError(
+            f"local main disagrees with the trusted B027 canonical entry: {local_main!r}"
+        )
+    return snapshot
+
+
+def _is_ancestor(ancestor: str, descendant: str) -> bool:
+    completed = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode not in {0, 1}:
+        raise RuntimeError(
+            f"unable to compare Git ancestry: {ancestor} -> {descendant}: "
+            f"{completed.stderr.strip()}"
+        )
+    return completed.returncode == 0
+
+
+def _is_strict_ancestor(ancestor: str, descendant: str) -> bool:
+    return ancestor != descendant and _is_ancestor(ancestor, descendant)
+
+
+def _validate_schema_shape(record: dict[str, Any]) -> None:
+    schema = load_schema("mstr-research-experiment-v2")
+    errors = sorted(
+        Draft202012Validator(schema).iter_errors(record),
+        key=lambda error: tuple(str(part) for part in error.absolute_path),
+    )
+    if errors:
+        joined = "; ".join(error.message for error in errors)
+        raise RuntimeError(f"B027 candidate record schema validation failed: {joined}")
+
+
+def _validate_record_candidate(record: dict[str, Any], head_sha: str) -> None:
+    before = _require_trusted_canonical_entry()
+    try:
+        _validate_schema_shape(record)
+        if not _is_ancestor(CANONICAL_ENTRY_MAIN, head_sha):
+            raise RuntimeError("candidate head does not descend from canonical B027 entry")
+        freeze_sha = record.get("campaign_freeze_commit_sha_or_na")
+        evidence_sha = record.get("canonical_evidence_commit_sha_or_na")
+        if not isinstance(freeze_sha, str) or len(freeze_sha) != 40:
+            raise RuntimeError("candidate campaign freeze commit is not concrete")
+        if not isinstance(evidence_sha, str) or len(evidence_sha) != 40:
+            raise RuntimeError("candidate evidence commit is not concrete")
+        if not _is_strict_ancestor(freeze_sha, evidence_sha):
+            raise RuntimeError("candidate freeze must strictly precede evidence")
+        if not _is_ancestor(evidence_sha, head_sha):
+            raise RuntimeError("candidate evidence is not visible at candidate head")
+
+        predecessor = record.get("predecessor_promotion")
+        if isinstance(predecessor, dict):
+            experiment_id = predecessor.get("experiment_id")
+            expected_digest = predecessor.get("experiment_record_sha256")
+            if not isinstance(experiment_id, str) or not isinstance(expected_digest, str):
+                raise RuntimeError("candidate predecessor binding is incomplete")
+            predecessor_path = RESULT_ROOT / "registry" / f"{experiment_id}.json"
+            raw = predecessor_path.read_bytes()
+            actual_digest = hashlib.sha256(raw).hexdigest()
+            if actual_digest != expected_digest:
+                raise RuntimeError("candidate predecessor registry digest mismatch")
+            predecessor_record = json.loads(raw)
+            predecessor_evidence = predecessor_record.get(
+                "canonical_evidence_commit_sha_or_na"
+            )
+            if not isinstance(predecessor_evidence, str) or len(predecessor_evidence) != 40:
+                raise RuntimeError("candidate predecessor evidence commit is not concrete")
+            if not _is_strict_ancestor(predecessor_evidence, freeze_sha):
+                raise RuntimeError(
+                    "candidate predecessor evidence must precede successor freeze"
+                )
+    finally:
+        after = _canonical_ref_snapshot()
+        if after != before:
+            raise RuntimeError("B027 candidate validation mutated canonical Git refs")
+
+
+def _require_current_canonical_main() -> tuple[str, dict[str, str | None]]:
+    snapshot = _canonical_ref_snapshot()
+    origin_main = snapshot["refs/remotes/origin/main"]
+    local_main = snapshot["refs/heads/main"]
+    if origin_main is None:
+        raise RuntimeError("origin/main is unavailable for canonical validation")
+    if local_main is not None and local_main != origin_main:
+        raise RuntimeError("local main disagrees with origin/main")
+    if not _is_ancestor(CANONICAL_ENTRY_MAIN, origin_main):
+        raise RuntimeError("canonical main no longer descends from the B027 entry commit")
+    return origin_main, snapshot
+
+
+def _validate_record_canonical(record: dict[str, Any]) -> None:
+    _canonical_main, before = _require_current_canonical_main()
+    try:
+        validate_instance("mstr-research-experiment-v2", record, repository_root=ROOT)
+    finally:
+        after = _canonical_ref_snapshot()
+        if after != before:
+            raise RuntimeError("B027 canonical validation mutated canonical Git refs")
 
 
 def _write_final_docs(
@@ -415,7 +540,9 @@ def _write_final_docs(
         "schema_version": "mstr.b027-ladder-pilot-ledger.v0",
         "task_id": TASK_ID,
         "campaign_id": CAMPAIGN_ID,
-        "canonical_entry_main": "312d40eee8400a0dab94633f891b206f66a82855",
+        "canonical_entry_main": CANONICAL_ENTRY_MAIN,
+        "canonical_history_status": "PENDING_POST_MERGE_VALIDATION",
+        "candidate_validation_kind": "PROSPECTIVE_NO_CANONICAL_REF_REWRITE",
         "frozen_evaluation_identity": evaluator_identity,
         "external_effect_authority_required": False,
         "governed_effects": _governed_effects(),
@@ -487,6 +614,8 @@ execution, or release activity.
 - L2/L3/L4: not executed after the L1 hard reject
 - frozen evaluator: `{evaluator_identity}`
 - full ledger: `artifacts/results/research/B027/campaign-ledger.json`
+- premerge canonical-history status: `PENDING_POST_MERGE_VALIDATION`
+- premerge validation kind: `PROSPECTIVE_NO_CANONICAL_REF_REWRITE`
 - L0 registry SHA-256: `{l0_digest}`
 - L1 registry SHA-256: `{l1_digest}`
 
@@ -494,6 +623,12 @@ The L1 record consumes the exact L0 promoted result through the immutable predec
 binding. Promotion policies precede their evidence commits, gate observations are derived from
 content-addressed verifier results, and the same frozen evaluator identity is used across both
 levels.
+
+Premerge candidate validation never rewrites `refs/heads/main` or
+`refs/remotes/origin/main` and does not claim that feature-only campaign commits are
+already canonical. Full `mstr.research-experiment.v2` canonical-history semantic
+validation is intentionally deferred to mandatory post-merge verification on real
+`main`, where the campaign commits must actually be canonical ancestors.
 
 ## Campaign commit ledger
 
@@ -535,6 +670,7 @@ qualified, reviewed, merged, post-merge verified, and separately closed out.
 
 
 def run() -> None:
+    _require_trusted_canonical_entry()
     script_digest = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     evaluator_identity = f"sha256:{script_digest}"
     RESULT_ROOT.mkdir(parents=True, exist_ok=True)
@@ -547,7 +683,9 @@ def run() -> None:
         "schema_version": "mstr.b027-ladder-pilot-manifest.v0",
         "task_id": TASK_ID,
         "campaign_id": CAMPAIGN_ID,
-        "canonical_entry_main": "312d40eee8400a0dab94633f891b206f66a82855",
+        "canonical_entry_main": CANONICAL_ENTRY_MAIN,
+        "canonical_history_status": "PENDING_POST_MERGE_VALIDATION",
+        "candidate_validation_kind": "PROSPECTIVE_NO_CANONICAL_REF_REWRITE",
         "harness_path": "scripts/research/b027_ladder_pilot.py",
         "harness_sha256": script_digest,
         "frozen_evaluation_identity": evaluator_identity,
@@ -579,7 +717,7 @@ def run() -> None:
     l0["canonical_evidence_commit_sha_or_na"] = l0_evidence
     _, l0_digest = _registry_write(l0)
     l0_registry = _commit_all("evidence(mstr-000b): record B027 L0 promotion")
-    _validate_record(l0, l0_registry)
+    _validate_record_candidate(l0, l0_registry)
 
     l1_policy_identity = _write_content_addressed(
         RESULT_ROOT / "promotion-policies",
@@ -603,7 +741,7 @@ def run() -> None:
     l1["canonical_evidence_commit_sha_or_na"] = l1_evidence
     _, l1_digest = _registry_write(l1)
     l1_registry = _commit_all("evidence(mstr-000b): record B027 L1 early discard")
-    _validate_record(l1, l1_registry)
+    _validate_record_candidate(l1, l1_registry)
 
     commits = {
         "l0_freeze": l0_freeze,
@@ -622,8 +760,8 @@ def run() -> None:
         commits=commits,
     )
     final = _commit_all("feat(mstr-000b): qualify B027 research ladder pilot")
-    _validate_record(l0, final)
-    _validate_record(l1, final)
+    _validate_record_candidate(l0, final)
+    _validate_record_candidate(l1, final)
     print(
         json.dumps(
             {

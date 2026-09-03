@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
+import subprocess
 from pathlib import Path
+
+import pytest
+
+from mstr_qualify.errors import SchemaValidationError
 
 ROOT = Path(__file__).resolve().parents[2]
 RESULT_ROOT = ROOT / "artifacts" / "results" / "research" / "B027"
@@ -101,3 +107,82 @@ def test_b027_uses_one_immutable_evaluator_identity() -> None:
             RESULT_ROOT / "registry" / f"{row['experiment_id']}.json"
         )
         assert record["frozen_evaluation_identity"] == evaluator
+
+
+
+def _git(root: Path, *args: str) -> str:
+    completed = subprocess.run(
+        ["git", *args],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return completed.stdout.strip()
+
+
+def test_b027_canonical_validation_fails_closed_without_mutating_refs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clone = tmp_path / "repo"
+    subprocess.run(
+        ["git", "clone", "--no-hardlinks", str(ROOT), str(clone)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    candidate_head = _git(ROOT, "rev-parse", "HEAD")
+    canonical_entry = "312d40eee8400a0dab94633f891b206f66a82855"
+    assert candidate_head != canonical_entry
+    _git(clone, "checkout", "--detach", candidate_head)
+    _git(clone, "update-ref", "refs/heads/main", canonical_entry)
+    _git(clone, "update-ref", "refs/remotes/origin/main", canonical_entry)
+
+    spec = importlib.util.spec_from_file_location(
+        "b027_ladder_pilot_regression",
+        ROOT / "scripts" / "research" / "b027_ladder_pilot.py",
+    )
+    assert spec is not None and spec.loader is not None
+    pilot = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pilot)
+    monkeypatch.setattr(pilot, "ROOT", clone)
+    monkeypatch.setattr(
+        pilot,
+        "RESULT_ROOT",
+        clone / "artifacts" / "results" / "research" / "B027",
+    )
+
+    record = json.loads(
+        (
+            clone
+            / "artifacts"
+            / "results"
+            / "research"
+            / "B027"
+            / "registry"
+            / "b027-l0-contract-smoke.json"
+        ).read_text(encoding="utf-8")
+    )
+    before = {
+        ref: _git(clone, "rev-parse", "--verify", f"{ref}^{{commit}}")
+        for ref in ("refs/heads/main", "refs/remotes/origin/main")
+    }
+    with pytest.raises(SchemaValidationError):
+        pilot._validate_record_canonical(record)
+    after = {
+        ref: _git(clone, "rev-parse", "--verify", f"{ref}^{{commit}}")
+        for ref in ("refs/heads/main", "refs/remotes/origin/main")
+    }
+    assert after == before
+    assert before == {
+        "refs/heads/main": canonical_entry,
+        "refs/remotes/origin/main": canonical_entry,
+    }
+
+
+def test_b027_harness_never_rewrites_canonical_refs() -> None:
+    source = (ROOT / "scripts" / "research" / "b027_ladder_pilot.py").read_text(
+        encoding="utf-8"
+    )
+    assert "update-ref" not in source
