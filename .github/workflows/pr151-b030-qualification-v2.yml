@@ -1,0 +1,127 @@
+name: Qualify PR 151 B030 repository health delta v2
+
+on:
+  push:
+    branches:
+      - evidence/pr151-b030-qualification-v2
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: 2d19b6296d550b5b60c1b511d71c6ce86a38d195
+  EXPECTED_HEAD: 00502aba975e4fa1c2780e5cca1c779fc6b64f27
+  EXPECTED_TREE: 85a5107313597cbf656af16799a961e8c8f10ef5
+  TARGET_BRANCH: feat/000b-b030-repository-health-delta
+  PR_NUMBER: '151'
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+          path: canonical
+          persist-credentials: false
+
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify live exact identity and atomic scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git -C candidate merge-base "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "$EXPECTED_MAIN"
+          test "$(git -C candidate rev-list --count "$EXPECTED_MAIN".."$EXPECTED_HEAD")" = "4"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .head.sha)" = "$EXPECTED_HEAD"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .base.sha)" = "$EXPECTED_MAIN"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .state)" = "open"
+          cat > /tmp/expected-files <<'EOF'
+          evidence/mstr-000b/B030-long-horizon-quality.md
+          schemas/mstr-repository-health-delta-v0.schema.json
+          specs/002-code-model-supremacy-foundation/contracts/mstr-repository-health-delta-v0.schema.json
+          tests/contract/test_repository_health_delta_contract.py
+          tests/fixtures/schemas/valid/mstr-repository-health-delta-v0.json
+          EOF
+          sed -i 's/^          //' /tmp/expected-files
+          sort -o /tmp/expected-files /tmp/expected-files
+          git -C candidate diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git -C candidate diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          test -z "$(git -C candidate diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" -- configs/task-gate specs/002-code-model-supremacy-foundation/tasks.md artifacts/authorities)"
+          echo 'PR151_EXACT_IDENTITY_SCOPE=PASS'
+
+      - name: Install exact candidate tooling
+        run: python -m pip install -e './candidate[dev]'
+
+      - name: Parse and meta-validate B030 schema
+        working-directory: candidate
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from jsonschema import Draft202012Validator
+          p = Path('schemas/mstr-repository-health-delta-v0.schema.json')
+          schema = json.loads(p.read_text(encoding='utf-8'))
+          Draft202012Validator.check_schema(schema)
+          assert p.read_bytes() == Path('specs/002-code-model-supremacy-foundation/contracts/mstr-repository-health-delta-v0.schema.json').read_bytes()
+          print('B030_SCHEMA_PARSE_META=PASS')
+          PY
+
+      - name: Focused B030 contract tests
+        working-directory: candidate
+        run: python -m pytest -q tests/contract/test_repository_health_delta_contract.py
+
+      - name: Offline validation
+        working-directory: candidate
+        run: python -m mstr_qualify validate
+
+      - name: Full test suite
+        working-directory: candidate
+        run: python -m pytest -q
+
+      - name: Ruff
+        working-directory: candidate
+        run: python -m ruff check .
+
+      - name: Canonical mypy
+        working-directory: candidate
+        run: python -m mypy src
+
+      - name: Re-verify exact immutable head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .head.sha)" = "$EXPECTED_HEAD"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .base.sha)" = "$EXPECTED_MAIN"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          echo 'PR151_EXACT_HEAD_QUALIFICATION=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'HARNESS_EXECUTION=NONE'
+          echo 'PAID_COMPUTE=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
+          echo 'PRODUCTION_RELEASE=NONE'
