@@ -1,0 +1,124 @@
+name: Qualify PR150 B029 closeout exact head
+
+on:
+  push:
+    branches:
+      - evidence/pr150-b029-closeout-qualification
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  BASE_SHA: b3223bb384d8723c37a28526be691cedf8174dc3
+  HEAD_SHA: 70b39b3fd4dd4cd4b1ebe228e687e969bb201112
+  EXPECTED_TREE: 3e6b404e65e1eec6c5f07bdafc8aa92ee3638cb3
+  TARGET_BRANCH: docs/000b-b029-canonicalize
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact closeout identity and five-file scope
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          test "$(git rev-parse "$HEAD_SHA^{tree}")" = "$EXPECTED_TREE"
+          test "$(git rev-parse "$HEAD_SHA^")" = "$BASE_SHA"
+          test "$(git rev-list --count "$BASE_SHA".."$HEAD_SHA")" -eq 1
+          mapfile -t actual < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort)
+          expected=(
+            configs/task-gate/mstr-000b.json
+            evidence/mstr-000b/B029-adaptive-inference.md
+            specs/002-code-model-supremacy-foundation/tasks.md
+            tests/contract/test_convergence_external_bindings.py
+            tests/contract/test_task_gate.py
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 5
+          diff -u <(printf '%s\n' "${wanted[@]}") <(printf '%s\n' "${actual[@]}")
+          test -z "$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- schemas specs/002-code-model-supremacy-foundation/contracts tests/fixtures src)"
+
+  terminal_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 70b39b3fd4dd4cd4b1ebe228e687e969bb201112
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove terminal state, successor eligibility, and authority containment
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$HEAD_SHA"
+          git update-ref refs/remotes/origin/main "$HEAD_SHA"
+          if mstr-qualify task eligible B029 > /tmp/b029.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null and .authority_result.required == false' /tmp/b029.json >/dev/null
+          mstr-qualify task eligible B030 > /tmp/b030.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .reasons == [] and .authority_result.required == false' /tmp/b030.json >/dev/null
+          if mstr-qualify task eligible B031 > /tmp/b031.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '(.reasons | index("prerequisite.unsatisfied:A019")) != null and (.reasons | index("prerequisite.unsatisfied:A020")) != null and (.reasons | index("prerequisite.unsatisfied:B030")) != null' /tmp/b031.json >/dev/null
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false and .authority_result.authority_id == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"' /tmp/b011.json >/dev/null
+          if mstr-qualify task eligible B013 > /tmp/b013.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "BLOCKED" and ((.reasons | index("prerequisite.unsatisfied:B012")) != null)' /tmp/b013.json >/dev/null
+          grep -F '**State:** COMPLETE_CANONICAL' evidence/mstr-000b/B029-adaptive-inference.md
+          grep -F '**Implementation PR:** #149' evidence/mstr-000b/B029-adaptive-inference.md
+          grep -F '**Final implementation head:** `f449f81fc3e7343052b54b09b0481d64963d7e2f`' evidence/mstr-000b/B029-adaptive-inference.md
+          grep -F '**Canonical implementation merge:** `b3223bb384d8723c37a28526be691cedf8174dc3`' evidence/mstr-000b/B029-adaptive-inference.md
+          grep -F 'ENTRY_GATE_TASK = B029' evidence/mstr-000b/B029-adaptive-inference.md
+          grep -F 'ENTRY_GATE_CANONICAL_MAIN = 1179515986ee2311ec1cd675fd899a6143c03761' evidence/mstr-000b/B029-adaptive-inference.md
+          grep -F 'ENTRY_GATE_ELIGIBLE = true' evidence/mstr-000b/B029-adaptive-inference.md
+          grep -F 'run `33794038421` — FAILED Ruff E501' evidence/mstr-000b/B029-adaptive-inference.md
+          grep -F 'run `33794732024` — FAILED final diff-check' evidence/mstr-000b/B029-adaptive-inference.md
+
+  quality_drift:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 70b39b3fd4dd4cd4b1ebe228e687e969bb201112
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run exact-head canonical quality and drift proof
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py tests/contract/test_adaptive_inference_contract.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          git update-ref refs/heads/main "$HEAD_SHA"
+          git update-ref refs/remotes/origin/main "$HEAD_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json >/dev/null
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+
+  complete:
+    needs: [identity_scope, terminal_semantics, quality_drift]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 70b39b3fd4dd4cd4b1ebe228e687e969bb201112
+          fetch-depth: 0
+      - name: Final immutable exact-head recheck
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          echo 'PR150_B029_CLOSEOUT_QUALIFICATION=PASS'
