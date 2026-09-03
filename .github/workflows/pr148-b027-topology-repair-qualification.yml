@@ -1,0 +1,121 @@
+name: Qualify PR 148 B027 topology repair
+
+on:
+  push:
+    branches:
+      - evidence/pr148-b027-topology-repair-qualification
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 766f7df376eb1fd7b9b68dcd1d029eccdb362d76
+      EXPECTED_HEAD: 3de5ed19c1dc8d90e193478effb8ff437e8414ed
+      EXPECTED_TREE: 71922d96d7557086a52b92eb54909cb806b3a6a9
+      TARGET_BRANCH: fix/b027-topology-test-main-advance
+      PR_NUMBER: '148'
+    steps:
+      - name: Checkout canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+          path: canonical
+          persist-credentials: false
+
+      - name: Checkout exact repair candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify live exact identity and one-file scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git -C candidate rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          printf '%s\n' tests/contract/test_b027_ladder_pilot.py > /tmp/expected-files
+          git -C candidate diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git -C candidate diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          test "$(git -C candidate diff --numstat "$EXPECTED_MAIN...$EXPECTED_HEAD")" = $'1\t1\ttests/contract/test_b027_ladder_pilot.py'
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')" = "$EXPECTED_HEAD"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.sha')" = "$EXPECTED_MAIN"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')" = 'open'
+          echo 'PR148_EXACT_IDENTITY_SCOPE=PASS'
+
+      - name: Verify repair semantics are test-fixture-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C candidate diff --unified=0 "$EXPECTED_MAIN...$EXPECTED_HEAD" -- tests/contract/test_b027_ladder_pilot.py > /tmp/repair.diff
+          grep -F -- '-    _git(clone, "fetch", ".", f"{canonical_entry}:refs/remotes/origin/main")' /tmp/repair.diff
+          grep -F -- '+    _git(clone, "update-ref", "refs/remotes/origin/main", canonical_entry)' /tmp/repair.diff
+          test "$(grep -c '^[-+][^-+]' /tmp/repair.diff)" -eq 2
+          cmp canonical/scripts/research/b027_ladder_pilot.py candidate/scripts/research/b027_ladder_pilot.py
+          cmp canonical/configs/task-gate/mstr-000b.json candidate/configs/task-gate/mstr-000b.json
+          cmp canonical/specs/002-code-model-supremacy-foundation/tasks.md candidate/specs/002-code-model-supremacy-foundation/tasks.md
+          test -z "$(git -C candidate diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" -- .github specs artifacts/authorities src scripts configs)"
+          echo 'PR148_TEST_FIXTURE_ONLY=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'PAID_COMPUTE=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
+          echo 'PRODUCTION_RELEASE=NONE'
+
+      - name: Install exact candidate tooling
+        run: python -m pip install -e './candidate[dev]'
+
+      - name: Reproduce repaired B027 canonical-ref regression
+        working-directory: candidate
+        run: python -m pytest tests/contract/test_b027_ladder_pilot.py::test_b027_harness_never_rewrites_canonical_refs -q
+
+      - name: Full B027 contract suite
+        working-directory: candidate
+        run: python -m pytest tests/contract/test_b027_ladder_pilot.py -q
+
+      - name: Full test suite
+        working-directory: candidate
+        run: python -m pytest -q
+
+      - name: Ruff
+        working-directory: candidate
+        run: python -m ruff check .
+
+      - name: Strict mypy
+        working-directory: candidate
+        run: python -m mypy src
+
+      - name: Offline validation
+        working-directory: candidate
+        run: python -m mstr_qualify validate
+
+      - name: Re-verify exact immutable head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')" = "$EXPECTED_HEAD"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.sha')" = "$EXPECTED_MAIN"
+          echo 'PR148_EXACT_HEAD_QUALIFICATION=PASS'
