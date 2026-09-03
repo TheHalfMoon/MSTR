@@ -1,0 +1,174 @@
+{
+  "$defs": {
+    "dimension": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline_value": {"type": "number"},
+        "evidence_identity": {"maxLength": 512, "minLength": 1, "type": "string"},
+        "health_score": {"maximum": 1, "minimum": 0, "type": "number"},
+        "normalization_rule_identity": {"maxLength": 512, "minLength": 1, "type": "string"},
+        "observed_value": {"type": "number"},
+        "unit": {"maxLength": 64, "minLength": 1, "type": "string"}
+      },
+      "required": ["observed_value", "baseline_value", "unit", "health_score", "normalization_rule_identity", "evidence_identity"],
+      "type": "object"
+    },
+    "profile": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"properties": {"evaluation_state": {"const": "MEASURED"}}, "required": ["evaluation_state"]},
+          "then": {"properties": {"result_revision": {"pattern": "^[0-9a-f]{40}$", "type": "string"}, "scorecard": {"$ref": "#/$defs/scorecard"}}}
+        },
+        {
+          "if": {"properties": {"evaluation_state": {"enum": ["NO_VERIFIED_COMPLETION", "INVALID"]}}, "required": ["evaluation_state"]},
+          "then": {"properties": {"result_revision": {"type": "null"}, "scorecard": {"type": "null"}}}
+        }
+      ],
+      "properties": {
+        "a016_metric_record_identity": {"maxLength": 512, "minLength": 1, "type": "string"},
+        "attribution": {"enum": ["RAW_MODEL", "H0", "H1", "H2"]},
+        "evaluation_state": {"enum": ["MEASURED", "NO_VERIFIED_COMPLETION", "INVALID"]},
+        "evidence_identity": {"maxLength": 512, "minLength": 1, "type": "string"},
+        "harness_profile_id": {"maxLength": 256, "minLength": 1, "type": "string"},
+        "result_revision": {"pattern": "^[0-9a-f]{40}$", "type": ["string", "null"]},
+        "scorecard": {"oneOf": [{"$ref": "#/$defs/scorecard"}, {"type": "null"}]},
+        "source_revision": {"pattern": "^[0-9a-f]{40}$", "type": "string"}
+      },
+      "required": ["attribution", "harness_profile_id", "evaluation_state", "source_revision", "result_revision", "a016_metric_record_identity", "scorecard", "evidence_identity"],
+      "type": "object"
+    },
+    "risk": {
+      "additionalProperties": false,
+      "properties": {
+        "criterion_identity": {"maxLength": 512, "minLength": 1, "type": "string"},
+        "evidence_identity": {"maxLength": 512, "minLength": 1, "type": "string"},
+        "status": {"enum": ["CLEAR", "BLOCKING", "UNRESOLVED"]}
+      },
+      "required": ["status", "criterion_identity", "evidence_identity"],
+      "type": "object"
+    },
+    "risk_assessment": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              {"properties": {"harness_lock_in": {"properties": {"status": {"enum": ["BLOCKING", "UNRESOLVED"]}}, "required": ["status"]}}},
+              {"properties": {"technical_debt_accumulation": {"properties": {"status": {"enum": ["BLOCKING", "UNRESOLVED"]}}, "required": ["status"]}}},
+              {"properties": {"cross_harness_comparability": {"properties": {"status": {"enum": ["BLOCKING", "UNRESOLVED"]}}, "required": ["status"]}}}
+            ]
+          },
+          "then": {"properties": {"claim_decision": {"const": "BLOCKED"}}}
+        }
+      ],
+      "properties": {
+        "claim_decision": {"enum": ["COMPARISON_ELIGIBLE", "BLOCKED"]},
+        "cross_harness_comparability": {"$ref": "#/$defs/risk"},
+        "harness_lock_in": {"$ref": "#/$defs/risk"},
+        "technical_debt_accumulation": {"$ref": "#/$defs/risk"}
+      },
+      "required": ["harness_lock_in", "technical_debt_accumulation", "cross_harness_comparability", "claim_decision"],
+      "type": "object"
+    },
+    "round": {
+      "additionalProperties": false,
+      "properties": {
+        "profiles": {
+          "additionalProperties": false,
+          "properties": {
+            "H0": {"allOf": [{"$ref": "#/$defs/profile"}, {"properties": {"attribution": {"const": "H0"}, "harness_profile_id": {"const": "mstr.harness.h0-neutral-minimal.v0"}}}]},
+            "H1": {"allOf": [{"$ref": "#/$defs/profile"}, {"properties": {"attribution": {"const": "H1"}, "harness_profile_id": {"const": "mstr.harness.h1-native.v0"}}}]},
+            "H2": {"allOf": [{"$ref": "#/$defs/profile"}, {"properties": {"attribution": {"const": "H2"}, "harness_profile_id": {"const": "mstr.harness.h2-wepld-native.v0"}}}]},
+            "RAW_MODEL": {"allOf": [{"$ref": "#/$defs/profile"}, {"properties": {"attribution": {"const": "RAW_MODEL"}, "harness_profile_id": {"const": "mstr.harness.raw-model.v0"}}}]}
+          },
+          "required": ["RAW_MODEL", "H0", "H1", "H2"],
+          "type": "object"
+        },
+        "round_index": {"minimum": 1, "type": "integer"},
+        "round_task_identity": {"maxLength": 512, "minLength": 1, "type": "string"}
+      },
+      "required": ["round_index", "round_task_identity", "profiles"],
+      "type": "object"
+    },
+    "scorecard": {
+      "additionalProperties": false,
+      "properties": {
+        "aggregate_rule_identity": {"maxLength": 512, "minLength": 1, "type": "string"},
+        "dimensions": {
+          "additionalProperties": false,
+          "properties": {
+            "architecture_violations": {"$ref": "#/$defs/dimension"},
+            "complexity_growth": {"$ref": "#/$defs/dimension"},
+            "dead_unused_code": {"$ref": "#/$defs/dimension"},
+            "dependency_growth": {"$ref": "#/$defs/dimension"},
+            "duplication": {"$ref": "#/$defs/dimension"},
+            "lint_type_debt": {"$ref": "#/$defs/dimension"},
+            "test_health": {"$ref": "#/$defs/dimension"},
+            "unnecessary_refactors": {"$ref": "#/$defs/dimension"}
+          },
+          "required": ["duplication", "dead_unused_code", "complexity_growth", "dependency_growth", "architecture_violations", "lint_type_debt", "test_health", "unnecessary_refactors"],
+          "type": "object"
+        },
+        "repository_health_score": {"maximum": 1, "minimum": 0, "type": "number"}
+      },
+      "required": ["repository_health_score", "dimensions"],
+      "type": "object"
+    }
+  },
+  "$id": "https://mstr.local/schemas/mstr-repository-health-delta-v0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "rounds": {
+            "contains": {
+              "properties": {
+                "profiles": {
+                  "anyOf": [
+                    {"properties": {"RAW_MODEL": {"properties": {"evaluation_state": {"enum": ["NO_VERIFIED_COMPLETION", "INVALID"]}}, "required": ["evaluation_state"]}}},
+                    {"properties": {"H0": {"properties": {"evaluation_state": {"enum": ["NO_VERIFIED_COMPLETION", "INVALID"]}}, "required": ["evaluation_state"]}}},
+                    {"properties": {"H1": {"properties": {"evaluation_state": {"enum": ["NO_VERIFIED_COMPLETION", "INVALID"]}}, "required": ["evaluation_state"]}}},
+                    {"properties": {"H2": {"properties": {"evaluation_state": {"enum": ["NO_VERIFIED_COMPLETION", "INVALID"]}}, "required": ["evaluation_state"]}}}
+                  ]
+                }
+              },
+              "required": ["profiles"]
+            }
+          }
+        },
+        "required": ["rounds"]
+      },
+      "then": {
+        "properties": {
+          "risk_assessment": {
+            "properties": {
+              "claim_decision": {"const": "BLOCKED"},
+              "cross_harness_comparability": {"properties": {"status": {"enum": ["BLOCKING", "UNRESOLVED"]}}, "required": ["status"]}
+            }
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "authority_effect": {"const": "NONE"},
+    "criteria_frozen_before_first_round": {"const": true},
+    "environment_identity": {"maxLength": 512, "minLength": 1, "type": "string"},
+    "evaluation_id": {"maxLength": 256, "minLength": 1, "type": "string"},
+    "evaluation_plan_identity": {"maxLength": 512, "minLength": 1, "type": "string"},
+    "model_identity": {"maxLength": 512, "minLength": 1, "type": "string"},
+    "normalized_health_orientation": {"const": "HIGHER_IS_BETTER"},
+    "notes": {"items": {"maxLength": 1024, "minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+    "risk_assessment": {"$ref": "#/$defs/risk_assessment"},
+    "rounds": {"items": {"$ref": "#/$defs/round"}, "maxItems": 64, "minItems": 2, "type": "array", "uniqueItems": true},
+    "schema_version": {"const": "mstr.repository-health-delta.v0"},
+    "task_suite_identity": {"maxLength": 512, "minLength": 1, "type": "string"},
+    "verifier_manifest_identity": {"maxLength": 512, "minLength": 1, "type": "string"}
+  },
+  "required": ["schema_version", "evaluation_id", "evaluation_plan_identity", "criteria_frozen_before_first_round", "model_identity", "task_suite_identity", "environment_identity", "verifier_manifest_identity", "normalized_health_orientation", "rounds", "risk_assessment", "authority_effect", "notes"],
+  "title": "MSTR Repository Health Delta v0",
+  "type": "object"
+}
