@@ -119,6 +119,17 @@ jobs:
           print('B031_EXTERNAL_BINDINGS_RESOLVED=PASS')
           print('B011_B013_HARD_STOPS_PRESERVED=PASS')
           PY
+      - name: Restore canonical refs for regression isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="$(git rev-parse HEAD)"
+          test "$candidate" != "$BASE_SHA"
+          git update-ref refs/heads/main "$BASE_SHA"
+          git update-ref refs/remotes/origin/main "$BASE_SHA"
+          test "$(git rev-parse refs/heads/main)" = "$BASE_SHA"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$BASE_SHA"
+          test "$(git rev-parse HEAD)" = "$candidate"
       - name: Run repository quality gates
         shell: bash
         run: |
