@@ -1,7 +1,10 @@
 # B030 — Repository Health Delta + Cross-Harness Robustness Evidence
 
 **Task:** `B030`
-**State:** `PENDING`
+**Implementation PR:** #151
+**Final implementation head:** `00502aba975e4fa1c2780e5cca1c779fc6b64f27`
+**Canonical implementation merge:** `986cdfdaa2ddc64458a7681caf174f3a0e434a1f`
+**State:** COMPLETE_CANONICAL
 **Canonical entry main:** `2d19b6296d550b5b60c1b511d71c6ce86a38d195`
 
 ## Exact Entry Gate
@@ -134,3 +137,27 @@ B030_AUTHORITY = METRIC_CONTRACT_AND_FIXTURES_ONLY
 This file is implementation evidence, not a canonical completion claim. B030 remains `PENDING` until the exact implementation head is qualified, independently reviewed, mandatory-premerge verified, guarded-merged, post-merge verified, and then closed through a separate canonical closeout lifecycle.
 
 B031 remains independently gated by A019, A020, B030, and its other canonical prerequisites. B011/B012/B013 remain outside B030 authority.
+
+## Canonical Implementation Closeout
+
+B030's Repository Health Delta and cross-harness robustness contract was guarded-merged and independently verified on canonical `main`. This closeout records terminal task and provenance state only. It does not alter the frozen runtime/design schema copies, fixtures, metric semantics, task prerequisites, external-effect authority, or any execution surface.
+
+- implementation PR: `#151`
+- final implementation head: `00502aba975e4fa1c2780e5cca1c779fc6b64f27`
+- canonical implementation merge: `986cdfdaa2ddc64458a7681caf174f3a0e434a1f`
+- exact entry gate v1: run `33802293071` — FAILED evidence-harness only; no target mutation
+- exact entry gate v2: run `33802497478` — SUCCESS
+- implementation builder v1: run `33803554898` — FAILED evidence-harness canonical-main invocation; no target mutation
+- implementation builder v2: run `33803985697` — FAILED evidence-harness entry check; no target mutation
+- implementation builder v3: run `33804203430` — FAILED focused contract suite; no target mutation
+- final implementation builder v4: run `33804505403` — SUCCESS
+- exact-head qualification v1: run `33805156226` — FAILED `git diff --check` on trailing whitespace; preserved negative evidence and repaired without force-push
+- exact-head qualification v2: run `33805424908` — SUCCESS
+- independent semantic review: run `33805835057` — SUCCESS / FINDINGS=NONE
+- mandatory pre-merge verification v2: run `33806460388` — SUCCESS
+- post-merge implementation verification v1: run `33806927351` — FAILED evidence-harness title assertion after merge-topology PASS
+- post-merge implementation verification v2: run `33807105329` — SUCCESS
+
+The frozen contract remains multi-round and attribution-preserving across `RAW_MODEL`, `H0`, `H1`, and `H2`. Its eight repository-health dimensions remain explicit, `NO_VERIFIED_COMPLETION` remains scoreless, and any blocking or unresolved harness lock-in, technical-debt accumulation, or cross-harness comparability risk remains fail-closed for comparison claims.
+
+This closeout grants no model-weight access, model execution, harness execution, quantization execution, gated-terms acceptance, paid API/compute, large/private/production data ingestion, weight-changing training, large-scale RL, or production release authority. B031 remains independently gated by A019 and A020 after B030 closes. B011/B012/B013 remain outside B030 authority and retain their canonical access/dependency boundaries.
