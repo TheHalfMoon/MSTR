@@ -12,7 +12,7 @@ permissions:
 
 env:
   EXPECTED_MAIN: 312d40eee8400a0dab94633f891b206f66a82855
-  EXPECTED_OLD_HEAD: 3615c5d037bcfa72ebeec66cafc06fd7b9d50405
+  EXPECTED_OLD_HEAD: 7097f90215455d13276dab5f693432427f5f70e9
   CANDIDATE_BRANCH: feat/000b-b027-ladder-pilot
   PR_NUMBER: '141'
   GH_TOKEN: ${{ github.token }}
@@ -121,15 +121,25 @@ jobs:
           test ! -e artifacts/results/research/B027/registry/b027-l2.json
           test ! -e artifacts/authorities/B027.json
 
-      - name: Run regenerated focused and full gates
+      - name: Run focused B027 contract tests
+        run: python -m pytest tests/contract/test_b027_ladder_pilot.py tests/contract/test_research_ladder_contract.py -q
+
+      - name: Run offline validation
+        run: python -m mstr_qualify validate
+
+      - name: Run full pytest
+        run: python -m pytest -q
+
+      - name: Run Ruff
+        run: python -m ruff check .
+
+      - name: Run strict mypy
+        run: python -m mypy src
+
+      - name: Verify bounded scope and remote immutability
         shell: bash
         run: |
           set -euo pipefail
-          python -m pytest tests/contract/test_b027_ladder_pilot.py tests/contract/test_research_ladder_contract.py -q
-          python -m mstr_qualify validate
-          python -m pytest -q
-          python -m ruff check .
-          python -m mypy src
           git diff --name-only "$EXPECTED_MAIN"..HEAD > /tmp/changed.txt
           while IFS= read -r path; do
             case "$path" in
