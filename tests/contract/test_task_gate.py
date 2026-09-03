@@ -2268,3 +2268,26 @@ def test_b029_is_terminal_after_canonical_closeout() -> None:
     assert all(item["evidence_present"] is True for item in result["prerequisite_results"])
     assert all(item["satisfied"] is True for item in result["prerequisite_results"])
     validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b030_is_terminal_after_canonical_closeout() -> None:
+    result = evaluate_task_snapshot("B030", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert result["authority_result"]["required"] is False
+    assert "task.already_terminal" in result["reasons"]
+    assert {item["task_id"] for item in result["prerequisite_results"]} == {
+        "A007",
+        "A008",
+        "A009",
+        "B024",
+        "B025",
+    }
+    assert all(
+        item["observed_state"] == "COMPLETE_CANONICAL" for item in result["prerequisite_results"]
+    )
+    assert all(item["evidence_present"] is True for item in result["prerequisite_results"])
+    assert all(item["satisfied"] is True for item in result["prerequisite_results"])
+    validate_instance("mstr-task-eligibility-v0", result)

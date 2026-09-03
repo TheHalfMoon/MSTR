@@ -204,7 +204,7 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: policy/config schemas, `evidence/mstr-000b/B029-adaptive-inference.md`.
   Canonical implementation: PR #149 / final head `f449f81fc3e7343052b54b09b0481d64963d7e2f` / merge `b3223bb384d8723c37a28526be691cedf8174dc3`.
 
-- [ ] **B030 Freeze Repository Health Delta + cross-harness robustness evaluation.**  
+- [x] **B030 Freeze Repository Health Delta + cross-harness robustness evaluation.**
   Define multi-round codebase-health dimensions and require raw/H0/H1/H2 score attribution. Severe harness lock-in or accumulating technical debt is a blocking risk for claims.  
   Outputs: metric contracts, fixtures, `evidence/mstr-000b/B030-long-horizon-quality.md`.
 
@@ -213,6 +213,7 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
 ---
 
 # Phase C — Convergence and Training-Readiness Closeout
+  Canonical implementation: PR #151 / final head `00502aba975e4fa1c2780e5cca1c779fc6b64f27` / merge `986cdfdaa2ddc64458a7681caf174f3a0e434a1f`.
 
 - [ ] **B031 Reconcile A019/A020 and legacy MSTR-000 tournament/preflight tasks with MSTR-000B.**  
   Exact prerequisites: A019 `COMPLETE_CANONICAL`, A020 `COMPLETE_CANONICAL`, B002/B003/B004 `COMPLETE_CANONICAL`, B015/B017/B019/B021/B023/B024/B025/B027/B028/B029/B030 `COMPLETE_CANONICAL`, plus exact-main `eligible=true`. A019 itself requires A001-A018 complete, B013 stable candidate pool, B023 verifier-health implementation, and B026 research ladder; A020 consumes B026. Legacy candidate/tournament/data tasks must be marked retained, superseded, or amended; no incompatible duplicate remains.  

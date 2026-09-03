@@ -426,7 +426,7 @@
       ]
     },
     "B030": {
-      "canonical_state": "PENDING",
+      "canonical_state": "COMPLETE_CANONICAL",
       "evidence_outputs": [
         "evidence/mstr-000b/B030-long-horizon-quality.md"
       ],

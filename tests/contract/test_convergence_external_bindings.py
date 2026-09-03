@@ -31,7 +31,7 @@ def test_convergence_bindings_are_exact_and_fail_closed() -> None:
         "A010",
         "B020",
     ]
-    assert tasks["B030"]["canonical_state"] == "PENDING"
+    assert tasks["B030"]["canonical_state"] == "COMPLETE_CANONICAL"
     assert tasks["B030"]["prerequisites"] == [
         "A007",
         "A008",
@@ -93,5 +93,5 @@ def test_convergence_bindings_are_exact_and_fail_closed() -> None:
 def test_incomplete_convergence_tasks_are_not_falsely_completed() -> None:
     tasks = _catalog()["tasks"]
     assert tasks["B029"]["canonical_state"] == "COMPLETE_CANONICAL"
-    assert tasks["B030"]["canonical_state"] == "PENDING"
+    assert tasks["B030"]["canonical_state"] == "COMPLETE_CANONICAL"
     assert tasks["B031"]["canonical_state"] == "PENDING"
