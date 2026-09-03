@@ -1,0 +1,187 @@
+name: Mandatory premerge verification PR 151 B030 v2
+
+on:
+  push:
+    branches:
+      - evidence/pr151-b030-mandatory-premerge-v2
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+  pull-requests: read
+  statuses: read
+
+env:
+  EXPECTED_BASE: 2d19b6296d550b5b60c1b511d71c6ce86a38d195
+  EXPECTED_HEAD: 00502aba975e4fa1c2780e5cca1c779fc6b64f27
+  EXPECTED_TREE: 85a5107313597cbf656af16799a961e8c8f10ef5
+  PR_NUMBER: '151'
+  QUALIFICATION_RUN: '33805424908'
+  REVIEW_RUN: '33805835057'
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout canonical base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_BASE }}
+          fetch-depth: 0
+          path: base
+          persist-credentials: false
+
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify exact live identity, mergeability, and scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C base rev-parse HEAD)" = "$EXPECTED_BASE"
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git -C candidate merge-base "$EXPECTED_BASE" "$EXPECTED_HEAD")" = "$EXPECTED_BASE"
+          test "$(git -C candidate rev-list --count "$EXPECTED_BASE".."$EXPECTED_HEAD")" = "4"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '
+            .state == "open" and .draft == false and .merged == false and
+            .mergeable == true and .base.ref == "main" and .base.sha == $base and
+            .head.sha == $head and .commits == 4 and .changed_files == 5
+          ' /tmp/pr.json >/dev/null
+          cat > /tmp/expected-files <<'EOF'
+          evidence/mstr-000b/B030-long-horizon-quality.md
+          schemas/mstr-repository-health-delta-v0.schema.json
+          specs/002-code-model-supremacy-foundation/contracts/mstr-repository-health-delta-v0.schema.json
+          tests/contract/test_repository_health_delta_contract.py
+          tests/fixtures/schemas/valid/mstr-repository-health-delta-v0.json
+          EOF
+          sed -i 's/^          //' /tmp/expected-files
+          sort -o /tmp/expected-files /tmp/expected-files
+          git -C candidate diff --name-only "$EXPECTED_BASE...$EXPECTED_HEAD" | sort > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git -C candidate diff --check "$EXPECTED_BASE...$EXPECTED_HEAD"
+          test -z "$(git -C candidate diff --name-only "$EXPECTED_BASE...$EXPECTED_HEAD" -- configs/task-gate specs/002-code-model-supremacy-foundation/tasks.md artifacts/authorities)"
+
+      - name: Verify qualification and independent review evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN}" --jq .status)" = completed
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN}" --jq .conclusion)" = success
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${REVIEW_RUN}" --jq .status)" = completed
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${REVIEW_RUN}" --jq .conclusion)" = success
+
+      - name: Reconcile reviews and threads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" --jq '[.[] | select(.state == "CHANGES_REQUESTED")] | length')" -eq 0
+          gh api graphql -f query='query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' -f owner=TheHalfMoon -f repo=MSTR -F number=151 > /tmp/threads.json
+          jq -e '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length == 0' /tmp/threads.json >/dev/null
+          echo 'REVIEW_RECONCILIATION=PASS'
+
+      - name: Verify protection, rulesets, and required-check boundary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/branches/main" > /tmp/branch.json
+          jq -e '.protected == false and (.protection.enabled // false) == false and ((.protection.required_status_checks.contexts // []) | length == 0)' /tmp/branch.json >/dev/null
+          gh api "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true" > /tmp/rulesets.json
+          jq -e 'length == 0' /tmp/rulesets.json >/dev/null
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD}/status" > /tmp/status.json
+          jq -e '[.statuses[]? | select(.state == "failure" or .state == "error")] | length == 0' /tmp/status.json >/dev/null
+          echo 'REQUIRED_CHECK_BOUNDARY=PASS'
+
+      - name: Install exact candidate tooling
+        run: python -m pip install -e './candidate[dev]'
+
+      - name: Verify B030 semantic and authority boundary
+        working-directory: candidate
+        run: |
+          python - <<'PY'
+          import copy
+          import json
+          from pathlib import Path
+          from jsonschema import Draft202012Validator
+
+          runtime = Path('schemas/mstr-repository-health-delta-v0.schema.json')
+          design = Path('specs/002-code-model-supremacy-foundation/contracts/mstr-repository-health-delta-v0.schema.json')
+          fixture_path = Path('tests/fixtures/schemas/valid/mstr-repository-health-delta-v0.json')
+          evidence_path = Path('evidence/mstr-000b/B030-long-horizon-quality.md')
+          assert runtime.read_bytes() == design.read_bytes()
+          schema = json.loads(runtime.read_text(encoding='utf-8'))
+          Draft202012Validator.check_schema(schema)
+          validator = Draft202012Validator(schema)
+          fixture = json.loads(fixture_path.read_text(encoding='utf-8'))
+          assert list(validator.iter_errors(fixture)) == []
+          assert schema['properties']['schema_version'] == {'const': 'mstr.repository-health-delta.v0'}
+          assert schema['properties']['criteria_frozen_before_first_round'] == {'const': True}
+          assert schema['properties']['authority_effect'] == {'const': 'NONE'}
+          assert schema['properties']['rounds']['minItems'] == 2
+          assert set(schema['$defs']['round']['properties']['profiles']['required']) == {'RAW_MODEL','H0','H1','H2'}
+          assert set(schema['$defs']['scorecard']['properties']['dimensions']['required']) == {
+              'duplication','dead_unused_code','complexity_growth','dependency_growth',
+              'architecture_violations','lint_type_debt','test_health','unnecessary_refactors'
+          }
+          for risk_name in ('harness_lock_in','technical_debt_accumulation','cross_harness_comparability'):
+              bad = copy.deepcopy(fixture)
+              bad['risk_assessment'][risk_name]['status'] = 'UNRESOLVED'
+              assert list(validator.iter_errors(bad))
+          evidence = evidence_path.read_text(encoding='utf-8')
+          assert 'B030_STATE = PENDING' in evidence
+          assert 'B030_AUTHORITY = METRIC_CONTRACT_AND_FIXTURES_ONLY' in evidence
+          assert 'MODEL_WEIGHT_ACCESS = NONE' in evidence
+          assert 'MODEL_EXECUTION = NONE' in evidence
+          assert 'HARNESS_EXECUTION = NONE' in evidence
+          assert 'WEIGHT_CHANGING_TRAINING = NONE' in evidence
+          assert 'B030_STATE = COMPLETE_CANONICAL' not in evidence
+          print('SEMANTIC_SCOPE=PASS')
+          PY
+
+      - name: Focused B030 suite
+        working-directory: candidate
+        run: python -m pytest -q tests/contract/test_repository_health_delta_contract.py
+
+      - name: Full test suite
+        working-directory: candidate
+        run: python -m pytest -q
+
+      - name: Ruff
+        working-directory: candidate
+        run: python -m ruff check .
+
+      - name: Canonical mypy
+        working-directory: candidate
+        run: python -m mypy src
+
+      - name: Offline validation
+        working-directory: candidate
+        run: python -m mstr_qualify validate
+
+      - name: Final immutable live recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr-final.json
+          jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .merged == false and .mergeable == true and .base.sha == $base and .head.sha == $head' /tmp/pr-final.json >/dev/null
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          echo 'MANDATORY_PREMERGE=PASS'
