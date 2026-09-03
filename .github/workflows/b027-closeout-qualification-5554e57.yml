@@ -1,0 +1,192 @@
+name: Qualify B027 canonical closeout exact head-bound final candidate
+
+on:
+  push:
+    branches:
+      - evidence/b027-closeout-qualify-5554e57
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  actions: read
+
+env:
+  BASE_SHA: f667226dbf6cd380fefef5ff90fbc14eb1de3630
+  PREVIOUS_REVIEWED_HEAD: d8f50e13065fa5bcc4111c5e380d71623f890934
+  PREVIOUS_HEAD: d9e79da870be543af6b7e564c04c0839de2204d7
+  HEAD_SHA: 5554e5769295ccbff317ee71cf46907640247408
+  HEAD_TREE: 49fcf69675e00ae0c70acf48ae055015483c70e1
+  TARGET_BRANCH: docs/000b-b027-canonicalize
+  PR_NUMBER: '142'
+  BUILDER_RUN: '33762481245'
+  IMPLEMENTATION_POSTMERGE_RUN: '33761211923'
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - name: Verify exact identity, bounded scope, preserved campaign evidence, and review repair delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          git merge-base --is-ancestor "$BASE_SHA" "$HEAD_SHA"
+          git merge-base --is-ancestor "$PREVIOUS_REVIEWED_HEAD" "$HEAD_SHA"
+          git merge-base --is-ancestor "$PREVIOUS_HEAD" "$HEAD_SHA"
+          test "$(git rev-list --count "$BASE_SHA..$HEAD_SHA")" -eq 12
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '
+            .state == "open" and .draft == false and .mergeable == true and
+            .base.sha == $base and .head.sha == $head and .commits == 12 and .changed_files == 6
+          ' /tmp/pr.json
+
+          printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B027-ladder-pilot.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_b027_closeout_wording.py \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py | sort > /tmp/expected
+          git diff --name-only "$BASE_SHA...$HEAD_SHA" | sort > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          test -z "$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- src schemas configs/research artifacts/authorities artifacts/results/research/B027)"
+          test "$(git diff --name-only "$PREVIOUS_HEAD...$HEAD_SHA")" = "tests/contract/test_b027_closeout_wording.py"
+
+          git show "$PREVIOUS_REVIEWED_HEAD:evidence/mstr-000b/B027-ladder-pilot.md" > /tmp/evidence.previous
+          python - <<'PY'
+          from pathlib import Path
+          marker = "## Canonical Implementation Closeout"
+          previous = Path("/tmp/evidence.previous").read_text(encoding="utf-8")
+          current = Path("evidence/mstr-000b/B027-ladder-pilot.md").read_text(encoding="utf-8")
+          assert previous.split(marker, 1)[0] == current.split(marker, 1)[0]
+          PY
+
+          grep -F 'and "exact closeout head" in lowered' tests/contract/test_b027_closeout_wording.py
+          grep -F 'test_b027_closeout_detector_rejects_generic_guarded_merge_without_exact_head' tests/contract/test_b027_closeout_wording.py
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${BUILDER_RUN}" | jq -e '.status == "completed" and .conclusion == "success"'
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${IMPLEMENTATION_POSTMERGE_RUN}" | jq -e '.status == "completed" and .conclusion == "success"'
+
+  machine_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-prove B027 terminal candidate and separate downstream governance
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if python -m pip install -e '.[dev]'; then break; fi
+            test "$attempt" -lt 3
+            sleep 10
+          done
+          git update-ref refs/heads/main "$HEAD_SHA"
+          git update-ref refs/remotes/origin/main "$HEAD_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          set +e
+          mstr-qualify task eligible B027 > /tmp/b027.json; b027_rc=$?
+          mstr-qualify task eligible B011 > /tmp/b011.json; b011_rc=$?
+          mstr-qualify task eligible B031 > /tmp/b031.json; b031_rc=$?
+          set -e
+          test "$b027_rc" -eq 1
+          test "$b011_rc" -eq 1
+          test "$b031_rc" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b027.json
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/b011.json
+          jq -e '.eligible == false' /tmp/b031.json
+          jq -e '[.prerequisite_results[] | select(.task_id == "B027" and .observed_state == "COMPLETE_CANONICAL" and .evidence_present == true and .satisfied == true)] | length == 1' /tmp/b031.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install development gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if python -m pip install -e '.[dev]'; then exit 0; fi
+            test "$attempt" -lt 3
+            sleep 10
+          done
+          exit 1
+      - name: Focused closeout tests
+        run: python -m pytest tests/contract/test_b027_closeout_wording.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py -q
+      - name: Offline validation
+        run: python -m mstr_qualify validate
+      - name: Full pytest
+        run: python -m pytest -q
+      - name: Ruff
+        run: python -m ruff check .
+      - name: Strict mypy
+        run: python -m mypy src
+      - name: Re-prove exact-head-bound prospective wording and zero authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          normalized="$(tr '\n\t' '  ' < evidence/mstr-000b/B027-ladder-pilot.md | tr -s ' ' | tr '[:upper:]' '[:lower:]')"
+          grep -F 'b027 becomes canonical only when this exact closeout head is merged into canonical `main` through the required expected-head guard' <<< "$normalized"
+          grep -F 'terminal b027 closeout acceptance is recorded only when this exact closeout head is merged into canonical `main` through the required expected-head guard' <<< "$normalized"
+          grep -F 'and "exact closeout head" in lowered' tests/contract/test_b027_closeout_wording.py
+          grep -F 'test_b027_closeout_detector_rejects_generic_guarded_merge_without_exact_head' tests/contract/test_b027_closeout_wording.py
+          grep -F 'B027 is now canonical.' tests/contract/test_b027_closeout_wording.py
+          grep -F 'B027 is accepted on canonical main, and B027 becomes canonical only when this exact' tests/contract/test_b027_closeout_wording.py
+          grep -F -- '- [x] **B027 Qualify the research ladder with one non-weight-changing campaign.**' specs/002-code-model-supremacy-foundation/tasks.md
+          for marker in \
+            'MODEL_WEIGHT_ACCESS = NONE' \
+            'MODEL_EXECUTION = NONE' \
+            'RESEARCH_CAMPAIGN_EXTERNAL_EFFECT = NONE' \
+            'VERIFIER_EXTERNAL_EFFECT = NONE' \
+            'PAID_COMPUTE = NONE' \
+            'NETWORK_MODEL_OR_TEACHER_CALL = NONE' \
+            'WEIGHT_CHANGING_TRAINING = NONE' \
+            'Q4_EXECUTION = NONE' \
+            'PRODUCTION_RELEASE = NONE'; do
+            grep -F "$marker" evidence/mstr-000b/B027-ladder-pilot.md
+          done
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+
+  complete:
+    needs: [identity_scope, machine_gate, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - name: Final immutable exact-head recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          git merge-base --is-ancestor "$BASE_SHA" "$HEAD_SHA"
+          test "$(git rev-list --count "$BASE_SHA..$HEAD_SHA")" -eq 12
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" | jq -e --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '.state == "open" and .draft == false and .mergeable == true and .base.sha == $base and .head.sha == $head'
+          echo 'B027_CLOSEOUT_EXACT_HEAD_QUALIFICATION=PASS'
