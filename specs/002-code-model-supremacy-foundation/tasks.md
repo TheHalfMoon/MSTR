@@ -189,9 +189,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: contract/config, `evidence/mstr-000b/B026-research-ladder.md`.
   Canonical implementation: PR #137 / final head `ba672f8eaaa9fe96e9ffdcba39e10f6d4123e421` / merge `1aed67793fa14e6c9a7bbe4067ad521d16617b26`.
 
-- [ ] **B027 Qualify the research ladder with one non-weight-changing campaign.**  
+- [x] **B027 Qualify the research ladder with one non-weight-changing campaign.**  
   Use a bounded harness/config experiment. Demonstrate early discard, promotion, immutable evaluator authority, complete `MaterialResultIdentity` records and full ledger.  
   Outputs: `artifacts/results/research/B027/`, `evidence/mstr-000b/B027-ladder-pilot.md`.
+  Canonical implementation: PR #141 / final head `b5e152552f3b840fd74f2fe9b092eca17b56a91d` / merge `f667226dbf6cd380fefef5ff90fbc14eb1de3630`.
 
 - [x] **B028 Freeze Q4-in-the-loop promotion contract and training-method tournament preflight.**
   Require release-relevant Q4 regression after every material weight-changing stage and a fail-closed `Q4PromotionRecord` before a checkpoint may become the parent of another material stage. Supported comparisons MUST include 16-bit LoRA, 16-bit LoRA+rsLoRA, 4-bit QLoRA, and 4-bit QLoRA+rsLoRA where current backbone/framework support permits; every unsupported arm requires an exact recorded reason. Revalidate backbone/Unsloth/Transformers guidance immediately before execution.  
