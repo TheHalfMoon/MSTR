@@ -8,15 +8,12 @@ CATALOG_PATH = ROOT / "configs/task-gate/mstr-000b.json"
 TASKS_FILE = "specs/001-agent-harness-verified-loop-foundation/tasks.md"
 
 EVIDENCE_PATHS = {
-    "A004": "evidence/mstr-000a/A004-agent-state.md",
     "A005": "evidence/mstr-000a/A005-build-loop.md",
     "A006": "evidence/mstr-000a/A006-finalizer.md",
     "A007": "evidence/mstr-000a/A007-neutral-harness.md",
     "A008": "evidence/mstr-000a/A008-mstr-harness.md",
     "A009": "evidence/mstr-000a/A009-wepld-adapter.md",
     "A010": "evidence/mstr-000a/A010-capability-profile.md",
-    "A015": "evidence/mstr-000a/A015-direction-to-done.md",
-    "A016": "evidence/mstr-000a/A016-metrics.md",
     "A019": "evidence/mstr-000a/A019-harness-tournament.md",
     "A020": "evidence/mstr-000a/A020-autoresearch.md",
 }
@@ -33,36 +30,33 @@ Replace three prose-only fail-closed bindings with exact repository-owned MSTR-0
 
 ## B029 binding
 
-B029 freezes adaptive test-time compute and selective-context policy. The exact already-canonical MSTR-000A surfaces required before B029 may execute are:
+B029 requires the already-canonical MSTR-000A loop/context contract surfaces that are both semantically sufficient and directly machine-bindable:
 
-- `A004` — authoritative `AgentState`, uncertainty retention, and bounded compaction;
-- `A005` — `MSTR-BUILD-LOOP-v0`, repair/timeout/tool budgets, and recovery semantics;
-- `A006` — protected verifier/finalizer authority;
-- `A008` — explicit selective context plus bounded recovery cadence;
-- `A010` — evidence-derived reliable context budget, verifier cadence, and repair-depth contract.
+- `A005` — `MSTR-BUILD-LOOP-v0`, repair/timeout/tool budgets, recovery semantics, and the canonical AgentState dependency;
+- `A006` — protected verifier/finalizer authority used to justify bounded repair decisions;
+- `A008` — explicit selective context and bounded recovery cadence for the MSTR-native harness;
+- `A010` — evidence-derived reliable context budget, verifier cadence, and repair-depth capability profile.
 
-B020 remains the MSTR-000B checkpoint-relative difficulty prerequisite. The candidate changes B029 from `BLOCKED` to `PENDING`; the machine gate must prove every bound prerequisite `COMPLETE_CANONICAL` before returning `eligible=true`.
+B020 remains the MSTR-000B checkpoint-relative difficulty prerequisite. No synthetic binding is added for A001-A004: their required semantics are already consumed by these canonical downstream surfaces, and A001-A003 do not expose repository-owned state-evidence files in the MSTR-000A evidence namespace.
 
 ## B030 binding
 
-B030 freezes Repository Health Delta and cross-harness robustness evaluation. Its already-canonical A019-ready surfaces are:
+The canonical dependency text requires `A019-ready harness surfaces`. Those are the three already-canonical harness variants that A019 later compares:
 
 - `A007` — H0 neutral-minimal harness;
 - `A008` — H1 MSTR-native harness;
-- `A009` — H2 WePLD-native adapter;
-- `A015` — Direction-to-Done task taxonomy used for comparable task cells;
-- `A016` — DVCR/TTVC diagnostic metric surface that B030 explicitly extends with Repository Health Delta.
+- `A009` — H2 WePLD-native adapter.
 
-B024/B025 remain the MSTR-000B test-generation and feature/greenfield curriculum prerequisites. The candidate changes B030 from `BLOCKED` to `PENDING`; eligibility remains machine-derived.
+B024/B025 remain the MSTR-000B test-generation and feature/greenfield curriculum prerequisites. B030 itself freezes Repository Health Delta and raw/H0/H1/H2 attribution; this reconciliation does not pre-author or pre-implement those metrics.
 
 ## B031 binding
 
-B031 already names A019 and A020 as prerequisites. This reconciliation binds them to the MSTR-000A canonical checklist and their exact required evidence paths:
+B031 already names A019 and A020 as prerequisites. This reconciliation binds them to the MSTR-000A checklist and their exact required evidence paths:
 
 - `A019` -> `evidence/mstr-000a/A019-harness-tournament.md`;
 - `A020` -> `evidence/mstr-000a/A020-autoresearch.md`.
 
-Both tasks remain incomplete. Therefore B031 remains ineligible after this repair, but for real unsatisfied prerequisites rather than `prerequisite.missing_task_binding`. No A019/A020 completion is inferred.
+Both tasks remain incomplete and their evidence files do not yet exist. Therefore B031 remains ineligible after this repair, but for real unsatisfied prerequisites rather than `prerequisite.missing_task_binding`. No A019/A020 completion is inferred.
 
 ## Preserved hard stops
 
@@ -107,7 +101,6 @@ def test_convergence_bindings_are_exact_and_fail_closed() -> None:
     assert set(unresolved) == {"B011", "B013"}
     assert tasks["B029"]["canonical_state"] == "PENDING"
     assert tasks["B029"]["prerequisites"] == [
-        "A004",
         "A005",
         "A006",
         "A008",
@@ -119,8 +112,6 @@ def test_convergence_bindings_are_exact_and_fail_closed() -> None:
         "A007",
         "A008",
         "A009",
-        "A015",
-        "A016",
         "B024",
         "B025",
     ]
@@ -129,15 +120,12 @@ def test_convergence_bindings_are_exact_and_fail_closed() -> None:
     assert tasks["B013"]["canonical_state"] == "BLOCKED"
 
     expected_paths = {
-        "A004": "evidence/mstr-000a/A004-agent-state.md",
         "A005": "evidence/mstr-000a/A005-build-loop.md",
         "A006": "evidence/mstr-000a/A006-finalizer.md",
         "A007": "evidence/mstr-000a/A007-neutral-harness.md",
         "A008": "evidence/mstr-000a/A008-mstr-harness.md",
         "A009": "evidence/mstr-000a/A009-wepld-adapter.md",
         "A010": "evidence/mstr-000a/A010-capability-profile.md",
-        "A015": "evidence/mstr-000a/A015-direction-to-done.md",
-        "A016": "evidence/mstr-000a/A016-metrics.md",
         "A019": "evidence/mstr-000a/A019-harness-tournament.md",
         "A020": "evidence/mstr-000a/A020-autoresearch.md",
     }
@@ -176,7 +164,6 @@ def main() -> None:
     tasks = catalog["tasks"]
     tasks["B029"]["canonical_state"] = "PENDING"
     tasks["B029"]["prerequisites"] = [
-        "A004",
         "A005",
         "A006",
         "A008",
@@ -188,8 +175,6 @@ def main() -> None:
         "A007",
         "A008",
         "A009",
-        "A015",
-        "A016",
         "B024",
         "B025",
     ]

@@ -44,7 +44,8 @@ jobs:
             configs/task-gate/mstr-000b.json \
             evidence/mstr-000b/B029-B031-cross-workstream-binding-reconciliation.md \
             tests/contract/test_convergence_external_bindings.py | sort > /tmp/expected
-          git diff --name-only | sort > /tmp/actual
+          (git diff --name-only; git ls-files --others --exclude-standard) \
+            | sort > /tmp/actual
           diff -u /tmp/expected /tmp/actual
           git diff --check
       - name: Install development gates
