@@ -1,0 +1,6 @@
+{
+  "frozen_evaluation_identity": "sha256:b6f3d060a7cb48a7d34d5d98fb1e3687df1dd2becc7dcee29ea71de2cc5dc398",
+  "gate_id": "task_verifier_sampling_runtime_identity",
+  "schema_version": "mstr.research-verifier-manifest.v0",
+  "verifier_manifest_id": "b027-offline-verifier:task_verifier_sampling_runtime_identity"
+}

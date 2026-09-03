@@ -1,0 +1,7 @@
+{
+  "frozen_evaluation_identity": "sha256:b6f3d060a7cb48a7d34d5d98fb1e3687df1dd2becc7dcee29ea71de2cc5dc398",
+  "schema_version": "mstr.research-verifier-health.v0",
+  "status": "HEALTHY",
+  "verifier_health_id": "b027-offline-health:code_proxy_thresholds",
+  "verifier_manifest_identity": "sha256:f14051f2c5f6430a77a56adb11cb8466d731cfe5399da67304c456b7e0e128df"
+}
