@@ -200,7 +200,7 @@ def test_b027_harness_never_rewrites_canonical_refs(tmp_path: Path) -> None:
     assert candidate_head != canonical_entry
     _git(clone, "checkout", "-B", "test-b027-run", candidate_head)
     _git(clone, "branch", "--force", "main", canonical_entry)
-    _git(clone, "branch", "--force", "--remotes", "origin/main", canonical_entry)
+    _git(clone, "fetch", ".", f"{canonical_entry}:refs/remotes/origin/main")
     _git(clone, "config", "user.name", "B027 Contract Test")
     _git(clone, "config", "user.email", "b027-contract-test@example.invalid")
 
