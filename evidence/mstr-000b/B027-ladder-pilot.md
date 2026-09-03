@@ -84,7 +84,7 @@ PRODUCTION_RELEASE = NONE
 
 ## Canonical Implementation Closeout
 
-The B027 bounded non-weight-changing research-ladder campaign is now accepted on canonical main.
+Within this closeout candidate, `COMPLETE_CANONICAL` is a prospective terminal state and becomes canonical only when this exact closeout head is merged into canonical `main` through the required expected-head guard.
 This closeout records terminal task/provenance state only. It does not rerun or mutate the frozen
 campaign, evaluator, schemas, promotion policies, material-result records, model/runtime surfaces,
 or any authority artifact.
@@ -104,8 +104,9 @@ canonical ancestors, re-proved clean task drift and the pre-closeout B027 fronti
 and full quality gates, and preserved the zero-external-effect boundary. L0 remains the exact
 `PROMOTE` result and L1 remains the exact controlled `STOP` on `code_proxy_thresholds`; L2/L3/L4
 remain unexecuted. The premerge ledger fields such as `PENDING_POST_MERGE_VALIDATION` are immutable
-historical candidate metadata and are not rewritten post hoc; canonical acceptance is recorded by
-the guarded merge, post-merge proof, and this separate closeout.
+historical candidate metadata and are not rewritten post hoc. Canonical implementation acceptance
+is established by the guarded implementation merge and real-main post-merge proof; terminal B027
+closeout acceptance is recorded only by the guarded merge of this exact closeout head into canonical `main`.
 
 This closeout grants no model-weight access, model execution, teacher/API execution, paid compute,
 network model/teacher calls, data ingestion, verifier external effects, training/RL, Q4 execution,
