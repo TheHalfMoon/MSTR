@@ -1,7 +1,7 @@
 # B030 — Repository Health Delta + Cross-Harness Robustness Evidence
 
-**Task:** `B030`  
-**State:** `PENDING`  
+**Task:** `B030`
+**State:** `PENDING`
 **Canonical entry main:** `2d19b6296d550b5b60c1b511d71c6ce86a38d195`
 
 ## Exact Entry Gate
@@ -78,7 +78,7 @@ TECHNICAL_DEBT_ACCUMULATION
 CROSS_HARNESS_COMPARABILITY
 ```
 
-Each risk is `CLEAR`, `BLOCKING`, or `UNRESOLVED`. A comparison claim is `COMPARISON_ELIGIBLE` only when all three are `CLEAR`. Any `BLOCKING` or `UNRESOLVED` status forces `claim_decision=BLOCKED`.
+Each risk is `CLEAR`, `BLOCKING`, or `UNRESOLVED`. A comparison claim can be `COMPARISON_ELIGIBLE` only when all three are `CLEAR`; clear named risks are necessary but not sufficient, so additional blockers may still conservatively keep `claim_decision=BLOCKED`. Any `BLOCKING` or `UNRESOLVED` status forces `claim_decision=BLOCKED`.
 
 This means a strong H2 result cannot hide severe dependence on H2, and a good aggregate score cannot override accumulating technical debt or unresolved cross-harness comparability.
 
