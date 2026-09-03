@@ -2,7 +2,8 @@ name: Repair B027 canonical ref trust after review
 
 on:
   push:
-    branches: [evidence/b027-canonical-ref-review-repair]
+    branches:
+      - evidence/b027-canonical-ref-review-repair
 
 permissions:
   contents: write
@@ -20,10 +21,18 @@ jobs:
   repair:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
         with:
           ref: ${{ env.CANDIDATE_BRANCH }}
           fetch-depth: 0
+
+      - name: Checkout repair driver
+        uses: actions/checkout@v4
+        with:
+          ref: evidence/b027-canonical-ref-review-repair
+          path: _repair
+          fetch-depth: 1
 
       - name: Verify immutable repair entry
         shell: bash
@@ -46,205 +55,16 @@ jobs:
       - name: Install canonical development gates
         run: python -m pip install -e '.[dev]'
 
-      - name: Apply canonical-ref trust repair and regression coverage
+      - name: Apply canonical-ref trust repair
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
-
-          script_path = Path('scripts/research/b027_ladder_pilot.py')
-          text = script_path.read_text(encoding='utf-8')
-
-          old_import = 'from mstr_qualify.schemas import validate_instance\n'
-          new_import = (
-              'from jsonschema import Draft202012Validator\n\n'
-              'from mstr_qualify.schemas import load_schema, validate_instance\n'
-          )
-          assert text.count(old_import) == 1
-          text = text.replace(old_import, new_import, 1)
-
-          old_constants = (
-              'TASK_ID = "B027"\n'
-              'CAMPAIGN_ID = "b027-offline-ladder-pilot-v0"\n'
-          )
-          new_constants = (
-              'TASK_ID = "B027"\n'
-              'CAMPAIGN_ID = "b027-offline-ladder-pilot-v0"\n'
-              'CANONICAL_ENTRY_MAIN = "312d40eee8400a0dab94633f891b206f66a82855"\n'
-              '_CANONICAL_REFS = ("refs/heads/main", "refs/remotes/origin/main")\n'
-          )
-          assert text.count(old_constants) == 1
-          text = text.replace(old_constants, new_constants, 1)
-
-          old_validation = '''def _set_local_main(sha: str) -> None:\n    _git("update-ref", "refs/heads/main", sha)\n    _git("update-ref", "refs/remotes/origin/main", sha)\n\n\ndef _validate_record(record: dict[str, Any], head_sha: str) -> None:\n    _set_local_main(head_sha)\n    validate_instance("mstr-research-experiment-v2", record, repository_root=ROOT)\n'''
-          new_validation = '''def _resolve_ref(ref: str) -> str | None:\n    completed = subprocess.run(\n        ["git", "rev-parse", "--verify", f"{ref}^{{commit}}"],\n        cwd=ROOT,\n        check=False,\n        capture_output=True,\n        text=True,\n    )\n    value = completed.stdout.strip()\n    return value if completed.returncode == 0 and value else None\n\n\ndef _canonical_ref_snapshot() -> dict[str, str | None]:\n    return {ref: _resolve_ref(ref) for ref in _CANONICAL_REFS}\n\n\ndef _require_trusted_canonical_entry(\n    expected_sha: str = CANONICAL_ENTRY_MAIN,\n) -> dict[str, str | None]:\n    snapshot = _canonical_ref_snapshot()\n    origin_main = snapshot["refs/remotes/origin/main"]\n    local_main = snapshot["refs/heads/main"]\n    if origin_main != expected_sha:\n        raise RuntimeError(\n            f"origin/main is not the trusted B027 canonical entry: {origin_main!r}"\n        )\n    if local_main is not None and local_main != expected_sha:\n        raise RuntimeError(\n            f"local main disagrees with the trusted B027 canonical entry: {local_main!r}"\n        )\n    return snapshot\n\n\ndef _is_ancestor(ancestor: str, descendant: str) -> bool:\n    completed = subprocess.run(\n        ["git", "merge-base", "--is-ancestor", ancestor, descendant],\n        cwd=ROOT,\n        check=False,\n        capture_output=True,\n        text=True,\n    )\n    if completed.returncode not in {0, 1}:\n        raise RuntimeError(\n            f"unable to compare Git ancestry: {ancestor} -> {descendant}: "\n            f"{completed.stderr.strip()}"\n        )\n    return completed.returncode == 0\n\n\ndef _is_strict_ancestor(ancestor: str, descendant: str) -> bool:\n    return ancestor != descendant and _is_ancestor(ancestor, descendant)\n\n\ndef _validate_schema_shape(record: dict[str, Any]) -> None:\n    schema = load_schema("mstr-research-experiment-v2")\n    errors = sorted(\n        Draft202012Validator(schema).iter_errors(record),\n        key=lambda error: tuple(str(part) for part in error.absolute_path),\n    )\n    if errors:\n        joined = "; ".join(error.message for error in errors)\n        raise RuntimeError(f"B027 candidate record schema validation failed: {joined}")\n\n\ndef _validate_record_candidate(record: dict[str, Any], head_sha: str) -> None:\n    before = _require_trusted_canonical_entry()\n    try:\n        _validate_schema_shape(record)\n        if not _is_ancestor(CANONICAL_ENTRY_MAIN, head_sha):\n            raise RuntimeError("candidate head does not descend from canonical B027 entry")\n        freeze_sha = record.get("campaign_freeze_commit_sha_or_na")\n        evidence_sha = record.get("canonical_evidence_commit_sha_or_na")\n        if not isinstance(freeze_sha, str) or len(freeze_sha) != 40:\n            raise RuntimeError("candidate campaign freeze commit is not concrete")\n        if not isinstance(evidence_sha, str) or len(evidence_sha) != 40:\n            raise RuntimeError("candidate evidence commit is not concrete")\n        if not _is_strict_ancestor(freeze_sha, evidence_sha):\n            raise RuntimeError("candidate freeze must strictly precede evidence")\n        if not _is_ancestor(evidence_sha, head_sha):\n            raise RuntimeError("candidate evidence is not visible at candidate head")\n\n        predecessor = record.get("predecessor_promotion")\n        if isinstance(predecessor, dict):\n            experiment_id = predecessor.get("experiment_id")\n            expected_digest = predecessor.get("experiment_record_sha256")\n            if not isinstance(experiment_id, str) or not isinstance(expected_digest, str):\n                raise RuntimeError("candidate predecessor binding is incomplete")\n            predecessor_path = RESULT_ROOT / "registry" / f"{experiment_id}.json"\n            raw = predecessor_path.read_bytes()\n            actual_digest = hashlib.sha256(raw).hexdigest()\n            if actual_digest != expected_digest:\n                raise RuntimeError("candidate predecessor registry digest mismatch")\n            predecessor_record = json.loads(raw)\n            predecessor_evidence = predecessor_record.get(\n                "canonical_evidence_commit_sha_or_na"\n            )\n            if not isinstance(predecessor_evidence, str) or len(predecessor_evidence) != 40:\n                raise RuntimeError("candidate predecessor evidence commit is not concrete")\n            if not _is_strict_ancestor(predecessor_evidence, freeze_sha):\n                raise RuntimeError(\n                    "candidate predecessor evidence must precede successor freeze"\n                )\n    finally:\n        after = _canonical_ref_snapshot()\n        if after != before:\n            raise RuntimeError("B027 candidate validation mutated canonical Git refs")\n\n\ndef _require_current_canonical_main() -> tuple[str, dict[str, str | None]]:\n    snapshot = _canonical_ref_snapshot()\n    origin_main = snapshot["refs/remotes/origin/main"]\n    local_main = snapshot["refs/heads/main"]\n    if origin_main is None:\n        raise RuntimeError("origin/main is unavailable for canonical validation")\n    if local_main is not None and local_main != origin_main:\n        raise RuntimeError("local main disagrees with origin/main")\n    if not _is_ancestor(CANONICAL_ENTRY_MAIN, origin_main):\n        raise RuntimeError("canonical main no longer descends from the B027 entry commit")\n    return origin_main, snapshot\n\n\ndef _validate_record_canonical(record: dict[str, Any]) -> None:\n    _canonical_main, before = _require_current_canonical_main()\n    try:\n        validate_instance("mstr-research-experiment-v2", record, repository_root=ROOT)\n    finally:\n        after = _canonical_ref_snapshot()\n        if after != before:\n            raise RuntimeError("B027 canonical validation mutated canonical Git refs")\n'''
-          assert text.count(old_validation) == 1
-          text = text.replace(old_validation, new_validation, 1)
-
-          text = text.replace('_validate_record(l0, l0_registry)', '_validate_record_candidate(l0, l0_registry)')
-          text = text.replace('_validate_record(l1, l1_registry)', '_validate_record_candidate(l1, l1_registry)')
-          text = text.replace('_validate_record(l0, final)', '_validate_record_candidate(l0, final)')
-          text = text.replace('_validate_record(l1, final)', '_validate_record_candidate(l1, final)')
-          assert '_validate_record(' not in text
-          assert '_set_local_main' not in text
-
-          old_run = 'def run() -> None:\n    script_digest = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()\n'
-          new_run = (
-              'def run() -> None:\n'
-              '    _require_trusted_canonical_entry()\n'
-              '    script_digest = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()\n'
-          )
-          assert text.count(old_run) == 1
-          text = text.replace(old_run, new_run, 1)
-
-          old_ledger = '        "canonical_entry_main": "312d40eee8400a0dab94633f891b206f66a82855",\n        "frozen_evaluation_identity": evaluator_identity,\n'
-          new_ledger = (
-              '        "canonical_entry_main": CANONICAL_ENTRY_MAIN,\n'
-              '        "canonical_history_status": "PENDING_POST_MERGE_VALIDATION",\n'
-              '        "candidate_validation_kind": "PROSPECTIVE_NO_CANONICAL_REF_REWRITE",\n'
-              '        "frozen_evaluation_identity": evaluator_identity,\n'
-          )
-          assert text.count(old_ledger) == 1
-          text = text.replace(old_ledger, new_ledger, 1)
-
-          old_manifest = '        "canonical_entry_main": "312d40eee8400a0dab94633f891b206f66a82855",\n        "harness_path": "scripts/research/b027_ladder_pilot.py",\n'
-          new_manifest = (
-              '        "canonical_entry_main": CANONICAL_ENTRY_MAIN,\n'
-              '        "canonical_history_status": "PENDING_POST_MERGE_VALIDATION",\n'
-              '        "candidate_validation_kind": "PROSPECTIVE_NO_CANONICAL_REF_REWRITE",\n'
-              '        "harness_path": "scripts/research/b027_ladder_pilot.py",\n'
-          )
-          assert text.count(old_manifest) == 1
-          text = text.replace(old_manifest, new_manifest, 1)
-
-          old_evidence_marker = '- full ledger: `artifacts/results/research/B027/campaign-ledger.json`\n'
-          new_evidence_marker = (
-              '- full ledger: `artifacts/results/research/B027/campaign-ledger.json`\n'
-              '- premerge canonical-history status: `PENDING_POST_MERGE_VALIDATION`\n'
-              '- premerge validation kind: `PROSPECTIVE_NO_CANONICAL_REF_REWRITE`\n'
-          )
-          assert text.count(old_evidence_marker) == 1
-          text = text.replace(old_evidence_marker, new_evidence_marker, 1)
-
-          old_evidence_para = 'The L1 record consumes the exact L0 promoted result through the immutable predecessor registry\nbinding. Promotion policies precede their evidence commits, gate observations are derived from\ncontent-addressed verifier results, and the same frozen evaluator identity is used across both\nlevels.\n'
-          new_evidence_para = old_evidence_para + (
-              '\nPremerge candidate validation never rewrites `refs/heads/main` or\n'
-              '`refs/remotes/origin/main` and does not claim that feature-only campaign commits are\n'
-              'already canonical. Full `mstr.research-experiment.v2` canonical-history semantic\n'
-              'validation is intentionally deferred to mandatory post-merge verification on real\n'
-              '`main`, where the campaign commits must actually be canonical ancestors.\n'
-          )
-          assert text.count(old_evidence_para) == 1
-          text = text.replace(old_evidence_para, new_evidence_para, 1)
-
-          script_path.write_text(text, encoding='utf-8')
-
-          test_path = Path('tests/contract/test_b027_ladder_pilot.py')
-          tests = test_path.read_text(encoding='utf-8')
-          old_test_imports = 'import hashlib\nimport json\nfrom pathlib import Path\n'
-          new_test_imports = (
-              'import hashlib\n'
-              'import importlib.util\n'
-              'import json\n'
-              'import subprocess\n'
-              'from pathlib import Path\n\n'
-              'import pytest\n\n'
-              'from mstr_qualify.errors import SchemaValidationError\n'
-          )
-          assert tests.count(old_test_imports) == 1
-          tests = tests.replace(old_test_imports, new_test_imports, 1)
-
-          regression = r'''
-
-
-def _git(root: Path, *args: str) -> str:
-    completed = subprocess.run(
-        ["git", *args],
-        cwd=root,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return completed.stdout.strip()
-
-
-def test_b027_canonical_validation_fails_closed_without_mutating_refs(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    clone = tmp_path / "repo"
-    subprocess.run(
-        ["git", "clone", "--no-hardlinks", str(ROOT), str(clone)],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    candidate_head = _git(ROOT, "rev-parse", "HEAD")
-    canonical_entry = "312d40eee8400a0dab94633f891b206f66a82855"
-    assert candidate_head != canonical_entry
-    _git(clone, "checkout", "--detach", candidate_head)
-    _git(clone, "update-ref", "refs/heads/main", canonical_entry)
-    _git(clone, "update-ref", "refs/remotes/origin/main", canonical_entry)
-
-    spec = importlib.util.spec_from_file_location(
-        "b027_ladder_pilot_regression",
-        ROOT / "scripts" / "research" / "b027_ladder_pilot.py",
-    )
-    assert spec is not None and spec.loader is not None
-    pilot = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(pilot)
-    monkeypatch.setattr(pilot, "ROOT", clone)
-    monkeypatch.setattr(
-        pilot,
-        "RESULT_ROOT",
-        clone / "artifacts" / "results" / "research" / "B027",
-    )
-
-    record = json.loads(
-        (
-            clone
-            / "artifacts"
-            / "results"
-            / "research"
-            / "B027"
-            / "registry"
-            / "b027-l0-contract-smoke.json"
-        ).read_text(encoding="utf-8")
-    )
-    before = {
-        ref: _git(clone, "rev-parse", "--verify", f"{ref}^{{commit}}")
-        for ref in ("refs/heads/main", "refs/remotes/origin/main")
-    }
-    with pytest.raises(SchemaValidationError):
-        pilot._validate_record_canonical(record)
-    after = {
-        ref: _git(clone, "rev-parse", "--verify", f"{ref}^{{commit}}")
-        for ref in ("refs/heads/main", "refs/remotes/origin/main")
-    }
-    assert after == before
-    assert before == {
-        "refs/heads/main": canonical_entry,
-        "refs/remotes/origin/main": canonical_entry,
-    }
-
-
-def test_b027_harness_never_rewrites_canonical_refs() -> None:
-    source = (ROOT / "scripts" / "research" / "b027_ladder_pilot.py").read_text(
-        encoding="utf-8"
-    )
-    assert "update-ref" not in source
-'''
-          assert 'test_b027_canonical_validation_fails_closed_without_mutating_refs' not in tests
-          tests += regression
-          test_path.write_text(tests, encoding='utf-8')
-          PY
-
+          python _repair/tools/b027_repair.py
           python -m ruff check scripts/research/b027_ladder_pilot.py tests/contract/test_b027_ladder_pilot.py
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
           test "$(git ls-remote origin refs/heads/$CANDIDATE_BRANCH | cut -f1)" = "$EXPECTED_OLD_HEAD"
 
-      - name: Commit trust-boundary repair before campaign regeneration
+      - name: Commit trust-boundary repair before regeneration
         shell: bash
         run: |
           set -euo pipefail
