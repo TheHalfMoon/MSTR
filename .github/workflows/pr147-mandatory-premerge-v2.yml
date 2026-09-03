@@ -1,0 +1,169 @@
+name: Mandatory premerge verification PR 147 v2
+
+on:
+  push:
+    branches:
+      - evidence/pr147-mandatory-premerge-be51ea1-v2
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+jobs:
+  premerge:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: b20349c23ada1130f98e28c0e1e3db56ed692d13
+      EXPECTED_HEAD: be51ea1975790657b0ca6056a3ccc19f85f1b78f
+      EXPECTED_TREE: ccddbded39bb1a475ed144c51cda0bd65edf4823
+      TARGET_BRANCH: fix/000b-convergence-cross-workstream-bindings-v5
+      PR_NUMBER: '147'
+      QUALIFICATION_RUN: '33781997319'
+      INDEPENDENT_REVIEW_RUN: '33785711999'
+      INDEPENDENT_REVIEW_BRANCH: evidence/pr147-independent-deterministic-review-v3
+      INDEPENDENT_REVIEW_SHA: c7b1fb81628c7f47072d5742b492469c9896be9f
+    steps:
+      - name: Checkout expected canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+          path: canonical
+          persist-credentials: false
+
+      - name: Checkout exact PR candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+
+      - name: Verify expected main, head, tree, ancestry, and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git -C canonical rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git -C candidate rev-parse HEAD^)" = "$EXPECTED_MAIN"
+
+          printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B029-B031-cross-workstream-binding-reconciliation.md \
+            tests/contract/test_convergence_external_bindings.py | sort > /tmp/expected-files
+          git -C candidate diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git -C candidate diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          echo 'PREMERGE_IDENTITY_SCOPE=PASS'
+
+      - name: Verify live PR state and mergeability
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+            mergeable="$(jq -r '.mergeable' /tmp/pr.json)"
+            if [ "$mergeable" != 'null' ]; then break; fi
+            sleep 2
+          done
+          jq -e --arg main "$EXPECTED_MAIN" --arg head "$EXPECTED_HEAD" --arg branch "$TARGET_BRANCH" '
+            .state == "open" and
+            .draft == false and
+            .base.ref == "main" and
+            .base.sha == $main and
+            .head.ref == $branch and
+            .head.sha == $head and
+            .changed_files == 3 and
+            .mergeable == true and
+            (.mergeable_state == "clean" or .mergeable_state == "unstable")
+          ' /tmp/pr.json >/dev/null
+          echo 'PREMERGE_PR_STATE_MERGEABILITY=PASS'
+
+      - name: Verify qualification and independent substantive review evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN}" > /tmp/qualification.json
+          jq -e '.status == "completed" and .conclusion == "success" and .event == "push"' /tmp/qualification.json >/dev/null
+
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${INDEPENDENT_REVIEW_RUN}" > /tmp/review.json
+          jq -e --arg branch "$INDEPENDENT_REVIEW_BRANCH" --arg sha "$INDEPENDENT_REVIEW_SHA" '
+            .status == "completed" and
+            .conclusion == "success" and
+            .event == "push" and
+            .head_branch == $branch and
+            .head_sha == $sha and
+            .path == ".github/workflows/pr147-independent-deterministic-review-v3.yml"
+          ' /tmp/review.json >/dev/null
+
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${INDEPENDENT_REVIEW_RUN}/jobs?per_page=100" > /tmp/review-jobs.json
+          jq -e '[.jobs[] | select(.conclusion == "success")] | length >= 1' /tmp/review-jobs.json >/dev/null
+          echo 'PREMERGE_QUALIFICATION_REVIEW_EVIDENCE=PASS'
+
+      - name: Verify no unresolved review conversations or requested changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" > /tmp/reviews.json
+          test "$(jq '[.[] | select(.state == "CHANGES_REQUESTED")] | length' /tmp/reviews.json)" -eq 0
+
+          gh api graphql \
+            -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' \
+            -f owner='TheHalfMoon' \
+            -f name='MSTR' \
+            -F number=147 > /tmp/threads.json
+          test "$(jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length' /tmp/threads.json)" -eq 0
+          echo 'PREMERGE_REVIEW_RECONCILIATION=PASS'
+
+      - name: Verify required protection and classify optional checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/branches/main" > /tmp/main-branch.json
+          gh api "repos/${GITHUB_REPOSITORY}/rulesets" > /tmp/rulesets.json
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD}/check-runs" > /tmp/check-runs.json
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD}/status" > /tmp/status.json
+
+          test "$(jq -r '.protected' /tmp/main-branch.json)" = 'false'
+          test "$(jq 'length' /tmp/rulesets.json)" -eq 0
+
+          bad_checks="$(jq '[.check_runs[] | select(.status == "completed") | select(.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped")] | length' /tmp/check-runs.json)"
+          pending_checks="$(jq '[.check_runs[] | select(.status != "completed")] | length' /tmp/check-runs.json)"
+          bad_statuses="$(jq '[.statuses[] | select(.state == "failure" or .state == "error")] | length' /tmp/status.json)"
+          pending_statuses="$(jq '[.statuses[] | select(.state == "pending")] | length' /tmp/status.json)"
+
+          test "$bad_checks" -eq 0
+          test "$bad_statuses" -eq 0
+
+          echo 'REQUIRED_PROTECTED_CHECKS=NONE'
+          echo "OPTIONAL_CHECK_RUNS_TOTAL=$(jq -r '.total_count' /tmp/check-runs.json)"
+          echo "OPTIONAL_CHECK_RUNS_PENDING=$pending_checks"
+          echo "OPTIONAL_STATUSES_TOTAL=$(jq '.statuses | length' /tmp/status.json)"
+          echo "OPTIONAL_STATUSES_PENDING=$pending_statuses"
+          echo 'PREMERGE_PROTECTION_RULESET_CHECK_CLASSIFICATION=PASS'
+
+      - name: Re-verify immutable expected head immediately before completion
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')" = "$EXPECTED_HEAD"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.sha')" = "$EXPECTED_MAIN"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')" = 'open'
+          echo 'MANDATORY_PREMERGE_VERIFICATION=PASS'
