@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +45,18 @@ def _git(*args: str) -> str:
         check=True,
         capture_output=True,
         text=True,
+    )
+    return completed.stdout.strip()
+
+
+def _git_at(root: Path, *args: str, input_text: str | None = None) -> str:
+    completed = subprocess.run(
+        ["git", *args],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+        input=input_text,
     )
     return completed.stdout.strip()
 
@@ -527,6 +540,59 @@ def _validate_record_canonical(record: dict[str, Any]) -> None:
             raise RuntimeError("B027 canonical validation mutated canonical Git refs")
 
 
+def _validate_records_synthetic_merge(
+    records: tuple[dict[str, Any], ...],
+    candidate_head: str,
+) -> None:
+    """Preflight full semantics without mutating canonical refs in the real repo."""
+
+    before = _canonical_ref_snapshot()
+    try:
+        with tempfile.TemporaryDirectory(prefix="mstr-b027-semantic-") as temp_dir:
+            clone = Path(temp_dir) / "repo"
+            subprocess.run(
+                ["git", "clone", "--no-hardlinks", str(ROOT), str(clone)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            _git_at(clone, "checkout", "--detach", candidate_head)
+            tree_sha = _git_at(clone, "rev-parse", f"{candidate_head}^{{tree}}")
+            synthetic_merge = _git_at(
+                clone,
+                "-c",
+                "user.name=B027 Semantic Preflight",
+                "-c",
+                "user.email=b027-preflight@example.invalid",
+                "commit-tree",
+                tree_sha,
+                "-p",
+                CANONICAL_ENTRY_MAIN,
+                "-p",
+                candidate_head,
+                input_text="synthetic B027 premerge semantic validation only\n",
+            )
+            _git_at(clone, "branch", "--force", "main", synthetic_merge)
+            _git_at(
+                clone,
+                "branch",
+                "--force",
+                "--remotes",
+                "origin/main",
+                synthetic_merge,
+            )
+            for record in records:
+                validate_instance(
+                    "mstr-research-experiment-v2",
+                    record,
+                    repository_root=clone,
+                )
+    finally:
+        after = _canonical_ref_snapshot()
+        if after != before:
+            raise RuntimeError("B027 semantic preflight mutated canonical Git refs")
+
+
 def _write_final_docs(
     *,
     evaluator_identity: str,
@@ -742,6 +808,7 @@ def run() -> None:
     _, l1_digest = _registry_write(l1)
     l1_registry = _commit_all("evidence(mstr-000b): record B027 L1 early discard")
     _validate_record_candidate(l1, l1_registry)
+    _validate_records_synthetic_merge((l0, l1), l1_registry)
 
     commits = {
         "l0_freeze": l0_freeze,
