@@ -1,0 +1,120 @@
+name: Qualify PR 149 B029 adaptive inference
+
+on:
+  push:
+    branches:
+      - evidence/pr149-b029-qualification
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: 1179515986ee2311ec1cd675fd899a6143c03761
+  EXPECTED_HEAD: f449f81fc3e7343052b54b09b0481d64963d7e2f
+  EXPECTED_TREE: 40c3521fe0b6119c50eacc711675c72139887d51
+  TARGET_BRANCH: feat/000b-b029-adaptive-inference
+  PR_NUMBER: '149'
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+          path: canonical
+          persist-credentials: false
+
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify live exact identity and atomic scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git -C candidate rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .head.sha)" = "$EXPECTED_HEAD"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .base.sha)" = "$EXPECTED_MAIN"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .state)" = "open"
+          cat > /tmp/expected-files <<'EOF'
+          evidence/mstr-000b/B029-adaptive-inference.md
+          schemas/mstr-adaptive-inference-policy-v0.schema.json
+          schemas/mstr-selective-context-config-v0.schema.json
+          specs/002-code-model-supremacy-foundation/contracts/README.md
+          specs/002-code-model-supremacy-foundation/contracts/mstr-adaptive-inference-policy-v0.schema.json
+          specs/002-code-model-supremacy-foundation/contracts/mstr-selective-context-config-v0.schema.json
+          src/mstr_qualify/schemas.py
+          tests/contract/test_adaptive_inference_contract.py
+          tests/contract/test_schemas.py
+          tests/fixtures/schemas/invalid/mstr-adaptive-inference-policy-v0.json
+          tests/fixtures/schemas/invalid/mstr-selective-context-config-v0.json
+          tests/fixtures/schemas/valid/mstr-adaptive-inference-policy-v0.json
+          tests/fixtures/schemas/valid/mstr-selective-context-config-v0.json
+          tests/integration/test_cli_offline.py
+          EOF
+          sed -i 's/^          //' /tmp/expected-files
+          sort -o /tmp/expected-files /tmp/expected-files
+          git -C candidate diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" | sort > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git -C candidate diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          test -z "$(git -C candidate diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" -- configs/task-gate specs/002-code-model-supremacy-foundation/tasks.md artifacts/authorities)"
+          echo 'PR149_EXACT_IDENTITY_SCOPE=PASS'
+
+      - name: Install exact candidate tooling
+        run: python -m pip install -e './candidate[dev]'
+
+      - name: Focused B029 contract tests
+        working-directory: candidate
+        run: python -m pytest -q tests/contract/test_adaptive_inference_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py::test_validate_self_checks_schemas_and_fixtures
+
+      - name: Offline validation
+        working-directory: candidate
+        run: python -m mstr_qualify validate
+
+      - name: Full test suite
+        working-directory: candidate
+        run: python -m pytest -q
+
+      - name: Ruff
+        working-directory: candidate
+        run: python -m ruff check .
+
+      - name: Canonical mypy
+        working-directory: candidate
+        run: python -m mypy src
+
+      - name: Re-verify exact immutable head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .head.sha)" = "$EXPECTED_HEAD"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .base.sha)" = "$EXPECTED_MAIN"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          echo 'PR149_EXACT_HEAD_QUALIFICATION=PASS'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'PAID_COMPUTE=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
+          echo 'PRODUCTION_RELEASE=NONE'
