@@ -1,0 +1,119 @@
+name: Build B030 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/b030-closeout-builder-986cdfd
+
+permissions:
+  contents: write
+  actions: read
+  pull-requests: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_MAIN: 986cdfdaa2ddc64458a7681caf174f3a0e434a1f
+      TARGET_BRANCH: docs/000b-b030-canonicalize
+      POSTMERGE_RUN: '33807105329'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: evidence/b030-closeout-builder-986cdfd
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Preserve builder and prove exact closeout entry
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp tools/evidence/build_b030_closeout.py /tmp/build_b030_closeout.py
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/${POSTMERGE_RUN} --jq .status)" = completed
+          test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/${POSTMERGE_RUN} --jq .conclusion)" = success
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/entry-drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/entry-drift.json >/dev/null
+          mstr-qualify task eligible B030 > /tmp/b030-entry.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .reasons == []' /tmp/b030-entry.json >/dev/null
+          echo 'B030_CLOSEOUT_ENTRY=PASS'
+      - name: Materialize exact five-file closeout scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/build_b030_closeout.py
+          python -m ruff format tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py
+          git diff --check
+          mapfile -t actual < <(git diff --name-only | sort)
+          expected=(
+            configs/task-gate/mstr-000b.json
+            evidence/mstr-000b/B030-long-horizon-quality.md
+            specs/002-code-model-supremacy-foundation/tasks.md
+            tests/contract/test_convergence_external_bindings.py
+            tests/contract/test_task_gate.py
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 5
+          diff -u <(printf '%s\n' "${wanted[@]}") <(printf '%s\n' "${actual[@]}")
+          test -z "$(git diff --name-only -- schemas specs/002-code-model-supremacy-foundation/contracts tests/fixtures src)"
+          grep -F '**State:** COMPLETE_CANONICAL' evidence/mstr-000b/B030-long-horizon-quality.md
+          grep -F 'ENTRY_GATE_TASK = B030' evidence/mstr-000b/B030-long-horizon-quality.md
+          grep -F 'ENTRY_GATE_CANONICAL_MAIN = 2d19b6296d550b5b60c1b511d71c6ce86a38d195' evidence/mstr-000b/B030-long-horizon-quality.md
+          grep -F 'ENTRY_GATE_ELIGIBLE = true' evidence/mstr-000b/B030-long-horizon-quality.md
+          grep -F 'Canonical implementation: PR #151 / final head `00502aba975e4fa1c2780e5cca1c779fc6b64f27` / merge `986cdfdaa2ddc64458a7681caf174f3a0e434a1f`.' specs/002-code-model-supremacy-foundation/tasks.md
+          test "$(grep -c 'evaluate_task_snapshot("B030"' tests/contract/test_task_gate.py)" -eq 1
+          echo 'B030_CLOSEOUT_SCOPE=PASS'
+      - name: Run closeout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py tests/contract/test_repository_health_delta_contract.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          echo 'B030_CLOSEOUT_QUALITY=PASS'
+      - name: Commit, prove prospective semantics, and publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add configs/task-gate/mstr-000b.json evidence/mstr-000b/B030-long-horizon-quality.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_convergence_external_bindings.py tests/contract/test_task_gate.py
+          git commit -m "docs(mstr-000b): canonicalize B030 closeout"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-list --count "$EXPECTED_MAIN"..HEAD)" -eq 1
+          CLOSEOUT_HEAD=$(git rev-parse HEAD)
+          git update-ref refs/heads/main "$CLOSEOUT_HEAD"
+          git update-ref refs/remotes/origin/main "$CLOSEOUT_HEAD"
+          mstr-qualify task drift > /tmp/prospective-drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/prospective-drift.json >/dev/null
+          if mstr-qualify task eligible B030 > /tmp/b030.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b030.json >/dev/null
+          if mstr-qualify task eligible B031 > /tmp/b031.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and ((.reasons | index("prerequisite.unsatisfied:A019")) != null) and ((.reasons | index("prerequisite.unsatisfied:A020")) != null) and ((.reasons | index("prerequisite.unsatisfied:B030")) == null)' /tmp/b031.json >/dev/null
+          jq -e '[.prerequisite_results[] | select(.task_id == "B030")][0] | .observed_state == "COMPLETE_CANONICAL" and .evidence_present == true and .satisfied == true' /tmp/b031.json >/dev/null
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.satisfied == false' /tmp/b011.json >/dev/null
+          if mstr-qualify task eligible B013 > /tmp/b013.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and ((.reasons | index("prerequisite.unsatisfied:B012")) != null)' /tmp/b013.json >/dev/null
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "B030_CLOSEOUT_HEAD=$CLOSEOUT_HEAD"
+          echo "B030_CLOSEOUT_TREE=$(git rev-parse HEAD^{tree})"
+          echo 'B030_CLOSEOUT_FILES=5'
+          echo 'B030_RUNTIME_CONTRACT_MUTATION=NONE'
+          echo 'B031_REMAINS_BLOCKED_BY=A019,A020'
+          echo 'B011_AUTHORITY_BOUNDARY=PRESERVED'
