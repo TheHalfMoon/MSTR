@@ -1,0 +1,155 @@
+name: Independent review PR150 B029 closeout
+
+on:
+  push:
+    branches:
+      - evidence/pr150-b029-closeout-independent-review
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  BASE_SHA: b3223bb384d8723c37a28526be691cedf8174dc3
+  HEAD_SHA: 70b39b3fd4dd4cd4b1ebe228e687e969bb201112
+  EXPECTED_TREE: 3e6b404e65e1eec6c5f07bdafc8aa92ee3638cb3
+  TARGET_BRANCH: docs/000b-b029-canonicalize
+
+jobs:
+  semantic_review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Review exact-head closeout semantics independently
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          test "$(git rev-parse "$HEAD_SHA^{tree}")" = "$EXPECTED_TREE"
+          test "$(git rev-parse "$HEAD_SHA^")" = "$BASE_SHA"
+          mapfile -t actual < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort)
+          expected=(
+            configs/task-gate/mstr-000b.json
+            evidence/mstr-000b/B029-adaptive-inference.md
+            specs/002-code-model-supremacy-foundation/tasks.md
+            tests/contract/test_convergence_external_bindings.py
+            tests/contract/test_task_gate.py
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${wanted[@]}") <(printf '%s\n' "${actual[@]}")
+          test -z "$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- schemas specs/002-code-model-supremacy-foundation/contracts tests/fixtures src)"
+          python - <<'PY'
+          import json
+          import re
+          import subprocess
+
+          BASE = "b3223bb384d8723c37a28526be691cedf8174dc3"
+          HEAD = "70b39b3fd4dd4cd4b1ebe228e687e969bb201112"
+
+          def show(ref: str, path: str) -> str:
+              return subprocess.check_output(["git", "show", f"{ref}:{path}"], text=True)
+
+          base_catalog = json.loads(show(BASE, "configs/task-gate/mstr-000b.json"))
+          head_catalog = json.loads(show(HEAD, "configs/task-gate/mstr-000b.json"))
+          assert base_catalog["tasks"]["B029"]["canonical_state"] == "PENDING"
+          assert head_catalog["tasks"]["B029"]["canonical_state"] == "COMPLETE_CANONICAL"
+          normalized = json.loads(json.dumps(head_catalog))
+          normalized["tasks"]["B029"]["canonical_state"] = "PENDING"
+          assert normalized == base_catalog, "catalog mutation exceeds B029 canonical_state closeout"
+
+          base_tasks = show(BASE, "specs/002-code-model-supremacy-foundation/tasks.md")
+          head_tasks = show(HEAD, "specs/002-code-model-supremacy-foundation/tasks.md")
+          pattern = re.compile(r"- \[[ xX]\] \*\*B029 .*?(?=\n- \[[ xX]\] \*\*B030 )", re.S)
+          base_match = pattern.search(base_tasks)
+          head_match = pattern.search(head_tasks)
+          assert base_match and head_match
+          assert base_tasks[:base_match.start()] == head_tasks[:head_match.start()]
+          assert base_tasks[base_match.end():] == head_tasks[head_match.end():]
+          block = head_match.group(0)
+          assert block.startswith("- [x] **B029 ")
+          assert "Canonical implementation: PR #149" in block
+          assert "f449f81fc3e7343052b54b09b0481d64963d7e2f" in block
+          assert "b3223bb384d8723c37a28526be691cedf8174dc3" in block
+
+          base_conv = show(BASE, "tests/contract/test_convergence_external_bindings.py")
+          head_conv = show(HEAD, "tests/contract/test_convergence_external_bindings.py")
+          assert head_conv.count('assert tasks["B029"]["canonical_state"] == "COMPLETE_CANONICAL"') == 2
+          restored = head_conv.replace(
+              'assert tasks["B029"]["canonical_state"] == "COMPLETE_CANONICAL"',
+              'assert tasks["B029"]["canonical_state"] == "PENDING"',
+          )
+          assert restored == base_conv, "convergence mutation exceeds terminal-state expectation update"
+
+          evidence = show(HEAD, "evidence/mstr-000b/B029-adaptive-inference.md")
+          required = [
+              "**State:** COMPLETE_CANONICAL",
+              "**Implementation PR:** #149",
+              "**Final implementation head:** `f449f81fc3e7343052b54b09b0481d64963d7e2f`",
+              "**Canonical implementation merge:** `b3223bb384d8723c37a28526be691cedf8174dc3`",
+              "ENTRY_GATE_TASK = B029",
+              "ENTRY_GATE_CANONICAL_MAIN = 1179515986ee2311ec1cd675fd899a6143c03761",
+              "ENTRY_GATE_ELIGIBLE = true",
+              "33791919427",
+              "33794038421",
+              "33794732024",
+              "33795227237",
+              "33796297573",
+              "33796374380",
+              "33796812445",
+              "33797367994",
+              "B030 remains independently governed",
+              "B011 and B013 remain separately blocked",
+          ]
+          for item in required:
+              assert item in evidence, item
+          assert "one-attempt-by-default" in evidence
+          assert "implicit retrieval" in evidence
+          assert "grants no model-weight access" in evidence
+          PY
+          echo 'PR150_B029_CLOSEOUT_SEMANTIC_REVIEW=PASS'
+
+  independent_quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 70b39b3fd4dd4cd4b1ebe228e687e969bb201112
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Re-run independent exact-head quality and drift checks
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py tests/contract/test_adaptive_inference_contract.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          git update-ref refs/heads/main "$HEAD_SHA"
+          git update-ref refs/remotes/origin/main "$HEAD_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json >/dev/null
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+
+  complete:
+    needs: [semantic_review, independent_quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 70b39b3fd4dd4cd4b1ebe228e687e969bb201112
+      - name: Record review outcome
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          echo 'FINDINGS=NONE'
+          echo 'PR150_B029_CLOSEOUT_INDEPENDENT_REVIEW=PASS'
