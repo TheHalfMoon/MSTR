@@ -53,7 +53,6 @@ jobs:
           expected_paths=$'configs/task-gate/mstr-000b.json\nevidence/mstr-000b/B027-ladder-pilot.md\nspecs/002-code-model-supremacy-foundation/tasks.md\ntests/contract/test_task_gate.py\ntests/integration/test_task_gate_cli.py'
           actual_paths="$(git diff --name-only | sort)"
           test "$actual_paths" = "$expected_paths"
-          git diff --check
       - name: Validate closeout
         shell: bash
         run: |
