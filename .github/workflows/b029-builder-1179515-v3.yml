@@ -1,0 +1,162 @@
+name: B029 adaptive inference contract builder v3
+
+on:
+  push:
+    branches:
+      - evidence/b029-builder-1179515-v3
+
+permissions:
+  contents: write
+
+env:
+  CANONICAL_MAIN: 1179515986ee2311ec1cd675fd899a6143c03761
+  FEATURE_BRANCH: feat/000b-b029-adaptive-inference
+  SOURCE_BRANCH: evidence/b029-builder-1179515
+  SOURCE_SHA: 6c3ee158ad74fd0919021298a7c929ee975314ca
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Prove exact canonical entry and B029 eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          test -z "$(git status --porcelain)"
+          python -m pip install -e '.[dev]'
+          mstr-qualify task drift > /tmp/drift.json
+          mstr-qualify task eligible B029 > /tmp/b029.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/drift.json', encoding='utf-8'))
+          e=json.load(open('/tmp/b029.json', encoding='utf-8'))
+          assert d['status']=='clean' and d['findings']==[], d
+          assert e['task_id']=='B029' and e['canonical_main']=='1179515986ee2311ec1cd675fd899a6143c03761', e
+          assert e['eligible'] is True and e['reasons']==[], e
+          assert e['authority_result']['required'] is False and e['authority_result']['satisfied'] is True, e
+          assert e['candidate_pool_result']['required'] is False and e['candidate_pool_result']['satisfied'] is True, e
+          PY
+      - name: Recover immutable v1 builder and apply exact formatting repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$SOURCE_BRANCH"
+          test "$(git rev-parse FETCH_HEAD)" = "$SOURCE_SHA"
+          git show "$SOURCE_SHA:.github/workflows/b029-builder-1179515.yml" > /tmp/v1.yml
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          text=Path('/tmp/v1.yml').read_text(encoding='utf-8')
+          step_anchor='      - name: Build exact B029 contract surface\n'
+          start=text.index(step_anchor)
+          heredoc='          python - <<\'PY\'\n'
+          body_start=text.index(heredoc, start)+len(heredoc)
+          end_marker='\n          PY\n\n          git diff --check'
+          body_end=text.index(end_marker, body_start)
+          source=textwrap.dedent(text[body_start:body_end])
+          old='    evidence = (ROOT / "evidence" / "mstr-000b" / "B029-adaptive-inference.md").read_text(encoding="utf-8")\\n'
+          new=(
+              '    evidence = (\\n'
+              '        ROOT / "evidence" / "mstr-000b" / "B029-adaptive-inference.md"\\n'
+              '    ).read_text(encoding="utf-8")\\n'
+          )
+          if source.count(old) != 1:
+              raise SystemExit(f'expected one Ruff repair anchor, got {source.count(old)}')
+          source=source.replace(old,new)
+          Path('/tmp/b029_builder_v3.py').write_text(source, encoding='utf-8')
+          PY
+          git checkout -B "$FEATURE_BRANCH" "$CANONICAL_MAIN"
+          python /tmp/b029_builder_v3.py
+          python - <<'PY'
+          from pathlib import Path
+          path=Path('evidence/mstr-000b/B029-adaptive-inference.md')
+          lines=path.read_text(encoding='utf-8').splitlines()
+          path.write_text('\n'.join(line.rstrip() for line in lines)+'\n', encoding='utf-8')
+          PY
+          git diff --check
+          test "$(git status --porcelain | wc -l)" -ge 10
+      - name: Focused B029 contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_adaptive_inference_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py::test_validate_self_checks_schemas_and_fixtures
+      - name: Offline validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mstr-qualify validate
+      - name: Full test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q
+      - name: Ruff
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruff check .
+      - name: Canonical mypy
+        shell: bash
+        run: |
+          set -euo pipefail
+          mypy src
+      - name: Re-prove immutable canonical entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+      - name: Record builder evidence and push exact B029 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          path=Path('evidence/mstr-000b/B029-adaptive-inference.md')
+          text=path.read_text(encoding='utf-8')
+          marker='## Frozen contracts\n'
+          addition=(
+              '## Builder evidence\n\n'
+              '```text\n'
+              'BUILDER_V1 = 33794038421 / FAILURE / RUFF_E501_AFTER_FULL_TEST_PASS\n'
+              'BUILDER_V2 = 33794732024 / FAILURE / FINAL_DIFF_CHECK_TRAILING_WHITESPACE\n'
+              f'BUILDER_V3 = {os.environ["GITHUB_RUN_ID"]} / SUCCESS\n'
+              'BUILDER_V1_FULL_PYTEST = 1285 passed\n'
+              'BUILDER_V2_FULL_PYTEST = 1285 passed\n'
+              '```\n\n'
+          )
+          if text.count(marker) != 1:
+              raise SystemExit('B029 evidence builder marker mismatch')
+          path.write_text(text.replace(marker, addition+marker), encoding='utf-8')
+          PY
+          git diff --check
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add src/mstr_qualify/schemas.py \
+            schemas/mstr-adaptive-inference-policy-v0.schema.json \
+            schemas/mstr-selective-context-config-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/README.md \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-adaptive-inference-policy-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-selective-context-config-v0.schema.json \
+            tests/contract/test_schemas.py \
+            tests/contract/test_adaptive_inference_contract.py \
+            tests/integration/test_cli_offline.py \
+            tests/fixtures/schemas/valid/mstr-adaptive-inference-policy-v0.json \
+            tests/fixtures/schemas/invalid/mstr-adaptive-inference-policy-v0.json \
+            tests/fixtures/schemas/valid/mstr-selective-context-config-v0.json \
+            tests/fixtures/schemas/invalid/mstr-selective-context-config-v0.json \
+            evidence/mstr-000b/B029-adaptive-inference.md
+          git diff --cached --check
+          git commit -m "feat(b029): freeze adaptive inference and selective context"
+          test "$(git rev-list --count "$CANONICAL_MAIN"..HEAD)" = "1"
+          git push origin "HEAD:refs/heads/$FEATURE_BRANCH"
