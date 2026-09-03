@@ -12,7 +12,7 @@ permissions:
 
 env:
   EXPECTED_MAIN: 312d40eee8400a0dab94633f891b206f66a82855
-  EXPECTED_OLD_HEAD: d122d6ed2d4a0a3d96bfc17f00a2a4b2fdb45940
+  EXPECTED_OLD_HEAD: 3615c5d037bcfa72ebeec66cafc06fd7b9d50405
   CANDIDATE_BRANCH: feat/000b-b027-ladder-pilot
   PR_NUMBER: '141'
   GH_TOKEN: ${{ github.token }}
