@@ -106,6 +106,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          rm -rf _repair
           python -m pytest tests/contract/test_b027_ladder_pilot.py tests/contract/test_research_ladder_contract.py -q
           python -m mstr_qualify validate
           python -m pytest -q
