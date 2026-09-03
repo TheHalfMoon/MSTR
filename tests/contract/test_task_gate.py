@@ -1323,15 +1323,29 @@ def test_b026_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b026_closeout_opens_b027_as_next_machine_eligible_task() -> None:
+def test_b027_is_terminal_after_canonical_closeout() -> None:
     result = evaluate_task_snapshot("B027", canonical_main=_CANONICAL_MAIN)
 
-    assert result["eligible"] is True
-    assert result["reasons"] == []
-    assert result["state_consistency_result"]["observed_state"] == "PENDING"
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
     assert result["authority_result"]["required"] is False
+    assert "task.already_terminal" in result["reasons"]
     predecessor = next(
         item for item in result["prerequisite_results"] if item["task_id"] == "B026"
+    )
+    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
+    assert predecessor["evidence_present"] is True
+    assert predecessor["satisfied"] is True
+    validate_instance("mstr-task-eligibility-v0", result)
+
+
+def test_b027_closeout_is_satisfied_for_b031_prerequisite() -> None:
+    result = evaluate_task_snapshot("B031", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    predecessor = next(
+        item for item in result["prerequisite_results"] if item["task_id"] == "B027"
     )
     assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
     assert predecessor["evidence_present"] is True
@@ -1410,6 +1424,31 @@ def test_b026_closeout_provenance_and_authority_boundary() -> None:
     assert "MODEL_WEIGHT_ACCESS = NONE" in evidence
     assert "RESEARCH_CAMPAIGN_EXECUTION = NONE" in evidence
     assert "VERIFIER_EXECUTION = NONE" in evidence
+    assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
+
+
+def test_b027_closeout_provenance_and_authority_boundary() -> None:
+    evidence = (
+        Path(__file__).resolve().parents[2]
+        / "evidence"
+        / "mstr-000b"
+        / "B027-ladder-pilot.md"
+    ).read_text(encoding="utf-8")
+
+    assert "**State:** COMPLETE_CANONICAL" in evidence
+    assert "**Implementation PR:** #141" in evidence
+    assert "`b5e152552f3b840fd74f2fe9b092eca17b56a91d`" in evidence
+    assert "`f667226dbf6cd380fefef5ff90fbc14eb1de3630`" in evidence
+    assert "ENTRY_GATE_TASK = B027" in evidence
+    assert "ENTRY_GATE_CANONICAL_MAIN = 312d40eee8400a0dab94633f891b206f66a82855" in evidence
+    assert "ENTRY_GATE_ELIGIBLE = true" in evidence
+    for run_id in ("33757330474", "33758435956", "33760082781", "33761211923"):
+        assert f"run `{run_id}` — SUCCESS" in evidence
+    assert "NO ACTIONABLE COMMENTS" in evidence
+    assert "MODEL_EXECUTION = NONE" in evidence
+    assert "MODEL_WEIGHT_ACCESS = NONE" in evidence
+    assert "RESEARCH_CAMPAIGN_EXTERNAL_EFFECT = NONE" in evidence
+    assert "VERIFIER_EXTERNAL_EFFECT = NONE" in evidence
     assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
 
 

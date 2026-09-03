@@ -1,13 +1,19 @@
 # B027 — Research Ladder Pilot Evidence
 
 **Task:** `B027`
-**State:** `IMPLEMENTATION_ACTIVE`
+**Implementation PR:** #141
+**Final implementation head:** `b5e152552f3b840fd74f2fe9b092eca17b56a91d`
+**Canonical implementation merge:** `f667226dbf6cd380fefef5ff90fbc14eb1de3630`
+**State:** COMPLETE_CANONICAL
 **Canonical entry main:** `312d40eee8400a0dab94633f891b206f66a82855`
 **Campaign:** `b027-offline-ladder-pilot-v0`
 
 ## Entry gate
 
 ```text
+ENTRY_GATE_TASK = B027
+ENTRY_GATE_CANONICAL_MAIN = 312d40eee8400a0dab94633f891b206f66a82855
+ENTRY_GATE_ELIGIBLE = true
 TASK = B027
 CANONICAL_MAIN = 312d40eee8400a0dab94633f891b206f66a82855
 B026_STATE = COMPLETE_CANONICAL
@@ -76,5 +82,34 @@ Q4_EXECUTION = NONE
 PRODUCTION_RELEASE = NONE
 ```
 
-B027 remains `PENDING` in the canonical task ledger until this implementation is independently
-qualified, reviewed, merged, post-merge verified, and separately closed out.
+## Canonical Implementation Closeout
+
+Within this closeout candidate, `COMPLETE_CANONICAL` is a prospective terminal state and B027 becomes canonical only when this exact closeout head is merged into canonical `main` through the required expected-head guard.
+This closeout records terminal task/provenance state only. It does not rerun or mutate the frozen
+campaign, evaluator, schemas, promotion policies, material-result records, model/runtime surfaces,
+or any authority artifact.
+
+- implementation PR: `#141`
+- final implementation head: `b5e152552f3b840fd74f2fe9b092eca17b56a91d`
+- canonical implementation merge: `f667226dbf6cd380fefef5ff90fbc14eb1de3630`
+- evaluator-affecting regeneration: run `33757330474` — SUCCESS
+- exact-head qualification: run `33758435956` — SUCCESS
+- exact-range independent review: CodeRabbit reviewed base `312d40eee8400a0dab94633f891b206f66a82855`, head `b5e152552f3b840fd74f2fe9b092eca17b56a91d`, tree `20e60c673a203e3fc7f09da817ffc6ad64ac5f76`, 32 commits, and 60 changed files — NO ACTIONABLE COMMENTS
+- mandatory exact-head pre-merge verification: run `33760082781` — SUCCESS
+- real-main post-merge canonical verification: run `33761211923` — SUCCESS
+
+Post-merge verification validated both B027 experiment records with full
+`mstr.research-experiment.v2` semantics against real merged `main`, proved the campaign commits are
+canonical ancestors, re-proved clean task drift and the pre-closeout B027 frontier, reran focused
+and full quality gates, and preserved the zero-external-effect boundary. L0 remains the exact
+`PROMOTE` result and L1 remains the exact controlled `STOP` on `code_proxy_thresholds`; L2/L3/L4
+remain unexecuted. The premerge ledger fields such as `PENDING_POST_MERGE_VALIDATION` are immutable
+historical candidate metadata and are not rewritten post hoc. Canonical implementation acceptance
+is established by the guarded implementation merge and real-main post-merge proof. Terminal B027
+closeout acceptance is recorded only when this exact closeout head is merged into canonical `main`
+through the required expected-head guard.
+
+This closeout grants no model-weight access, model execution, teacher/API execution, paid compute,
+network model/teacher calls, data ingestion, verifier external effects, training/RL, Q4 execution,
+or production release authority. B011, B013, B029, B030, and B031 remain governed by their own
+canonical states and unresolved bindings.
