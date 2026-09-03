@@ -1,0 +1,150 @@
+name: Independent review PR152 B030 closeout
+
+on:
+  push:
+    branches:
+      - evidence/pr152-b030-closeout-independent-review
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  BASE_SHA: 986cdfdaa2ddc64458a7681caf174f3a0e434a1f
+  HEAD_SHA: e8f112a504e55df0cc670dc757a2292d243c1f0b
+  EXPECTED_TREE: 292594db1132888bcc317330102cc28c24a83c95
+  TARGET_BRANCH: docs/000b-b030-canonicalize
+  PR_NUMBER: '152'
+  QUALIFICATION_RUN: '33808740976'
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e8f112a504e55df0cc670dc757a2292d243c1f0b
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify exact reviewed object and qualification dependency
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN} --jq .status)" = completed
+          test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN} --jq .conclusion)" = success
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .commits == 1 and .changed_files == 5' /tmp/pr.json >/dev/null
+          echo 'PR152_REVIEW_OBJECT=PASS'
+      - name: Independent substantive semantic review
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git show "$BASE_SHA:configs/task-gate/mstr-000b.json" > /tmp/base-catalog.json
+          python - <<'PY'
+          import copy
+          import json
+          import subprocess
+          from pathlib import Path
+
+          base = json.load(open('/tmp/base-catalog.json', encoding='utf-8'))
+          head = json.load(open('configs/task-gate/mstr-000b.json', encoding='utf-8'))
+
+          # The closeout may mutate only B030's canonical terminal state in the machine gate.
+          expected = copy.deepcopy(base)
+          assert expected['tasks']['B030']['canonical_state'] == 'PENDING'
+          expected['tasks']['B030']['canonical_state'] = 'COMPLETE_CANONICAL'
+          assert head == expected
+
+          b030 = head['tasks']['B030']
+          assert b030['prerequisites'] == ['A007', 'A008', 'A009', 'B024', 'B025']
+          assert b030.get('external_effect_class') in (None, 'NONE')
+          assert b030['evidence_outputs'] == ['evidence/mstr-000b/B030-long-horizon-quality.md']
+
+          # B011/B013 authority/dependency boundaries must be byte-for-byte semantically unchanged.
+          assert head['tasks']['B011'] == base['tasks']['B011']
+          assert head['tasks']['B012'] == base['tasks']['B012']
+          assert head['tasks']['B013'] == base['tasks']['B013']
+          assert head['tasks']['B031'] == base['tasks']['B031']
+
+          # The frozen runtime/contract schema is outside closeout scope and remains identical.
+          for path in (
+              'schemas/mstr-repository-health-delta-v0.schema.json',
+              'specs/002-code-model-supremacy-foundation/contracts/mstr-repository-health-delta-v0.schema.json',
+          ):
+              base_bytes = subprocess.check_output(['git', 'show', f'{subprocess.check_output(["git","rev-parse","HEAD^"]).decode().strip()}:{path}'])
+              head_bytes = Path(path).read_bytes()
+              assert head_bytes == base_bytes
+
+          evidence = Path('evidence/mstr-000b/B030-long-horizon-quality.md').read_text(encoding='utf-8')
+          assert '**State:** COMPLETE_CANONICAL' in evidence
+          assert '**Implementation PR:** #151' in evidence
+          assert '**Final implementation head:** `00502aba975e4fa1c2780e5cca1c779fc6b64f27`' in evidence
+          assert '**Canonical implementation merge:** `986cdfdaa2ddc64458a7681caf174f3a0e434a1f`' in evidence
+          assert 'RAW_MODEL' in evidence and '`H0`' in evidence and '`H1`' in evidence and '`H2`' in evidence
+          for dimension in (
+              'duplication', 'dead_unused_code', 'complexity_growth', 'dependency_growth',
+              'architecture_violations', 'lint_type_debt', 'test_health', 'unnecessary_refactors',
+          ):
+              assert dimension in evidence
+          for risk in ('HARNESS_LOCK_IN', 'TECHNICAL_DEBT_ACCUMULATION', 'CROSS_HARNESS_COMPARABILITY'):
+              assert risk in evidence
+          assert 'NO_VERIFIED_COMPLETION' in evidence
+          assert 'grants no model-weight access' in evidence
+          assert 'B031 remains independently gated by A019 and A020' in evidence
+
+          tasks = Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text(encoding='utf-8')
+          assert '- [x] **B030 Freeze Repository Health Delta + cross-harness robustness evaluation.**' in tasks
+          assert 'Canonical implementation: PR #151 / final head `00502aba975e4fa1c2780e5cca1c779fc6b64f27` / merge `986cdfdaa2ddc64458a7681caf174f3a0e434a1f`.' in tasks
+
+          changed = subprocess.check_output(['git','diff','--name-only','HEAD^','HEAD'], text=True).splitlines()
+          assert sorted(changed) == sorted([
+              'configs/task-gate/mstr-000b.json',
+              'evidence/mstr-000b/B030-long-horizon-quality.md',
+              'specs/002-code-model-supremacy-foundation/tasks.md',
+              'tests/contract/test_convergence_external_bindings.py',
+              'tests/contract/test_task_gate.py',
+          ])
+          print('PR152_INDEPENDENT_SEMANTIC_ASSERTIONS=PASS')
+          print('FINDINGS=NONE')
+          PY
+          git update-ref refs/heads/main "$HEAD_SHA"
+          git update-ref refs/remotes/origin/main "$HEAD_SHA"
+          if mstr-qualify task eligible B030 > /tmp/b030.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b030.json >/dev/null
+          if mstr-qualify task eligible B031 > /tmp/b031.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '((.reasons | index("prerequisite.unsatisfied:B030")) == null) and ((.reasons | index("prerequisite.unsatisfied:A019")) != null) and ((.reasons | index("prerequisite.unsatisfied:A020")) != null)' /tmp/b031.json >/dev/null
+          echo 'PR152_INDEPENDENT_SEMANTIC_REVIEW=PASS'
+      - name: Independent regression and quality rerun
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py tests/contract/test_repository_health_delta_contract.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json >/dev/null
+          echo 'PR152_INDEPENDENT_QUALITY=PASS'
+      - name: Final reviewed-head immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          echo 'PR152_B030_CLOSEOUT_INDEPENDENT_REVIEW=PASS'
+          echo 'FINDINGS=NONE'
