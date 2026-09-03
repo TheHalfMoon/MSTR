@@ -1,0 +1,135 @@
+name: Qualify PR152 B030 closeout exact head
+
+on:
+  push:
+    branches:
+      - evidence/pr152-b030-closeout-qualification
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  BASE_SHA: 986cdfdaa2ddc64458a7681caf174f3a0e434a1f
+  HEAD_SHA: e8f112a504e55df0cc670dc757a2292d243c1f0b
+  EXPECTED_TREE: 292594db1132888bcc317330102cc28c24a83c95
+  TARGET_BRANCH: docs/000b-b030-canonicalize
+  PR_NUMBER: '152'
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact closeout identity, PR, and five-file scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          test "$(git rev-parse "$HEAD_SHA^{tree}")" = "$EXPECTED_TREE"
+          test "$(git rev-parse "$HEAD_SHA^")" = "$BASE_SHA"
+          test "$(git rev-list --count "$BASE_SHA".."$HEAD_SHA")" -eq 1
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '.state == "open" and .draft == false and .base.ref == "main" and .base.sha == $base and .head.ref == "docs/000b-b030-canonicalize" and .head.sha == $head and .commits == 1 and .changed_files == 5' /tmp/pr.json >/dev/null
+          mapfile -t actual < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort)
+          expected=(
+            configs/task-gate/mstr-000b.json
+            evidence/mstr-000b/B030-long-horizon-quality.md
+            specs/002-code-model-supremacy-foundation/tasks.md
+            tests/contract/test_convergence_external_bindings.py
+            tests/contract/test_task_gate.py
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 5
+          diff -u <(printf '%s\n' "${wanted[@]}") <(printf '%s\n' "${actual[@]}")
+          test -z "$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- schemas specs/002-code-model-supremacy-foundation/contracts tests/fixtures src)"
+          git diff --check "$BASE_SHA" "$HEAD_SHA"
+          echo 'PR152_B030_CLOSEOUT_IDENTITY_SCOPE=PASS'
+
+  terminal_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e8f112a504e55df0cc670dc757a2292d243c1f0b
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove B030 terminal state, B031 blocking, and authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$HEAD_SHA"
+          git update-ref refs/remotes/origin/main "$HEAD_SHA"
+          if mstr-qualify task eligible B030 > /tmp/b030.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and .state_consistency_result.satisfied == true and (.reasons | index("task.already_terminal")) != null and .authority_result.required == false' /tmp/b030.json >/dev/null
+          if mstr-qualify task eligible B031 > /tmp/b031.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and ((.reasons | index("prerequisite.unsatisfied:A019")) != null) and ((.reasons | index("prerequisite.unsatisfied:A020")) != null) and ((.reasons | index("prerequisite.unsatisfied:B030")) == null)' /tmp/b031.json >/dev/null
+          jq -e '[.prerequisite_results[] | select(.task_id == "B030")][0] | .observed_state == "COMPLETE_CANONICAL" and .evidence_present == true and .satisfied == true' /tmp/b031.json >/dev/null
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false and .authority_result.authority_id == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"' /tmp/b011.json >/dev/null
+          if mstr-qualify task eligible B013 > /tmp/b013.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "BLOCKED" and ((.reasons | index("prerequisite.unsatisfied:B012")) != null)' /tmp/b013.json >/dev/null
+          grep -F '**State:** COMPLETE_CANONICAL' evidence/mstr-000b/B030-long-horizon-quality.md
+          grep -F '**Implementation PR:** #151' evidence/mstr-000b/B030-long-horizon-quality.md
+          grep -F '**Final implementation head:** `00502aba975e4fa1c2780e5cca1c779fc6b64f27`' evidence/mstr-000b/B030-long-horizon-quality.md
+          grep -F '**Canonical implementation merge:** `986cdfdaa2ddc64458a7681caf174f3a0e434a1f`' evidence/mstr-000b/B030-long-horizon-quality.md
+          grep -F 'ENTRY_GATE_TASK = B030' evidence/mstr-000b/B030-long-horizon-quality.md
+          grep -F 'ENTRY_GATE_ELIGIBLE = true' evidence/mstr-000b/B030-long-horizon-quality.md
+          grep -F 'run `33805156226` — FAILED `git diff --check` on trailing whitespace' evidence/mstr-000b/B030-long-horizon-quality.md
+          grep -F 'post-merge implementation verification v2: run `33807105329` — SUCCESS' evidence/mstr-000b/B030-long-horizon-quality.md
+          echo 'PR152_B030_TERMINAL_SEMANTICS=PASS'
+
+  quality_drift:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e8f112a504e55df0cc670dc757a2292d243c1f0b
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run exact-head canonical quality and drift proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py tests/contract/test_repository_health_delta_contract.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          git update-ref refs/heads/main "$HEAD_SHA"
+          git update-ref refs/remotes/origin/main "$HEAD_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json >/dev/null
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          echo 'PR152_B030_CLOSEOUT_QUALITY_DRIFT=PASS'
+
+  complete:
+    needs: [identity_scope, terminal_semantics, quality_drift]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e8f112a504e55df0cc670dc757a2292d243c1f0b
+          fetch-depth: 0
+      - name: Final immutable exact-head recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          echo 'PR152_B030_CLOSEOUT_QUALIFICATION=PASS'
