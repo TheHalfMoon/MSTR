@@ -1,6 +1,0 @@
-{
-  "frozen_evaluation_identity": "sha256:7555257171e97989a007248a7ef90c77e8cd7f0cec230d36c7ded14d824fb1ab",
-  "gate_id": "code_proxy_thresholds",
-  "schema_version": "mstr.research-verifier-manifest.v0",
-  "verifier_manifest_id": "b027-offline-verifier:code_proxy_thresholds"
-}
