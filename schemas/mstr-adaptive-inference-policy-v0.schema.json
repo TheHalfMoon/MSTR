@@ -1,0 +1,236 @@
+{
+  "$id": "https://mstr.local/schemas/mstr-adaptive-inference-policy-v0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "branching_mode": {
+            "const": "DISABLED"
+          }
+        },
+        "required": [
+          "branching_mode"
+        ]
+      },
+      "then": {
+        "properties": {
+          "hard_caps": {
+            "properties": {
+              "max_branch_width": {
+                "const": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "branching_mode": {
+            "const": "BOUNDED"
+          }
+        },
+        "required": [
+          "branching_mode"
+        ]
+      },
+      "then": {
+        "properties": {
+          "hard_caps": {
+            "properties": {
+              "max_branch_width": {
+                "minimum": 2
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "authority_effect": {
+      "const": "NONE"
+    },
+    "branching_mode": {
+      "enum": [
+        "DISABLED",
+        "BOUNDED"
+      ]
+    },
+    "builder_success_authority": {
+      "const": false
+    },
+    "capability_profile_bindings": {
+      "additionalProperties": false,
+      "properties": {
+        "context_budget_field": {
+          "const": "reliable_context_budget"
+        },
+        "repair_depth_field": {
+          "const": "max_repair_depth"
+        },
+        "verifier_cadence_field": {
+          "const": "recommended_verifier_cadence"
+        }
+      },
+      "required": [
+        "context_budget_field",
+        "verifier_cadence_field",
+        "repair_depth_field"
+      ],
+      "type": "object"
+    },
+    "default_attempt_count": {
+      "const": 1
+    },
+    "difficulty_calibration_schema_version": {
+      "const": "mstr.difficulty-calibration.v0"
+    },
+    "difficulty_evidence_required_for_nontrivial_escalation": {
+      "const": true
+    },
+    "escalation_triggers": {
+      "allOf": [
+        {
+          "contains": {
+            "const": "VERIFIER_FAILURE"
+          }
+        },
+        {
+          "contains": {
+            "const": "UNCERTAINTY"
+          }
+        }
+      ],
+      "items": {
+        "enum": [
+          "VERIFIER_FAILURE",
+          "UNCERTAINTY"
+        ]
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "hard_caps": {
+      "additionalProperties": false,
+      "properties": {
+        "max_branch_width": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_extra_seconds": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "max_extra_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_extra_tool_actions": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_repair_depth": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_total_attempts": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_total_attempts",
+        "max_repair_depth",
+        "max_branch_width",
+        "max_extra_tokens",
+        "max_extra_seconds",
+        "max_extra_tool_actions"
+      ],
+      "type": "object"
+    },
+    "loop_contract_id": {
+      "const": "MSTR-BUILD-LOOP-v0"
+    },
+    "marginal_value_rule": {
+      "additionalProperties": false,
+      "properties": {
+        "decision_rule": {
+          "const": "POSITIVE_EXPECTED_DVCR_GAIN_REQUIRED"
+        },
+        "expected_dvcr_gain_required": {
+          "const": true
+        },
+        "measure_extra_seconds": {
+          "const": true
+        },
+        "measure_extra_tokens": {
+          "const": true
+        },
+        "measure_extra_tool_actions": {
+          "const": true
+        }
+      },
+      "required": [
+        "expected_dvcr_gain_required",
+        "measure_extra_tokens",
+        "measure_extra_seconds",
+        "measure_extra_tool_actions",
+        "decision_rule"
+      ],
+      "type": "object"
+    },
+    "new_evidence_required_before_retry": {
+      "const": true
+    },
+    "notes": {
+      "items": {
+        "maxLength": 1024,
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "policy_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "protected_finalizer_required": {
+      "const": true
+    },
+    "schema_version": {
+      "const": "mstr.adaptive-inference-policy.v0"
+    },
+    "targeted_repair_enabled": {
+      "const": true
+    }
+  },
+  "required": [
+    "schema_version",
+    "policy_id",
+    "loop_contract_id",
+    "protected_finalizer_required",
+    "builder_success_authority",
+    "default_attempt_count",
+    "escalation_triggers",
+    "new_evidence_required_before_retry",
+    "targeted_repair_enabled",
+    "branching_mode",
+    "hard_caps",
+    "marginal_value_rule",
+    "capability_profile_bindings",
+    "difficulty_calibration_schema_version",
+    "difficulty_evidence_required_for_nontrivial_escalation",
+    "authority_effect",
+    "notes"
+  ],
+  "title": "MSTR Adaptive Inference Policy v0",
+  "type": "object"
+}
