@@ -1,0 +1,117 @@
+name: Post-merge verification PR 148
+
+on:
+  push:
+    branches:
+      - evidence/pr148-postmerge-1179515
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_OLD_MAIN: 766f7df376eb1fd7b9b68dcd1d029eccdb362d76
+      EXPECTED_HEAD: 3de5ed19c1dc8d90e193478effb8ff437e8414ed
+      EXPECTED_NEW_MAIN: 1179515986ee2311ec1cd675fd899a6143c03761
+      EXPECTED_TREE: 71922d96d7557086a52b92eb54909cb806b3a6a9
+      PR_NUMBER: '148'
+    steps:
+      - name: Checkout live canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          path: canonical
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify exact merge identity, parents, tree, scope, and PR state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git -C canonical rev-parse HEAD)" = "$EXPECTED_NEW_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_NEW_MAIN"
+          test "$(git -C canonical rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          read -r merge p1 p2 extra <<<"$(git -C canonical rev-list --parents -n 1 HEAD)"
+          test "$merge" = "$EXPECTED_NEW_MAIN"
+          test "$p1" = "$EXPECTED_OLD_MAIN"
+          test "$p2" = "$EXPECTED_HEAD"
+          test -z "${extra:-}"
+          git -C canonical merge-base --is-ancestor "$EXPECTED_HEAD" "$EXPECTED_NEW_MAIN"
+          printf '%s\n' tests/contract/test_b027_ladder_pilot.py > /tmp/expected-files
+          git -C canonical diff --name-only "$EXPECTED_OLD_MAIN...$EXPECTED_NEW_MAIN" > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          test "$(git -C canonical diff --numstat "$EXPECTED_OLD_MAIN...$EXPECTED_NEW_MAIN")" = $'1\t1\ttests/contract/test_b027_ladder_pilot.py'
+          git -C canonical diff --check "$EXPECTED_OLD_MAIN...$EXPECTED_NEW_MAIN"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg merge "$EXPECTED_NEW_MAIN" --arg head "$EXPECTED_HEAD" '.state == "closed" and .merged == true and .merge_commit_sha == $merge and .head.sha == $head' /tmp/pr.json >/dev/null
+          echo 'POSTMERGE_IDENTITY=PASS'
+
+      - name: Install canonical tooling
+        run: python -m pip install -e './canonical[dev]'
+
+      - name: Verify machine frontier and drift
+        working-directory: canonical
+        run: |
+          set -euo pipefail
+          mstr-qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/drift.json', encoding='utf-8'))
+          assert d['status']=='clean' and d['findings']==[], d
+          PY
+          mstr-qualify task eligible B029 > /tmp/b029.json
+          mstr-qualify task eligible B030 > /tmp/b030.json
+          set +e
+          mstr-qualify task eligible B031 > /tmp/b031.json; rc31=$?
+          mstr-qualify task eligible B011 > /tmp/b011.json; rc11=$?
+          mstr-qualify task eligible B013 > /tmp/b013.json; rc13=$?
+          set -e
+          test "$rc31" -eq 1
+          test "$rc11" -eq 1
+          test "$rc13" -eq 1
+          python - <<'PY'
+          import json
+          load=lambda p: json.load(open(p, encoding='utf-8'))
+          b029,b030,b031,b011,b013=map(load,['/tmp/b029.json','/tmp/b030.json','/tmp/b031.json','/tmp/b011.json','/tmp/b013.json'])
+          assert b029['eligible'] is True, b029
+          assert b030['eligible'] is True, b030
+          assert b031['eligible'] is False, b031
+          assert b011['eligible'] is False, b011
+          assert b013['eligible'] is False, b013
+          print('POSTMERGE_MACHINE_FRONTIER=PASS')
+          PY
+
+      - name: Repaired B027 regression
+        working-directory: canonical
+        run: python -m pytest tests/contract/test_b027_ladder_pilot.py::test_b027_harness_never_rewrites_canonical_refs -q
+
+      - name: Full test suite
+        working-directory: canonical
+        run: python -m pytest -q
+
+      - name: Ruff
+        working-directory: canonical
+        run: python -m ruff check .
+
+      - name: Canonical mypy
+        working-directory: canonical
+        run: python -m mypy src
+
+      - name: Offline validation
+        working-directory: canonical
+        run: python -m mstr_qualify validate
+
+      - name: Re-verify immutable live main
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_NEW_MAIN"
+          test "$(git -C canonical rev-parse HEAD)" = "$EXPECTED_NEW_MAIN"
+          echo 'POSTMERGE_VERIFICATION=PASS'
