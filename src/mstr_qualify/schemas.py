@@ -68,6 +68,9 @@ SCHEMA_FILES: Mapping[str, str] = {
     # MSTR-000B B028: training-method preflight and fail-closed Q4 promotion.
     "mstr-training-method-cell-v0": "mstr-training-method-cell-v0.schema.json",
     "mstr-q4-promotion-v0": "mstr-q4-promotion-v0.schema.json",
+    # MSTR-000B B029: adaptive inference and selective-context policy contracts.
+    "mstr-adaptive-inference-policy-v0": "mstr-adaptive-inference-policy-v0.schema.json",
+    "mstr-selective-context-config-v0": "mstr-selective-context-config-v0.schema.json",
 }
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]

@@ -1,0 +1,357 @@
+{
+  "$defs": {
+    "intent_rule": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "SUPPORTED"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unsupported_reason": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "UNSUPPORTED_BY_ACTIVE_CONTRACT"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unsupported_reason": {
+                "minLength": 1,
+                "type": "string"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "max_repository_calls": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "resolution_mode": {
+          "enum": [
+            "NONE",
+            "EXPLICIT_PATHS",
+            "SEARCH_THEN_EXPLICIT_PATHS",
+            "CONTRACT_DEPENDENT"
+          ]
+        },
+        "status": {
+          "enum": [
+            "SUPPORTED",
+            "UNSUPPORTED_BY_ACTIVE_CONTRACT"
+          ]
+        },
+        "terminal": {
+          "type": "boolean"
+        },
+        "unsupported_reason": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "resolution_mode",
+        "max_repository_calls",
+        "terminal",
+        "unsupported_reason"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://mstr.local/schemas/mstr-selective-context-config-v0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authority_effect": {
+      "const": "NONE"
+    },
+    "capability_profile_id": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
+    "compact_agent_state_required": {
+      "const": true
+    },
+    "config_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "deduplicate_explicit_paths": {
+      "const": true
+    },
+    "deterministic_explicit_paths": {
+      "const": true
+    },
+    "harness_profile_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "implicit_retrieval_allowed": {
+      "const": false
+    },
+    "intent_rules": {
+      "additionalProperties": false,
+      "properties": {
+        "NEED_CONFIG": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/intent_rule"
+            },
+            {
+              "properties": {
+                "max_repository_calls": {
+                  "const": 2
+                },
+                "resolution_mode": {
+                  "const": "SEARCH_THEN_EXPLICIT_PATHS"
+                },
+                "status": {
+                  "const": "SUPPORTED"
+                },
+                "terminal": {
+                  "const": false
+                }
+              },
+              "type": "object"
+            }
+          ]
+        },
+        "NEED_FILE": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/intent_rule"
+            },
+            {
+              "properties": {
+                "max_repository_calls": {
+                  "const": 1
+                },
+                "resolution_mode": {
+                  "const": "EXPLICIT_PATHS"
+                },
+                "status": {
+                  "const": "SUPPORTED"
+                },
+                "terminal": {
+                  "const": false
+                }
+              },
+              "type": "object"
+            }
+          ]
+        },
+        "NEED_HISTORY": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/intent_rule"
+            },
+            {
+              "properties": {
+                "max_repository_calls": {
+                  "const": 0
+                },
+                "resolution_mode": {
+                  "const": "CONTRACT_DEPENDENT"
+                },
+                "terminal": {
+                  "const": false
+                }
+              },
+              "type": "object"
+            }
+          ]
+        },
+        "NEED_SYMBOL": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/intent_rule"
+            },
+            {
+              "properties": {
+                "max_repository_calls": {
+                  "const": 2
+                },
+                "resolution_mode": {
+                  "const": "SEARCH_THEN_EXPLICIT_PATHS"
+                },
+                "status": {
+                  "const": "SUPPORTED"
+                },
+                "terminal": {
+                  "const": false
+                }
+              },
+              "type": "object"
+            }
+          ]
+        },
+        "NEED_TEST": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/intent_rule"
+            },
+            {
+              "properties": {
+                "max_repository_calls": {
+                  "const": 2
+                },
+                "resolution_mode": {
+                  "const": "SEARCH_THEN_EXPLICIT_PATHS"
+                },
+                "status": {
+                  "const": "SUPPORTED"
+                },
+                "terminal": {
+                  "const": false
+                }
+              },
+              "type": "object"
+            }
+          ]
+        },
+        "NO_MORE_CONTEXT": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/intent_rule"
+            },
+            {
+              "properties": {
+                "max_repository_calls": {
+                  "const": 0
+                },
+                "resolution_mode": {
+                  "const": "NONE"
+                },
+                "status": {
+                  "const": "SUPPORTED"
+                },
+                "terminal": {
+                  "const": true
+                }
+              },
+              "type": "object"
+            }
+          ]
+        },
+        "NO_RETRIEVAL": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/intent_rule"
+            },
+            {
+              "properties": {
+                "max_repository_calls": {
+                  "const": 0
+                },
+                "resolution_mode": {
+                  "const": "NONE"
+                },
+                "status": {
+                  "const": "SUPPORTED"
+                },
+                "terminal": {
+                  "const": false
+                }
+              },
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "required": [
+        "NO_RETRIEVAL",
+        "NEED_FILE",
+        "NEED_SYMBOL",
+        "NEED_HISTORY",
+        "NEED_TEST",
+        "NEED_CONFIG",
+        "NO_MORE_CONTEXT"
+      ],
+      "type": "object"
+    },
+    "limits": {
+      "additionalProperties": false,
+      "properties": {
+        "max_characters": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_context_tokens": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_files": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_context_tokens",
+        "max_files",
+        "max_characters"
+      ],
+      "type": "object"
+    },
+    "notes": {
+      "items": {
+        "maxLength": 1024,
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "reliable_context_budget_field": {
+      "const": "reliable_context_budget"
+    },
+    "schema_version": {
+      "const": "mstr.selective-context-config.v0"
+    }
+  },
+  "required": [
+    "schema_version",
+    "config_id",
+    "harness_profile_id",
+    "capability_profile_id",
+    "reliable_context_budget_field",
+    "compact_agent_state_required",
+    "implicit_retrieval_allowed",
+    "deterministic_explicit_paths",
+    "deduplicate_explicit_paths",
+    "limits",
+    "intent_rules",
+    "authority_effect",
+    "notes"
+  ],
+  "title": "MSTR Selective Context Config v0",
+  "type": "object"
+}

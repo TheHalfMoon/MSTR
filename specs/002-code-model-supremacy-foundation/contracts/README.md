@@ -42,6 +42,15 @@ mstr.q4-promotion.v0
 
 B028 freezes the equivalent-method tournament cell and fail-closed Q4 checkpoint-promotion contracts. Generic framework documentation is never candidate-specific arm support evidence: every concrete finalist/method cell must bind exact backbone/framework support evidence or an exact unsupported reason before execution. A later material checkpoint may parent another material weight-changing stage only when its `mstr.q4-promotion.v0` record is `PROMOTED`. B028 itself grants no training, model-weight access, paid compute, or model-execution authority.
 
+## Frozen by B029
+
+```text
+mstr.adaptive-inference-policy.v0
+mstr.selective-context-config.v0
+```
+
+B029 freezes one-attempt-by-default adaptive inference, verifier/uncertainty-gated targeted repair, bounded optional branching, positive expected-DVCR justification for extra compute, and explicit marginal accounting for extra tokens, seconds, and tool actions. The policy binds canonical A010 capability fields and B020 difficulty evidence without granting success or execution authority. Selective context freezes the seven canonical intent classes and maps them onto explicit H1-compatible retrieval primitives. Unsupported active-contract capabilities remain explicit and fail closed instead of being invented. B029 itself performs no model execution, weight access, paid compute, training, or production release.
+
 Remaining planned contracts:
 
 ```text

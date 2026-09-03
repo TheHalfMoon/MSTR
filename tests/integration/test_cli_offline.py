@@ -135,6 +135,7 @@ def test_validate_self_checks_schemas_and_fixtures(capsys: pytest.CaptureFixture
     assert payload["schemas_checked"] == [
         "candidate-record",
         "interaction-contract",
+        "mstr-adaptive-inference-policy-v0",
         "mstr-capability-profile-v0",
         "mstr-data-constitution-v0",
         "mstr-difficulty-calibration-v0",
@@ -146,6 +147,7 @@ def test_validate_self_checks_schemas_and_fixtures(capsys: pytest.CaptureFixture
         "mstr-q4-promotion-v0",
         "mstr-research-experiment-v2",
         "mstr-run-event-v0",
+        "mstr-selective-context-config-v0",
         "mstr-self-alignment-generation-v0",
         "mstr-setup-manifest-v0",
         "mstr-software-evolution-record-v0",

@@ -104,6 +104,20 @@ DESIGN_SCHEMA_OVERRIDES = {
         / "contracts"
         / "mstr-q4-promotion-v0.schema.json"
     ),
+    "mstr-adaptive-inference-policy-v0": (
+        ROOT
+        / "specs"
+        / "002-code-model-supremacy-foundation"
+        / "contracts"
+        / "mstr-adaptive-inference-policy-v0.schema.json"
+    ),
+    "mstr-selective-context-config-v0": (
+        ROOT
+        / "specs"
+        / "002-code-model-supremacy-foundation"
+        / "contracts"
+        / "mstr-selective-context-config-v0.schema.json"
+    ),
     "mstr-software-evolution-record-v0": (
         ROOT
         / "specs"

@@ -1,0 +1,41 @@
+{
+  "authority_effect": "NONE",
+  "branching_mode": "BOUNDED",
+  "builder_success_authority": false,
+  "capability_profile_bindings": {
+    "context_budget_field": "reliable_context_budget",
+    "repair_depth_field": "max_repair_depth",
+    "verifier_cadence_field": "recommended_verifier_cadence"
+  },
+  "default_attempt_count": 1,
+  "difficulty_calibration_schema_version": "mstr.difficulty-calibration.v0",
+  "difficulty_evidence_required_for_nontrivial_escalation": true,
+  "escalation_triggers": [
+    "VERIFIER_FAILURE",
+    "UNCERTAINTY"
+  ],
+  "hard_caps": {
+    "max_branch_width": 2,
+    "max_extra_seconds": 30,
+    "max_extra_tokens": 1024,
+    "max_extra_tool_actions": 4,
+    "max_repair_depth": 2,
+    "max_total_attempts": 3
+  },
+  "loop_contract_id": "MSTR-BUILD-LOOP-v0",
+  "marginal_value_rule": {
+    "decision_rule": "POSITIVE_EXPECTED_DVCR_GAIN_REQUIRED",
+    "expected_dvcr_gain_required": true,
+    "measure_extra_seconds": true,
+    "measure_extra_tokens": true,
+    "measure_extra_tool_actions": true
+  },
+  "new_evidence_required_before_retry": true,
+  "notes": [
+    "Synthetic repository fixture only; numeric caps are not real-model capability claims."
+  ],
+  "policy_id": "fixture-adaptive-inference-policy-v0",
+  "protected_finalizer_required": true,
+  "schema_version": "mstr.adaptive-inference-policy.v0",
+  "targeted_repair_enabled": true
+}

@@ -1,0 +1,71 @@
+{
+  "authority_effect": "NONE",
+  "capability_profile_id": "fixture-capability-profile-v0",
+  "compact_agent_state_required": true,
+  "config_id": "fixture-selective-context-config-v0",
+  "deduplicate_explicit_paths": true,
+  "deterministic_explicit_paths": true,
+  "harness_profile_id": "mstr.harness.h1-native.v0",
+  "implicit_retrieval_allowed": true,
+  "intent_rules": {
+    "NEED_CONFIG": {
+      "max_repository_calls": 2,
+      "resolution_mode": "SEARCH_THEN_EXPLICIT_PATHS",
+      "status": "SUPPORTED",
+      "terminal": false,
+      "unsupported_reason": null
+    },
+    "NEED_FILE": {
+      "max_repository_calls": 1,
+      "resolution_mode": "EXPLICIT_PATHS",
+      "status": "SUPPORTED",
+      "terminal": false,
+      "unsupported_reason": null
+    },
+    "NEED_HISTORY": {
+      "max_repository_calls": 0,
+      "resolution_mode": "CONTRACT_DEPENDENT",
+      "status": "UNSUPPORTED_BY_ACTIVE_CONTRACT",
+      "terminal": false,
+      "unsupported_reason": "H1 exposes no history-retrieval endpoint; support must be proven by a later active interaction contract."
+    },
+    "NEED_SYMBOL": {
+      "max_repository_calls": 2,
+      "resolution_mode": "SEARCH_THEN_EXPLICIT_PATHS",
+      "status": "SUPPORTED",
+      "terminal": false,
+      "unsupported_reason": null
+    },
+    "NEED_TEST": {
+      "max_repository_calls": 2,
+      "resolution_mode": "SEARCH_THEN_EXPLICIT_PATHS",
+      "status": "SUPPORTED",
+      "terminal": false,
+      "unsupported_reason": null
+    },
+    "NO_MORE_CONTEXT": {
+      "max_repository_calls": 0,
+      "resolution_mode": "NONE",
+      "status": "SUPPORTED",
+      "terminal": true,
+      "unsupported_reason": null
+    },
+    "NO_RETRIEVAL": {
+      "max_repository_calls": 0,
+      "resolution_mode": "NONE",
+      "status": "SUPPORTED",
+      "terminal": false,
+      "unsupported_reason": null
+    }
+  },
+  "limits": {
+    "max_characters": 32000,
+    "max_context_tokens": 8192,
+    "max_files": 8
+  },
+  "notes": [
+    "Synthetic repository fixture only; H1 compatibility is represented without inventing history retrieval."
+  ],
+  "reliable_context_budget_field": "reliable_context_budget",
+  "schema_version": "mstr.selective-context-config.v0"
+}
