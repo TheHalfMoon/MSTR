@@ -1,0 +1,11 @@
+{
+  "campaign_freeze_commit_sha": "5ff7853c16eb789214b8aaa0d5d43d6d21b9fd68",
+  "campaign_id": "b027-offline-ladder-pilot-v0",
+  "experiment_id": "b027-l1-controlled-stop",
+  "frozen_evaluation_identity": "sha256:b6f3d060a7cb48a7d34d5d98fb1e3687df1dd2becc7dcee29ea71de2cc5dc398",
+  "gate_id": "task_verifier_sampling_runtime_identity",
+  "governing_task_id": "B027",
+  "schema_version": "mstr.research-gate-evidence.v1",
+  "source_evidence_identity": "sha256:a682101eb1cd722942a85744cec5f40f077e5d26f7ff09205a1cb488a225e569",
+  "source_json_pointer": "/observed_value"
+}

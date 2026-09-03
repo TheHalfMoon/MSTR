@@ -1,0 +1,14 @@
+{
+  "campaign_id": "b027-offline-ladder-pilot-v0",
+  "experiment_id": "b027-l1-controlled-stop",
+  "frozen_evaluation_identity": "sha256:b6f3d060a7cb48a7d34d5d98fb1e3687df1dd2becc7dcee29ea71de2cc5dc398",
+  "gate_id": "predecessor_promoted",
+  "governing_task_id": "B027",
+  "schema_version": "mstr.research-verifier-evidence.v0",
+  "subject_evidence_identity": "sha256:f91b0073e67d5080da1fd52cb13bc8d1cde4092359ce5b56f0d48f33c53995a9",
+  "subject_identity": "b027-l1-controlled-stop-result",
+  "verifier_health_identity": "sha256:8c993b9062b7917dd3aef3af09cfe4c49053c12e81d561b23ce7d6feb36d59ae",
+  "verifier_manifest_identity": "sha256:343657f9517aee1b0abdb8581ab5bf4487679e9650fb1899d5d0f3f72bea8363",
+  "verifier_result_identity": "sha256:16321a8ebd67221b2e0ae102d2b940d540eebe03a683a1a1988cd12e9431bd22",
+  "verifier_result_json_pointer": "/observed_value"
+}

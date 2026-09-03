@@ -1,0 +1,52 @@
+{
+  "authority_result": {
+    "authority_id": null,
+    "reasons": [],
+    "required": false,
+    "satisfied": true
+  },
+  "candidate_pool_result": {
+    "observed_pool_id": null,
+    "reasons": [],
+    "required": false,
+    "requirement_id": null,
+    "satisfied": true
+  },
+  "canonical_main": "312d40eee8400a0dab94633f891b206f66a82855",
+  "eligible": true,
+  "prerequisite_results": [
+    {
+      "evidence_present": true,
+      "observed_state": "COMPLETE_CANONICAL",
+      "reasons": [],
+      "required_state": "COMPLETE_CANONICAL",
+      "satisfied": true,
+      "task_id": "B026"
+    }
+  ],
+  "reasons": [],
+  "schema_version": "mstr.task-eligibility.v0",
+  "semantic_checks": {
+    "authority_requirement_complete": true,
+    "candidate_pool_requirement_complete": true,
+    "prerequisite_set_complete": true,
+    "prerequisite_states_satisfied": true,
+    "state_consistency_check_complete": true,
+    "supersession_check_complete": true,
+    "task_node_binding_verified": true
+  },
+  "state_consistency_result": {
+    "observed_state": "PENDING",
+    "reasons": [],
+    "satisfied": true
+  },
+  "supersession_result": {
+    "reasons": [],
+    "satisfied": true,
+    "superseded": false,
+    "superseded_by": []
+  },
+  "task_id": "B027",
+  "task_node_schema_version": "mstr.task-node.v0",
+  "task_node_sha256": "1ede52eb1d159ae34899eb7a90ffa60367acea35ec7f1192b66806cc0163f81b"
+}
