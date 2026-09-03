@@ -23,7 +23,7 @@ def test_convergence_bindings_are_exact_and_fail_closed() -> None:
     external = catalog["external_prerequisites"]
 
     assert set(unresolved) == {"B011", "B013"}
-    assert tasks["B029"]["canonical_state"] == "PENDING"
+    assert tasks["B029"]["canonical_state"] == "COMPLETE_CANONICAL"
     assert tasks["B029"]["prerequisites"] == [
         "A005",
         "A006",
@@ -83,9 +83,7 @@ def test_convergence_bindings_are_exact_and_fail_closed() -> None:
 
     result = evaluate_task_snapshot("B031", canonical_main=_CANONICAL_MAIN)
     assert result["eligible"] is False
-    prerequisite_rows = {
-        row["task_id"]: row for row in result["prerequisite_results"]
-    }
+    prerequisite_rows = {row["task_id"]: row for row in result["prerequisite_results"]}
     assert prerequisite_rows["A019"]["satisfied"] is False
     assert prerequisite_rows["A020"]["satisfied"] is False
     assert "prerequisite.missing_task_binding" not in prerequisite_rows["A019"]["reasons"]
@@ -94,6 +92,6 @@ def test_convergence_bindings_are_exact_and_fail_closed() -> None:
 
 def test_incomplete_convergence_tasks_are_not_falsely_completed() -> None:
     tasks = _catalog()["tasks"]
-    assert tasks["B029"]["canonical_state"] == "PENDING"
+    assert tasks["B029"]["canonical_state"] == "COMPLETE_CANONICAL"
     assert tasks["B030"]["canonical_state"] == "PENDING"
     assert tasks["B031"]["canonical_state"] == "PENDING"

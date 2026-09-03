@@ -413,7 +413,7 @@
       ]
     },
     "B029": {
-      "canonical_state": "PENDING",
+      "canonical_state": "COMPLETE_CANONICAL",
       "evidence_outputs": [
         "evidence/mstr-000b/B029-adaptive-inference.md"
       ],

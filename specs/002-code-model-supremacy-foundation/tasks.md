@@ -199,9 +199,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: `artifacts/manifests/B028-method-tournament-preflight.json`, `docs/training/Q4_PROMOTION_CONTRACT.md`, `evidence/mstr-000b/B028-training-methods.md`.
   Canonical implementation: PR #90 / final head `3c9d8624745ad34e1e96d7f150afaccd2f02bc8f` / merge `01a070e27098fc3798a87ad57dd62b63fdf8fdee`.
 
-- [ ] **B029 Freeze adaptive test-time compute + selective-context policy.**  
+- [x] **B029 Freeze adaptive test-time compute + selective-context policy.**
   One attempt by default; targeted repair/limited branching only when verifier/uncertainty evidence justifies cost. Define context intents including `NO_RETRIEVAL`, `NEED_FILE`, `NEED_SYMBOL`, `NEED_HISTORY`, `NEED_TEST`, `NEED_CONFIG`, `NO_MORE_CONTEXT`.  
   Outputs: policy/config schemas, `evidence/mstr-000b/B029-adaptive-inference.md`.
+  Canonical implementation: PR #149 / final head `f449f81fc3e7343052b54b09b0481d64963d7e2f` / merge `b3223bb384d8723c37a28526be691cedf8174dc3`.
 
 - [ ] **B030 Freeze Repository Health Delta + cross-harness robustness evaluation.**  
   Define multi-round codebase-health dimensions and require raw/H0/H1/H2 score attribution. Severe harness lock-in or accumulating technical debt is a blocking risk for claims.  
