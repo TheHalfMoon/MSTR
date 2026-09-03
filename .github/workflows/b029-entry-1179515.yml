@@ -1,0 +1,55 @@
+name: B029 exact-main entry gate
+
+on:
+  push:
+    branches:
+      - evidence/b029-entry-1179515
+
+permissions:
+  contents: read
+
+env:
+  CANONICAL_MAIN: 1179515986ee2311ec1cd675fd899a6143c03761
+
+jobs:
+  eligible:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove exact canonical main
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          test -z "$(git status --porcelain)"
+      - name: Install repository
+        run: python -m pip install -e '.[dev]'
+      - name: Prove clean drift and B029 eligibility
+        run: |
+          set -euo pipefail
+          mstr-qualify task drift > /tmp/drift.json
+          mstr-qualify task eligible B029 > /tmp/b029.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/drift.json', encoding='utf-8'))
+          e=json.load(open('/tmp/b029.json', encoding='utf-8'))
+          assert d['status']=='clean' and d['findings']==[], d
+          assert e['task_id']=='B029', e
+          assert e['canonical_main']=='1179515986ee2311ec1cd675fd899a6143c03761', e
+          assert e['eligible'] is True, e
+          assert e.get('authority_required') is False, e
+          assert e.get('reasons', []) == [], e
+          print('B029_ENTRY_GATE=PASS')
+          PY
+      - name: Final immutable recheck
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          echo 'B029_ENTRY_IMMUTABLE=PASS'
