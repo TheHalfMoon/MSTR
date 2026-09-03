@@ -1,0 +1,353 @@
+name: B029 adaptive inference contract builder
+
+on:
+  push:
+    branches:
+      - evidence/b029-builder-1179515
+
+permissions:
+  contents: write
+
+env:
+  CANONICAL_MAIN: 1179515986ee2311ec1cd675fd899a6143c03761
+  FEATURE_BRANCH: feat/000b-b029-adaptive-inference
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Prove exact canonical entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          test -z "$(git status --porcelain)"
+          python -m pip install -e '.[dev]'
+          mstr-qualify task drift > /tmp/drift.json
+          mstr-qualify task eligible B029 > /tmp/b029.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/drift.json', encoding='utf-8'))
+          e=json.load(open('/tmp/b029.json', encoding='utf-8'))
+          assert d['status']=='clean' and d['findings']==[], d
+          assert e['task_id']=='B029' and e['canonical_main']=='1179515986ee2311ec1cd675fd899a6143c03761', e
+          assert e['eligible'] is True and e['reasons']==[], e
+          assert e['authority_result']['required'] is False and e['authority_result']['satisfied'] is True, e
+          assert e['candidate_pool_result']['required'] is False and e['candidate_pool_result']['satisfied'] is True, e
+          PY
+      - name: Build exact B029 contract surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -B "$FEATURE_BRANCH" "$CANONICAL_MAIN"
+          python - <<'PY'
+          from __future__ import annotations
+          import json
+          from pathlib import Path
+
+          ROOT=Path('.')
+
+          def dump(path: str, value: object) -> None:
+              target=ROOT/path
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_text(json.dumps(value, indent=2, sort_keys=True)+"\n", encoding='utf-8')
+
+          def replace_exact(path: str, old: str, new: str) -> None:
+              target=ROOT/path
+              text=target.read_text(encoding='utf-8')
+              if text.count(old) != 1:
+                  raise SystemExit(f"exact replacement anchor mismatch for {path}: {text.count(old)}")
+              target.write_text(text.replace(old, new), encoding='utf-8')
+
+          adaptive_schema={
+            "$schema":"https://json-schema.org/draft/2020-12/schema",
+            "$id":"https://mstr.local/schemas/mstr-adaptive-inference-policy-v0.json",
+            "title":"MSTR Adaptive Inference Policy v0",
+            "type":"object",
+            "additionalProperties":False,
+            "properties":{
+              "schema_version":{"const":"mstr.adaptive-inference-policy.v0"},
+              "policy_id":{"type":"string","minLength":1,"maxLength":256},
+              "loop_contract_id":{"const":"MSTR-BUILD-LOOP-v0"},
+              "protected_finalizer_required":{"const":True},
+              "builder_success_authority":{"const":False},
+              "default_attempt_count":{"const":1},
+              "escalation_triggers":{
+                "type":"array","minItems":2,"maxItems":2,"uniqueItems":True,
+                "items":{"enum":["VERIFIER_FAILURE","UNCERTAINTY"]},
+                "allOf":[
+                  {"contains":{"const":"VERIFIER_FAILURE"}},
+                  {"contains":{"const":"UNCERTAINTY"}}
+                ]
+              },
+              "new_evidence_required_before_retry":{"const":True},
+              "targeted_repair_enabled":{"const":True},
+              "branching_mode":{"enum":["DISABLED","BOUNDED"]},
+              "hard_caps":{
+                "type":"object","additionalProperties":False,
+                "properties":{
+                  "max_total_attempts":{"type":"integer","minimum":1},
+                  "max_repair_depth":{"type":"integer","minimum":0},
+                  "max_branch_width":{"type":"integer","minimum":1},
+                  "max_extra_tokens":{"type":"integer","minimum":0},
+                  "max_extra_seconds":{"type":"number","minimum":0},
+                  "max_extra_tool_actions":{"type":"integer","minimum":0}
+                },
+                "required":["max_total_attempts","max_repair_depth","max_branch_width","max_extra_tokens","max_extra_seconds","max_extra_tool_actions"]
+              },
+              "marginal_value_rule":{
+                "type":"object","additionalProperties":False,
+                "properties":{
+                  "expected_dvcr_gain_required":{"const":True},
+                  "measure_extra_tokens":{"const":True},
+                  "measure_extra_seconds":{"const":True},
+                  "measure_extra_tool_actions":{"const":True},
+                  "decision_rule":{"const":"POSITIVE_EXPECTED_DVCR_GAIN_REQUIRED"}
+                },
+                "required":["expected_dvcr_gain_required","measure_extra_tokens","measure_extra_seconds","measure_extra_tool_actions","decision_rule"]
+              },
+              "capability_profile_bindings":{
+                "type":"object","additionalProperties":False,
+                "properties":{
+                  "context_budget_field":{"const":"reliable_context_budget"},
+                  "verifier_cadence_field":{"const":"recommended_verifier_cadence"},
+                  "repair_depth_field":{"const":"max_repair_depth"}
+                },
+                "required":["context_budget_field","verifier_cadence_field","repair_depth_field"]
+              },
+              "difficulty_calibration_schema_version":{"const":"mstr.difficulty-calibration.v0"},
+              "difficulty_evidence_required_for_nontrivial_escalation":{"const":True},
+              "authority_effect":{"const":"NONE"},
+              "notes":{"type":"array","items":{"type":"string","minLength":1,"maxLength":1024},"uniqueItems":True}
+            },
+            "required":["schema_version","policy_id","loop_contract_id","protected_finalizer_required","builder_success_authority","default_attempt_count","escalation_triggers","new_evidence_required_before_retry","targeted_repair_enabled","branching_mode","hard_caps","marginal_value_rule","capability_profile_bindings","difficulty_calibration_schema_version","difficulty_evidence_required_for_nontrivial_escalation","authority_effect","notes"],
+            "allOf":[
+              {"if":{"properties":{"branching_mode":{"const":"DISABLED"}},"required":["branching_mode"]},"then":{"properties":{"hard_caps":{"properties":{"max_branch_width":{"const":1}}}}}},
+              {"if":{"properties":{"branching_mode":{"const":"BOUNDED"}},"required":["branching_mode"]},"then":{"properties":{"hard_caps":{"properties":{"max_branch_width":{"minimum":2}}}}}}
+            ]
+          }
+
+          rule={
+            "type":"object","additionalProperties":False,
+            "properties":{
+              "status":{"enum":["SUPPORTED","UNSUPPORTED_BY_ACTIVE_CONTRACT"]},
+              "resolution_mode":{"enum":["NONE","EXPLICIT_PATHS","SEARCH_THEN_EXPLICIT_PATHS","CONTRACT_DEPENDENT"]},
+              "max_repository_calls":{"type":"integer","minimum":0},
+              "terminal":{"type":"boolean"},
+              "unsupported_reason":{"type":["string","null"],"minLength":1,"maxLength":512}
+            },
+            "required":["status","resolution_mode","max_repository_calls","terminal","unsupported_reason"],
+            "allOf":[
+              {"if":{"properties":{"status":{"const":"SUPPORTED"}},"required":["status"]},"then":{"properties":{"unsupported_reason":{"type":"null"}}}},
+              {"if":{"properties":{"status":{"const":"UNSUPPORTED_BY_ACTIVE_CONTRACT"}},"required":["status"]},"then":{"properties":{"unsupported_reason":{"type":"string","minLength":1}}}}
+            ]
+          }
+          def intent_rule(mode: str, calls: int, terminal: bool, status: str|None=None) -> dict[str, object]:
+              props={"resolution_mode":{"const":mode},"max_repository_calls":{"const":calls},"terminal":{"const":terminal}}
+              if status is not None:
+                  props["status"]={"const":status}
+              return {"allOf":[{"$ref":"#/$defs/intent_rule"},{"type":"object","properties":props}]}
+
+          context_schema={
+            "$schema":"https://json-schema.org/draft/2020-12/schema",
+            "$id":"https://mstr.local/schemas/mstr-selective-context-config-v0.json",
+            "title":"MSTR Selective Context Config v0",
+            "type":"object","additionalProperties":False,
+            "$defs":{"intent_rule":rule},
+            "properties":{
+              "schema_version":{"const":"mstr.selective-context-config.v0"},
+              "config_id":{"type":"string","minLength":1,"maxLength":256},
+              "harness_profile_id":{"type":"string","minLength":1,"maxLength":256},
+              "capability_profile_id":{"type":"string","minLength":1,"maxLength":512},
+              "reliable_context_budget_field":{"const":"reliable_context_budget"},
+              "compact_agent_state_required":{"const":True},
+              "implicit_retrieval_allowed":{"const":False},
+              "deterministic_explicit_paths":{"const":True},
+              "deduplicate_explicit_paths":{"const":True},
+              "limits":{
+                "type":"object","additionalProperties":False,
+                "properties":{
+                  "max_context_tokens":{"type":"integer","minimum":1},
+                  "max_files":{"type":"integer","minimum":0},
+                  "max_characters":{"type":"integer","minimum":0}
+                },
+                "required":["max_context_tokens","max_files","max_characters"]
+              },
+              "intent_rules":{
+                "type":"object","additionalProperties":False,
+                "properties":{
+                  "NO_RETRIEVAL":intent_rule("NONE",0,False,"SUPPORTED"),
+                  "NEED_FILE":intent_rule("EXPLICIT_PATHS",1,False,"SUPPORTED"),
+                  "NEED_SYMBOL":intent_rule("SEARCH_THEN_EXPLICIT_PATHS",2,False,"SUPPORTED"),
+                  "NEED_HISTORY":intent_rule("CONTRACT_DEPENDENT",0,False),
+                  "NEED_TEST":intent_rule("SEARCH_THEN_EXPLICIT_PATHS",2,False,"SUPPORTED"),
+                  "NEED_CONFIG":intent_rule("SEARCH_THEN_EXPLICIT_PATHS",2,False,"SUPPORTED"),
+                  "NO_MORE_CONTEXT":intent_rule("NONE",0,True,"SUPPORTED")
+                },
+                "required":["NO_RETRIEVAL","NEED_FILE","NEED_SYMBOL","NEED_HISTORY","NEED_TEST","NEED_CONFIG","NO_MORE_CONTEXT"]
+              },
+              "authority_effect":{"const":"NONE"},
+              "notes":{"type":"array","items":{"type":"string","minLength":1,"maxLength":1024},"uniqueItems":True}
+            },
+            "required":["schema_version","config_id","harness_profile_id","capability_profile_id","reliable_context_budget_field","compact_agent_state_required","implicit_retrieval_allowed","deterministic_explicit_paths","deduplicate_explicit_paths","limits","intent_rules","authority_effect","notes"]
+          }
+
+          adaptive_valid={
+            "schema_version":"mstr.adaptive-inference-policy.v0",
+            "policy_id":"fixture-adaptive-inference-policy-v0",
+            "loop_contract_id":"MSTR-BUILD-LOOP-v0",
+            "protected_finalizer_required":True,
+            "builder_success_authority":False,
+            "default_attempt_count":1,
+            "escalation_triggers":["VERIFIER_FAILURE","UNCERTAINTY"],
+            "new_evidence_required_before_retry":True,
+            "targeted_repair_enabled":True,
+            "branching_mode":"BOUNDED",
+            "hard_caps":{"max_total_attempts":3,"max_repair_depth":2,"max_branch_width":2,"max_extra_tokens":1024,"max_extra_seconds":30,"max_extra_tool_actions":4},
+            "marginal_value_rule":{"expected_dvcr_gain_required":True,"measure_extra_tokens":True,"measure_extra_seconds":True,"measure_extra_tool_actions":True,"decision_rule":"POSITIVE_EXPECTED_DVCR_GAIN_REQUIRED"},
+            "capability_profile_bindings":{"context_budget_field":"reliable_context_budget","verifier_cadence_field":"recommended_verifier_cadence","repair_depth_field":"max_repair_depth"},
+            "difficulty_calibration_schema_version":"mstr.difficulty-calibration.v0",
+            "difficulty_evidence_required_for_nontrivial_escalation":True,
+            "authority_effect":"NONE",
+            "notes":["Synthetic repository fixture only; numeric caps are not real-model capability claims."]
+          }
+          adaptive_invalid=json.loads(json.dumps(adaptive_valid))
+          adaptive_invalid["default_attempt_count"]=2
+
+          context_valid={
+            "schema_version":"mstr.selective-context-config.v0",
+            "config_id":"fixture-selective-context-config-v0",
+            "harness_profile_id":"mstr.harness.h1-native.v0",
+            "capability_profile_id":"fixture-capability-profile-v0",
+            "reliable_context_budget_field":"reliable_context_budget",
+            "compact_agent_state_required":True,
+            "implicit_retrieval_allowed":False,
+            "deterministic_explicit_paths":True,
+            "deduplicate_explicit_paths":True,
+            "limits":{"max_context_tokens":8192,"max_files":8,"max_characters":32000},
+            "intent_rules":{
+              "NO_RETRIEVAL":{"status":"SUPPORTED","resolution_mode":"NONE","max_repository_calls":0,"terminal":False,"unsupported_reason":None},
+              "NEED_FILE":{"status":"SUPPORTED","resolution_mode":"EXPLICIT_PATHS","max_repository_calls":1,"terminal":False,"unsupported_reason":None},
+              "NEED_SYMBOL":{"status":"SUPPORTED","resolution_mode":"SEARCH_THEN_EXPLICIT_PATHS","max_repository_calls":2,"terminal":False,"unsupported_reason":None},
+              "NEED_HISTORY":{"status":"UNSUPPORTED_BY_ACTIVE_CONTRACT","resolution_mode":"CONTRACT_DEPENDENT","max_repository_calls":0,"terminal":False,"unsupported_reason":"H1 exposes no history-retrieval endpoint; support must be proven by a later active interaction contract."},
+              "NEED_TEST":{"status":"SUPPORTED","resolution_mode":"SEARCH_THEN_EXPLICIT_PATHS","max_repository_calls":2,"terminal":False,"unsupported_reason":None},
+              "NEED_CONFIG":{"status":"SUPPORTED","resolution_mode":"SEARCH_THEN_EXPLICIT_PATHS","max_repository_calls":2,"terminal":False,"unsupported_reason":None},
+              "NO_MORE_CONTEXT":{"status":"SUPPORTED","resolution_mode":"NONE","max_repository_calls":0,"terminal":True,"unsupported_reason":None}
+            },
+            "authority_effect":"NONE",
+            "notes":["Synthetic repository fixture only; H1 compatibility is represented without inventing history retrieval."]
+          }
+          context_invalid=json.loads(json.dumps(context_valid))
+          context_invalid["implicit_retrieval_allowed"]=True
+
+          for name, schema in (("mstr-adaptive-inference-policy-v0",adaptive_schema),("mstr-selective-context-config-v0",context_schema)):
+              dump(f"schemas/{name}.schema.json", schema)
+              dump(f"specs/002-code-model-supremacy-foundation/contracts/{name}.schema.json", schema)
+          dump("tests/fixtures/schemas/valid/mstr-adaptive-inference-policy-v0.json",adaptive_valid)
+          dump("tests/fixtures/schemas/invalid/mstr-adaptive-inference-policy-v0.json",adaptive_invalid)
+          dump("tests/fixtures/schemas/valid/mstr-selective-context-config-v0.json",context_valid)
+          dump("tests/fixtures/schemas/invalid/mstr-selective-context-config-v0.json",context_invalid)
+
+          replace_exact(
+            "src/mstr_qualify/schemas.py",
+            '    "mstr-q4-promotion-v0": "mstr-q4-promotion-v0.schema.json",\n}',
+            '    "mstr-q4-promotion-v0": "mstr-q4-promotion-v0.schema.json",\n'
+            '    # MSTR-000B B029: adaptive inference and selective-context policy contracts.\n'
+            '    "mstr-adaptive-inference-policy-v0": "mstr-adaptive-inference-policy-v0.schema.json",\n'
+            '    "mstr-selective-context-config-v0": "mstr-selective-context-config-v0.schema.json",\n}'
+          )
+
+          q4_override='''    "mstr-q4-promotion-v0": (\n        ROOT\n        / "specs"\n        / "002-code-model-supremacy-foundation"\n        / "contracts"\n        / "mstr-q4-promotion-v0.schema.json"\n    ),\n'''
+          b029_overrides=q4_override+'''    "mstr-adaptive-inference-policy-v0": (\n        ROOT\n        / "specs"\n        / "002-code-model-supremacy-foundation"\n        / "contracts"\n        / "mstr-adaptive-inference-policy-v0.schema.json"\n    ),\n    "mstr-selective-context-config-v0": (\n        ROOT\n        / "specs"\n        / "002-code-model-supremacy-foundation"\n        / "contracts"\n        / "mstr-selective-context-config-v0.schema.json"\n    ),\n'''
+          replace_exact("tests/contract/test_schemas.py", q4_override, b029_overrides)
+
+          replace_exact(
+            "tests/integration/test_cli_offline.py",
+            '        "interaction-contract",\n        "mstr-capability-profile-v0",',
+            '        "interaction-contract",\n        "mstr-adaptive-inference-policy-v0",\n        "mstr-capability-profile-v0",'
+          )
+          replace_exact(
+            "tests/integration/test_cli_offline.py",
+            '        "mstr-run-event-v0",\n        "mstr-self-alignment-generation-v0",',
+            '        "mstr-run-event-v0",\n        "mstr-selective-context-config-v0",\n        "mstr-self-alignment-generation-v0",'
+          )
+
+          readme_path=ROOT/"specs/002-code-model-supremacy-foundation/contracts/README.md"
+          readme=readme_path.read_text(encoding='utf-8')
+          marker="Remaining planned contracts:\n"
+          if readme.count(marker)!=1:
+              raise SystemExit('contracts README marker mismatch')
+          section='''## Frozen by B029\n\n```text\nmstr.adaptive-inference-policy.v0\nmstr.selective-context-config.v0\n```\n\nB029 freezes one-attempt-by-default adaptive inference, verifier/uncertainty-gated targeted repair, bounded optional branching, positive expected-DVCR justification for extra compute, and explicit marginal accounting for extra tokens, seconds, and tool actions. The policy binds canonical A010 capability fields and B020 difficulty evidence without granting success or execution authority. Selective context freezes the seven canonical intent classes and maps them onto explicit H1-compatible retrieval primitives. Unsupported active-contract capabilities remain explicit and fail closed instead of being invented. B029 itself performs no model execution, weight access, paid compute, training, or production release.\n\n'''
+          readme_path.write_text(readme.replace(marker, section+marker), encoding='utf-8')
+
+          test_text='''from __future__ import annotations\n\nimport copy\nimport json\nfrom pathlib import Path\n\nfrom mstr_qualify.schemas import validate_instance, validation_errors\n\nROOT = Path(__file__).resolve().parents[2]\nFIXTURES = ROOT / "tests" / "fixtures" / "schemas"\n\n\ndef _fixture(name: str) -> dict[str, object]:\n    return json.loads((FIXTURES / "valid" / f"{name}.json").read_text(encoding="utf-8"))\n\n\ndef test_b029_adaptive_policy_freezes_one_attempt_and_evidence_gated_escalation() -> None:\n    value = _fixture("mstr-adaptive-inference-policy-v0")\n    validate_instance("mstr-adaptive-inference-policy-v0", value)\n    assert value["default_attempt_count"] == 1\n    assert set(value["escalation_triggers"]) == {"VERIFIER_FAILURE", "UNCERTAINTY"}\n    assert value["new_evidence_required_before_retry"] is True\n    assert value["protected_finalizer_required"] is True\n    assert value["builder_success_authority"] is False\n    assert value["authority_effect"] == "NONE"\n\n\ndef test_b029_bounded_branching_and_marginal_value_fail_closed() -> None:\n    value = _fixture("mstr-adaptive-inference-policy-v0")\n    assert value["branching_mode"] == "BOUNDED"\n    assert value["hard_caps"]["max_branch_width"] == 2\n    assert value["marginal_value_rule"]["decision_rule"] == "POSITIVE_EXPECTED_DVCR_GAIN_REQUIRED"\n\n    bad = copy.deepcopy(value)\n    bad["hard_caps"]["max_branch_width"] = 1\n    assert validation_errors("mstr-adaptive-inference-policy-v0", bad)\n\n    disabled = copy.deepcopy(value)\n    disabled["branching_mode"] = "DISABLED"\n    disabled["hard_caps"]["max_branch_width"] = 1\n    validate_instance("mstr-adaptive-inference-policy-v0", disabled)\n\n\ndef test_b029_capability_and_difficulty_bindings_are_exact() -> None:\n    value = _fixture("mstr-adaptive-inference-policy-v0")\n    assert value["capability_profile_bindings"] == {\n        "context_budget_field": "reliable_context_budget",\n        "repair_depth_field": "max_repair_depth",\n        "verifier_cadence_field": "recommended_verifier_cadence",\n    }\n    assert value["difficulty_calibration_schema_version"] == "mstr.difficulty-calibration.v0"\n    assert value["difficulty_evidence_required_for_nontrivial_escalation"] is True\n\n\ndef test_b029_selective_context_freezes_exact_intent_set_without_implicit_retrieval() -> None:\n    value = _fixture("mstr-selective-context-config-v0")\n    validate_instance("mstr-selective-context-config-v0", value)\n    assert set(value["intent_rules"]) == {\n        "NO_RETRIEVAL",\n        "NEED_FILE",\n        "NEED_SYMBOL",\n        "NEED_HISTORY",\n        "NEED_TEST",\n        "NEED_CONFIG",\n        "NO_MORE_CONTEXT",\n    }\n    assert value["implicit_retrieval_allowed"] is False\n    assert value["intent_rules"]["NO_RETRIEVAL"]["max_repository_calls"] == 0\n    assert value["intent_rules"]["NO_MORE_CONTEXT"]["terminal"] is True\n    assert value["intent_rules"]["NEED_HISTORY"]["status"] == "UNSUPPORTED_BY_ACTIVE_CONTRACT"\n    assert value["intent_rules"]["NEED_HISTORY"]["resolution_mode"] == "CONTRACT_DEPENDENT"\n\n\ndef test_b029_context_and_attempt_shortcuts_are_rejected() -> None:\n    adaptive = _fixture("mstr-adaptive-inference-policy-v0")\n    adaptive["default_attempt_count"] = 2\n    assert validation_errors("mstr-adaptive-inference-policy-v0", adaptive)\n\n    context = _fixture("mstr-selective-context-config-v0")\n    context["implicit_retrieval_allowed"] = True\n    assert validation_errors("mstr-selective-context-config-v0", context)\n\n\ndef test_b029_evidence_preserves_non_execution_authority_boundary() -> None:\n    evidence = (ROOT / "evidence" / "mstr-000b" / "B029-adaptive-inference.md").read_text(encoding="utf-8")\n    for marker in (\n        "ENTRY_GATE_V2 = 33792125789 / SUCCESS",\n        "DEFAULT_ATTEMPTS = 1",\n        "MODEL_WEIGHT_ACCESS = NONE",\n        "MODEL_EXECUTION = NONE",\n        "PAID_COMPUTE = NONE",\n        "WEIGHT_CHANGING_TRAINING = NONE",\n        "B029_AUTHORITY = CONTRACT_POLICY_ONLY",\n    ):\n        assert marker in evidence\n'''
+          (ROOT/"tests/contract/test_adaptive_inference_contract.py").write_text(test_text, encoding='utf-8')
+
+          evidence='''# B029 — Adaptive Test-Time Compute and Selective Context Policy\n\n**Task:** `MSTR-000B / B029`  \n**State:** `IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT`  \n**Canonical entry main:** `1179515986ee2311ec1cd675fd899a6143c03761`\n\n## Entry gate\n\n```text\nENTRY_GATE_V1 = 33791919427 / FAILURE / EVIDENCE_HARNESS_ASSERTION_ONLY\nENTRY_GATE_V1_PRODUCTION_ELIGIBILITY = eligible=true / reasons=[]\nENTRY_GATE_V2 = 33792125789 / SUCCESS\nCANONICAL_MAIN = 1179515986ee2311ec1cd675fd899a6143c03761\nDRIFT = CLEAN\nB029_ELIGIBLE = true\nAUTHORITY_REQUIRED = false\nCANDIDATE_POOL_REQUIREMENT = false\n```\n\nThe first evidence workflow incorrectly asserted a legacy top-level `authority_required` field. The production `mstr.task-eligibility.v0` payload itself already reported `eligible=true`; v2 asserted the canonical nested `authority_result.required=false` and `candidate_pool_result.required=false` fields and completed successfully. The failed run remains negative evidence and is not represented as a pass.\n\n## Frozen contracts\n\nB029 registers byte-identical design/runtime schemas and valid/invalid fixtures for:\n\n```text\nmstr.adaptive-inference-policy.v0\nmstr.selective-context-config.v0\n```\n\n### Adaptive inference\n\n```text\nDEFAULT_ATTEMPTS = 1\nESCALATION_TRIGGERS = VERIFIER_FAILURE | UNCERTAINTY\nNEW_EVIDENCE_REQUIRED_BEFORE_RETRY = true\nTARGETED_REPAIR = enabled\nOPTIONAL_BRANCHING = bounded-or-disabled\nEXTRA_COMPUTE_RULE = POSITIVE_EXPECTED_DVCR_GAIN_REQUIRED\nMARGINAL_ACCOUNTING = extra_tokens + extra_seconds + extra_tool_actions\nPROTECTED_FINALIZER_REQUIRED = true\nBUILDER_SUCCESS_AUTHORITY = false\n```\n\nThe contract consumes, rather than duplicates, canonical dependencies: A005 provides bounded loop/repair/tool semantics; A006 preserves protected verifier/finalizer authority; A010 supplies `reliable_context_budget`, `recommended_verifier_cadence`, and `max_repair_depth`; B020 supplies checkpoint-relative difficulty evidence for nontrivial escalation. Numeric fixture caps are synthetic test values only and are not real-model capability claims.\n\n### Selective context\n\nThe config contract freezes the seven canonical intent classes:\n\n```text\nNO_RETRIEVAL\nNEED_FILE\nNEED_SYMBOL\nNEED_HISTORY\nNEED_TEST\nNEED_CONFIG\nNO_MORE_CONTEXT\n```\n\nH1 compatibility is fail-closed. `NO_RETRIEVAL` and `NO_MORE_CONTEXT` consume no repository call; file/test/config intents resolve through explicit paths; symbol intent may search and then select explicit paths. The current H1 contract does not expose a history-retrieval endpoint, so the canonical fixture records `NEED_HISTORY = UNSUPPORTED_BY_ACTIVE_CONTRACT` rather than fabricating support. A later active interaction contract may supply that capability under its own authority and evidence. Implicit retrieval remains prohibited.\n\nContext limits bind the A010 `reliable_context_budget` capability field and preserve compact AgentState, deterministic explicit paths, and deduplication. The policy does not claim retrieval ranking, prefix-cache performance, or model capability from configuration alone.\n\n## Authority boundary\n\n```text\nMODEL_WEIGHT_ACCESS = NONE\nMODEL_EXECUTION = NONE\nQUANTIZATION_EXECUTION = NONE\nGATED_TERMS_ACCEPTANCE = NONE\nPAID_MODEL_API = NONE\nPAID_COMPUTE = NONE\nLARGE_DATASET_INGESTION = NONE\nWEIGHT_CHANGING_TRAINING = NONE\nLARGE_SCALE_RL = NONE\nPRODUCTION_RELEASE = NONE\nB029_AUTHORITY = CONTRACT_POLICY_ONLY\n```\n\nB029 freezes policy and local validation only. It does not run a model, spend paid compute, authorize extra inference, or change B011/B013 authority. Any later execution remains independently governed.\n'''
+          (ROOT/"evidence/mstr-000b/B029-adaptive-inference.md").write_text(evidence, encoding='utf-8')
+          PY
+
+          git diff --check
+          test "$(git status --porcelain | wc -l)" -ge 10
+      - name: Focused B029 contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/contract/test_adaptive_inference_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py::test_validate_self_checks_schemas_and_fixtures
+      - name: Offline validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mstr-qualify validate
+      - name: Full test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q
+      - name: Ruff
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruff check .
+      - name: Canonical mypy
+        shell: bash
+        run: |
+          set -euo pipefail
+          mypy src
+      - name: Re-prove immutable canonical entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+      - name: Commit and push exact B029 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add src/mstr_qualify/schemas.py \
+            schemas/mstr-adaptive-inference-policy-v0.schema.json \
+            schemas/mstr-selective-context-config-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/README.md \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-adaptive-inference-policy-v0.schema.json \
+            specs/002-code-model-supremacy-foundation/contracts/mstr-selective-context-config-v0.schema.json \
+            tests/contract/test_schemas.py \
+            tests/contract/test_adaptive_inference_contract.py \
+            tests/integration/test_cli_offline.py \
+            tests/fixtures/schemas/valid/mstr-adaptive-inference-policy-v0.json \
+            tests/fixtures/schemas/invalid/mstr-adaptive-inference-policy-v0.json \
+            tests/fixtures/schemas/valid/mstr-selective-context-config-v0.json \
+            tests/fixtures/schemas/invalid/mstr-selective-context-config-v0.json \
+            evidence/mstr-000b/B029-adaptive-inference.md
+          git diff --cached --check
+          git commit -m "feat(b029): freeze adaptive inference and selective context"
+          test "$(git rev-list --count "$CANONICAL_MAIN"..HEAD)" = "1"
+          git push origin "HEAD:refs/heads/$FEATURE_BRANCH"
