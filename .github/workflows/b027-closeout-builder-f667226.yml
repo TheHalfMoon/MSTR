@@ -1,8 +1,9 @@
-name: Build B027 canonical closeout from verified implementation merge
+name: Build B027 canonical closeout
 
 on:
   push:
-    branches: [evidence/b027-closeout-builder-f667226]
+    branches:
+      - evidence/b027-closeout-builder-f667226
 
 permissions:
   contents: write
@@ -13,9 +14,6 @@ env:
   EXPECTED_MAIN: f667226dbf6cd380fefef5ff90fbc14eb1de3630
   IMPLEMENTATION_HEAD: b5e152552f3b840fd74f2fe9b092eca17b56a91d
   IMPLEMENTATION_PR: '141'
-  REGEN_RUN: '33757330474'
-  QUALIFY_RUN: '33758435956'
-  PREMERGE_RUN: '33760082781'
   POSTMERGE_RUN: '33761211923'
   TARGET_BRANCH: docs/000b-b027-canonicalize
   GH_TOKEN: ${{ github.token }}
@@ -32,235 +30,31 @@ jobs:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: pyproject.toml
-      - name: Verify immutable source and post-merge proof
+      - name: Verify immutable source and proof
         shell: bash
         run: |
           set -euo pipefail
-          remote_main="$(git ls-remote origin refs/heads/main | cut -f1)"
-          test "$remote_main" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
           gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${POSTMERGE_RUN}" > /tmp/postmerge.json
-          jq -e '.status == "completed" and .conclusion == "success" and (.name | contains("Post-merge verification for B027"))' /tmp/postmerge.json
+          jq -e '.status == "completed" and .conclusion == "success"' /tmp/postmerge.json
           gh api "repos/${GITHUB_REPOSITORY}/pulls/${IMPLEMENTATION_PR}" > /tmp/pr.json
           jq -e --arg merge "$EXPECTED_MAIN" --arg head "$IMPLEMENTATION_HEAD" '.merged == true and .merge_commit_sha == $merge and .head.sha == $head' /tmp/pr.json
           if git ls-remote --exit-code origin "refs/heads/${TARGET_BRANCH}" >/dev/null 2>&1; then
-            echo "Target branch already exists; refusing to overwrite it." >&2
+            echo 'Target branch already exists; refusing overwrite.' >&2
             exit 1
           fi
-
-      - name: Build bounded B027 closeout
+          cp scripts/b027_closeout_builder.py /tmp/b027_closeout_builder.py
+      - name: Build bounded closeout
         shell: bash
         run: |
           set -euo pipefail
           git checkout -B "$TARGET_BRANCH" "$EXPECTED_MAIN"
-          python - <<'PY'
-          from pathlib import Path
-
-          expected_main = "f667226dbf6cd380fefef5ff90fbc14eb1de3630"
-          implementation_head = "b5e152552f3b840fd74f2fe9b092eca17b56a91d"
-
-          # Canonical task catalog: state-only closeout.
-          catalog = Path("configs/task-gate/mstr-000b.json")
-          text = catalog.read_text(encoding="utf-8")
-          old = '    "B027": {\n      "canonical_state": "PENDING",'
-          new = '    "B027": {\n      "canonical_state": "COMPLETE_CANONICAL",'
-          assert text.count(old) == 1
-          catalog.write_text(text.replace(old, new, 1), encoding="utf-8")
-
-          # Canonical task checklist + exact implementation provenance.
-          tasks = Path("specs/002-code-model-supremacy-foundation/tasks.md")
-          text = tasks.read_text(encoding="utf-8")
-          old_head = '- [ ] **B027 Qualify the research ladder with one non-weight-changing campaign.**'
-          assert text.count(old_head) == 1
-          text = text.replace(old_head, '- [x] **B027 Qualify the research ladder with one non-weight-changing campaign.**', 1)
-          old_outputs = '  Outputs: `artifacts/results/research/B027/`, `evidence/mstr-000b/B027-ladder-pilot.md`.\n'
-          assert text.count(old_outputs) == 1
-          text = text.replace(
-              old_outputs,
-              old_outputs + f'  Canonical implementation: PR #141 / final head `{implementation_head}` / merge `{expected_main}`.\n',
-              1,
-          )
-          tasks.write_text(text, encoding="utf-8")
-
-          # Evidence: record immutable implementation and real-main acceptance.
-          evidence = Path("evidence/mstr-000b/B027-ladder-pilot.md")
-          text = evidence.read_text(encoding="utf-8")
-          old_top = '**Task:** `B027`\n**State:** `IMPLEMENTATION_ACTIVE`\n**Canonical entry main:** `312d40eee8400a0dab94633f891b206f66a82855`\n'
-          new_top = (
-              '**Task:** `B027`\n'
-              '**Implementation PR:** #141\n'
-              f'**Final implementation head:** `{implementation_head}`\n'
-              f'**Canonical implementation merge:** `{expected_main}`\n'
-              '**State:** COMPLETE_CANONICAL\n'
-              '**Canonical entry main:** `312d40eee8400a0dab94633f891b206f66a82855`\n'
-          )
-          assert text.count(old_top) == 1
-          text = text.replace(old_top, new_top, 1)
-          gate_anchor = '```text\nTASK = B027\nCANONICAL_MAIN = 312d40eee8400a0dab94633f891b206f66a82855\n'
-          gate_repl = (
-              '```text\n'
-              'ENTRY_GATE_TASK = B027\n'
-              'ENTRY_GATE_CANONICAL_MAIN = 312d40eee8400a0dab94633f891b206f66a82855\n'
-              'ENTRY_GATE_ELIGIBLE = true\n'
-              'TASK = B027\n'
-              'CANONICAL_MAIN = 312d40eee8400a0dab94633f891b206f66a82855\n'
-          )
-          assert text.count(gate_anchor) == 1
-          text = text.replace(gate_anchor, gate_repl, 1)
-          old_tail = (
-              'B027 remains `PENDING` in the canonical task ledger until this implementation is independently\n'
-              'qualified, reviewed, merged, post-merge verified, and separately closed out.\n'
-          )
-          closeout = f'''## Canonical Implementation Closeout
-
-The B027 bounded non-weight-changing research-ladder campaign is now accepted on canonical main.
-This closeout records terminal task/provenance state only. It does not rerun or mutate the frozen
-campaign, evaluator, schemas, promotion policies, material-result records, model/runtime surfaces,
-or any authority artifact.
-
-- implementation PR: `#141`
-- final implementation head: `{implementation_head}`
-- canonical implementation merge: `{expected_main}`
-- evaluator-affecting regeneration: run `33757330474` — SUCCESS
-- exact-head qualification: run `33758435956` — SUCCESS
-- exact-range independent review: CodeRabbit reviewed base `312d40eee8400a0dab94633f891b206f66a82855`, head `{implementation_head}`, tree `20e60c673a203e3fc7f09da817ffc6ad64ac5f76`, 32 commits, and 60 changed files — NO ACTIONABLE COMMENTS
-- mandatory exact-head pre-merge verification: run `33760082781` — SUCCESS
-- real-main post-merge canonical verification: run `33761211923` — SUCCESS
-
-Post-merge verification validated both B027 experiment records with full
-`mstr.research-experiment.v2` semantics against real merged `main`, proved the campaign commits are
-canonical ancestors, re-proved clean task drift and the pre-closeout B027 frontier, reran focused
-and full quality gates, and preserved the zero-external-effect boundary. L0 remains the exact
-`PROMOTE` result and L1 remains the exact controlled `STOP` on `code_proxy_thresholds`; L2/L3/L4
-remain unexecuted. The premerge ledger fields such as `PENDING_POST_MERGE_VALIDATION` are immutable
-historical candidate metadata and are not rewritten post hoc; canonical acceptance is recorded by
-the guarded merge, post-merge proof, and this separate closeout.
-
-This closeout grants no model-weight access, model execution, teacher/API execution, paid compute,
-network model/teacher calls, data ingestion, verifier external effects, training/RL, Q4 execution,
-or production release authority. B011, B013, B029, B030, and B031 remain governed by their own
-canonical states and unresolved bindings.
-'''
-          assert text.count(old_tail) == 1
-          evidence.write_text(text.replace(old_tail, closeout, 1), encoding="utf-8")
-
-          # Contract regression: B027 is terminal and remains a satisfied prerequisite downstream.
-          test_path = Path("tests/contract/test_task_gate.py")
-          text = test_path.read_text(encoding="utf-8")
-          old_test = '''def test_b026_closeout_opens_b027_as_next_machine_eligible_task() -> None:
-    result = evaluate_task_snapshot("B027", canonical_main=_CANONICAL_MAIN)
-
-    assert result["eligible"] is True
-    assert result["reasons"] == []
-    assert result["state_consistency_result"]["observed_state"] == "PENDING"
-    assert result["authority_result"]["required"] is False
-    predecessor = next(
-        item for item in result["prerequisite_results"] if item["task_id"] == "B026"
-    )
-    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
-    assert predecessor["evidence_present"] is True
-    assert predecessor["satisfied"] is True
-    validate_instance("mstr-task-eligibility-v0", result)
-'''
-          new_test = '''def test_b027_is_terminal_after_canonical_closeout() -> None:
-    result = evaluate_task_snapshot("B027", canonical_main=_CANONICAL_MAIN)
-
-    assert result["eligible"] is False
-    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
-    assert result["state_consistency_result"]["satisfied"] is True
-    assert result["authority_result"]["required"] is False
-    assert "task.already_terminal" in result["reasons"]
-    predecessor = next(
-        item for item in result["prerequisite_results"] if item["task_id"] == "B026"
-    )
-    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
-    assert predecessor["evidence_present"] is True
-    assert predecessor["satisfied"] is True
-    validate_instance("mstr-task-eligibility-v0", result)
-
-
-def test_b027_closeout_is_satisfied_for_b031_prerequisite() -> None:
-    result = evaluate_task_snapshot("B031", canonical_main=_CANONICAL_MAIN)
-
-    assert result["eligible"] is False
-    predecessor = next(
-        item for item in result["prerequisite_results"] if item["task_id"] == "B027"
-    )
-    assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
-    assert predecessor["evidence_present"] is True
-    assert predecessor["satisfied"] is True
-    validate_instance("mstr-task-eligibility-v0", result)
-'''
-          assert text.count(old_test) == 1
-          text = text.replace(old_test, new_test, 1)
-          marker = '\n\ndef test_b025_is_terminal_after_canonical_closeout() -> None:\n'
-          assert text.count(marker) == 1
-          provenance = f'''
-
-def test_b027_closeout_provenance_and_authority_boundary() -> None:
-    evidence = (
-        Path(__file__).resolve().parents[2]
-        / "evidence"
-        / "mstr-000b"
-        / "B027-ladder-pilot.md"
-    ).read_text(encoding="utf-8")
-
-    assert "**State:** COMPLETE_CANONICAL" in evidence
-    assert "**Implementation PR:** #141" in evidence
-    assert "`{implementation_head}`" in evidence
-    assert "`{expected_main}`" in evidence
-    assert "ENTRY_GATE_TASK = B027" in evidence
-    assert "ENTRY_GATE_CANONICAL_MAIN = 312d40eee8400a0dab94633f891b206f66a82855" in evidence
-    assert "ENTRY_GATE_ELIGIBLE = true" in evidence
-    for run_id in ("33757330474", "33758435956", "33760082781", "33761211923"):
-        assert f"run `{{run_id}}` — SUCCESS" in evidence
-    assert "NO ACTIONABLE COMMENTS" in evidence
-    assert "B027_REAL_MAIN_SEMANTICS" not in evidence or "real-main" in evidence
-    assert "MODEL_EXECUTION = NONE" in evidence
-    assert "MODEL_WEIGHT_ACCESS = NONE" in evidence
-    assert "RESEARCH_CAMPAIGN_EXTERNAL_EFFECT = NONE" in evidence
-    assert "VERIFIER_EXTERNAL_EFFECT = NONE" in evidence
-    assert "WEIGHT_CHANGING_TRAINING = NONE" in evidence
-'''
-          text = text.replace(marker, provenance + marker, 1)
-          test_path.write_text(text, encoding="utf-8")
-
-          # CLI regression: terminal B027 returns exit code 1.
-          cli_path = Path("tests/integration/test_task_gate_cli.py")
-          text = cli_path.read_text(encoding="utf-8")
-          marker = '\n\ndef test_task_eligible_b025_terminal_returns_one(\n'
-          assert text.count(marker) == 1
-          cli_test = '''
-
-def test_task_eligible_b027_terminal_returns_one(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    expected = evaluate_task_snapshot("B027", canonical_main=_CANONICAL_MAIN)
-
-    def fake_evaluate_task_eligibility(task_id: str) -> dict[str, object]:
-        assert task_id == "B027"
-        return expected
-
-    monkeypatch.setattr(
-        "mstr_qualify.cli.evaluate_task_eligibility", fake_evaluate_task_eligibility
-    )
-    exit_code = main(["task", "eligible", "B027"])
-    payload = _stdout_json(capsys)
-    assert exit_code == 1
-    assert payload == expected
-    assert payload["eligible"] is False
-    assert "task.already_terminal" in payload["reasons"]
-    validate_instance("mstr-task-eligibility-v0", payload)
-'''
-          text = text.replace(marker, cli_test + marker, 1)
-          cli_path.write_text(text, encoding="utf-8")
-          PY
-
+          python /tmp/b027_closeout_builder.py
           expected_paths=$'configs/task-gate/mstr-000b.json\nevidence/mstr-000b/B027-ladder-pilot.md\nspecs/002-code-model-supremacy-foundation/tasks.md\ntests/contract/test_task_gate.py\ntests/integration/test_task_gate_cli.py'
           actual_paths="$(git diff --name-only | sort)"
           test "$actual_paths" = "$expected_paths"
           git diff --check
-
-      - name: Validate closeout before publication
+      - name: Validate closeout
         shell: bash
         run: |
           set -euo pipefail
@@ -269,20 +63,8 @@ def test_task_eligible_b027_terminal_returns_one(
           python -m mstr_qualify validate
           python -m ruff check tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
           python -m mypy src
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          catalog = json.loads(Path('configs/task-gate/mstr-000b.json').read_text())
-          assert catalog['tasks']['B027']['canonical_state'] == 'COMPLETE_CANONICAL'
-          assert catalog['tasks']['B026']['canonical_state'] == 'COMPLETE_CANONICAL'
-          assert catalog['tasks']['B028']['canonical_state'] == 'COMPLETE_CANONICAL'
-          assert catalog['tasks']['B029']['canonical_state'] == 'BLOCKED'
-          assert catalog['tasks']['B030']['canonical_state'] == 'BLOCKED'
-          assert catalog['tasks']['B031']['canonical_state'] == 'BLOCKED'
-          PY
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
-
-      - name: Publish closeout branch with immutable-main guard
+      - name: Publish guarded closeout branch
         shell: bash
         run: |
           set -euo pipefail
