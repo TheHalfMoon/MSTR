@@ -1,0 +1,62 @@
+name: Request Copilot review for PR 147
+
+on:
+  push:
+    branches: [evidence/pr147-copilot-review-request]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+env:
+  BASE_SHA: b20349c23ada1130f98e28c0e1e3db56ed692d13
+  HEAD_SHA: be51ea1975790657b0ca6056a3ccc19f85f1b78f
+  HEAD_TREE: ccddbded39bb1a475ed144c51cda0bd65edf4823
+  PR_NUMBER: '147'
+  PR_NODE_ID: PR_kwDOUCYTYs8AAAABCFpemA
+  TARGET_BRANCH: fix/000b-convergence-cross-workstream-bindings-v5
+  QUALIFICATION_RUN: '33781997319'
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  request:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify exact review target and qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          pr="$(gh api repos/${GITHUB_REPOSITORY}/pulls/$PR_NUMBER)"
+          jq -e --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .commits == 1 and .changed_files == 3' <<<"$pr"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/git/commits/$HEAD_SHA --jq '.tree.sha')" = "$HEAD_TREE"
+          qualification="$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/$QUALIFICATION_RUN)"
+          jq -e '.status == "completed" and .conclusion == "success"' <<<"$qualification"
+          threads="$(gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' -f owner="${GITHUB_REPOSITORY_OWNER}" -f name="${GITHUB_REPOSITORY#*/}" -F number="$PR_NUMBER")"
+          jq -e '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length == 0' <<<"$threads"
+      - name: Request Copilot code review and prove work started
+        shell: bash
+        run: |
+          set -euo pipefail
+          events_before="$(gh api repos/${GITHUB_REPOSITORY}/issues/$PR_NUMBER/events?per_page=100)"
+          before="$(jq '[.[] | select(.event == "copilot_work_started") | .id] | max // 0' <<<"$events_before")"
+          gh api graphql -f query='mutation($pr:ID!){requestReviewsByLogin(input:{pullRequestId:$pr,botLogins:["copilot-pull-request-reviewer"]}){pullRequest{number}}}' -f pr="$PR_NODE_ID" --jq '.data.requestReviewsByLogin.pullRequest.number' | grep -Fx "$PR_NUMBER"
+          started=0
+          for _ in $(seq 1 30); do
+            sleep 2
+            events_after="$(gh api repos/${GITHUB_REPOSITORY}/issues/$PR_NUMBER/events?per_page=100)"
+            after="$(jq '[.[] | select(.event == "copilot_work_started") | .id] | max // 0' <<<"$events_after")"
+            if [ "$after" -gt "$before" ]; then started="$after"; break; fi
+          done
+          test "$started" -gt "$before"
+          echo "COPILOT_WORK_STARTED_EVENT=$started"
+      - name: Final immutable target recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          pr="$(gh api repos/${GITHUB_REPOSITORY}/pulls/$PR_NUMBER)"
+          jq -e --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head' <<<"$pr"
