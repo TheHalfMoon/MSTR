@@ -1,0 +1,223 @@
+name: Independent semantic review PR 151 B030
+
+on:
+  push:
+    branches:
+      - evidence/pr151-b030-independent-semantic-review
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+env:
+  EXPECTED_MAIN: 2d19b6296d550b5b60c1b511d71c6ce86a38d195
+  EXPECTED_HEAD: 00502aba975e4fa1c2780e5cca1c779fc6b64f27
+  EXPECTED_TREE: 85a5107313597cbf656af16799a961e8c8f10ef5
+  TARGET_BRANCH: feat/000b-b030-repository-health-delta
+  PR_NUMBER: '151'
+  QUALIFICATION_RUN: '33805424908'
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+          path: canonical
+          persist-credentials: false
+
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Prove immutable review target and prior qualification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .state)" = "open"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .head.sha)" = "$EXPECTED_HEAD"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .base.sha)" = "$EXPECTED_MAIN"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN} --jq .conclusion)" = "success"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN} --jq .name)" = "Qualify PR 151 B030 repository health delta v2"
+          git -C candidate diff --check "$EXPECTED_MAIN...$EXPECTED_HEAD"
+          test -z "$(git -C candidate diff --name-only "$EXPECTED_MAIN...$EXPECTED_HEAD" -- configs/task-gate specs/002-code-model-supremacy-foundation/tasks.md artifacts/authorities)"
+          echo 'REVIEW_TARGET_IDENTITY=PASS'
+
+      - name: Install candidate tooling
+        run: python -m pip install -e './candidate[dev]'
+
+      - name: Independent B030 semantic assertions
+        working-directory: candidate
+        run: |
+          python - <<'PY'
+          import copy
+          import json
+          from pathlib import Path
+          from jsonschema import Draft202012Validator
+
+          root = Path('.')
+          runtime_path = root / 'schemas/mstr-repository-health-delta-v0.schema.json'
+          design_path = root / 'specs/002-code-model-supremacy-foundation/contracts/mstr-repository-health-delta-v0.schema.json'
+          fixture_path = root / 'tests/fixtures/schemas/valid/mstr-repository-health-delta-v0.json'
+          evidence_path = root / 'evidence/mstr-000b/B030-long-horizon-quality.md'
+
+          assert runtime_path.read_bytes() == design_path.read_bytes()
+          schema = json.loads(runtime_path.read_text(encoding='utf-8'))
+          Draft202012Validator.check_schema(schema)
+          validator = Draft202012Validator(schema)
+          fixture = json.loads(fixture_path.read_text(encoding='utf-8'))
+          assert list(validator.iter_errors(fixture)) == []
+
+          assert schema['properties']['schema_version']['const'] == 'mstr.repository-health-delta.v0'
+          assert schema['properties']['criteria_frozen_before_first_round']['const'] is True
+          assert schema['properties']['normalized_health_orientation']['const'] == 'HIGHER_IS_BETTER'
+          assert schema['properties']['authority_effect']['const'] == 'NONE'
+          assert schema['properties']['rounds']['minItems'] == 2
+          assert schema['properties']['rounds']['uniqueItems'] is True
+
+          expected_profiles = {
+              'RAW_MODEL': 'mstr.harness.raw-model.v0',
+              'H0': 'mstr.harness.h0-neutral-minimal.v0',
+              'H1': 'mstr.harness.h1-native.v0',
+              'H2': 'mstr.harness.h2-wepld-native.v0',
+          }
+          profile_schema = schema['$defs']['round']['properties']['profiles']
+          assert set(profile_schema['required']) == set(expected_profiles)
+          assert set(profile_schema['properties']) == set(expected_profiles)
+          for attribution, profile_id in expected_profiles.items():
+              binding = profile_schema['properties'][attribution]['allOf'][1]['properties']
+              assert binding['attribution']['const'] == attribution
+              assert binding['harness_profile_id']['const'] == profile_id
+
+          expected_dimensions = {
+              'duplication', 'dead_unused_code', 'complexity_growth',
+              'dependency_growth', 'architecture_violations', 'lint_type_debt',
+              'test_health', 'unnecessary_refactors',
+          }
+          dimensions = schema['$defs']['scorecard']['properties']['dimensions']
+          assert set(dimensions['required']) == expected_dimensions
+          assert set(dimensions['properties']) == expected_dimensions
+          assert schema['$defs']['scorecard']['properties']['repository_health_score']['minimum'] == 0
+          assert schema['$defs']['scorecard']['properties']['repository_health_score']['maximum'] == 1
+
+          risks = schema['$defs']['risk_assessment']
+          expected_risks = {
+              'harness_lock_in', 'technical_debt_accumulation',
+              'cross_harness_comparability', 'claim_decision',
+          }
+          assert set(risks['required']) == expected_risks
+          assert set(risks['properties']) == expected_risks
+
+          def errors(value):
+              return list(validator.iter_errors(value))
+
+          # Every named blocking/unresolved risk must fail closed.
+          for risk_name in ('harness_lock_in', 'technical_debt_accumulation', 'cross_harness_comparability'):
+              for status in ('BLOCKING', 'UNRESOLVED'):
+                  bad = copy.deepcopy(fixture)
+                  bad['risk_assessment'][risk_name]['status'] = status
+                  bad['risk_assessment']['claim_decision'] = 'COMPARISON_ELIGIBLE'
+                  assert errors(bad), (risk_name, status)
+
+          # Clear named risks are necessary, not sufficient: an extra conservative block is valid.
+          conservative = copy.deepcopy(fixture)
+          conservative['risk_assessment']['claim_decision'] = 'BLOCKED'
+          assert errors(conservative) == []
+
+          # Missing harness attribution or wrong canonical harness identity must fail.
+          for attribution, profile_id in expected_profiles.items():
+              missing = copy.deepcopy(fixture)
+              del missing['rounds'][0]['profiles'][attribution]
+              assert errors(missing), attribution
+              wrong = copy.deepcopy(fixture)
+              wrong['rounds'][0]['profiles'][attribution]['harness_profile_id'] = profile_id + '.wrong'
+              assert errors(wrong), attribution
+
+          # Repository-health dimensions cannot collapse into an aggregate-only score.
+          for dimension in expected_dimensions:
+              missing = copy.deepcopy(fixture)
+              del missing['rounds'][0]['profiles']['H1']['scorecard']['dimensions'][dimension]
+              assert errors(missing), dimension
+
+          # A profile without verified completion cannot keep a result revision or score.
+          for attribution in expected_profiles:
+              fail_closed = copy.deepcopy(fixture)
+              profile = fail_closed['rounds'][1]['profiles'][attribution]
+              profile['evaluation_state'] = 'NO_VERIFIED_COMPLETION'
+              profile['result_revision'] = None
+              profile['scorecard'] = None
+              assert errors(fail_closed), attribution
+              fail_closed['risk_assessment']['cross_harness_comparability']['status'] = 'UNRESOLVED'
+              fail_closed['risk_assessment']['claim_decision'] = 'BLOCKED'
+              assert errors(fail_closed) == [], attribution
+
+          measured_null = copy.deepcopy(fixture)
+          measured_null['rounds'][0]['profiles']['RAW_MODEL']['scorecard'] = None
+          assert errors(measured_null)
+
+          evidence = evidence_path.read_text(encoding='utf-8')
+          for marker in (
+              'B030_STATE = PENDING',
+              'B030_AUTHORITY = METRIC_CONTRACT_AND_FIXTURES_ONLY',
+              'MODEL_WEIGHT_ACCESS = NONE',
+              'MODEL_EXECUTION = NONE',
+              'HARNESS_EXECUTION = NONE',
+              'PAID_COMPUTE = NONE',
+              'WEIGHT_CHANGING_TRAINING = NONE',
+              'PRODUCTION_RELEASE = NONE',
+              'clear named risks are necessary but not sufficient',
+          ):
+              assert marker in evidence, marker
+          assert 'B030_STATE = COMPLETE_CANONICAL' not in evidence
+          assert 'B030_AUTHORITY = MODEL_EXECUTION' not in evidence
+
+          print('SEMANTIC_REVIEW=PASS')
+          print('FINDINGS=NONE')
+          PY
+
+      - name: Reproduce focused contract suite
+        working-directory: candidate
+        run: python -m pytest -q tests/contract/test_repository_health_delta_contract.py
+
+      - name: Reproduce offline validation
+        working-directory: candidate
+        run: python -m mstr_qualify validate
+
+      - name: Reproduce full repository quality
+        working-directory: candidate
+        run: |
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+
+      - name: Final immutable review recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .head.sha)" = "$EXPECTED_HEAD"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .base.sha)" = "$EXPECTED_MAIN"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          echo 'INDEPENDENT_REVIEW_FINAL=PASS'
+          echo 'FINDINGS=NONE'
