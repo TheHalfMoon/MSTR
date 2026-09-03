@@ -69,8 +69,8 @@ def test_b027_closeout_evidence_uses_guarded_merge_conditional_canonicality() ->
         in normalized_lower
     )
     assert (
-        "terminal b027 closeout acceptance is recorded only when this exact closeout head is merged "
-        "into canonical `main` through the required expected-head guard"
+        "terminal b027 closeout acceptance is recorded only when this exact closeout head is "
+        "merged into canonical `main` through the required expected-head guard"
         in normalized_lower
     )
 
