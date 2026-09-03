@@ -1,0 +1,233 @@
+name: Build B029 canonical closeout
+
+on:
+  push:
+    branches:
+      - evidence/b029-closeout-build-b3223bb
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: b3223bb384d8723c37a28526be691cedf8174dc3
+  TARGET_BRANCH: docs/000b-b029-canonicalize
+  IMPLEMENTATION_HEAD: f449f81fc3e7343052b54b09b0481d64963d7e2f
+  IMPLEMENTATION_MERGE: b3223bb384d8723c37a28526be691cedf8174dc3
+  POSTMERGE_RUN: '33797367994'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Prove exact canonical closeout entry
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/${POSTMERGE_RUN} --jq .status)" = completed
+          test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/${POSTMERGE_RUN} --jq .conclusion)" = success
+          python -m pip install -e '.[dev]'
+          mstr-qualify task drift > /tmp/entry-drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/entry-drift.json >/dev/null
+          mstr-qualify task eligible B029 > /tmp/b029-entry.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .reasons == []' /tmp/b029-entry.json >/dev/null
+          echo 'B029_CLOSEOUT_ENTRY=PASS'
+
+      - name: Materialize exact B029 closeout scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+          import json
+          import re
+          from pathlib import Path
+
+          config = Path('configs/task-gate/mstr-000b.json')
+          tasks = Path('specs/002-code-model-supremacy-foundation/tasks.md')
+          evidence = Path('evidence/mstr-000b/B029-adaptive-inference.md')
+          task_tests = Path('tests/contract/test_task_gate.py')
+          convergence_tests = Path('tests/contract/test_convergence_external_bindings.py')
+
+          payload = json.loads(config.read_text(encoding='utf-8'))
+          node = payload['tasks']['B029']
+          if node['canonical_state'] != 'PENDING':
+              raise SystemExit(f"unexpected B029 state: {node['canonical_state']}")
+          node['canonical_state'] = 'COMPLETE_CANONICAL'
+          config.write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
+
+          text = tasks.read_text(encoding='utf-8')
+          marker = '- [ ] **B029 Freeze adaptive test-time compute + selective-context policy.**'
+          checked = marker.replace('[ ]', '[x]')
+          if text.count(marker) != 1:
+              raise SystemExit(f'pending B029 marker count={text.count(marker)}')
+          text = text.replace(marker, checked, 1)
+          text = re.sub(rf'({re.escape(checked)})[ \t]+(?=\n)', r'\1', text, count=1)
+          pattern = re.compile(
+              r'(- \[x\] \*\*B029 Freeze adaptive test-time compute \+ selective-context policy\.\*\*.*?)(?=\n- \[[ x]\] \*\*B030)',
+              re.S,
+          )
+          match = pattern.search(text)
+          if match is None:
+              raise SystemExit('B029 task block not found')
+          block = match.group(1).rstrip()
+          if 'Canonical implementation: PR #149' in block:
+              raise SystemExit('B029 canonical implementation already recorded')
+          block += (
+              '\n  Canonical implementation: PR #149 / final head '
+              '`f449f81fc3e7343052b54b09b0481d64963d7e2f` / merge '
+              '`b3223bb384d8723c37a28526be691cedf8174dc3`.\n'
+          )
+          text = text[:match.start()] + block + text[match.end():]
+          tasks.write_text(text, encoding='utf-8')
+
+          text = evidence.read_text(encoding='utf-8')
+          state = '**State:** `IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT`'
+          if text.count(state) != 1:
+              raise SystemExit('unexpected B029 evidence state')
+          text = text.replace(state, '**State:** COMPLETE_CANONICAL', 1)
+          task_line = '**Task:** `MSTR-000B / B029`\n'
+          if text.count(task_line) != 1:
+              raise SystemExit('unexpected B029 task metadata')
+          metadata = (
+              task_line
+              + '**Implementation PR:** #149\n'
+              + '**Final implementation head:** `f449f81fc3e7343052b54b09b0481d64963d7e2f`\n'
+              + '**Canonical implementation merge:** `b3223bb384d8723c37a28526be691cedf8174dc3`\n'
+          )
+          text = text.replace(task_line, metadata, 1)
+          if '## Canonical Implementation Closeout' in text:
+              raise SystemExit('B029 closeout section already exists')
+          closeout = '''
+
+## Canonical Implementation Closeout
+
+B029's adaptive test-time compute and selective-context policy contracts were merged and independently verified on canonical `main`. This closeout records terminal task/provenance state only; it does not change the frozen schemas, schema registration, fixtures, runtime semantics, task prerequisites, or any external-effect authority.
+
+- implementation PR: `#149`
+- final implementation head: `f449f81fc3e7343052b54b09b0481d64963d7e2f`
+- canonical implementation merge: `b3223bb384d8723c37a28526be691cedf8174dc3`
+- exact entry gate v2: run `33792125789` — SUCCESS
+- implementation builder v1: run `33794038421` — FAILED Ruff E501 after full-test pass; preserved negative evidence
+- implementation builder v2: run `33794732024` — FAILED final diff-check after full-test/Ruff/mypy/validation pass; preserved negative evidence
+- final implementation builder v3: run `33795227237` — SUCCESS
+- exact-head qualification: run `33796297573` — SUCCESS
+- independent semantic review: run `33796374380` — SUCCESS / FINDINGS=NONE
+- mandatory pre-merge verification: run `33796812445` — SUCCESS
+- post-merge implementation verification: run `33797367994` — SUCCESS
+
+The frozen policy remains one-attempt-by-default, fail-closed on escalation evidence, bounded by explicit marginal-cost caps, and subordinate to A006 protected finalizer authority. Selective context continues to prohibit implicit retrieval and records unsupported active-contract capabilities explicitly rather than fabricating support.
+
+This closeout grants no model-weight access, model execution, quantization execution, gated-terms acceptance, paid API/compute, large/private/production data ingestion, weight-changing training, large-scale RL, or production release authority. B030 remains independently governed by A007/A008/A009/B024/B025 and may proceed only through its own exact-main eligibility lifecycle. B011 and B013 remain separately blocked by their canonical authority/dependency boundaries.
+'''
+          evidence.write_text(text.rstrip() + closeout, encoding='utf-8')
+
+          text = task_tests.read_text(encoding='utf-8')
+          if 'test_b029_is_terminal_after_canonical_closeout' in text:
+              raise SystemExit('B029 terminal regression already present')
+          terminal_test = '''
+
+
+def test_b029_is_terminal_after_canonical_closeout() -> None:
+    result = evaluate_task_snapshot("B029", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert result["authority_result"]["required"] is False
+    assert "task.already_terminal" in result["reasons"]
+    assert {item["task_id"] for item in result["prerequisite_results"]} == {
+        "A005",
+        "A006",
+        "A008",
+        "A010",
+        "B020",
+    }
+    assert all(item["observed_state"] == "COMPLETE_CANONICAL" for item in result["prerequisite_results"])
+    assert all(item["evidence_present"] is True for item in result["prerequisite_results"])
+    assert all(item["satisfied"] is True for item in result["prerequisite_results"])
+    validate_instance("mstr-task-eligibility-v0", result)
+'''
+          task_tests.write_text(text.rstrip() + terminal_test, encoding='utf-8')
+
+          text = convergence_tests.read_text(encoding='utf-8')
+          old = 'assert tasks["B029"]["canonical_state"] == "PENDING"'
+          if text.count(old) != 2:
+              raise SystemExit(f'unexpected B029 convergence assertions={text.count(old)}')
+          text = text.replace(old, 'assert tasks["B029"]["canonical_state"] == "COMPLETE_CANONICAL"')
+          convergence_tests.write_text(text, encoding='utf-8')
+          PY
+          python -m ruff format tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py
+          git diff --check
+          mapfile -t actual < <(git diff --name-only | sort)
+          expected=(
+            configs/task-gate/mstr-000b.json
+            evidence/mstr-000b/B029-adaptive-inference.md
+            specs/002-code-model-supremacy-foundation/tasks.md
+            tests/contract/test_convergence_external_bindings.py
+            tests/contract/test_task_gate.py
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 5
+          diff -u <(printf '%s\n' "${wanted[@]}") <(printf '%s\n' "${actual[@]}")
+          test -z "$(git diff --name-only -- schemas specs/002-code-model-supremacy-foundation/contracts tests/fixtures src)"
+          grep -F '**State:** COMPLETE_CANONICAL' evidence/mstr-000b/B029-adaptive-inference.md
+          grep -F 'Canonical implementation: PR #149 / final head `f449f81fc3e7343052b54b09b0481d64963d7e2f` / merge `b3223bb384d8723c37a28526be691cedf8174dc3`.' specs/002-code-model-supremacy-foundation/tasks.md
+          test "$(grep -c 'evaluate_task_snapshot("B029"' tests/contract/test_task_gate.py)" -eq 1
+
+      - name: Run closeout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py tests/contract/test_adaptive_inference_contract.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+
+      - name: Commit, prove prospective canonical semantics, and publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add configs/task-gate/mstr-000b.json evidence/mstr-000b/B029-adaptive-inference.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_convergence_external_bindings.py tests/contract/test_task_gate.py
+          git commit -m "docs(mstr-000b): canonicalize B029 closeout"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git rev-list --count "$EXPECTED_MAIN"..HEAD)" -eq 1
+          CLOSEOUT_HEAD=$(git rev-parse HEAD)
+          git update-ref refs/heads/main "$CLOSEOUT_HEAD"
+          git update-ref refs/remotes/origin/main "$CLOSEOUT_HEAD"
+          mstr-qualify task drift > /tmp/prospective-drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/prospective-drift.json >/dev/null
+          if mstr-qualify task eligible B029 > /tmp/b029.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b029.json >/dev/null
+          mstr-qualify task eligible B030 > /tmp/b030.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .reasons == []' /tmp/b030.json >/dev/null
+          if mstr-qualify task eligible B031 > /tmp/b031.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and ((.reasons | index("prerequisite.unsatisfied:A019")) != null) and ((.reasons | index("prerequisite.unsatisfied:A020")) != null) and ((.reasons | index("prerequisite.unsatisfied:B030")) != null)' /tmp/b031.json >/dev/null
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.satisfied == false' /tmp/b011.json >/dev/null
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "B029_CLOSEOUT_HEAD=$CLOSEOUT_HEAD"
+          echo "B029_CLOSEOUT_TREE=$(git rev-parse HEAD^{tree})"
+          echo 'B029_CLOSEOUT_FILES=5'
+          echo 'B029_RUNTIME_CONTRACT_MUTATION=NONE'
