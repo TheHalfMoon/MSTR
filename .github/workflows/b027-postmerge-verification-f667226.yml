@@ -112,10 +112,13 @@ jobs:
           set -euo pipefail
           python -m pip install -e '.[dev]'
           git fetch origin main:refs/remotes/origin/main
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
           mstr-qualify task drift > /tmp/drift.json
           jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
           mstr-qualify task eligible B027 > /tmp/b027.json
           jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and .authority_result.satisfied == true and (.reasons | length) == 0' /tmp/b027.json
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
           echo 'B027_POSTMERGE_PENDING_ELIGIBLE=PASS'
           echo 'B027_CANONICAL_CLOSEOUT=NOT_YET_DONE'
