@@ -1,0 +1,195 @@
+name: Mandatory premerge verification PR 149 B029
+
+on:
+  push:
+    branches:
+      - evidence/pr149-b029-mandatory-premerge
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+  pull-requests: read
+  statuses: read
+
+env:
+  EXPECTED_BASE: 1179515986ee2311ec1cd675fd899a6143c03761
+  EXPECTED_HEAD: f449f81fc3e7343052b54b09b0481d64963d7e2f
+  EXPECTED_TREE: 40c3521fe0b6119c50eacc711675c72139887d51
+  PR_NUMBER: '149'
+  QUALIFICATION_RUN: '33796297573'
+  REVIEW_RUN: '33796374380'
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout canonical base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_BASE }}
+          fetch-depth: 0
+          path: base
+          persist-credentials: false
+
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify exact live identity, mergeability, and scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C base rev-parse HEAD)" = "$EXPECTED_BASE"
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git -C candidate rev-parse HEAD^)" = "$EXPECTED_BASE"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '
+            .state == "open" and
+            .draft == false and
+            .merged == false and
+            .mergeable == true and
+            .base.ref == "main" and
+            .base.sha == $base and
+            .head.sha == $head and
+            .commits == 1 and
+            .changed_files == 14
+          ' /tmp/pr.json >/dev/null
+
+          cat > /tmp/expected-files <<'EOF'
+          evidence/mstr-000b/B029-adaptive-inference.md
+          schemas/mstr-adaptive-inference-policy-v0.schema.json
+          schemas/mstr-selective-context-config-v0.schema.json
+          specs/002-code-model-supremacy-foundation/contracts/README.md
+          specs/002-code-model-supremacy-foundation/contracts/mstr-adaptive-inference-policy-v0.schema.json
+          specs/002-code-model-supremacy-foundation/contracts/mstr-selective-context-config-v0.schema.json
+          src/mstr_qualify/schemas.py
+          tests/contract/test_adaptive_inference_contract.py
+          tests/contract/test_schemas.py
+          tests/fixtures/schemas/invalid/mstr-adaptive-inference-policy-v0.json
+          tests/fixtures/schemas/invalid/mstr-selective-context-config-v0.json
+          tests/fixtures/schemas/valid/mstr-adaptive-inference-policy-v0.json
+          tests/fixtures/schemas/valid/mstr-selective-context-config-v0.json
+          tests/integration/test_cli_offline.py
+          EOF
+          sed -i 's/^          //' /tmp/expected-files
+          sort -o /tmp/expected-files /tmp/expected-files
+          git -C candidate diff --name-only "$EXPECTED_BASE...$EXPECTED_HEAD" | sort > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git -C candidate diff --check "$EXPECTED_BASE...$EXPECTED_HEAD"
+          test -z "$(git -C candidate diff --name-only "$EXPECTED_BASE...$EXPECTED_HEAD" -- configs/task-gate specs/002-code-model-supremacy-foundation/tasks.md artifacts/authorities)"
+
+      - name: Verify qualification and independent review evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN}" --jq .status)" = completed
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN}" --jq .conclusion)" = success
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${REVIEW_RUN}" --jq .status)" = completed
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${REVIEW_RUN}" --jq .conclusion)" = success
+
+      - name: Reconcile reviews and threads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" --jq '[.[] | select(.state == "CHANGES_REQUESTED")] | length')" -eq 0
+          gh api graphql -f query='query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved comments(first:100){nodes{body author{login}}}}}}}}' -f owner=TheHalfMoon -f repo=MSTR -F number=149 > /tmp/threads.json
+          jq -e '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length == 0' /tmp/threads.json >/dev/null
+          echo 'REVIEW_RECONCILIATION=PASS'
+
+      - name: Verify protection, rulesets, and required-check boundary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/branches/main" > /tmp/branch.json
+          jq -e '.protected == false and (.protection.enabled // false) == false and ((.protection.required_status_checks.contexts // []) | length == 0)' /tmp/branch.json >/dev/null
+          gh api "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true" > /tmp/rulesets.json
+          jq -e 'length == 0' /tmp/rulesets.json >/dev/null
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD}/status" > /tmp/status.json
+          jq -e '[.statuses[]? | select(.state == "failure" or .state == "error")] | length == 0' /tmp/status.json >/dev/null
+          echo 'REQUIRED_CHECK_BOUNDARY=PASS'
+
+      - name: Verify B029 semantic and authority boundary
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('candidate')
+          spec = root / 'specs/002-code-model-supremacy-foundation/contracts'
+          runtime = root / 'schemas'
+          names = [
+              'mstr-adaptive-inference-policy-v0.schema.json',
+              'mstr-selective-context-config-v0.schema.json',
+          ]
+          for name in names:
+              assert (runtime / name).read_bytes() == (spec / name).read_bytes()
+          adaptive = json.loads((runtime / names[0]).read_text())
+          context = json.loads((runtime / names[1]).read_text())
+          assert adaptive['properties']['default_attempt_count'] == {'const': 1}
+          assert adaptive['properties']['new_evidence_required_before_retry'] == {'const': True}
+          assert adaptive['properties']['protected_finalizer_required'] == {'const': True}
+          assert adaptive['properties']['builder_success_authority'] == {'const': False}
+          assert adaptive['properties']['authority_effect'] == {'const': 'NONE'}
+          assert context['properties']['implicit_retrieval_allowed'] == {'const': False}
+          assert set(context['properties']['intent_rules']['required']) == {
+              'NO_RETRIEVAL','NEED_FILE','NEED_SYMBOL','NEED_HISTORY','NEED_TEST','NEED_CONFIG','NO_MORE_CONTEXT'
+          }
+          evidence = (root / 'evidence/mstr-000b/B029-adaptive-inference.md').read_text()
+          assert 'IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT' in evidence
+          assert 'COMPLETE_CANONICAL' not in evidence
+          assert 'MODEL_WEIGHT_ACCESS = NONE' in evidence
+          assert 'MODEL_EXECUTION = NONE' in evidence
+          assert 'WEIGHT_CHANGING_TRAINING = NONE' in evidence
+          print('SEMANTIC_SCOPE=PASS')
+          PY
+
+      - name: Install exact candidate tooling
+        run: python -m pip install -e './candidate[dev]'
+
+      - name: Focused B029 suite
+        working-directory: candidate
+        run: python -m pytest -q tests/contract/test_adaptive_inference_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py::test_validate_self_checks_schemas_and_fixtures
+
+      - name: Full test suite
+        working-directory: candidate
+        run: python -m pytest -q
+
+      - name: Ruff
+        working-directory: candidate
+        run: python -m ruff check .
+
+      - name: Canonical mypy
+        working-directory: candidate
+        run: python -m mypy src
+
+      - name: Offline validation
+        working-directory: candidate
+        run: python -m mstr_qualify validate
+
+      - name: Final immutable live recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr-final.json
+          jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .merged == false and .mergeable == true and .base.sha == $base and .head.sha == $head' /tmp/pr-final.json >/dev/null
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          echo 'MANDATORY_PREMERGE=PASS'
