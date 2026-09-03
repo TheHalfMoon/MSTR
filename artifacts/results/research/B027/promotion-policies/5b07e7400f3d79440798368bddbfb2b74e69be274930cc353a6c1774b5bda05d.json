@@ -1,0 +1,34 @@
+{
+  "campaign_id": "b027-offline-ladder-pilot-v0",
+  "criteria": [
+    {
+      "expected_value": true,
+      "gate_id": "contracts_config_valid",
+      "operator": "EQ"
+    },
+    {
+      "expected_value": true,
+      "gate_id": "l0_smoke_checks",
+      "operator": "EQ"
+    },
+    {
+      "expected_value": true,
+      "gate_id": "frozen_evaluation_pinned",
+      "operator": "EQ"
+    },
+    {
+      "expected_value": true,
+      "gate_id": "material_identity_complete",
+      "operator": "EQ"
+    },
+    {
+      "expected_value": true,
+      "gate_id": "authority_boundary_intact",
+      "operator": "EQ"
+    }
+  ],
+  "fidelity_level": "L0_CONTRACT_SMOKE",
+  "frozen_evaluation_identity": "sha256:b6f3d060a7cb48a7d34d5d98fb1e3687df1dd2becc7dcee29ea71de2cc5dc398",
+  "governing_task_id": "B027",
+  "schema_version": "mstr.research-promotion-policy.v0"
+}
