@@ -1,0 +1,137 @@
+name: Independent semantic review PR 148 v3
+
+on:
+  push:
+    branches:
+      - evidence/pr148-independent-semantic-review-v3
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_BASE: 766f7df376eb1fd7b9b68dcd1d029eccdb362d76
+      EXPECTED_HEAD: 3de5ed19c1dc8d90e193478effb8ff437e8414ed
+      EXPECTED_TREE: 71922d96d7557086a52b92eb54909cb806b3a6a9
+      PR_NUMBER: '148'
+    steps:
+      - name: Checkout canonical base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_BASE }}
+          fetch-depth: 0
+          path: base
+          persist-credentials: false
+
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify immutable identity and atomic scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git -C base rev-parse HEAD)" = "$EXPECTED_BASE"
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git -C candidate rev-parse HEAD^)" = "$EXPECTED_BASE"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .head.sha)" = "$EXPECTED_HEAD"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .base.sha)" = "$EXPECTED_BASE"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .state)" = "open"
+          printf '%s\n' tests/contract/test_b027_ladder_pilot.py > /tmp/expected-files
+          git -C candidate diff --name-only "$EXPECTED_BASE...$EXPECTED_HEAD" > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          test "$(git -C candidate diff --numstat "$EXPECTED_BASE...$EXPECTED_HEAD")" = $'1\t1\ttests/contract/test_b027_ladder_pilot.py'
+          git -C candidate diff --check "$EXPECTED_BASE...$EXPECTED_HEAD"
+
+      - name: Independent semantic review of exact replacement
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          base = Path('base')
+          candidate = Path('candidate')
+          test_path = Path('tests/contract/test_b027_ladder_pilot.py')
+          production_path = Path('scripts/research/b027_ladder_pilot.py')
+
+          before = (base / test_path).read_text(encoding='utf-8')
+          after = (candidate / test_path).read_text(encoding='utf-8')
+          production_before = (base / production_path).read_bytes()
+          production_after = (candidate / production_path).read_bytes()
+
+          old = '    _git(clone, "fetch", ".", f"{canonical_entry}:refs/remotes/origin/main")'
+          new = '    _git(clone, "update-ref", "refs/remotes/origin/main", canonical_entry)'
+
+          assert before.count(old) == 1, 'fragile fixture line is not unique in canonical base'
+          assert after == before.replace(old, new, 1), 'candidate is not exactly the intended one-line fixture replacement'
+          assert old not in after, 'fragile non-force fetch remains'
+          assert after.count(new) == before.count(new) + 1, 'replacement did not add exactly one fixture update-ref'
+          assert production_before == production_after, 'B027 production harness changed'
+          assert b'update-ref' not in production_after, 'production harness can rewrite canonical refs'
+
+          diff = subprocess.run(
+              ['git', '-C', 'candidate', 'diff', '--unified=0', 'HEAD^', 'HEAD', '--', str(test_path)],
+              check=True,
+              capture_output=True,
+              text=True,
+          ).stdout.splitlines()
+          removed = [line for line in diff if line.startswith('-') and not line.startswith('---')]
+          added = [line for line in diff if line.startswith('+') and not line.startswith('+++')]
+          assert removed == ['-' + old], removed
+          assert added == ['+' + new], added
+          print('INDEPENDENT_PATCH_SEMANTICS=PASS')
+          print('FINDINGS=NONE')
+          PY
+
+      - name: Install exact candidate tooling
+        run: python -m pip install -e './candidate[dev]'
+
+      - name: Reproduce repaired regression
+        working-directory: candidate
+        run: python -m pytest tests/contract/test_b027_ladder_pilot.py::test_b027_harness_never_rewrites_canonical_refs -q
+
+      - name: Full B027 contract suite
+        working-directory: candidate
+        run: python -m pytest tests/contract/test_b027_ladder_pilot.py -q
+
+      - name: Full test suite
+        working-directory: candidate
+        run: python -m pytest -q
+
+      - name: Ruff
+        working-directory: candidate
+        run: python -m ruff check .
+
+      - name: Canonical mypy gate
+        working-directory: candidate
+        run: python -m mypy src
+
+      - name: Offline validation
+        working-directory: candidate
+        run: python -m mstr_qualify validate
+
+      - name: Re-verify live immutability
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .head.sha)" = "$EXPECTED_HEAD"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .base.sha)" = "$EXPECTED_BASE"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          echo 'INDEPENDENT_REVIEW=PASS'
