@@ -1,0 +1,190 @@
+name: Verify B027 canonical post-closeout and frontier
+
+on:
+  push:
+    branches:
+      - evidence/b027-postcloseout-b20349c
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+env:
+  EXPECTED_MAIN: b20349c23ada1130f98e28c0e1e3db56ed692d13
+  EXPECTED_PARENT1: f667226dbf6cd380fefef5ff90fbc14eb1de3630
+  EXPECTED_PARENT2: 5554e5769295ccbff317ee71cf46907640247408
+  EXPECTED_TREE: 49fcf69675e00ae0c70acf48ae055015483c70e1
+  PR_NUMBER: '142'
+  PREMERGE_RUN: '33770632313'
+  QUALIFICATION_RUN: '33768336816'
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  merge_identity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+      - name: Verify exact expected-head guarded merge identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_PARENT1"
+          test "$(git rev-parse HEAD^2)" = "$EXPECTED_PARENT2"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg merge "$EXPECTED_MAIN" --arg head "$EXPECTED_PARENT2" '
+            .state == "closed" and .merged == true and .merge_commit_sha == $merge and
+            .head.sha == $head and .commits == 12 and .changed_files == 6
+          ' /tmp/pr.json
+          for run in "$QUALIFICATION_RUN" "$PREMERGE_RUN"; do
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run}" > "/tmp/run-${run}.json"
+            jq -e '.status == "completed" and .conclusion == "success"' "/tmp/run-${run}.json"
+          done
+          echo 'B027_GUARDED_MERGE_IDENTITY=PASS'
+
+  canonical_task_frontier:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Recompute exact canonical task frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if python -m pip install -e '.[dev]'; then break; fi
+            test "$attempt" -lt 3
+            sleep 10
+          done
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+
+          set +e
+          mstr-qualify task eligible B027 > /tmp/B027.json; b027_rc=$?
+          mstr-qualify task eligible B011 > /tmp/B011.json; b011_rc=$?
+          mstr-qualify task eligible B031 > /tmp/B031.json; b031_rc=$?
+          set -e
+          test "$b027_rc" -eq 1
+          test "$b011_rc" -eq 1
+          test "$b031_rc" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/B027.json
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and .authority_result.required == true and .authority_result.satisfied == false' /tmp/B011.json
+          jq -e '.eligible == false and ([.prerequisite_results[] | select(.task_id == "B027" and .observed_state == "COMPLETE_CANONICAL" and .evidence_present == true and .satisfied == true)] | length == 1)' /tmp/B031.json
+
+          echo '=== MSTR-000B CANONICAL FRONTIER BEGIN ==='
+          eligible_count=0
+          eligible_tasks=''
+          for i in $(seq 1 34); do
+            task=$(printf 'B%03d' "$i")
+            set +e
+            mstr-qualify task eligible "$task" > "/tmp/${task}.json"
+            rc=$?
+            set -e
+            test "$rc" -eq 0 -o "$rc" -eq 1
+            eligible=$(jq -r '.eligible' "/tmp/${task}.json")
+            state=$(jq -r '.state_consistency_result.observed_state' "/tmp/${task}.json")
+            authority_required=$(jq -r '.authority_result.required' "/tmp/${task}.json")
+            authority_satisfied=$(jq -r '.authority_result.satisfied' "/tmp/${task}.json")
+            reasons=$(jq -c '.reasons' "/tmp/${task}.json")
+            echo "TASK_FRONTIER task=${task} rc=${rc} eligible=${eligible} state=${state} authority_required=${authority_required} authority_satisfied=${authority_satisfied} reasons=${reasons}"
+            if [ "$eligible" = true ]; then
+              eligible_count=$((eligible_count + 1))
+              eligible_tasks="${eligible_tasks}${eligible_tasks:+,}${task}"
+            fi
+          done
+          echo "TASK_FRONTIER_SUMMARY eligible_count=${eligible_count} eligible_tasks=${eligible_tasks:-NONE}"
+          echo '=== B031 PREREQUISITES ==='
+          jq -c '.prerequisite_results' /tmp/B031.json
+          echo '=== MSTR-000B CANONICAL FRONTIER END ==='
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run real-main closeout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if python -m pip install -e '.[dev]'; then break; fi
+            test "$attempt" -lt 3
+            sleep 10
+          done
+          python -m pytest tests/contract/test_b027_closeout_wording.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+
+  authority_boundary:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+      - name: Re-prove B027 closeout authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          normalized="$(tr '\n\t' '  ' < evidence/mstr-000b/B027-ladder-pilot.md | tr -s ' ' | tr '[:upper:]' '[:lower:]')"
+          grep -F 'b027 becomes canonical only when this exact closeout head is merged into canonical `main` through the required expected-head guard' <<< "$normalized"
+          grep -F 'terminal b027 closeout acceptance is recorded only when this exact closeout head is merged into canonical `main` through the required expected-head guard' <<< "$normalized"
+          for marker in \
+            'MODEL_WEIGHT_ACCESS = NONE' \
+            'MODEL_EXECUTION = NONE' \
+            'RESEARCH_CAMPAIGN_EXTERNAL_EFFECT = NONE' \
+            'VERIFIER_EXTERNAL_EFFECT = NONE' \
+            'PAID_COMPUTE = NONE' \
+            'NETWORK_MODEL_OR_TEACHER_CALL = NONE' \
+            'WEIGHT_CHANGING_TRAINING = NONE' \
+            'Q4_EXECUTION = NONE' \
+            'PRODUCTION_RELEASE = NONE'; do
+            grep -F "$marker" evidence/mstr-000b/B027-ladder-pilot.md
+          done
+          grep -F -- '- [x] **B027 Qualify the research ladder with one non-weight-changing campaign.**' specs/002-code-model-supremacy-foundation/tasks.md
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo 'B027_POSTCLOSEOUT_AUTHORITY_CONTAINMENT=PASS'
+
+  complete:
+    needs: [merge_identity, canonical_task_frontier, quality, authority_boundary]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+      - name: Final immutable real-main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_PARENT1"
+          test "$(git rev-parse HEAD^2)" = "$EXPECTED_PARENT2"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo "B027_POSTCLOSEOUT_MAIN=$EXPECTED_MAIN"
+          echo 'B027_CANONICAL_CLOSEOUT=PASS'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'WEIGHT_CHANGING_TRAINING=NONE'
