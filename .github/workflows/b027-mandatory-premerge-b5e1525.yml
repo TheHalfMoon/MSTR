@@ -1,0 +1,236 @@
+name: Mandatory premerge B027 b5e1525
+
+on:
+  push:
+    branches:
+      - evidence/b027-premerge-b5e1525
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+  issues: read
+
+env:
+  EXPECTED_MAIN: 312d40eee8400a0dab94633f891b206f66a82855
+  EXPECTED_HEAD: b5e152552f3b840fd74f2fe9b092eca17b56a91d
+  EXPECTED_TREE: 20e60c673a203e3fc7f09da817ffc6ad64ac5f76
+  EXPECTED_COMMITS: '32'
+  EXPECTED_FILES: '60'
+  PR_NUMBER: '141'
+  QUALIFICATION_RUN: '33758435956'
+  QUALIFICATION_BRANCH: evidence/b027-qualify-b5e1525
+  QUALIFICATION_SHA: 83b94b659ca959ccc085b035add44d0d580ebed8
+  REGEN_RUN: '33757330474'
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  identity_review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+      - name: Verify exact PR identity, scope, qualification, and review evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git merge-base "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "$EXPECTED_MAIN"
+          test "$(git rev-list --count "$EXPECTED_MAIN..$EXPECTED_HEAD")" = "$EXPECTED_COMMITS"
+
+          git diff --name-only "$EXPECTED_MAIN" "$EXPECTED_HEAD" > /tmp/changed.txt
+          test "$(wc -l < /tmp/changed.txt | tr -d ' ')" = "$EXPECTED_FILES"
+          while IFS= read -r path; do
+            case "$path" in
+              scripts/research/b027_ladder_pilot.py|artifacts/results/research/B027/*|evidence/mstr-000b/B027-ladder-pilot.md|tests/contract/test_b027_ladder_pilot.py) ;;
+              *) echo "OUT_OF_SCOPE=$path" >&2; exit 1 ;;
+            esac
+          done < /tmp/changed.txt
+          test ! -e artifacts/authorities/B027.json
+
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$EXPECTED_MAIN" --arg head "$EXPECTED_HEAD" --argjson commits "$EXPECTED_COMMITS" --argjson files "$EXPECTED_FILES" '
+            .state == "open" and
+            .draft == false and
+            .merged == false and
+            .mergeable == true and
+            .base.sha == $base and
+            .head.sha == $head and
+            .commits == $commits and
+            .changed_files == $files
+          ' /tmp/pr.json
+
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${REGEN_RUN}" > /tmp/regen.json
+          jq -e --arg head "$EXPECTED_HEAD" '
+            .status == "completed" and
+            .conclusion == "success" and
+            (.name | contains("Regenerate B027")) and
+            .head_branch == "evidence/b027-review-findings-regeneration"
+          ' /tmp/regen.json
+
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN}" > /tmp/qualification.json
+          jq -e --arg branch "$QUALIFICATION_BRANCH" --arg qsha "$QUALIFICATION_SHA" '
+            .status == "completed" and
+            .conclusion == "success" and
+            .head_branch == $branch and
+            .head_sha == $qsha and
+            (.name | contains("Qualify B027 exact head"))
+          ' /tmp/qualification.json
+
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate > /tmp/issue-comments.json
+          jq -e --arg base "$EXPECTED_MAIN" --arg head "$EXPECTED_HEAD" --arg tree "$EXPECTED_TREE" '
+            [ .[] |
+              select(
+                (.user.login == "coderabbitai[bot]" or .user.login == "coderabbitai") and
+                (.body | contains("I completed a fresh substantive review of the exact range")) and
+                (.body | contains($base)) and
+                (.body | contains($head)) and
+                (.body | contains($tree)) and
+                (.body | contains("32 commits and 60 changed files")) and
+                (.body | contains("No actionable comments were generated for this exact range")) and
+                (.body | contains("full semantic validator in a temporary synthetic-merge clone")) and
+                (.body | contains("content-addressed and causally ordered")) and
+                (.body | contains("all governed effects as false"))
+              )
+            ] | length >= 1
+          ' /tmp/issue-comments.json
+
+          gh api graphql \
+            -f owner="${GITHUB_REPOSITORY_OWNER}" \
+            -f name="${GITHUB_REPOSITORY#*/}" \
+            -F number="$PR_NUMBER" \
+            -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved} pageInfo{hasNextPage}}}}}' \
+            > /tmp/threads.json
+          jq -e '
+            .data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage == false and
+            ([.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length) == 0
+          ' /tmp/threads.json
+
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/feat/000b-b027-ladder-pilot | cut -f1)" = "$EXPECTED_HEAD"
+
+  canonical_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Re-prove exact-main machine eligibility and bounded authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json
+          mstr-qualify task eligible B027 > /tmp/b027.json
+          jq -e '
+            .eligible == true and
+            .state_consistency_result.observed_state == "PENDING" and
+            .authority_result.required == false and
+            .authority_result.satisfied == true and
+            (.reasons | length) == 0 and
+            ([.prerequisite_results[] | select(.task_id == "B026" and .observed_state == "COMPLETE_CANONICAL" and .satisfied == true)] | length == 1)
+          ' /tmp/b027.json
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/feat/000b-b027-ladder-pilot | cut -f1)" = "$EXPECTED_HEAD"
+
+  candidate_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Re-run exact-head semantic and quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python - <<'PY'
+          import hashlib
+          import importlib.util
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path.cwd()
+          head = os.environ['EXPECTED_HEAD']
+          result_root = root / 'artifacts' / 'results' / 'research' / 'B027'
+          script = root / 'scripts' / 'research' / 'b027_ladder_pilot.py'
+          evaluator = 'sha256:' + hashlib.sha256(script.read_bytes()).hexdigest()
+          spec = importlib.util.spec_from_file_location('b027_premerge', script)
+          assert spec is not None and spec.loader is not None
+          pilot = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(pilot)
+          ledger = json.loads((result_root / 'campaign-ledger.json').read_text(encoding='utf-8'))
+          assert ledger['frozen_evaluation_identity'] == evaluator
+          assert ledger['canonical_history_status'] == 'PENDING_POST_MERGE_VALIDATION'
+          assert ledger['candidate_validation_kind'] == 'PROSPECTIVE_NO_CANONICAL_REF_REWRITE'
+          assert [row['decision'] for row in ledger['sequence']] == ['PROMOTE', 'STOP']
+          assert ledger['sequence'][1]['early_discard_gate'] == 'code_proxy_thresholds'
+          assert not any(ledger['governed_effects'].values())
+          records = []
+          for row in ledger['sequence']:
+              path = result_root / 'registry' / f"{row['experiment_id']}.json"
+              raw = path.read_bytes()
+              assert hashlib.sha256(raw).hexdigest() == row['record_sha256']
+              record = json.loads(raw)
+              pilot._validate_record_candidate(record, head)
+              records.append(record)
+          pilot._validate_records_synthetic_merge(tuple(records), head)
+          PY
+          python -m pytest tests/contract/test_b027_ladder_pilot.py tests/contract/test_research_ladder_contract.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/feat/000b-b027-ladder-pilot | cut -f1)" = "$EXPECTED_HEAD"
+
+  complete:
+    needs: [identity_review, canonical_gate, candidate_gate]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+      - name: Final guarded merge-readiness proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/feat/000b-b027-ladder-pilot | cut -f1)" = "$EXPECTED_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$EXPECTED_MAIN" --arg head "$EXPECTED_HEAD" '
+            .state == "open" and .draft == false and .merged == false and
+            .mergeable == true and .base.sha == $base and .head.sha == $head
+          ' /tmp/pr.json
+          echo "B027_PREMERGE_READY=true"
+          echo "B027_EXPECTED_HEAD=$EXPECTED_HEAD"
+          echo "B027_EXPECTED_TREE=$EXPECTED_TREE"
+          echo "B027_FRESH_REVIEW=CODERABBIT_NO_ACTIONABLE_EXACT_RANGE"
+          echo "B027_UNRESOLVED_REVIEW_THREADS=0"
+          echo "MODEL_EXECUTION=NONE"
+          echo "WEIGHT_CHANGING_TRAINING=NONE"
