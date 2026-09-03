@@ -177,6 +177,32 @@ def test_b030_no_completion_can_be_represented_only_fail_closed() -> None:
     assert _errors(value) == []
 
 
+def test_b030_clear_risks_do_not_force_claim_eligibility() -> None:
+    value = _fixture()
+    risk = value["risk_assessment"]
+    assert isinstance(risk, dict)
+    risk["claim_decision"] = "BLOCKED"
+
+    assert _errors(value) == []
+
+
+def test_b030_noncompletion_forces_comparability_to_fail_closed() -> None:
+    value = _fixture()
+    rounds = value["rounds"]
+    assert isinstance(rounds, list)
+    final_round = rounds[-1]
+    assert isinstance(final_round, dict)
+    profiles = final_round["profiles"]
+    assert isinstance(profiles, dict)
+    raw = profiles["RAW_MODEL"]
+    assert isinstance(raw, dict)
+    raw["evaluation_state"] = "NO_VERIFIED_COMPLETION"
+    raw["result_revision"] = None
+    raw["scorecard"] = None
+
+    assert _errors(value)
+
+
 def test_b030_evidence_preserves_contract_only_authority_boundary() -> None:
     evidence = (
         ROOT / "evidence" / "mstr-000b" / "B030-long-horizon-quality.md"
