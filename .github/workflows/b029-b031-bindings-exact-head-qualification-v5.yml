@@ -1,0 +1,225 @@
+name: B029-B031 convergence binding exact-head qualification v5
+
+on:
+  push:
+    branches:
+      - evidence/b029-b031-bindings-qualify-be51ea1
+
+permissions:
+  contents: read
+
+env:
+  BASE_SHA: b20349c23ada1130f98e28c0e1e3db56ed692d13
+  TARGET_SHA: be51ea1975790657b0ca6056a3ccc19f85f1b78f
+  TARGET_TREE: ccddbded39bb1a475ed144c51cda0bd65edf4823
+  TARGET_BRANCH: fix/000b-convergence-cross-workstream-bindings-v5
+  PRIOR_HEAD: 4281c4c4e7798097c8f41075e9d54c6bb141a898
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - name: Verify exact identity and three-file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git merge-base "$BASE_SHA" "$TARGET_SHA")" = "$BASE_SHA"
+          test "$(git rev-list --count "$BASE_SHA..$TARGET_SHA")" -eq 1
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_SHA"
+          printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B029-B031-cross-workstream-binding-reconciliation.md \
+            tests/contract/test_convergence_external_bindings.py | sort > /tmp/expected
+          git diff --name-only "$BASE_SHA...$TARGET_SHA" | sort > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          git diff --check "$BASE_SHA...$TARGET_SHA"
+          test -z "$(grep '^\.github/' /tmp/actual || true)"
+          echo 'EXACT_IDENTITY_SCOPE=PASS'
+      - name: Verify replacement preserves config and evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse "$PRIOR_HEAD:configs/task-gate/mstr-000b.json")" = "$(git rev-parse "$TARGET_SHA:configs/task-gate/mstr-000b.json")"
+          test "$(git rev-parse "$PRIOR_HEAD:evidence/mstr-000b/B029-B031-cross-workstream-binding-reconciliation.md")" = "$(git rev-parse "$TARGET_SHA:evidence/mstr-000b/B029-B031-cross-workstream-binding-reconciliation.md")"
+          echo 'CONFIG_EVIDENCE_PRESERVED=PASS'
+      - name: Verify exact canonical binding semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          catalog = json.loads(Path('configs/task-gate/mstr-000b.json').read_text(encoding='utf-8'))
+          tasks = catalog['tasks']
+          unresolved = catalog['unresolved_bindings']
+          external = catalog['external_prerequisites']
+          assert tasks['B029']['canonical_state'] == 'PENDING'
+          assert tasks['B029']['prerequisites'] == ['A005', 'A006', 'A008', 'A010', 'B020']
+          assert tasks['B030']['canonical_state'] == 'PENDING'
+          assert tasks['B030']['prerequisites'] == ['A007', 'A008', 'A009', 'B024', 'B025']
+          assert tasks['B031']['canonical_state'] == 'PENDING'
+          assert tasks['B031']['prerequisites'] == [
+              'A019', 'A020', 'B002', 'B003', 'B004', 'B015', 'B017', 'B019',
+              'B021', 'B023', 'B024', 'B025', 'B027', 'B028', 'B029', 'B030',
+          ]
+          assert set(unresolved) == {'B011', 'B013'}
+          assert tasks['B011']['canonical_state'] == 'BLOCKED'
+          assert tasks['B013']['canonical_state'] == 'BLOCKED'
+          expected = {
+              'A005': 'evidence/mstr-000a/A005-build-loop.md',
+              'A006': 'evidence/mstr-000a/A006-finalizer.md',
+              'A007': 'evidence/mstr-000a/A007-neutral-harness.md',
+              'A008': 'evidence/mstr-000a/A008-mstr-harness.md',
+              'A009': 'evidence/mstr-000a/A009-wepld-adapter.md',
+              'A010': 'evidence/mstr-000a/A010-capability-profile.md',
+              'A019': 'evidence/mstr-000a/A019-harness-tournament.md',
+              'A020': 'evidence/mstr-000a/A020-autoresearch.md',
+          }
+          for task_id, path in expected.items():
+              assert external[task_id] == {
+                  'workstream_id': 'MSTR-000A',
+                  'tasks_file': 'specs/001-agent-harness-verified-loop-foundation/tasks.md',
+                  'state_evidence': path,
+                  'evidence_outputs': [path],
+                  'required_state': 'COMPLETE_CANONICAL',
+                  'task_identity': f'MSTR-000A / {task_id}',
+              }
+          evidence = Path('evidence/mstr-000b/B029-B031-cross-workstream-binding-reconciliation.md').read_text(encoding='utf-8')
+          for marker in (
+              'B011_AUTHORITY_CHANGE = NONE', 'B013_CANDIDATE_POOL_BINDING_CHANGE = NONE',
+              'MODEL_WEIGHT_ACCESS = NONE', 'MODEL_EXECUTION = NONE', 'PAID_MODEL_API = NONE',
+              'PAID_COMPUTE = NONE', 'WEIGHT_CHANGING_TRAINING = NONE',
+              'LARGE_SCALE_RL = NONE', 'PRODUCTION_RELEASE = NONE',
+          ):
+              assert marker in evidence, marker
+          print('CANONICAL_BINDING_SEMANTICS=PASS')
+          PY
+      - name: Verify accepted review finding is covered without overconstraint
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('tests/contract/test_convergence_external_bindings.py').read_text(encoding='utf-8')
+          for marker in (
+              'from mstr_qualify.task_gate import evaluate_task_snapshot',
+              'result = evaluate_task_snapshot("B031", canonical_main=_CANONICAL_MAIN)',
+              'assert result["eligible"] is False',
+              'assert prerequisite_rows["A019"]["satisfied"] is False',
+              'assert prerequisite_rows["A020"]["satisfied"] is False',
+              '"prerequisite.missing_task_binding" not in prerequisite_rows["A019"]["reasons"]',
+              '"prerequisite.missing_task_binding" not in prerequisite_rows["A020"]["reasons"]',
+          ):
+              assert marker in text, marker
+          print('B031_REVIEW_FINDING_COVERAGE=PASS')
+          PY
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install development gates
+        run: python -m pip install -e '.[dev]'
+      - name: Focused tests
+        run: python -m pytest tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py tests/integration/test_task_gate_cli.py -q
+      - name: Offline validation
+        run: python -m mstr_qualify validate
+      - name: Full pytest
+        run: python -m pytest -q
+      - name: Ruff
+        run: python -m ruff check .
+      - name: Strict mypy
+        run: python -m mypy src
+      - name: Recheck immutable target and live base
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+
+  frontier:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install repository
+        run: python -m pip install -e '.[dev]'
+      - name: Prove exact prospective frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          git update-ref refs/heads/main "$TARGET_SHA"
+          git update-ref refs/remotes/origin/main "$TARGET_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/drift.json',encoding='utf-8'))
+          assert d['status']=='clean' and d['findings']==[], d
+          PY
+          mstr-qualify task eligible B029 > /tmp/b029.json
+          mstr-qualify task eligible B030 > /tmp/b030.json
+          set +e
+          mstr-qualify task eligible B031 > /tmp/b031.json; rc31=$?
+          mstr-qualify task eligible B011 > /tmp/b011.json; rc11=$?
+          mstr-qualify task eligible B013 > /tmp/b013.json; rc13=$?
+          set -e
+          test "$rc31" -eq 1; test "$rc11" -eq 1; test "$rc13" -eq 1
+          python - <<'PY'
+          import json
+          load=lambda p: json.load(open(p,encoding='utf-8'))
+          b029,b030,b031,b011,b013=map(load,['/tmp/b029.json','/tmp/b030.json','/tmp/b031.json','/tmp/b011.json','/tmp/b013.json'])
+          assert b029['eligible'] is True, b029
+          assert b030['eligible'] is True, b030
+          assert b031['eligible'] is False, b031
+          rows={r['task_id']:r for r in b031['prerequisite_results']}
+          for t in ('A019','A020'):
+              assert rows[t]['satisfied'] is False, rows[t]
+              assert 'prerequisite.missing_task_binding' not in rows[t]['reasons'], rows[t]
+          assert b011['eligible'] is False and b011['authority_result']['satisfied'] is False, b011
+          assert b013['eligible'] is False, b013
+          print('PROSPECTIVE_FRONTIER=PASS')
+          PY
+
+  complete:
+    needs: [identity_scope, quality, frontier]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+      - name: Final exact-head recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$TARGET_SHA"
+          echo "QUALIFIED_HEAD=$TARGET_SHA"
+          echo "QUALIFIED_TREE=$TARGET_TREE"
+          echo 'B029_B031_BINDING_EXACT_HEAD_QUALIFICATION=PASS'
