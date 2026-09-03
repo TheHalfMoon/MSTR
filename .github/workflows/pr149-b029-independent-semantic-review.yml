@@ -1,0 +1,200 @@
+name: Independent semantic review PR 149 B029
+
+on:
+  push:
+    branches:
+      - evidence/pr149-b029-independent-semantic-review
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_BASE: 1179515986ee2311ec1cd675fd899a6143c03761
+  EXPECTED_HEAD: f449f81fc3e7343052b54b09b0481d64963d7e2f
+  EXPECTED_TREE: 40c3521fe0b6119c50eacc711675c72139887d51
+  PR_NUMBER: '149'
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout canonical base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_BASE }}
+          fetch-depth: 0
+          path: base
+          persist-credentials: false
+
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify immutable PR identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C base rev-parse HEAD)" = "$EXPECTED_BASE"
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git -C candidate rev-parse HEAD^)" = "$EXPECTED_BASE"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .head.sha)" = "$EXPECTED_HEAD"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .base.sha)" = "$EXPECTED_BASE"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .state)" = "open"
+          git -C candidate diff --check "$EXPECTED_BASE...$EXPECTED_HEAD"
+
+      - name: Independent semantic review of B029 contracts
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+          import json
+          from pathlib import Path
+
+          root = Path('candidate')
+          spec = root / 'specs/002-code-model-supremacy-foundation/contracts'
+          runtime = root / 'schemas'
+
+          adaptive_name = 'mstr-adaptive-inference-policy-v0.schema.json'
+          context_name = 'mstr-selective-context-config-v0.schema.json'
+
+          adaptive_bytes = (runtime / adaptive_name).read_bytes()
+          context_bytes = (runtime / context_name).read_bytes()
+          assert adaptive_bytes == (spec / adaptive_name).read_bytes(), 'adaptive design/runtime schemas diverge'
+          assert context_bytes == (spec / context_name).read_bytes(), 'selective-context design/runtime schemas diverge'
+
+          adaptive = json.loads(adaptive_bytes)
+          context = json.loads(context_bytes)
+
+          ap = adaptive['properties']
+          assert ap['default_attempt_count'] == {'const': 1}
+          assert ap['protected_finalizer_required'] == {'const': True}
+          assert ap['builder_success_authority'] == {'const': False}
+          assert ap['new_evidence_required_before_retry'] == {'const': True}
+          assert ap['targeted_repair_enabled'] == {'const': True}
+          assert set(ap['branching_mode']['enum']) == {'DISABLED', 'BOUNDED'}
+          assert set(ap['escalation_triggers']['items']['enum']) == {'VERIFIER_FAILURE', 'UNCERTAINTY'}
+          assert ap['escalation_triggers']['minItems'] == 2 == ap['escalation_triggers']['maxItems']
+          assert ap['difficulty_calibration_schema_version'] == {'const': 'mstr.difficulty-calibration.v0'}
+          assert ap['difficulty_evidence_required_for_nontrivial_escalation'] == {'const': True}
+          assert ap['authority_effect'] == {'const': 'NONE'}
+          bindings = ap['capability_profile_bindings']['properties']
+          assert bindings['context_budget_field'] == {'const': 'reliable_context_budget'}
+          assert bindings['verifier_cadence_field'] == {'const': 'recommended_verifier_cadence'}
+          assert bindings['repair_depth_field'] == {'const': 'max_repair_depth'}
+          marginal = ap['marginal_value_rule']['properties']
+          assert marginal['decision_rule'] == {'const': 'POSITIVE_EXPECTED_DVCR_GAIN_REQUIRED'}
+          for field in ('expected_dvcr_gain_required', 'measure_extra_tokens', 'measure_extra_seconds', 'measure_extra_tool_actions'):
+              assert marginal[field] == {'const': True}
+          hard_caps = ap['hard_caps']['required']
+          assert set(hard_caps) == {
+              'max_total_attempts', 'max_repair_depth', 'max_branch_width',
+              'max_extra_tokens', 'max_extra_seconds', 'max_extra_tool_actions'
+          }
+
+          cp = context['properties']
+          assert cp['implicit_retrieval_allowed'] == {'const': False}
+          assert cp['deterministic_explicit_paths'] == {'const': True}
+          assert cp['deduplicate_explicit_paths'] == {'const': True}
+          assert cp['compact_agent_state_required'] == {'const': True}
+          assert cp['reliable_context_budget_field'] == {'const': 'reliable_context_budget'}
+          assert cp['authority_effect'] == {'const': 'NONE'}
+          intents = cp['intent_rules']
+          required_intents = {
+              'NO_RETRIEVAL', 'NEED_FILE', 'NEED_SYMBOL', 'NEED_HISTORY',
+              'NEED_TEST', 'NEED_CONFIG', 'NO_MORE_CONTEXT'
+          }
+          assert set(intents['required']) == required_intents
+          assert set(intents['properties']) == required_intents
+          history = intents['properties']['NEED_HISTORY']['allOf'][1]['properties']
+          assert history['resolution_mode'] == {'const': 'CONTRACT_DEPENDENT'}
+          assert history['max_repository_calls'] == {'const': 0}
+          assert 'status' not in history, 'schema must not fabricate current NEED_HISTORY support'
+          no_more = intents['properties']['NO_MORE_CONTEXT']['allOf'][1]['properties']
+          assert no_more['terminal'] == {'const': True}
+          assert no_more['max_repository_calls'] == {'const': 0}
+
+          valid_adaptive = json.loads((root / 'tests/fixtures/schemas/valid/mstr-adaptive-inference-policy-v0.json').read_text())
+          valid_context = json.loads((root / 'tests/fixtures/schemas/valid/mstr-selective-context-config-v0.json').read_text())
+          assert valid_adaptive['default_attempt_count'] == 1
+          assert valid_adaptive['authority_effect'] == 'NONE'
+          assert valid_context['implicit_retrieval_allowed'] is False
+          assert valid_context['intent_rules']['NEED_HISTORY']['status'] == 'UNSUPPORTED_BY_ACTIVE_CONTRACT'
+          assert valid_context['intent_rules']['NEED_HISTORY']['unsupported_reason']
+
+          evidence = (root / 'evidence/mstr-000b/B029-adaptive-inference.md').read_text(encoding='utf-8')
+          assert 'IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT' in evidence
+          assert 'COMPLETE_CANONICAL' not in evidence
+          assert 'MODEL_WEIGHT_ACCESS = NONE' in evidence
+          assert 'MODEL_EXECUTION = NONE' in evidence
+          assert 'WEIGHT_CHANGING_TRAINING = NONE' in evidence
+
+          changed = set(
+              __import__('subprocess').run(
+                  ['git', '-C', 'candidate', 'diff', '--name-only', 'HEAD^', 'HEAD'],
+                  check=True, capture_output=True, text=True,
+              ).stdout.splitlines()
+          )
+          forbidden = {
+              'specs/002-code-model-supremacy-foundation/tasks.md',
+              'configs/task-gate/mstr-000b.json',
+          }
+          assert not (changed & forbidden), changed & forbidden
+          assert not any(path.startswith('artifacts/authorities/') for path in changed)
+
+          readme = (spec / 'README.md').read_text(encoding='utf-8')
+          assert '## Frozen by B029' in readme
+          assert 'mstr.adaptive-inference-policy.v0' in readme
+          assert 'mstr.selective-context-config.v0' in readme
+
+          print('INDEPENDENT_B029_SEMANTIC_REVIEW=PASS')
+          print('FINDINGS=NONE')
+          print('AUTHORITY_WIDENING=NONE')
+          PY
+
+      - name: Install exact candidate tooling
+        run: python -m pip install -e './candidate[dev]'
+
+      - name: Reproduce focused B029 contract suite
+        working-directory: candidate
+        run: python -m pytest -q tests/contract/test_adaptive_inference_contract.py tests/contract/test_schemas.py tests/integration/test_cli_offline.py::test_validate_self_checks_schemas_and_fixtures
+
+      - name: Full test suite
+        working-directory: candidate
+        run: python -m pytest -q
+
+      - name: Ruff
+        working-directory: candidate
+        run: python -m ruff check .
+
+      - name: Canonical mypy gate
+        working-directory: candidate
+        run: python -m mypy src
+
+      - name: Offline validation
+        working-directory: candidate
+        run: python -m mstr_qualify validate
+
+      - name: Re-verify live immutability
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .head.sha)" = "$EXPECTED_HEAD"
+          test "$(gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER} --jq .base.sha)" = "$EXPECTED_BASE"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          echo 'INDEPENDENT_REVIEW=PASS'
