@@ -1,12 +1,18 @@
 # B029 — Adaptive Test-Time Compute and Selective Context Policy
 
 **Task:** `MSTR-000B / B029`
-**State:** `IMPLEMENTED_PENDING_CANONICAL_CLOSEOUT`
+**Implementation PR:** #149
+**Final implementation head:** `f449f81fc3e7343052b54b09b0481d64963d7e2f`
+**Canonical implementation merge:** `b3223bb384d8723c37a28526be691cedf8174dc3`
+**State:** COMPLETE_CANONICAL
 **Canonical entry main:** `1179515986ee2311ec1cd675fd899a6143c03761`
 
 ## Entry gate
 
 ```text
+ENTRY_GATE_TASK = B029
+ENTRY_GATE_CANONICAL_MAIN = 1179515986ee2311ec1cd675fd899a6143c03761
+ENTRY_GATE_ELIGIBLE = true
 ENTRY_GATE_V1 = 33791919427 / FAILURE / EVIDENCE_HARNESS_ASSERTION_ONLY
 ENTRY_GATE_V1_PRODUCTION_ELIGIBILITY = eligible=true / reasons=[]
 ENTRY_GATE_V2 = 33792125789 / SUCCESS
@@ -89,3 +95,23 @@ B029_AUTHORITY = CONTRACT_POLICY_ONLY
 ```
 
 B029 freezes policy and local validation only. It does not run a model, spend paid compute, authorize extra inference, or change B011/B013 authority. Any later execution remains independently governed.
+
+## Canonical Implementation Closeout
+
+B029's adaptive test-time compute and selective-context policy contracts were merged and independently verified on canonical `main`. This closeout records terminal task/provenance state only; it does not change the frozen schemas, schema registration, fixtures, runtime semantics, task prerequisites, or any external-effect authority.
+
+- implementation PR: `#149`
+- final implementation head: `f449f81fc3e7343052b54b09b0481d64963d7e2f`
+- canonical implementation merge: `b3223bb384d8723c37a28526be691cedf8174dc3`
+- exact entry gate v2: run `33792125789` — SUCCESS
+- implementation builder v1: run `33794038421` — FAILED Ruff E501 after full-test pass; preserved negative evidence
+- implementation builder v2: run `33794732024` — FAILED final diff-check after full-test/Ruff/mypy/validation pass; preserved negative evidence
+- final implementation builder v3: run `33795227237` — SUCCESS
+- exact-head qualification: run `33796297573` — SUCCESS
+- independent semantic review: run `33796374380` — SUCCESS / FINDINGS=NONE
+- mandatory pre-merge verification: run `33796812445` — SUCCESS
+- post-merge implementation verification: run `33797367994` — SUCCESS
+
+The frozen policy remains one-attempt-by-default, fail-closed on escalation evidence, bounded by explicit marginal-cost caps, and subordinate to A006 protected finalizer authority. Selective context continues to prohibit implicit retrieval and records unsupported active-contract capabilities explicitly rather than fabricating support.
+
+This closeout grants no model-weight access, model execution, quantization execution, gated-terms acceptance, paid API/compute, large/private/production data ingestion, weight-changing training, large-scale RL, or production release authority. B030 remains independently governed by A007/A008/A009/B024/B025 and may proceed only through its own exact-main eligibility lifecycle. B011 and B013 remain separately blocked by their canonical authority/dependency boundaries.

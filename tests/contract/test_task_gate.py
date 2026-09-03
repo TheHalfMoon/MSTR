@@ -1293,13 +1293,12 @@ def test_b024_is_terminal_after_canonical_closeout() -> None:
     assert result["state_consistency_result"]["satisfied"] is True
     assert result["authority_result"]["required"] is False
     assert "task.already_terminal" in result["reasons"]
-    predecessor = next(
-        item for item in result["prerequisite_results"] if item["task_id"] == "B023"
-    )
+    predecessor = next(item for item in result["prerequisite_results"] if item["task_id"] == "B023")
     assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
     assert predecessor["evidence_present"] is True
     assert predecessor["satisfied"] is True
     validate_instance("mstr-task-eligibility-v0", result)
+
 
 def test_b026_is_terminal_after_canonical_closeout() -> None:
     result = evaluate_task_snapshot("B026", canonical_main=_CANONICAL_MAIN)
@@ -1315,8 +1314,7 @@ def test_b026_is_terminal_after_canonical_closeout() -> None:
         "B025",
     }
     assert all(
-        item["observed_state"] == "COMPLETE_CANONICAL"
-        for item in result["prerequisite_results"]
+        item["observed_state"] == "COMPLETE_CANONICAL" for item in result["prerequisite_results"]
     )
     assert all(item["evidence_present"] is True for item in result["prerequisite_results"])
     assert all(item["satisfied"] is True for item in result["prerequisite_results"])
@@ -1331,9 +1329,7 @@ def test_b027_is_terminal_after_canonical_closeout() -> None:
     assert result["state_consistency_result"]["satisfied"] is True
     assert result["authority_result"]["required"] is False
     assert "task.already_terminal" in result["reasons"]
-    predecessor = next(
-        item for item in result["prerequisite_results"] if item["task_id"] == "B026"
-    )
+    predecessor = next(item for item in result["prerequisite_results"] if item["task_id"] == "B026")
     assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
     assert predecessor["evidence_present"] is True
     assert predecessor["satisfied"] is True
@@ -1344,9 +1340,7 @@ def test_b027_closeout_is_satisfied_for_b031_prerequisite() -> None:
     result = evaluate_task_snapshot("B031", canonical_main=_CANONICAL_MAIN)
 
     assert result["eligible"] is False
-    predecessor = next(
-        item for item in result["prerequisite_results"] if item["task_id"] == "B027"
-    )
+    predecessor = next(item for item in result["prerequisite_results"] if item["task_id"] == "B027")
     assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
     assert predecessor["evidence_present"] is True
     assert predecessor["satisfied"] is True
@@ -1379,10 +1373,7 @@ def test_b023_closeout_provenance_and_authority_boundary() -> None:
 
 def test_b024_closeout_provenance_and_authority_boundary() -> None:
     evidence = (
-        Path(__file__).resolve().parents[2]
-        / "evidence"
-        / "mstr-000b"
-        / "B024-test-curriculum.md"
+        Path(__file__).resolve().parents[2] / "evidence" / "mstr-000b" / "B024-test-curriculum.md"
     ).read_text(encoding="utf-8")
 
     assert "**State:** COMPLETE_CANONICAL" in evidence
@@ -1404,10 +1395,7 @@ def test_b024_closeout_provenance_and_authority_boundary() -> None:
 
 def test_b026_closeout_provenance_and_authority_boundary() -> None:
     evidence = (
-        Path(__file__).resolve().parents[2]
-        / "evidence"
-        / "mstr-000b"
-        / "B026-research-ladder.md"
+        Path(__file__).resolve().parents[2] / "evidence" / "mstr-000b" / "B026-research-ladder.md"
     ).read_text(encoding="utf-8")
 
     assert "**State:** COMPLETE_CANONICAL" in evidence
@@ -1429,10 +1417,7 @@ def test_b026_closeout_provenance_and_authority_boundary() -> None:
 
 def test_b027_closeout_provenance_and_authority_boundary() -> None:
     evidence = (
-        Path(__file__).resolve().parents[2]
-        / "evidence"
-        / "mstr-000b"
-        / "B027-ladder-pilot.md"
+        Path(__file__).resolve().parents[2] / "evidence" / "mstr-000b" / "B027-ladder-pilot.md"
     ).read_text(encoding="utf-8")
 
     assert "**State:** COMPLETE_CANONICAL" in evidence
@@ -1471,9 +1456,7 @@ def test_b025_prerequisite_remains_recorded_after_b026_closeout() -> None:
 
     assert result["eligible"] is False
     assert "task.already_terminal" in result["reasons"]
-    predecessor = next(
-        item for item in result["prerequisite_results"] if item["task_id"] == "B025"
-    )
+    predecessor = next(item for item in result["prerequisite_results"] if item["task_id"] == "B025")
     assert predecessor["observed_state"] == "COMPLETE_CANONICAL"
     assert predecessor["evidence_present"] is True
     assert predecessor["satisfied"] is True
@@ -1516,12 +1499,16 @@ def test_external_prerequisite_missing_state_evidence_fails_closed(tmp_path: Pat
         "workstream_id": "MSTR-000B",
         "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",
         "defaults": {
-            "outputs": [], "candidate_dependent": False,
-            "external_effect_class": "NO_EXTERNAL_EFFECT", "parallel_safe": False,
-            "supersedes": [], "superseded_by": [],
+            "outputs": [],
+            "candidate_dependent": False,
+            "external_effect_class": "NO_EXTERNAL_EFFECT",
+            "parallel_safe": False,
+            "supersedes": [],
+            "superseded_by": [],
             "closeout_rule": {
                 "terminal_states": ["COMPLETE_CANONICAL"],
-                "require_all_outputs": False, "require_all_evidence_outputs": True,
+                "require_all_outputs": False,
+                "require_all_evidence_outputs": True,
                 "completion_requires_merge": True,
             },
         },
@@ -1532,14 +1519,16 @@ def test_external_prerequisite_missing_state_evidence_fails_closed(tmp_path: Pat
                 "evidence_outputs": [],
             }
         },
-        "external_prerequisites": {"A006": {
-            "workstream_id": "MSTR-000A",
-            "task_identity": "MSTR-000A / A006",
-            "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
-            "state_evidence": "evidence/mstr-000a/A006-finalizer.md",
-            "evidence_outputs": ["evidence/mstr-000a/A006-finalizer.md"],
-            "required_state": "COMPLETE_CANONICAL",
-        }},
+        "external_prerequisites": {
+            "A006": {
+                "workstream_id": "MSTR-000A",
+                "task_identity": "MSTR-000A / A006",
+                "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+                "state_evidence": "evidence/mstr-000a/A006-finalizer.md",
+                "evidence_outputs": ["evidence/mstr-000a/A006-finalizer.md"],
+                "required_state": "COMPLETE_CANONICAL",
+            }
+        },
     }
     catalog_path = tmp_path / "configs" / "task-gate" / "mstr-000b.json"
     catalog_path.parent.mkdir(parents=True)
@@ -1572,12 +1561,16 @@ def test_external_prerequisite_mismatched_evidence_identity_fails_closed(tmp_pat
         "workstream_id": "MSTR-000B",
         "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",
         "defaults": {
-            "outputs": [], "candidate_dependent": False,
-            "external_effect_class": "NO_EXTERNAL_EFFECT", "parallel_safe": False,
-            "supersedes": [], "superseded_by": [],
+            "outputs": [],
+            "candidate_dependent": False,
+            "external_effect_class": "NO_EXTERNAL_EFFECT",
+            "parallel_safe": False,
+            "supersedes": [],
+            "superseded_by": [],
             "closeout_rule": {
                 "terminal_states": ["COMPLETE_CANONICAL"],
-                "require_all_outputs": False, "require_all_evidence_outputs": True,
+                "require_all_outputs": False,
+                "require_all_evidence_outputs": True,
                 "completion_requires_merge": True,
             },
         },
@@ -1588,14 +1581,16 @@ def test_external_prerequisite_mismatched_evidence_identity_fails_closed(tmp_pat
                 "evidence_outputs": [],
             }
         },
-        "external_prerequisites": {"A006": {
-            "workstream_id": "MSTR-000A",
-            "task_identity": "MSTR-000A / A006",
-            "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
-            "state_evidence": "evidence/mstr-000a/A006-finalizer.md",
-            "evidence_outputs": ["evidence/mstr-000a/A006-finalizer.md"],
-            "required_state": "COMPLETE_CANONICAL",
-        }},
+        "external_prerequisites": {
+            "A006": {
+                "workstream_id": "MSTR-000A",
+                "task_identity": "MSTR-000A / A006",
+                "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+                "state_evidence": "evidence/mstr-000a/A006-finalizer.md",
+                "evidence_outputs": ["evidence/mstr-000a/A006-finalizer.md"],
+                "required_state": "COMPLETE_CANONICAL",
+            }
+        },
     }
     catalog_path = tmp_path / "configs" / "task-gate" / "mstr-000b.json"
     catalog_path.parent.mkdir(parents=True)
@@ -1628,9 +1623,7 @@ def _write_external_binding_fixture(root: Path, evidence_text: str) -> Path:
     target_tasks = root / "specs" / "002-code-model-supremacy-foundation" / "tasks.md"
     target_tasks.parent.mkdir(parents=True)
     target_tasks.write_text("- [ ] **B001 Target task.**\n", encoding="utf-8")
-    external_tasks = (
-        root / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
-    )
+    external_tasks = root / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
     external_tasks.parent.mkdir(parents=True)
     external_tasks.write_text("- [x] **A006 External task.**\n", encoding="utf-8")
     evidence = root / "evidence" / "mstr-000a" / "A006-finalizer.md"
@@ -1708,8 +1701,7 @@ def test_external_prerequisite_duplicate_identity_records_fail_closed(
 ) -> None:
     catalog_path = _write_external_binding_fixture(
         tmp_path,
-        "**Task:** `A006`\n**Task:** `MSTR-000A / A006`\n"
-        "**State:** `COMPLETE_CANONICAL`\n",
+        "**Task:** `A006`\n**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
     )
 
     result = evaluate_task_snapshot(
@@ -1814,9 +1806,7 @@ def test_external_prerequisite_missing_checklist_is_reported_unverifiable(
         tmp_path,
         "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
     )
-    external_tasks = (
-        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
-    )
+    external_tasks = tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
     external_tasks.unlink()
 
     result = evaluate_task_snapshot(
@@ -1839,9 +1829,7 @@ def test_external_prerequisite_unchecked_checklist_remains_checkbox_conflict(
         tmp_path,
         "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
     )
-    external_tasks = (
-        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
-    )
+    external_tasks = tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
     external_tasks.write_text("- [ ] **A006 External task.**\n", encoding="utf-8")
 
     result = evaluate_task_snapshot(
@@ -1864,9 +1852,7 @@ def test_external_prerequisite_checklist_title_does_not_require_trailing_period(
         tmp_path,
         "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
     )
-    external_tasks = (
-        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
-    )
+    external_tasks = tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
     external_tasks.write_text("- [x] **A006 Implement boundary**\n", encoding="utf-8")
 
     result = evaluate_task_snapshot(
@@ -1889,9 +1875,7 @@ def test_external_prerequisite_non_utf8_checklist_fails_closed_without_exception
         tmp_path,
         "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
     )
-    external_tasks = (
-        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
-    )
+    external_tasks = tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
     external_tasks.write_bytes(b"- [x] **A006 External task**\n\xff\xfe")
 
     result = evaluate_task_snapshot(
@@ -1937,9 +1921,7 @@ def test_external_prerequisite_fenced_checklist_example_is_ignored(
         tmp_path,
         "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
     )
-    external_tasks = (
-        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
-    )
+    external_tasks = tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
     external_tasks.write_text(
         "```markdown\n- [x] **A006 Example only.**\n```\n",
         encoding="utf-8",
@@ -1962,10 +1944,7 @@ def test_external_prerequisite_fenced_state_evidence_example_is_ignored(
 ) -> None:
     catalog_path = _write_external_binding_fixture(
         tmp_path,
-        "~~~text\n"
-        "**Task:** `MSTR-000A / A006`\n"
-        "**State:** `COMPLETE_CANONICAL`\n"
-        "~~~\n",
+        "~~~text\n**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n~~~\n",
     )
 
     result = evaluate_task_snapshot(
@@ -1994,12 +1973,9 @@ def test_external_prerequisite_fenced_examples_do_not_duplicate_canonical_record
         "**Task:** `MSTR-000A / A006`\n"
         "**State:** `COMPLETE_CANONICAL`\n",
     )
-    external_tasks = (
-        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
-    )
+    external_tasks = tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
     external_tasks.write_text(
-        "~~~markdown\n- [ ] **A006 Example only.**\n~~~\n"
-        "- [x] **A006 Canonical task**\n",
+        "~~~markdown\n- [ ] **A006 Example only.**\n~~~\n- [x] **A006 Canonical task**\n",
         encoding="utf-8",
     )
 
@@ -2023,12 +1999,8 @@ def test_external_prerequisite_crlf_fenced_checklist_example_is_ignored(
         tmp_path,
         "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
     )
-    external_tasks = (
-        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
-    )
-    external_tasks.write_bytes(
-        b"```markdown\r\n- [x] **A006 Example only.**\r\n```\r\n"
-    )
+    external_tasks = tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
+    external_tasks.write_bytes(b"```markdown\r\n- [x] **A006 Example only.**\r\n```\r\n")
 
     result = evaluate_task_snapshot(
         "B001",
@@ -2049,12 +2021,9 @@ def test_external_prerequisite_emphasized_duplicate_checklist_row_fails_closed(
         tmp_path,
         "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
     )
-    external_tasks = (
-        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
-    )
+    external_tasks = tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
     external_tasks.write_text(
-        "- [x] **A006 Canonical task.**\n"
-        "- [ ] **A006 Duplicate with *emphasis*.**\n",
+        "- [x] **A006 Canonical task.**\n- [ ] **A006 Duplicate with *emphasis*.**\n",
         encoding="utf-8",
     )
 
@@ -2127,7 +2096,6 @@ def test_external_prerequisite_glob_directory_evidence_output_fails_closed(
     assert f"missing:{glob_output}" in predecessor["reasons"]
 
 
-
 def test_external_prerequisite_literal_t_fence_does_not_hide_duplicate_row(
     tmp_path: Path,
 ) -> None:
@@ -2135,13 +2103,9 @@ def test_external_prerequisite_literal_t_fence_does_not_hide_duplicate_row(
         tmp_path,
         "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
     )
-    external_tasks = (
-        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
-    )
+    external_tasks = tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
     external_tasks.write_text(
-        "- [x] **A006 Canonical row.**\n"
-        "t```\n"
-        "- [ ] **A006 Conflicting duplicate.**\n",
+        "- [x] **A006 Canonical row.**\nt```\n- [ ] **A006 Conflicting duplicate.**\n",
         encoding="utf-8",
     )
     result = evaluate_task_snapshot(
@@ -2160,14 +2124,9 @@ def test_external_prerequisite_tab_indented_fence_still_hides_fenced_duplicate(
         tmp_path,
         "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
     )
-    external_tasks = (
-        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
-    )
+    external_tasks = tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
     external_tasks.write_text(
-        "- [x] **A006 Canonical row.**\n"
-        "\t```\n"
-        "- [ ] **A006 Fenced duplicate.**\n"
-        "\t```\n",
+        "- [x] **A006 Canonical row.**\n\t```\n- [ ] **A006 Fenced duplicate.**\n\t```\n",
         encoding="utf-8",
     )
     result = evaluate_task_snapshot(
@@ -2206,9 +2165,7 @@ def test_external_prerequisite_newline_split_records_fail_closed(
     expected_reason: str,
 ) -> None:
     catalog_path = _write_external_binding_fixture(tmp_path, evidence_text)
-    external_tasks = (
-        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
-    )
+    external_tasks = tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
     external_tasks.write_text(tasks_text, encoding="utf-8")
     result = evaluate_task_snapshot(
         "B001", repository_root=tmp_path, catalog_path=catalog_path, canonical_main=_CANONICAL_MAIN
@@ -2217,7 +2174,6 @@ def test_external_prerequisite_newline_split_records_fail_closed(
     assert result["eligible"] is False
     assert predecessor["satisfied"] is False
     assert expected_reason in predecessor["reasons"]
-
 
 
 _SPLITLINES_NON_CRLF_BOUNDARIES = [
@@ -2241,12 +2197,9 @@ def test_external_prerequisite_splitlines_boundary_duplicate_rows_fail_closed(
         tmp_path,
         "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
     )
-    external_tasks = (
-        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
-    )
+    external_tasks = tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
     external_tasks.write_text(
-        f"- [x] **A006 Canonical row.**{separator}"
-        "- [ ] **A006 Conflicting duplicate.**",
+        f"- [x] **A006 Canonical row.**{separator}- [ ] **A006 Conflicting duplicate.**",
         encoding="utf-8",
     )
 
@@ -2272,9 +2225,7 @@ def test_external_prerequisite_splitlines_boundary_fence_closes_before_canonical
         tmp_path,
         "**Task:** `MSTR-000A / A006`\n**State:** `COMPLETE_CANONICAL`\n",
     )
-    external_tasks = (
-        tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
-    )
+    external_tasks = tmp_path / "specs" / "001-agent-harness-verified-loop-foundation" / "tasks.md"
     external_tasks.write_text(
         f"```{separator}"
         f"- [ ] **A006 Fenced example.**{separator}"
@@ -2294,3 +2245,26 @@ def test_external_prerequisite_splitlines_boundary_fence_closes_before_canonical
     predecessor = result["prerequisite_results"][0]
     assert predecessor["satisfied"] is True
     assert predecessor["reasons"] == []
+
+
+def test_b029_is_terminal_after_canonical_closeout() -> None:
+    result = evaluate_task_snapshot("B029", canonical_main=_CANONICAL_MAIN)
+
+    assert result["eligible"] is False
+    assert result["state_consistency_result"]["observed_state"] == "COMPLETE_CANONICAL"
+    assert result["state_consistency_result"]["satisfied"] is True
+    assert result["authority_result"]["required"] is False
+    assert "task.already_terminal" in result["reasons"]
+    assert {item["task_id"] for item in result["prerequisite_results"]} == {
+        "A005",
+        "A006",
+        "A008",
+        "A010",
+        "B020",
+    }
+    assert all(
+        item["observed_state"] == "COMPLETE_CANONICAL" for item in result["prerequisite_results"]
+    )
+    assert all(item["evidence_present"] is True for item in result["prerequisite_results"])
+    assert all(item["satisfied"] is True for item in result["prerequisite_results"])
+    validate_instance("mstr-task-eligibility-v0", result)
