@@ -1,0 +1,315 @@
+name: Build MSTR-000B convergence cross-workstream binding reconciliation
+
+on:
+  push:
+    branches: [evidence/b029-b031-binding-builder-b20349c]
+
+permissions:
+  contents: write
+
+env:
+  BASE_SHA: b20349c23ada1130f98e28c0e1e3db56ed692d13
+  FEATURE_BRANCH: fix/000b-convergence-cross-workstream-bindings
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Re-anchor exact canonical base
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote_main="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$remote_main" = "$BASE_SHA"
+          git checkout --detach "$BASE_SHA"
+          git switch -c "$FEATURE_BRANCH"
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test -z "$(git status --porcelain)"
+      - name: Reconcile exact external prerequisite bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import json
+          from pathlib import Path
+
+          root = Path('.')
+          catalog_path = root / 'configs/task-gate/mstr-000b.json'
+          catalog = json.loads(catalog_path.read_text(encoding='utf-8'))
+
+          tasks_file = 'specs/001-agent-harness-verified-loop-foundation/tasks.md'
+          evidence = {
+              'A004': 'evidence/mstr-000a/A004-agent-state.md',
+              'A005': 'evidence/mstr-000a/A005-build-loop.md',
+              'A006': 'evidence/mstr-000a/A006-finalizer.md',
+              'A007': 'evidence/mstr-000a/A007-neutral-harness.md',
+              'A008': 'evidence/mstr-000a/A008-mstr-harness.md',
+              'A009': 'evidence/mstr-000a/A009-wepld-adapter.md',
+              'A010': 'evidence/mstr-000a/A010-capability-profile.md',
+              'A015': 'evidence/mstr-000a/A015-direction-to-done.md',
+              'A016': 'evidence/mstr-000a/A016-metrics.md',
+              'A019': 'evidence/mstr-000a/A019-harness-tournament.md',
+              'A020': 'evidence/mstr-000a/A020-autoresearch.md',
+          }
+
+          for task_id, path in evidence.items():
+              catalog['external_prerequisites'][task_id] = {
+                  'workstream_id': 'MSTR-000A',
+                  'tasks_file': tasks_file,
+                  'state_evidence': path,
+                  'evidence_outputs': [path],
+                  'required_state': 'COMPLETE_CANONICAL',
+                  'task_identity': f'MSTR-000A / {task_id}',
+              }
+
+          catalog['tasks']['B029']['canonical_state'] = 'PENDING'
+          catalog['tasks']['B029']['prerequisites'] = [
+              'A004', 'A005', 'A006', 'A008', 'A010', 'B020'
+          ]
+          catalog['tasks']['B030']['canonical_state'] = 'PENDING'
+          catalog['tasks']['B030']['prerequisites'] = [
+              'A007', 'A008', 'A009', 'A015', 'A016', 'B024', 'B025'
+          ]
+          catalog['tasks']['B031']['canonical_state'] = 'PENDING'
+
+          for task_id in ('B029', 'B030', 'B031'):
+              catalog['unresolved_bindings'].pop(task_id, None)
+
+          catalog_path.write_text(
+              json.dumps(catalog, indent=2, ensure_ascii=False) + '\n',
+              encoding='utf-8',
+          )
+
+          evidence_path = root / 'evidence/mstr-000b/B029-B031-cross-workstream-binding-reconciliation.md'
+          evidence_path.write_text('''# B029–B031 Cross-Workstream Binding Reconciliation
+
+**Workstream:** MSTR-000B  
+**State:** RECONCILED_PENDING_CANONICAL_MERGE  
+**Canonical base:** `b20349c23ada1130f98e28c0e1e3db56ed692d13`
+
+## Purpose
+
+Replace three prose-only fail-closed bindings with exact repository-owned MSTR-000A prerequisite identities. This is task-gate governance repair only. It does not execute B029, B030, A019, A020, B031, or any external effect.
+
+## B029 binding
+
+B029 freezes adaptive test-time compute and selective-context policy. The exact already-canonical MSTR-000A surfaces required before B029 may execute are:
+
+- `A004` — authoritative `AgentState`, uncertainty retention, and bounded compaction;
+- `A005` — `MSTR-BUILD-LOOP-v0`, repair/timeout/tool budgets, and recovery semantics;
+- `A006` — protected verifier/finalizer authority;
+- `A008` — explicit selective context plus bounded recovery cadence;
+- `A010` — evidence-derived reliable context budget, verifier cadence, and repair-depth contract.
+
+B020 remains the MSTR-000B checkpoint-relative difficulty prerequisite. The candidate changes B029 from `BLOCKED` to `PENDING`; the machine gate must prove every bound prerequisite `COMPLETE_CANONICAL` before returning `eligible=true`.
+
+## B030 binding
+
+B030 freezes Repository Health Delta and cross-harness robustness evaluation. Its already-canonical A019-ready surfaces are:
+
+- `A007` — H0 neutral-minimal harness;
+- `A008` — H1 MSTR-native harness;
+- `A009` — H2 WePLD-native adapter;
+- `A015` — Direction-to-Done task taxonomy used for comparable task cells;
+- `A016` — DVCR/TTVC diagnostic metric surface that B030 explicitly extends with Repository Health Delta.
+
+B024/B025 remain the MSTR-000B test-generation and feature/greenfield curriculum prerequisites. The candidate changes B030 from `BLOCKED` to `PENDING`; eligibility remains machine-derived.
+
+## B031 binding
+
+B031 already names A019 and A020 as prerequisites. This reconciliation binds them to the MSTR-000A canonical checklist and their exact required evidence paths:
+
+- `A019` -> `evidence/mstr-000a/A019-harness-tournament.md`;
+- `A020` -> `evidence/mstr-000a/A020-autoresearch.md`.
+
+Both tasks remain incomplete. Therefore B031 remains ineligible after this repair, but for real unsatisfied prerequisites rather than `prerequisite.missing_task_binding`. No A019/A020 completion is inferred.
+
+## Preserved hard stops
+
+```text
+B011_AUTHORITY_CHANGE = NONE
+B013_CANDIDATE_POOL_BINDING_CHANGE = NONE
+MODEL_WEIGHT_ACCESS = NONE
+MODEL_EXECUTION = NONE
+GATED_TERMS_ACCEPTANCE = NONE
+PAID_MODEL_API = NONE
+PAID_COMPUTE = NONE
+LARGE_DATASET_INGESTION = NONE
+WEIGHT_CHANGING_TRAINING = NONE
+LARGE_SCALE_RL = NONE
+PRODUCTION_RELEASE = NONE
+```
+
+B011 remains separately blocked on the exact founder authority required by canonical B010. B013 remains separately blocked on candidate qualification/convergence. This repair creates no authority and cannot satisfy either gate.
+''', encoding='utf-8')
+
+          test_path = root / 'tests/contract/test_convergence_external_bindings.py'
+          test_path.write_text('''from __future__ import annotations
+
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+CATALOG = ROOT / "configs/task-gate/mstr-000b.json"
+TASKS_FILE = "specs/001-agent-harness-verified-loop-foundation/tasks.md"
+
+
+def _catalog() -> dict[str, object]:
+    return json.loads(CATALOG.read_text(encoding="utf-8"))
+
+
+def test_convergence_bindings_are_exact_and_fail_closed() -> None:
+    catalog = _catalog()
+    tasks = catalog["tasks"]
+    unresolved = catalog["unresolved_bindings"]
+    external = catalog["external_prerequisites"]
+
+    assert set(unresolved) == {"B011", "B013"}
+    assert tasks["B029"]["canonical_state"] == "PENDING"
+    assert tasks["B029"]["prerequisites"] == [
+        "A004", "A005", "A006", "A008", "A010", "B020"
+    ]
+    assert tasks["B030"]["canonical_state"] == "PENDING"
+    assert tasks["B030"]["prerequisites"] == [
+        "A007", "A008", "A009", "A015", "A016", "B024", "B025"
+    ]
+    assert tasks["B031"]["canonical_state"] == "PENDING"
+    assert tasks["B011"]["canonical_state"] == "BLOCKED"
+    assert tasks["B013"]["canonical_state"] == "BLOCKED"
+
+    expected_paths = {
+        "A004": "evidence/mstr-000a/A004-agent-state.md",
+        "A005": "evidence/mstr-000a/A005-build-loop.md",
+        "A006": "evidence/mstr-000a/A006-finalizer.md",
+        "A007": "evidence/mstr-000a/A007-neutral-harness.md",
+        "A008": "evidence/mstr-000a/A008-mstr-harness.md",
+        "A009": "evidence/mstr-000a/A009-wepld-adapter.md",
+        "A010": "evidence/mstr-000a/A010-capability-profile.md",
+        "A015": "evidence/mstr-000a/A015-direction-to-done.md",
+        "A016": "evidence/mstr-000a/A016-metrics.md",
+        "A019": "evidence/mstr-000a/A019-harness-tournament.md",
+        "A020": "evidence/mstr-000a/A020-autoresearch.md",
+    }
+    for task_id, path in expected_paths.items():
+        binding = external[task_id]
+        assert binding == {
+            "workstream_id": "MSTR-000A",
+            "tasks_file": TASKS_FILE,
+            "state_evidence": path,
+            "evidence_outputs": [path],
+            "required_state": "COMPLETE_CANONICAL",
+            "task_identity": f"MSTR-000A / {task_id}",
+        }
+
+
+def test_incomplete_convergence_tasks_are_not_falsely_completed() -> None:
+    catalog = _catalog()
+    tasks = catalog["tasks"]
+    assert tasks["B029"]["canonical_state"] == "PENDING"
+    assert tasks["B030"]["canonical_state"] == "PENDING"
+    assert tasks["B031"]["canonical_state"] == "PENDING"
+''', encoding='utf-8')
+          PY
+
+          printf '%s\n' \
+            configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B029-B031-cross-workstream-binding-reconciliation.md \
+            tests/contract/test_convergence_external_bindings.py | sort > /tmp/expected
+          git diff --name-only | sort > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          git diff --check
+      - name: Install development gates
+        run: python -m pip install -e '.[dev]'
+      - name: Commit prospective atomic candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'TheHalfMoon Evidence Builder'
+          git config user.email 'actions@users.noreply.github.com'
+          git add configs/task-gate/mstr-000b.json \
+            evidence/mstr-000b/B029-B031-cross-workstream-binding-reconciliation.md \
+            tests/contract/test_convergence_external_bindings.py
+          git commit -m 'fix(task-gate): bind convergence cross-workstream prerequisites'
+          test "$(git rev-list --count "$BASE_SHA..HEAD")" -eq 1
+          echo "CANDIDATE_SHA=$(git rev-parse HEAD)"
+          echo "CANDIDATE_TREE=$(git rev-parse HEAD^{tree})"
+      - name: Prove prospective machine frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="$(git rev-parse HEAD)"
+          git update-ref refs/heads/main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+
+          mstr-qualify task drift > /tmp/drift.json
+          python - <<'PY'
+          import json
+          payload=json.load(open('/tmp/drift.json', encoding='utf-8'))
+          assert payload['status'] == 'clean', payload
+          assert payload['findings'] == [], payload
+          PY
+
+          mstr-qualify task eligible B029 > /tmp/b029.json
+          mstr-qualify task eligible B030 > /tmp/b030.json
+          set +e
+          mstr-qualify task eligible B031 > /tmp/b031.json; b031_rc=$?
+          mstr-qualify task eligible B011 > /tmp/b011.json; b011_rc=$?
+          mstr-qualify task eligible B013 > /tmp/b013.json; b013_rc=$?
+          set -e
+          test "$b031_rc" -eq 1
+          test "$b011_rc" -eq 1
+          test "$b013_rc" -eq 1
+
+          python - <<'PY'
+          import json
+
+          def load(path):
+              return json.load(open(path, encoding='utf-8'))
+
+          b029=load('/tmp/b029.json')
+          b030=load('/tmp/b030.json')
+          b031=load('/tmp/b031.json')
+          b011=load('/tmp/b011.json')
+          b013=load('/tmp/b013.json')
+
+          assert b029['eligible'] is True, b029
+          assert b030['eligible'] is True, b030
+          assert b031['eligible'] is False, b031
+          assert not any('missing_task_binding:A019' in r or 'missing_task_binding:A020' in r for r in b031['reasons']), b031
+          assert b011['eligible'] is False and b011['authority_result']['required'] is True and b011['authority_result']['satisfied'] is False, b011
+          assert b013['eligible'] is False, b013
+          print('B029_PROSPECTIVE_ELIGIBLE=PASS')
+          print('B030_PROSPECTIVE_ELIGIBLE=PASS')
+          print('B031_EXTERNAL_BINDINGS_RESOLVED_BUT_PREREQUISITES_INCOMPLETE=PASS')
+          print('B011_B013_HARD_STOPS_PRESERVED=PASS')
+          PY
+      - name: Run repository quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py tests/integration/test_task_gate_cli.py -q
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+      - name: Guarded feature push
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote_main="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$remote_main" = "$BASE_SHA"
+          test -z "$(git ls-remote origin "refs/heads/$FEATURE_BRANCH")"
+          git push origin "HEAD:refs/heads/$FEATURE_BRANCH"
+          pushed="$(git ls-remote origin "refs/heads/$FEATURE_BRANCH" | cut -f1)"
+          test "$pushed" = "$(git rev-parse HEAD)"
+          echo "GUARDED_FEATURE_PUSH=PASS"
