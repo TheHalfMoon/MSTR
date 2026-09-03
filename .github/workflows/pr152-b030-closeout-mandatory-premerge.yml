@@ -1,0 +1,227 @@
+name: Mandatory premerge verification PR152 B030 closeout
+
+on:
+  push:
+    branches:
+      - evidence/pr152-b030-closeout-mandatory-premerge
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+  pull-requests: read
+  statuses: read
+
+env:
+  EXPECTED_BASE: 986cdfdaa2ddc64458a7681caf174f3a0e434a1f
+  EXPECTED_HEAD: e8f112a504e55df0cc670dc757a2292d243c1f0b
+  EXPECTED_TREE: 292594db1132888bcc317330102cc28c24a83c95
+  TARGET_BRANCH: docs/000b-b030-canonicalize
+  PR_NUMBER: '152'
+  QUALIFICATION_RUN: '33808740976'
+  REVIEW_RUN: '33809174762'
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout canonical base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_BASE }}
+          fetch-depth: 0
+          path: base
+          persist-credentials: false
+      - name: Checkout exact closeout candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify exact live identity, mergeability, and closeout scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C base rev-parse HEAD)" = "$EXPECTED_BASE"
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git -C candidate rev-parse HEAD^)" = "$EXPECTED_BASE"
+          test "$(git -C candidate rev-list --count "$EXPECTED_BASE".."$EXPECTED_HEAD")" -eq 1
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '
+            .state == "open" and .draft == false and .merged == false and
+            .mergeable == true and .mergeable_state == "clean" and
+            .base.ref == "main" and .base.sha == $base and .head.ref == "docs/000b-b030-canonicalize" and .head.sha == $head and
+            .commits == 1 and .changed_files == 5
+          ' /tmp/pr.json >/dev/null
+          cat > /tmp/expected-files <<'EOF'
+          configs/task-gate/mstr-000b.json
+          evidence/mstr-000b/B030-long-horizon-quality.md
+          specs/002-code-model-supremacy-foundation/tasks.md
+          tests/contract/test_convergence_external_bindings.py
+          tests/contract/test_task_gate.py
+          EOF
+          sed -i 's/^          //' /tmp/expected-files
+          sort -o /tmp/expected-files /tmp/expected-files
+          git -C candidate diff --name-only "$EXPECTED_BASE...$EXPECTED_HEAD" | sort > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git -C candidate diff --check "$EXPECTED_BASE...$EXPECTED_HEAD"
+          test -z "$(git -C candidate diff --name-only "$EXPECTED_BASE...$EXPECTED_HEAD" -- schemas specs/002-code-model-supremacy-foundation/contracts tests/fixtures src artifacts/authorities)"
+          echo 'PR152_CLOSEOUT_IDENTITY_MERGEABILITY_SCOPE=PASS'
+      - name: Verify exact-head qualification and independent review evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN}" --jq .status)" = completed
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN}" --jq .conclusion)" = success
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${REVIEW_RUN}" --jq .status)" = completed
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${REVIEW_RUN}" --jq .conclusion)" = success
+          echo 'PR152_EVIDENCE_DEPENDENCIES=PASS'
+      - name: Reconcile reviews and unresolved review threads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" --jq '[.[] | select(.state == "CHANGES_REQUESTED")] | length')" -eq 0
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/comments?per_page=100" --jq 'length')" -eq 0
+          gh api graphql -f query='query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved comments(first:100){nodes{body author{login}}}}}}}}' -f owner=TheHalfMoon -f repo=MSTR -F number=152 > /tmp/threads.json
+          jq -e '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length == 0' /tmp/threads.json >/dev/null
+          echo 'REVIEW_RECONCILIATION=PASS'
+      - name: Verify observable protection, ruleset, status, and check boundary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/branches/main" > /tmp/branch.json
+          jq -e '.protected == false and (.protection.enabled // false) == false and ((.protection.required_status_checks.contexts // []) | length == 0)' /tmp/branch.json >/dev/null
+          gh api "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true" > /tmp/rulesets.json
+          jq -e 'length == 0' /tmp/rulesets.json >/dev/null
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD}/status" > /tmp/status.json
+          jq -e '[.statuses[]? | select(.state == "failure" or .state == "error")] | length == 0' /tmp/status.json >/dev/null
+          gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD}/check-runs" > /tmp/checks.json
+          jq -e '[.check_runs[]? | select(.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "cancelled" or .conclusion == "action_required")] | length == 0' /tmp/checks.json >/dev/null
+          echo 'OBSERVABLE_REQUIRED_CHECK_BOUNDARY=PASS'
+      - name: Verify B030 closeout semantic and authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import ast
+          import copy
+          import json
+          import subprocess
+          from pathlib import Path
+
+          base = Path('base')
+          candidate = Path('candidate')
+          base_catalog = json.loads((base / 'configs/task-gate/mstr-000b.json').read_text())
+          head_catalog = json.loads((candidate / 'configs/task-gate/mstr-000b.json').read_text())
+          assert base_catalog['tasks']['B030']['canonical_state'] == 'PENDING'
+          assert head_catalog['tasks']['B030']['canonical_state'] == 'COMPLETE_CANONICAL'
+          normalized = copy.deepcopy(head_catalog)
+          normalized['tasks']['B030']['canonical_state'] = 'PENDING'
+          assert normalized == base_catalog
+          assert head_catalog['tasks']['B011'] == base_catalog['tasks']['B011']
+          assert head_catalog['tasks']['B012'] == base_catalog['tasks']['B012']
+          assert head_catalog['tasks']['B013'] == base_catalog['tasks']['B013']
+          assert head_catalog['tasks']['B031'] == base_catalog['tasks']['B031']
+
+          evidence = (candidate / 'evidence/mstr-000b/B030-long-horizon-quality.md').read_text()
+          required = [
+              '**State:** COMPLETE_CANONICAL',
+              '**Implementation PR:** #151',
+              '00502aba975e4fa1c2780e5cca1c779fc6b64f27',
+              '986cdfdaa2ddc64458a7681caf174f3a0e434a1f',
+              'ENTRY_GATE_TASK = B030',
+              'ENTRY_GATE_CANONICAL_MAIN = 2d19b6296d550b5b60c1b511d71c6ce86a38d195',
+              'ENTRY_GATE_ELIGIBLE = true',
+              '33805156226', '33805424908', '33805835057', '33806460388', '33807105329',
+              'RAW_MODEL', '`H0`', '`H1`', '`H2`',
+              'HARNESS_LOCK_IN', 'TECHNICAL_DEBT_ACCUMULATION', 'CROSS_HARNESS_COMPARABILITY',
+              'NO_VERIFIED_COMPLETION',
+              'B031 remains independently gated by A019 and A020',
+              'B011/B012/B013 remain outside B030 authority',
+              'grants no model-weight access',
+          ]
+          for token in required:
+              assert token in evidence, token
+
+          # Frozen schema copies must be byte-identical across closeout.
+          for path in (
+              'schemas/mstr-repository-health-delta-v0.schema.json',
+              'specs/002-code-model-supremacy-foundation/contracts/mstr-repository-health-delta-v0.schema.json',
+          ):
+              assert (base / path).read_bytes() == (candidate / path).read_bytes()
+
+          # Formatting-only differences in convergence tests are ignored; only
+          # the two B030 terminal-state assertions may change semantically.
+          def show(root: str, path: str) -> str:
+              return subprocess.check_output(['git', '-C', root, 'show', f'HEAD:{path}'], text=True)
+          head_conv = show('candidate', 'tests/contract/test_convergence_external_bindings.py')
+          base_conv = show('base', 'tests/contract/test_convergence_external_bindings.py')
+          terminal = 'assert tasks["B030"]["canonical_state"] == "COMPLETE_CANONICAL"'
+          pending = 'assert tasks["B030"]["canonical_state"] == "PENDING"'
+          assert head_conv.count(terminal) == 2
+          restored = head_conv.replace(terminal, pending)
+          assert ast.dump(ast.parse(restored), include_attributes=False) == ast.dump(ast.parse(base_conv), include_attributes=False)
+          print('B030_CLOSEOUT_SEMANTIC_SCOPE=PASS')
+          PY
+      - name: Install exact candidate tooling
+        run: python -m pip install -e './candidate[dev]'
+      - name: Focused B030 closeout suite
+        working-directory: candidate
+        run: python -m pytest -q tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py tests/contract/test_repository_health_delta_contract.py
+      - name: Offline validation
+        working-directory: candidate
+        run: python -m mstr_qualify validate
+      - name: Full test suite
+        working-directory: candidate
+        run: python -m pytest -q
+      - name: Ruff
+        working-directory: candidate
+        run: python -m ruff check .
+      - name: Canonical mypy
+        working-directory: candidate
+        run: python -m mypy src
+      - name: Verify prospective task state and clean drift
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git update-ref refs/heads/main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json >/dev/null
+          if mstr-qualify task eligible B030 > /tmp/b030.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b030.json >/dev/null
+          if mstr-qualify task eligible B031 > /tmp/b031.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '((.reasons | index("prerequisite.unsatisfied:B030")) == null) and ((.reasons | index("prerequisite.unsatisfied:A019")) != null) and ((.reasons | index("prerequisite.unsatisfied:A020")) != null)' /tmp/b031.json >/dev/null
+          if mstr-qualify task eligible B011 > /tmp/b011.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "BLOCKED" and .authority_result.satisfied == false' /tmp/b011.json >/dev/null
+          if mstr-qualify task eligible B013 > /tmp/b013.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '.state_consistency_result.observed_state == "BLOCKED" and ((.reasons | index("prerequisite.unsatisfied:B012")) != null)' /tmp/b013.json >/dev/null
+      - name: Final immutable live recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr-final.json
+          jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .merged == false and .mergeable == true and .mergeable_state == "clean" and .base.sha == $base and .head.sha == $head' /tmp/pr-final.json >/dev/null
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git -C candidate rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          echo 'PR152_B030_CLOSEOUT_MANDATORY_PREMERGE=PASS'
