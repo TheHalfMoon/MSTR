@@ -1,0 +1,96 @@
+name: Audit post-B030 canonical frontier
+
+on:
+  push:
+    branches:
+      - evidence/frontier-after-b030-3e3ec4c
+
+permissions:
+  contents: read
+
+env:
+  CANONICAL_MAIN: 3e3ec4c4ec9b179ab4a3cd7addd6e0a46ac9201b
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANONICAL_MAIN }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install canonical tooling
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$CANONICAL_MAIN"
+          git update-ref refs/remotes/origin/main "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+      - name: Prove clean drift and exact remaining dependency chain
+        run: |
+          set -euo pipefail
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json >/dev/null
+
+          for task in B011 B012 B013 B031 B032 B033 B034; do
+            if mstr-qualify task eligible "$task" > "/tmp/${task}.json"; then
+              echo "UNEXPECTED_ELIGIBLE_TASK=$task"
+              cat "/tmp/${task}.json"
+              exit 1
+            else
+              test "$?" -eq 1
+            fi
+          done
+
+          jq -e '
+            .eligible == false and
+            .state_consistency_result.observed_state == "BLOCKED" and
+            .authority_result.required == true and
+            .authority_result.authority_id == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED" and
+            .authority_result.satisfied == false and
+            ((.reasons | index("authority.canonical_envelope_missing_or_invalid")) != null) and
+            ((.reasons | index("task.blocked")) != null) and
+            ((.reasons | index("task.unresolved_binding")) != null)
+          ' /tmp/B011.json >/dev/null
+
+          jq -e '
+            .eligible == false and
+            ((.reasons | index("prerequisite.unsatisfied:B011")) != null)
+          ' /tmp/B012.json >/dev/null
+
+          jq -e '
+            .eligible == false and
+            .state_consistency_result.observed_state == "BLOCKED" and
+            ((.reasons | index("prerequisite.unsatisfied:B012")) != null) and
+            ((.reasons | index("task.unresolved_binding")) != null)
+          ' /tmp/B013.json >/dev/null
+
+          jq -e '
+            .eligible == false and
+            ((.reasons | index("prerequisite.unsatisfied:A019")) != null) and
+            ((.reasons | index("prerequisite.unsatisfied:A020")) != null) and
+            ((.reasons | index("prerequisite.unsatisfied:B030")) == null)
+          ' /tmp/B031.json >/dev/null
+
+          jq -e '.eligible == false and ((.reasons | index("prerequisite.unsatisfied:B031")) != null)' /tmp/B032.json >/dev/null
+          jq -e '.eligible == false and ((.reasons | index("prerequisite.unsatisfied:B032")) != null)' /tmp/B033.json >/dev/null
+          jq -e '.eligible == false and ((.reasons | index("prerequisite.unsatisfied:B011")) != null) and ((.reasons | index("prerequisite.unsatisfied:B012")) != null) and ((.reasons | index("prerequisite.unsatisfied:B013")) != null)' /tmp/B034.json >/dev/null
+
+          echo 'POST_B030_FRONTIER_AUDIT=PASS'
+          echo 'FIRST_BLOCKING_GATE=B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED'
+          echo 'B012_BLOCKED_BY=B011'
+          echo 'B013_BLOCKED_BY=B012_AND_UNRESOLVED_BINDING'
+          echo 'A019_A020_CONVERGENCE_BLOCKED_BY=B013_CHAIN'
+          echo 'B031_BLOCKED_BY=A019,A020'
+          echo 'B032_BLOCKED_BY=B031'
+          echo 'B033_BLOCKED_BY=B032'
+          echo 'B034_BLOCKED_BY=B011,B012,B013_AND_DOWNSTREAM_CHAIN'
+      - name: Final canonical-main immutability
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          echo 'FRONTIER_CANONICAL_MAIN_IMMUTABLE=PASS'
