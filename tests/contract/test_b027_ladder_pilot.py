@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -202,6 +203,14 @@ def test_b027_harness_never_rewrites_canonical_refs(tmp_path: Path) -> None:
     _git(clone, "branch", "--force", "--remotes", "origin/main", canonical_entry)
     _git(clone, "config", "user.name", "B027 Contract Test")
     _git(clone, "config", "user.email", "b027-contract-test@example.invalid")
+
+    result_root = clone / "artifacts" / "results" / "research" / "B027"
+    entry = (result_root / "entry-eligibility.json").read_bytes()
+    shutil.rmtree(result_root)
+    result_root.mkdir(parents=True)
+    (result_root / "entry-eligibility.json").write_bytes(entry)
+    evidence_path = clone / "evidence" / "mstr-000b" / "B027-ladder-pilot.md"
+    evidence_path.unlink(missing_ok=True)
 
     refs = ("refs/heads/main", "refs/remotes/origin/main")
     before = {
