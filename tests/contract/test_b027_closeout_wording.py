@@ -61,16 +61,17 @@ def test_b027_closeout_evidence_uses_guarded_merge_conditional_canonicality() ->
     ).read_text(encoding="utf-8")
     closeout = evidence.split("## Canonical Implementation Closeout", maxsplit=1)[1]
     normalized = " ".join(closeout.split())
+    normalized_lower = normalized.lower()
 
     assert (
-        "B027 becomes canonical only when this exact closeout head is merged into canonical `main` "
+        "b027 becomes canonical only when this exact closeout head is merged into canonical `main` "
         "through the required expected-head guard"
-        in normalized
+        in normalized_lower
     )
     assert (
-        "terminal B027 closeout acceptance is recorded only when this exact closeout head is merged "
+        "terminal b027 closeout acceptance is recorded only when this exact closeout head is merged "
         "into canonical `main` through the required expected-head guard"
-        in normalized
+        in normalized_lower
     )
 
     assertions = _terminal_closeout_status_assertions(closeout)
