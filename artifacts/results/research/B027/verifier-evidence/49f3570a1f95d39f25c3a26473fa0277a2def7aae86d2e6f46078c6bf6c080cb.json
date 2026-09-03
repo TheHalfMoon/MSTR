@@ -1,0 +1,14 @@
+{
+  "campaign_id": "b027-offline-ladder-pilot-v0",
+  "experiment_id": "b027-l0-contract-smoke",
+  "frozen_evaluation_identity": "sha256:3803e9ab85feed79523f3610b5e20e1cb286a20cf41db99de28e55475a2bcf5c",
+  "gate_id": "authority_boundary_intact",
+  "governing_task_id": "B027",
+  "schema_version": "mstr.research-verifier-evidence.v0",
+  "subject_evidence_identity": "sha256:6689611aa4ba20cbf2c0132ee2cd5e7bfd7dd300a8772e62b43e3b413f0d7acb",
+  "subject_identity": "b027-l0-contract-smoke-result",
+  "verifier_health_identity": "sha256:fe071606ce645833271ebb53c463be689ec1982624bfaa09af9ffd1ff2f772cb",
+  "verifier_manifest_identity": "sha256:4cca81489947daf3ba64ec6706259f73590c18f359a436c2702b573c426d7094",
+  "verifier_result_identity": "sha256:e7b9349b922e06cd01585652d3d88fa2c6a33824db27d2e742fbd8048064ef6a",
+  "verifier_result_json_pointer": "/observed_value"
+}
