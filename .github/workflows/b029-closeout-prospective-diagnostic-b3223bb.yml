@@ -1,0 +1,70 @@
+name: Diagnose B029 prospective closeout gate
+
+on:
+  push:
+    branches:
+      - evidence/b029-closeout-prospective-diagnostic-b3223bb
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: b3223bb384d8723c37a28526be691cedf8174dc3
+  SOURCE_SHA: a09a8d79804780fab703a06a57e3cbccadcaede8
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Materialize prospective closeout locally only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          git show "$SOURCE_SHA:tools/evidence/build_b029_closeout.py" > /tmp/build_b029_closeout.py
+          python -m pip install -e '.[dev]'
+          python /tmp/build_b029_closeout.py
+          python -m ruff format tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py
+          git diff --check
+          git config user.name "B029 diagnostic"
+          git config user.email "b029-diagnostic@example.invalid"
+          git add configs/task-gate/mstr-000b.json evidence/mstr-000b/B029-adaptive-inference.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_convergence_external_bindings.py tests/contract/test_task_gate.py
+          git commit -m "diagnostic: prospective B029 closeout"
+          PROSPECTIVE=$(git rev-parse HEAD)
+          git update-ref refs/heads/main "$PROSPECTIVE"
+          git update-ref refs/remotes/origin/main "$PROSPECTIVE"
+          echo "PROSPECTIVE_HEAD=$PROSPECTIVE"
+
+      - name: Print prospective machine state
+        shell: bash
+        run: |
+          set -uo pipefail
+          mstr-qualify task drift > /tmp/drift.json; DRIFT_RC=$?
+          mstr-qualify task eligible B029 > /tmp/b029.json; B029_RC=$?
+          mstr-qualify task eligible B030 > /tmp/b030.json; B030_RC=$?
+          mstr-qualify task eligible B031 > /tmp/b031.json; B031_RC=$?
+          mstr-qualify task eligible B011 > /tmp/b011.json; B011_RC=$?
+          mstr-qualify task eligible B013 > /tmp/b013.json; B013_RC=$?
+          echo "DRIFT_RC=$DRIFT_RC"; cat /tmp/drift.json
+          echo "B029_RC=$B029_RC"; cat /tmp/b029.json
+          echo "B030_RC=$B030_RC"; cat /tmp/b030.json
+          echo "B031_RC=$B031_RC"; cat /tmp/b031.json
+          echo "B011_RC=$B011_RC"; cat /tmp/b011.json
+          echo "B013_RC=$B013_RC"; cat /tmp/b013.json
+          test "$DRIFT_RC" -eq 0
+          test "$B029_RC" -eq 1
+          test "$B030_RC" -eq 0
+          test "$B031_RC" -eq 1
+          test "$B011_RC" -eq 1
+          test "$B013_RC" -eq 1
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo 'REMOTE_MUTATION=NONE'
