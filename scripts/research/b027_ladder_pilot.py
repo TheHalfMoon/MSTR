@@ -575,11 +575,9 @@ def _validate_records_synthetic_merge(
             _git_at(clone, "branch", "--force", "main", synthetic_merge)
             _git_at(
                 clone,
-                "branch",
-                "--force",
-                "--remotes",
-                "origin/main",
-                synthetic_merge,
+                "fetch",
+                ".",
+                f"{synthetic_merge}:refs/remotes/origin/main",
             )
             for record in records:
                 validate_instance(
