@@ -1,0 +1,66 @@
+name: Qualify B030 contract builder
+
+on:
+  push:
+    branches:
+      - evidence/b030-builder-2d19b62
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      EXPECTED_MAIN: 2d19b6296d550b5b60c1b511d71c6ce86a38d195
+      CANDIDATE_HEAD: 17cbc459bc508630cc3cd840521ffc3abf90e1b5
+      EXPECTED_TREE: 398da0a1190077cda056864e8c666ac3dd461093
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_HEAD }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove exact base, head, tree, and five-file scope
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git diff --name-only "$EXPECTED_MAIN"..."$CANDIDATE_HEAD" > /tmp/files.txt
+          cat > /tmp/expected.txt <<'EOF'
+          evidence/mstr-000b/B030-long-horizon-quality.md
+          schemas/mstr-repository-health-delta-v0.schema.json
+          specs/002-code-model-supremacy-foundation/contracts/mstr-repository-health-delta-v0.schema.json
+          tests/contract/test_repository_health_delta_contract.py
+          tests/fixtures/schemas/valid/mstr-repository-health-delta-v0.json
+          EOF
+          diff -u /tmp/expected.txt /tmp/files.txt
+      - name: Install candidate tooling
+        run: python -m pip install -e '.[dev]'
+      - name: Prove canonical B030 entry remains eligible
+        run: |
+          set -euo pipefail
+          mstr-qualify task eligible B030 > /tmp/b030.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .reasons == [] and .authority_result.required == false' /tmp/b030.json >/dev/null
+      - name: Focused B030 contract suite
+        run: pytest -q tests/contract/test_repository_health_delta_contract.py
+      - name: Offline validation
+        run: mstr-qualify validate
+      - name: Full test suite
+        run: pytest -q
+      - name: Ruff
+        run: ruff check src tests
+      - name: Canonical mypy
+        run: mypy src
+      - name: Final immutable recheck
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/feat/000b-b030-repository-health-delta | cut -f1)" = "$CANDIDATE_HEAD"
