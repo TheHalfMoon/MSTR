@@ -1,0 +1,138 @@
+{
+  "aggregate_resource_cost": {
+    "material_result_count": 1,
+    "paid_cost_usd": 0,
+    "resource_class": "CONTRACT_ONLY",
+    "wall_time_seconds": 0.01
+  },
+  "budget": {
+    "budget_id": "b027-offline-zero-cost-v0",
+    "max_material_results": 2,
+    "max_paid_cost_usd": 0,
+    "max_wall_time_seconds": 120,
+    "resource_class": "CONTRACT_ONLY"
+  },
+  "campaign_freeze_commit_sha_or_na": "5ff7853c16eb789214b8aaa0d5d43d6d21b9fd68",
+  "campaign_id": "b027-offline-ladder-pilot-v0",
+  "canonical_evidence_commit_sha_or_na": "3e7d7dcae5dd83f1b0d6aef862d9cb7773c921c0",
+  "decision_reason": "Controlled code-proxy threshold regression triggered early discard before L2.",
+  "experiment_id": "b027-l1-controlled-stop",
+  "external_effect_authority": null,
+  "fidelity_level": "L1_CODE_PROXY",
+  "frozen_evaluation_identity": "sha256:b6f3d060a7cb48a7d34d5d98fb1e3687df1dd2becc7dcee29ea71de2cc5dc398",
+  "governed_effects": {
+    "GATED_TERMS_ACCEPTANCE": false,
+    "LARGE_DATASET_INGESTION": false,
+    "LARGE_SCALE_RL": false,
+    "LONG_TRAINING": false,
+    "MODEL_EXECUTION": false,
+    "MODEL_WEIGHT_ACCESS": false,
+    "NETWORK_MODEL_OR_TEACHER_CALL": false,
+    "PAID_COMPUTE": false,
+    "PAID_MODEL_API_EXECUTION": false,
+    "PRODUCTION_RELEASE": false,
+    "RENTED_COMPUTE": false,
+    "WEIGHT_CHANGING_TRAINING": false
+  },
+  "governing_task_id": "B027",
+  "hard_gate_results": [
+    {
+      "evidence_identity": "sha256:058dd49a0e1ecf43a298bd185feac949201932592d4cf963d5fc5e2d8c72faec",
+      "gate_id": "predecessor_promoted",
+      "reason": "Required gate passed under frozen evaluator.",
+      "status": "PASS"
+    },
+    {
+      "evidence_identity": "sha256:92424beb2f53c57a4d8b279805690ddd5820b17f3578cb618fd57f6004e1d167",
+      "gate_id": "code_proxy_thresholds",
+      "reason": "Controlled threshold regression observed.",
+      "status": "FAIL"
+    },
+    {
+      "evidence_identity": "sha256:309a0fce3a4e1697febc4e6604960a2fd5097dbe58637592c9491ecc940851fd",
+      "gate_id": "frozen_eval_tolerance",
+      "reason": "Required gate passed under frozen evaluator.",
+      "status": "PASS"
+    },
+    {
+      "evidence_identity": "sha256:44a526bf1b728ebbffa517f0416b03eb6886638fc0b36a2cbcfc56e1c19a9377",
+      "gate_id": "material_identity_complete",
+      "reason": "Required gate passed under frozen evaluator.",
+      "status": "PASS"
+    },
+    {
+      "evidence_identity": "sha256:ab88dd5fea7b65b7dcbe313dd2a7ad41f8852320d6bb7b4c8af704141db78965",
+      "gate_id": "task_verifier_sampling_runtime_identity",
+      "reason": "Required gate passed under frozen evaluator.",
+      "status": "PASS"
+    }
+  ],
+  "hypothesis": "A controlled L1 code-proxy regression is discarded before L2.",
+  "material_results": [
+    {
+      "acceleration_backend_or_na": "N/A",
+      "cache_state_or_na": "N/A",
+      "context_length_or_na": "N/A",
+      "cpu_identity_or_na": "N/A",
+      "data_identity_or_na": "N/A",
+      "difficulty_identity_or_na": "N/A",
+      "evidence_kind": "CONTRACT_ONLY",
+      "harness_profile_id_or_na": "b027-offline-ladder-pilot-v0",
+      "interaction_contract_version_or_na": "N/A",
+      "invalidation_reason_or_na": "N/A",
+      "loop_contract_version_or_na": "N/A",
+      "metrics": {
+        "checks_passed": 4,
+        "checks_total": 5,
+        "controlled_regression_detected": 1
+      },
+      "model_artifact_sha256_or_na": "N/A",
+      "model_artifact_size_bytes_or_na": "N/A",
+      "model_execution_count_or_na": 0,
+      "model_id_or_na": "N/A",
+      "model_revision_or_na": "N/A",
+      "network_model_or_teacher_call_count_or_na": 0,
+      "os_identity_or_na": "ubuntu-24.04",
+      "paid_cost_usd": 0,
+      "quantization_method_or_na": "N/A",
+      "quantizer_tool_revision_or_na": "N/A",
+      "resource_cost": {
+        "accelerator_seconds_or_na": "N/A",
+        "cost_class": "NO_EXTERNAL_EFFECT",
+        "cpu_seconds_or_na": 0.01,
+        "network_bytes_or_na": 0,
+        "peak_ram_bytes_or_na": "N/A"
+      },
+      "result_classification": "FAIL",
+      "result_id": "b027-l1-controlled-stop-result",
+      "runtime_build_flags_or_na": "N/A",
+      "runtime_id_or_na": "python",
+      "runtime_version_or_commit_or_na": "3.11",
+      "sampling_config_id_or_na": "b027-deterministic-zero-sampling-v0",
+      "schema_version": "mstr.material-result-identity.v0",
+      "seed_or_na": 0,
+      "task_manifest_id": "B027-bounded-offline-ladder-pilot",
+      "thread_count_or_na": "N/A",
+      "tokenizer_id_or_na": "N/A",
+      "tokenizer_revision_or_na": "N/A",
+      "total_ram_bytes_or_na": "N/A",
+      "verifier_health_id_or_na": "N/A",
+      "verifier_manifest_id": "b027-content-addressed-offline-evaluator-v0",
+      "wall_time_seconds_or_na": 0.01
+    }
+  ],
+  "mutable_surface": "repository-owned controlled code-proxy config mutation",
+  "mutation_identity": "b027-mutation:controlled-code-proxy-regression-v0",
+  "parent_identity": "b027-l0-contract-smoke-result",
+  "predecessor_promotion": {
+    "experiment_id": "b027-l0-contract-smoke",
+    "experiment_record_sha256": "dbc5f477ebd96d282ecdbd9ca1048e336c8289bcd9941d549656459ff155da90"
+  },
+  "promoted_result_id_or_na": "N/A",
+  "promotion_decision": "STOP",
+  "promotion_policy_identity": "sha256:ef636602af7f660ebfe8d7190d881dad5566030ed6005c9f7fcea101c2445f7d",
+  "q4_candidate_binding_identity_or_na": "N/A",
+  "q4_promotion_record_identity_or_na": "N/A",
+  "record_mode": "CAMPAIGN_RESULT",
+  "schema_version": "mstr.research-experiment.v2"
+}
