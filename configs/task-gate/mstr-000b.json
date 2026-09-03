@@ -413,26 +413,33 @@
       ]
     },
     "B029": {
-      "canonical_state": "BLOCKED",
+      "canonical_state": "PENDING",
       "evidence_outputs": [
         "evidence/mstr-000b/B029-adaptive-inference.md"
       ],
       "prerequisites": [
+        "A005",
+        "A006",
+        "A008",
+        "A010",
         "B020"
       ]
     },
     "B030": {
-      "canonical_state": "BLOCKED",
+      "canonical_state": "PENDING",
       "evidence_outputs": [
         "evidence/mstr-000b/B030-long-horizon-quality.md"
       ],
       "prerequisites": [
+        "A007",
+        "A008",
+        "A009",
         "B024",
         "B025"
       ]
     },
     "B031": {
-      "canonical_state": "BLOCKED",
+      "canonical_state": "PENDING",
       "evidence_outputs": [
         "evidence/mstr-000b/B031-tournament-reconciliation.md"
       ],
@@ -524,10 +531,7 @@
   "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",
   "unresolved_bindings": {
     "B011": "B010 must first determine whether new access is required. Until that decision is canonical, B011 remains BLOCKED under MODEL_WEIGHT_ACCESS. The access path must bind exact founder authority; the no-access path must explicitly change the node to NO_EXTERNAL_EFFECT before closing NOT_REQUIRED_NO_NEW_ACCESS.",
-    "B013": "Existing-candidate T034 or canonical-equivalent hard-gate identity must be bound before B013 is unblocked.",
-    "B029": "Required MSTR-000A loop/context contract identities must be bound before B029 is unblocked.",
-    "B030": "A019-ready harness surface identities must be bound before B030 is unblocked.",
-    "B031": "A019/A020 are external prerequisites and must be canonical before B031."
+    "B013": "Existing-candidate T034 or canonical-equivalent hard-gate identity must be bound before B013 is unblocked."
   },
   "workstream_id": "MSTR-000B",
   "external_prerequisites": {
@@ -550,6 +554,76 @@
       ],
       "required_state": "COMPLETE_CANONICAL",
       "task_identity": "MSTR-000A / A014"
+    },
+    "A005": {
+      "workstream_id": "MSTR-000A",
+      "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+      "state_evidence": "evidence/mstr-000a/A005-build-loop.md",
+      "evidence_outputs": [
+        "evidence/mstr-000a/A005-build-loop.md"
+      ],
+      "required_state": "COMPLETE_CANONICAL",
+      "task_identity": "MSTR-000A / A005"
+    },
+    "A007": {
+      "workstream_id": "MSTR-000A",
+      "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+      "state_evidence": "evidence/mstr-000a/A007-neutral-harness.md",
+      "evidence_outputs": [
+        "evidence/mstr-000a/A007-neutral-harness.md"
+      ],
+      "required_state": "COMPLETE_CANONICAL",
+      "task_identity": "MSTR-000A / A007"
+    },
+    "A008": {
+      "workstream_id": "MSTR-000A",
+      "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+      "state_evidence": "evidence/mstr-000a/A008-mstr-harness.md",
+      "evidence_outputs": [
+        "evidence/mstr-000a/A008-mstr-harness.md"
+      ],
+      "required_state": "COMPLETE_CANONICAL",
+      "task_identity": "MSTR-000A / A008"
+    },
+    "A009": {
+      "workstream_id": "MSTR-000A",
+      "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+      "state_evidence": "evidence/mstr-000a/A009-wepld-adapter.md",
+      "evidence_outputs": [
+        "evidence/mstr-000a/A009-wepld-adapter.md"
+      ],
+      "required_state": "COMPLETE_CANONICAL",
+      "task_identity": "MSTR-000A / A009"
+    },
+    "A010": {
+      "workstream_id": "MSTR-000A",
+      "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+      "state_evidence": "evidence/mstr-000a/A010-capability-profile.md",
+      "evidence_outputs": [
+        "evidence/mstr-000a/A010-capability-profile.md"
+      ],
+      "required_state": "COMPLETE_CANONICAL",
+      "task_identity": "MSTR-000A / A010"
+    },
+    "A019": {
+      "workstream_id": "MSTR-000A",
+      "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+      "state_evidence": "evidence/mstr-000a/A019-harness-tournament.md",
+      "evidence_outputs": [
+        "evidence/mstr-000a/A019-harness-tournament.md"
+      ],
+      "required_state": "COMPLETE_CANONICAL",
+      "task_identity": "MSTR-000A / A019"
+    },
+    "A020": {
+      "workstream_id": "MSTR-000A",
+      "tasks_file": "specs/001-agent-harness-verified-loop-foundation/tasks.md",
+      "state_evidence": "evidence/mstr-000a/A020-autoresearch.md",
+      "evidence_outputs": [
+        "evidence/mstr-000a/A020-autoresearch.md"
+      ],
+      "required_state": "COMPLETE_CANONICAL",
+      "task_identity": "MSTR-000A / A020"
     }
   }
 }
