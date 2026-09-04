@@ -1,0 +1,158 @@
+name: Mandatory premerge PR155 B011 authority
+
+on:
+  push:
+    branches:
+      - evidence/pr155-b011-authority-mandatory-premerge
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+  pull-requests: read
+  statuses: read
+
+env:
+  EXPECTED_BASE: 3e3ec4c4ec9b179ab4a3cd7addd6e0a46ac9201b
+  EXPECTED_HEAD: 55c972f98399f3699113b4282c0922ef7ace8abf
+  EXPECTED_TREE: 7fa76c7e671ebb406c2a2cacba9a02205349d548
+  TARGET_BRANCH: governance/b011-founder-authority-exact-b010-envelope-v2
+  PR_NUMBER: '155'
+  QUALIFICATION_RUN: '33860335057'
+  REVIEW_RUN: '33860867004'
+
+jobs:
+  mandatory_premerge:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify exact immutable PR identity and evidence dependencies
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_BASE"
+          test "$(git rev-list --count "$EXPECTED_BASE".."$EXPECTED_HEAD")" -eq 1
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          for run_id in "$QUALIFICATION_RUN" "$REVIEW_RUN"; do
+            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" --jq .status)" = completed
+            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" --jq .conclusion)" = success
+          done
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .merged == false and .mergeable == true and .mergeable_state == "clean" and .base.ref == "main" and .base.sha == $base and .head.ref == "governance/b011-founder-authority-exact-b010-envelope-v2" and .head.sha == $head and .commits == 1 and .changed_files == 5' /tmp/pr.json >/dev/null
+          echo 'PR155_PREMERGE_IDENTITY=PASS'
+      - name: Verify exact five-file scope and authority semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/expected-files <<'EOF'
+          artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json
+          configs/task-gate/mstr-000b.json
+          tests/contract/test_convergence_external_bindings.py
+          tests/contract/test_task_gate.py
+          tests/integration/test_task_gate_cli.py
+          EOF
+          sort -o /tmp/expected-files /tmp/expected-files
+          git diff --name-only "$EXPECTED_BASE...$EXPECTED_HEAD" | sort > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          test -z "$(git diff --name-only "$EXPECTED_BASE...$EXPECTED_HEAD" -- src schemas specs/002-code-model-supremacy-foundation/contracts .github/workflows)"
+          git diff --check "$EXPECTED_BASE...$EXPECTED_HEAD"
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          auth_path = Path('artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json')
+          auth = json.loads(auth_path.read_text(encoding='utf-8'))
+          b010_path = Path('artifacts/manifests/B010-new-candidate-weight-access.json')
+          b010 = json.loads(b010_path.read_text(encoding='utf-8'))
+          catalog = json.loads(Path('configs/task-gate/mstr-000b.json').read_text(encoding='utf-8'))
+
+          assert auth['authority_id'] == 'B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED'
+          assert auth['task_id'] == 'B011'
+          assert auth['external_effect_class'] == 'MODEL_WEIGHT_ACCESS'
+          assert auth['status'] == 'AUTHORIZED_CANONICAL'
+          assert auth['scope']['decision'] == 'FOUNDER_B011_MODEL_WEIGHT_ACCESS_DECISION=AUTHORIZE_EXACT_B010_ENVELOPE'
+          assert auth['scope']['decision_surface'] == {'issue': 153, 'comment_id': 5538049681}
+          assert auth['scope']['b010_manifest']['sha256'] == hashlib.sha256(b010_path.read_bytes()).hexdigest()
+          assert auth['scope']['candidate_access_envelopes'] == b010['candidate_access_envelopes']
+          assert auth['cost_resource_ceiling']['limits'] == [
+              {'max': 0.0, 'resource': 'cost', 'unit': 'USD'},
+              {'max': 9817996174, 'resource': 'required_download_bytes', 'unit': 'bytes'},
+          ]
+          assert catalog['tasks']['B011']['canonical_state'] == 'PENDING'
+          assert catalog['tasks']['B011']['external_effect_class'] == 'MODEL_WEIGHT_ACCESS'
+          assert catalog['tasks']['B011']['required_authority_id'] == 'B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED'
+          assert 'B011' not in catalog['unresolved_bindings']
+          for key in ('gated_terms_acceptance', 'git_model_binaries', 'large_dataset_ingestion', 'paid_compute', 'paid_model_api', 'production_release', 'quantization_execution', 'weight_changing_training'):
+              assert auth['scope'][key] is False
+          assert auth['scope']['founder_machine_large_artifacts'] == 0
+          print('PR155_PREMERGE_AUTHORITY=PASS')
+          PY
+      - name: Reconcile reviews, threads, protection, rulesets, statuses, and checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          reviews="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100")"
+          test "$(jq '[.[] | select(.state == "CHANGES_REQUESTED")] | length' <<<"$reviews")" -eq 0
+          review_comments="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/comments?per_page=100")"
+          test "$(jq 'length' <<<"$review_comments")" -eq 0
+          unresolved="$(gh api graphql \
+            -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' \
+            -F owner=TheHalfMoon -F name=MSTR -F number="$PR_NUMBER" \
+            --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')"
+          test "$unresolved" -eq 0
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/branches/main" --jq .protected)" = false
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/rulesets" --jq length)" -eq 0
+          status_json="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD}/status")"
+          test "$(jq '[.statuses[] | select(.state == "failure" or .state == "error" or .state == "pending")] | length' <<<"$status_json")" -eq 0
+          checks_json="$(gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_HEAD}/check-runs")"
+          test "$(jq '[.check_runs[] | select(.status != "completed" or (.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped"))] | length' <<<"$checks_json")" -eq 0
+          echo 'PR155_PREMERGE_RECONCILIATION=PASS'
+      - name: Install exact candidate tooling
+        run: python -m pip install -e '.[dev]'
+      - name: Fresh task-gate, regression, validation, Ruff, and mypy proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          git update-ref refs/heads/main "$EXPECTED_HEAD"
+          git update-ref refs/remotes/origin/main "$EXPECTED_HEAD"
+          mstr-qualify task eligible B011 > /tmp/b011.json
+          jq -e '.task_id == "B011" and .eligible == true and .authority_result.required == true and .authority_result.satisfied == true and .authority_result.authority_id == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED" and .state_consistency_result.observed_state == "PENDING" and (.reasons | length == 0)' /tmp/b011.json >/dev/null
+          if mstr-qualify task eligible B012 > /tmp/b012.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '(.reasons | index("prerequisite.unsatisfied:B011")) != null' /tmp/b012.json >/dev/null
+          if mstr-qualify task eligible B013 > /tmp/b013.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '(.reasons | index("prerequisite.unsatisfied:B012")) != null' /tmp/b013.json >/dev/null
+          python -m pytest -q tests/contract/test_convergence_external_bindings.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          echo 'PR155_PREMERGE_QUALITY=PASS'
+      - name: Final live guarded-merge readiness recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr-final.json
+          jq -e --arg base "$EXPECTED_BASE" --arg head "$EXPECTED_HEAD" '.state == "open" and .draft == false and .merged == false and .mergeable == true and .mergeable_state == "clean" and .base.sha == $base and .head.sha == $head and .review_comments == 0' /tmp/pr-final.json >/dev/null
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/rulesets" --jq length)" -eq 0
+          echo 'PR155_B011_AUTHORITY_MANDATORY_PREMERGE=PASS'
