@@ -29,6 +29,10 @@ def main() -> None:
     assert founder_marker in evidence
     provenance = "\n".join(
         [
+            "**State:** `COMPLETE_CANONICAL`",
+            "ENTRY_GATE_TASK=B011",
+            "ENTRY_GATE_CANONICAL_MAIN=dd547bb768598f92ad203764ce32be6e1fc710d6",
+            "ENTRY_GATE_ELIGIBLE=true",
             "**Closeout entry canonical main:** `a788f55f5251f0be92b33e0765d0436cb321eb8b`",
             "**Implementation PR:** `#157`",
             "**Final implementation head:** `450d9b5b9b3c6aca27222a553dc6230f6eef6783`",
