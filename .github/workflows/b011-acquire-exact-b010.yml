@@ -1,0 +1,115 @@
+name: B011 exact B010 acquisition
+
+on:
+  push:
+    branches:
+      - evidence/b011-acquisition-dd547bb
+
+permissions:
+  contents: read
+
+env:
+  CANONICAL_MAIN: dd547bb768598f92ad203764ce32be6e1fc710d6
+  B010_SHA256: 4c2fd1469cdcf728063ab8f5b6a603191ffdc9e1a4d4c2d794abd2a24950c3ef
+
+jobs:
+  acquire:
+    name: acquire-${{ matrix.candidate }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        candidate:
+          - mellum-4b
+          - qwen3.5-0.8b-control
+    steps:
+      - name: Checkout evidence runner branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove evidence branch lineage and non-product scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-list --count "$CANONICAL_MAIN"..HEAD)" -eq 2
+          mapfile -t changed < <(git diff --name-only "$CANONICAL_MAIN" HEAD | sort)
+          expected=(
+            ".github/workflows/b011-acquire-exact-b010.yml"
+            "tools/b011_acquire.py"
+          )
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          for i in "${!expected[@]}"; do test "${changed[$i]}" = "${expected[$i]}"; done
+          cp tools/b011_acquire.py "$RUNNER_TEMP/b011_acquire.py"
+          echo 'B011_EVIDENCE_BRANCH_SCOPE=PASS'
+
+      - name: Checkout exact canonical main for authority evaluation and execution inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote_main="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)"
+          test "$remote_main" = "$CANONICAL_MAIN"
+          git checkout --detach "$CANONICAL_MAIN"
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          echo "$B010_SHA256  artifacts/manifests/B010-new-candidate-weight-access.json" | sha256sum -c -
+          echo 'B011_EXACT_MAIN_INPUTS=PASS'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Prove exact-main B011 machine eligibility immediately before access
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          mstr-qualify task eligible B011 > "$RUNNER_TEMP/b011-eligibility.json"
+          jq -e '.eligible == true and .authority_result.satisfied == true and .state_consistency_result.observed_state == "PENDING"' "$RUNNER_TEMP/b011-eligibility.json" >/dev/null
+          echo 'B011_EXACT_MAIN_ELIGIBILITY=PASS'
+
+      - name: Acquire and cryptographically verify exact authorized candidate
+        env:
+          CANDIDATE: ${{ matrix.candidate }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$RUNNER_TEMP/b011_acquire.py" \
+            --manifest artifacts/manifests/B010-new-candidate-weight-access.json \
+            --authority artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json \
+            --candidate "$CANDIDATE" \
+            --canonical-main "$CANONICAL_MAIN" \
+            --workdir "$RUNNER_TEMP/b011-binaries-$CANDIDATE" \
+            --report "$RUNNER_TEMP/b011-report-$CANDIDATE.json"
+
+      - name: Upload durable JSON report only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: b011-report-${{ matrix.candidate }}
+          path: ${{ runner.temp }}/b011-report-${{ matrix.candidate }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Delete all local model bodies defense-in-depth
+        if: always()
+        shell: bash
+        env:
+          CANDIDATE: ${{ matrix.candidate }}
+        run: |
+          rm -rf "$RUNNER_TEMP/b011-binaries-$CANDIDATE"
+          test ! -e "$RUNNER_TEMP/b011-binaries-$CANDIDATE"
+
+      - name: Final canonical-main no-drift check
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote_main="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)"
+          test "$remote_main" = "$CANONICAL_MAIN"
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          echo 'B011_ACQUISITION_NO_DRIFT=PASS'
