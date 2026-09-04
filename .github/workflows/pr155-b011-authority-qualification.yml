@@ -1,0 +1,167 @@
+name: Qualify PR155 B011 authority exact head
+
+on:
+  push:
+    branches:
+      - evidence/pr155-b011-authority-qualification
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  BASE_SHA: 3e3ec4c4ec9b179ab4a3cd7addd6e0a46ac9201b
+  HEAD_SHA: 55c972f98399f3699113b4282c0922ef7ace8abf
+  EXPECTED_TREE: 7fa76c7e671ebb406c2a2cacba9a02205349d548
+  TARGET_BRANCH: governance/b011-founder-authority-exact-b010-envelope-v2
+  PR_NUMBER: '155'
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact authority-capture identity, PR, and five-file scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          test "$(git rev-parse "$HEAD_SHA^{tree}")" = "$EXPECTED_TREE"
+          test "$(git rev-parse "$HEAD_SHA^")" = "$BASE_SHA"
+          test "$(git rev-list --count "$BASE_SHA".."$HEAD_SHA")" -eq 1
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '.state == "open" and .draft == false and .base.ref == "main" and .base.sha == $base and .head.ref == "governance/b011-founder-authority-exact-b010-envelope-v2" and .head.sha == $head and .commits == 1 and .changed_files == 5' /tmp/pr.json >/dev/null
+          mapfile -t actual < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort)
+          expected=(
+            artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json
+            configs/task-gate/mstr-000b.json
+            tests/contract/test_convergence_external_bindings.py
+            tests/contract/test_task_gate.py
+            tests/integration/test_task_gate_cli.py
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 5
+          diff -u <(printf '%s\n' "${wanted[@]}") <(printf '%s\n' "${actual[@]}")
+          test -z "$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- schemas src specs/002-code-model-supremacy-foundation/contracts .github/workflows)"
+          git diff --check "$BASE_SHA" "$HEAD_SHA"
+          echo 'PR155_B011_AUTHORITY_IDENTITY_SCOPE=PASS'
+
+  authority_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 55c972f98399f3699113b4282c0922ef7ace8abf
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove exact B010 authority binding and prospective B011 eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git show "$BASE_SHA:configs/task-gate/mstr-000b.json" > /tmp/base-catalog.json
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          base = json.load(open('/tmp/base-catalog.json', encoding='utf-8'))
+          head = json.load(open('configs/task-gate/mstr-000b.json', encoding='utf-8'))
+          auth = json.load(open('artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json', encoding='utf-8'))
+          manifest_path = Path('artifacts/manifests/B010-new-candidate-weight-access.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          manifest_sha = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+
+          assert auth['authority_id'] == 'B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED'
+          assert auth['task_id'] == 'B011'
+          assert auth['external_effect_class'] == 'MODEL_WEIGHT_ACCESS'
+          assert auth['status'] == 'AUTHORIZED_CANONICAL'
+          assert auth['scope']['decision'] == 'FOUNDER_B011_MODEL_WEIGHT_ACCESS_DECISION=AUTHORIZE_EXACT_B010_ENVELOPE'
+          assert auth['scope']['decision_surface'] == {'issue': 153, 'comment_id': 5538049681}
+          assert auth['scope']['b010_manifest']['path'] == 'artifacts/manifests/B010-new-candidate-weight-access.json'
+          assert auth['scope']['b010_manifest']['schema_version'] == manifest['schema_version']
+          assert auth['scope']['b010_manifest']['sha256'] == manifest_sha
+          assert auth['scope']['candidate_ids'] == manifest['decision']['new_weight_access_required_candidates']
+          assert auth['scope']['candidate_access_envelopes'] == manifest['candidate_access_envelopes']
+          assert auth['cost_resource_ceiling'] == {
+              'cost_model': 'exact-b010-zero-usd-weight-access',
+              'limits': [
+                  {'max': 0.0, 'resource': 'cost', 'unit': 'USD'},
+                  {'max': 9817996174, 'resource': 'required_download_bytes', 'unit': 'bytes'},
+              ],
+          }
+          for key in ('gated_terms_acceptance', 'git_model_binaries', 'large_dataset_ingestion', 'paid_compute', 'paid_model_api', 'production_release', 'quantization_execution', 'weight_changing_training'):
+              assert auth['scope'][key] is False
+          assert auth['scope']['founder_machine_large_artifacts'] == 0
+
+          assert base['tasks']['B011']['canonical_state'] == 'BLOCKED'
+          assert head['tasks']['B011']['canonical_state'] == 'PENDING'
+          for task_id, node in base['tasks'].items():
+              if task_id != 'B011':
+                  assert head['tasks'][task_id] == node
+          before_b011 = dict(base['tasks']['B011'])
+          after_b011 = dict(head['tasks']['B011'])
+          before_b011['canonical_state'] = 'PENDING'
+          assert after_b011 == before_b011
+          assert 'B011' in base['unresolved_bindings']
+          assert 'B011' not in head['unresolved_bindings']
+          assert head['unresolved_bindings'] == {k: v for k, v in base['unresolved_bindings'].items() if k != 'B011'}
+          print('PR155_B011_AUTHORITY_SEMANTICS=PASS')
+          PY
+          git update-ref refs/heads/main "$HEAD_SHA"
+          git update-ref refs/remotes/origin/main "$HEAD_SHA"
+          mstr-qualify task eligible B011 > /tmp/b011.json
+          jq -e '.task_id == "B011" and .eligible == true and .authority_result.required == true and .authority_result.satisfied == true and .authority_result.authority_id == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED" and .state_consistency_result.observed_state == "PENDING" and ((.reasons | length) == 0)' /tmp/b011.json >/dev/null
+          jq -e '[.prerequisite_results[] | select(.task_id == "B002" or .task_id == "B010")] | length == 2 and all(.[]; .satisfied == true)' /tmp/b011.json >/dev/null
+          echo 'PR155_B011_PROSPECTIVE_ELIGIBILITY=PASS'
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 55c972f98399f3699113b4282c0922ef7ace8abf
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run focused and full canonical quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_convergence_external_bindings.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          echo 'PR155_B011_AUTHORITY_QUALITY=PASS'
+
+  complete:
+    needs: [identity_scope, authority_semantics, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 55c972f98399f3699113b4282c0922ef7ace8abf
+          fetch-depth: 0
+      - name: Final immutable exact-head recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          echo 'PR155_B011_AUTHORITY_QUALIFICATION=PASS'
