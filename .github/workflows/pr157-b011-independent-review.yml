@@ -1,0 +1,149 @@
+name: Independent semantic review PR157 B011 acquisition
+
+on:
+  push:
+    branches:
+      - evidence/pr157-b011-independent-review
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 450d9b5b9b3c6aca27222a553dc6230f6eef6783
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify successful exact-head qualification dependency and immutable topology
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=dd547bb768598f92ad203764ce32be6e1fc710d6
+          HEAD=450d9b5b9b3c6aca27222a553dc6230f6eef6783
+          gh api repos/${GITHUB_REPOSITORY}/actions/runs/33867186224 > /tmp/qualification.json
+          jq -e '.status == "completed" and .conclusion == "success" and .head_branch == "evidence/pr157-b011-acquisition-qualification-v3"' /tmp/qualification.json >/dev/null
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE"
+          gh api repos/${GITHUB_REPOSITORY}/pulls/157 > /tmp/pr.json
+          jq -e --arg base "$BASE" --arg head "$HEAD" '.state == "open" and .draft == false and .mergeable == true and .base.sha == $base and .head.sha == $head and .changed_files == 6' /tmp/pr.json >/dev/null
+          echo 'PR157_REVIEW_DEPENDENCY_TOPOLOGY=PASS'
+      - name: Independently review authority containment and evidence semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path('.')
+          agg_path = root/'artifacts/manifests/B011-acquired-candidates.json'
+          agg = json.loads(agg_path.read_text())
+          b010_path = root/'artifacts/manifests/B010-new-candidate-weight-access.json'
+          b010 = json.loads(b010_path.read_text())
+          authority = json.loads((root/'artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json').read_text())
+          evidence = (root/'evidence/mstr-000b/B011-acquisition.md').read_text()
+
+          assert hashlib.sha256(b010_path.read_bytes()).hexdigest() == '4c2fd1469cdcf728063ab8f5b6a603191ffdc9e1a4d4c2d794abd2a24950c3ef'
+          assert authority['status'] == 'AUTHORIZED_CANONICAL'
+          assert authority['scope']['candidate_ids'] == ['mellum-4b','qwen3.5-0.8b-control']
+          assert all(authority['scope'][k] is False for k in (
+              'gated_terms_acceptance','paid_compute','paid_model_api','large_dataset_ingestion',
+              'quantization_execution','weight_changing_training','production_release','git_model_binaries'))
+          assert authority['scope']['founder_machine_large_artifacts'] == 0
+          assert agg['implementation_state'] == 'ACQUISITION_EXECUTED_VERIFIED_PENDING_CANONICAL_CLOSEOUT'
+          assert agg['closeout_note'].endswith('B011 remains PENDING until a separate governed closeout is merged.')
+          assert 'CANONICAL_CLOSEOUT_PENDING' in evidence
+          assert 'B011 stays `PENDING`' in evidence or 'B011 remains `PENDING`' in evidence
+          assert 'B012 remains blocked' in evidence
+          assert agg['authorized_total_download_bytes'] == agg['observed_total_download_bytes'] == 9817996174
+          assert agg['resource_cost_usd'] == 0.0
+          assert agg['observed_network_hosts'] == ['huggingface.co','us.aws.cdn.hf.co']
+          assert set(agg['observed_network_hosts']) <= set(agg['network_allowlist'])
+          assert agg['prior_fail_closed_attempt']['actions_run_id'] == '33865467059'
+          assert agg['prior_fail_closed_attempt']['model_weight_download_started'] is False
+
+          envs = {e['candidate_id']: e for e in b010['candidate_access_envelopes']}
+          assert list(envs) == ['mellum-4b','qwen3.5-0.8b-control']
+          for candidate in agg['candidates']:
+              cid = candidate['candidate_id']
+              env = envs[cid]
+              report_path = root/candidate['runner_report_path']
+              report = json.loads(report_path.read_text())
+              manifest = json.loads((root/candidate['artifact_manifest_path']).read_text())
+              assert hashlib.sha256(report_path.read_bytes()).hexdigest() == candidate['canonical_report_sha256']
+              assert candidate['source_actions_report_sha256'] != candidate['canonical_report_sha256']
+              assert report['result_classification'] == 'ACQUIRED_VERIFIED'
+              assert report['observed_download_bytes'] == env['expected_required_download_bytes'] == candidate['observed_download_bytes']
+              assert report['model_repo'] == candidate['model_repo'] == env['upstream_id']
+              assert report['model_revision'] == candidate['revision'] == env['exact_revision']
+              assert manifest['schema_version'] == 'mstr.artifact-manifest.v1'
+              report_rows = {r['filename']: r for r in report['files']}
+              required = {r['path']: r for r in env['required_files']}
+              assert set(report_rows) == set(required)
+              assert len(manifest['files']) == len(required)
+              for filename, expected in required.items():
+                  row = report_rows[filename]
+                  assert row['status'] == 'ACQUIRED_VERIFIED'
+                  assert row['size_bytes'] == expected['size_bytes']
+                  if expected['sha256'] is not None:
+                      assert row['sha256'] == expected['sha256']
+                  assert set(row['redirect_hosts']) <= set(env['network_hosts'])
+                  mrow = next(x for x in manifest['files'] if x['path'] == f'{cid}/{filename}')
+                  assert mrow['size_bytes'] == row['size_bytes']
+                  assert mrow['sha256'] == row['sha256']
+          print('PR157_INDEPENDENT_SEMANTICS=PASS')
+          PY
+      - name: Independently verify source run identity and negative-run boundary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api repos/${GITHUB_REPOSITORY}/actions/runs/33865617854 > /tmp/success.json
+          jq -e '.status == "completed" and .conclusion == "success" and .head_sha == "86609c656e20ac959c206d15fc21eda1f633b6ec"' /tmp/success.json >/dev/null
+          gh api repos/${GITHUB_REPOSITORY}/actions/runs/33865467059/jobs > /tmp/negative-jobs.json
+          jq -e 'all(.jobs[]; any(.steps[]; .name == "Acquire and cryptographically verify exact authorized candidate" and .conclusion == "skipped"))' /tmp/negative-jobs.json >/dev/null
+          jq -e 'all(.jobs[]; any(.steps[]; .name == "Delete all local model bodies defense-in-depth" and (.conclusion == "success" or .conclusion == "skipped")))' /tmp/negative-jobs.json >/dev/null
+          echo 'PR157_NEGATIVE_AND_SUCCESS_RUN_BOUNDARY=PASS'
+      - name: Prove task-state claims remain fail-closed on canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          BASE=dd547bb768598f92ad203764ce32be6e1fc710d6
+          git update-ref refs/heads/main "$BASE"
+          git update-ref refs/remotes/origin/main "$BASE"
+          git checkout --detach "$BASE"
+          mstr-qualify task eligible B011 > /tmp/b011.json
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.satisfied == true' /tmp/b011.json >/dev/null
+          if mstr-qualify task eligible B012 > /tmp/b012.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '(.reasons | index("prerequisite.unsatisfied:B011")) != null' /tmp/b012.json >/dev/null
+          git checkout --detach 450d9b5b9b3c6aca27222a553dc6230f6eef6783
+          echo 'PR157_REVIEW_TASK_STATE=PASS'
+      - name: Fresh independent quality rerun
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          echo 'PR157_REVIEW_QUALITY=PASS'
+      - name: Final independent no-drift recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "450d9b5b9b3c6aca27222a553dc6230f6eef6783"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "dd547bb768598f92ad203764ce32be6e1fc710d6"
+          echo 'PR157_INDEPENDENT_SEMANTIC_REVIEW=PASS'
