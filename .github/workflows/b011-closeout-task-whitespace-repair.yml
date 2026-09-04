@@ -77,7 +77,7 @@ jobs:
           set -euo pipefail
           test "$(git diff --name-only "$EXPECTED_TARGET" -- | wc -l)" -eq 1
           test "$(git diff --name-only "$EXPECTED_TARGET" --)" = "$TASKS_PATH"
-          git diff --quiet "$EXPECTED_MAIN" HEAD -- configs/task-gate/mstr-000b.json evidence/mstr-000b/B011-acquisition.md tests/contract/test_convergence_external_bindings.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          git diff --quiet "$EXPECTED_TARGET" -- configs/task-gate/mstr-000b.json evidence/mstr-000b/B011-acquisition.md tests/contract/test_convergence_external_bindings.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
           cat > /tmp/expected-final-files <<'EOF'
           configs/task-gate/mstr-000b.json
           evidence/mstr-000b/B011-acquisition.md
