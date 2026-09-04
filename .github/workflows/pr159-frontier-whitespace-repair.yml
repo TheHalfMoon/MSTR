@@ -1,0 +1,73 @@
+name: PR159 Frontier Whitespace Repair
+
+on:
+  push:
+    branches:
+      - evidence/pr159-frontier-whitespace-repair
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    env:
+      EXPECTED_HEAD: 954e72d2ff4ca3d49438676e9cff7401b8734fdd
+      TARGET_BRANCH: plan/000b-frontier-acceleration-2026-09
+      EXPECTED_BASE: b9aa4f7de8b924d283d09fa8d93dbaceb0f6b4cd
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Guard target and repair exact whitespace findings
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main "$TARGET_BRANCH"
+          test "$(git rev-parse origin/main)" = "$EXPECTED_BASE"
+          test "$(git rev-parse origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          python - <<'PY'
+          from pathlib import Path
+
+          repairs = {
+              "docs/canonical/MSTR_FRONTIER_ACCELERATION_STRATEGY.md": [3, 4],
+              "specs/002-code-model-supremacy-foundation/clarification-closeout.md": [3, 4],
+              "specs/002-code-model-supremacy-foundation/research-frontier-2026-09-04.md": [3, 4, 5],
+              "specs/002-code-model-supremacy-foundation/tasks.md": [106, 198, 222, 223, 227, 231],
+          }
+          for name, line_numbers in repairs.items():
+              path = Path(name)
+              lines = path.read_text().splitlines(keepends=True)
+              for number in line_numbers:
+                  i = number - 1
+                  line = lines[i]
+                  newline = "\n" if line.endswith("\n") else ""
+                  body = line[:-1] if newline else line
+                  if not body.endswith("  "):
+                      raise SystemExit(f"expected exactly two trailing spaces at {name}:{number}")
+                  lines[i] = body[:-2] + newline
+              path.write_text("".join(lines))
+          PY
+          git diff --check "$EXPECTED_BASE...HEAD" || true
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 4
+          git diff --name-only | sort
+
+      - name: Commit guarded repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            docs/canonical/MSTR_FRONTIER_ACCELERATION_STRATEGY.md \
+            specs/002-code-model-supremacy-foundation/clarification-closeout.md \
+            specs/002-code-model-supremacy-foundation/research-frontier-2026-09-04.md \
+            specs/002-code-model-supremacy-foundation/tasks.md
+          git diff --cached --check
+          git commit -m "docs(mstr): remove frontier plan trailing whitespace"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
