@@ -1,0 +1,121 @@
+name: Build exact B011 authority capture
+
+on:
+  push:
+    branches:
+      - evidence/b011-authority-capture-builder-3e3ec4c
+
+permissions:
+  contents: write
+
+env:
+  CANONICAL_MAIN: 3e3ec4c4ec9b179ab4a3cd7addd6e0a46ac9201b
+  TARGET_BRANCH: governance/b011-founder-authority-exact-b010-envelope-v2
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANONICAL_MAIN }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove immutable entry and untouched target
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$CANONICAL_MAIN"
+          test ! -e artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json
+      - name: Install canonical tooling
+        run: python -m pip install -e '.[dev]'
+      - name: Reprove pre-authority fail-closed frontier
+        run: |
+          set -euo pipefail
+          git update-ref refs/heads/main "$CANONICAL_MAIN"
+          git update-ref refs/remotes/origin/main "$CANONICAL_MAIN"
+          if mstr-qualify task eligible B011 > /tmp/b011-before.json; then
+            cat /tmp/b011-before.json
+            exit 1
+          else
+            test "$?" -eq 1
+          fi
+          jq -e '.eligible == false and .authority_result.required == true and .authority_result.satisfied == false and .state_consistency_result.observed_state == "BLOCKED"' /tmp/b011-before.json >/dev/null
+      - name: Materialize exact authority-capture candidate
+        run: |
+          set -euo pipefail
+          git show origin/evidence/b011-authority-capture-builder-3e3ec4c:tools/evidence/build_b011_authority_capture.py > /tmp/build_b011_authority_capture.py
+          python /tmp/build_b011_authority_capture.py
+          git diff --check
+          mapfile -t files < <(git status --short | sed 's/^?? //; s/^ M //; s/^M  //' | sort)
+          printf '%s\n' "${files[@]}"
+          test "${#files[@]}" -eq 4
+          expected=(
+            artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json
+            configs/task-gate/mstr-000b.json
+            tests/contract/test_convergence_external_bindings.py
+            tests/contract/test_task_gate.py
+          )
+          for i in 0 1 2 3; do test "${files[$i]}" = "${expected[$i]}"; done
+      - name: Validate authority semantics and prospective B011 eligibility
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          from mstr_qualify.task_gate import evaluate_task_snapshot
+
+          root = Path('.')
+          auth = json.loads((root / 'artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json').read_text())
+          b010_bytes = (root / 'artifacts/manifests/B010-new-candidate-weight-access.json').read_bytes()
+          b010 = json.loads(b010_bytes)
+          assert auth['authority_id'] == 'B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED'
+          assert auth['task_id'] == 'B011'
+          assert auth['external_effect_class'] == 'MODEL_WEIGHT_ACCESS'
+          assert auth['status'] == 'AUTHORIZED_CANONICAL'
+          assert auth['scope']['decision'] == 'FOUNDER_B011_MODEL_WEIGHT_ACCESS_DECISION=AUTHORIZE_EXACT_B010_ENVELOPE'
+          assert auth['scope']['decision_surface'] == {'issue': 153, 'comment_id': 5538049681}
+          assert auth['scope']['b010_manifest']['sha256'] == hashlib.sha256(b010_bytes).hexdigest()
+          assert auth['scope']['candidate_ids'] == b010['decision']['new_weight_access_required_candidates'] == ['mellum-4b', 'qwen3.5-0.8b-control']
+          assert auth['scope']['candidate_access_envelopes'] == b010['candidate_access_envelopes']
+          assert auth['scope']['paid_compute'] is False
+          assert auth['scope']['paid_model_api'] is False
+          assert auth['scope']['gated_terms_acceptance'] is False
+          assert auth['scope']['weight_changing_training'] is False
+          assert auth['scope']['quantization_execution'] is False
+          assert auth['scope']['production_release'] is False
+          result = evaluate_task_snapshot('B011', canonical_main='a' * 40)
+          assert result['eligible'] is True, result
+          assert result['authority_result']['satisfied'] is True, result
+          assert result['state_consistency_result']['observed_state'] == 'PENDING', result
+          assert 'task.unresolved_binding' not in result['reasons'], result
+          print('B011_PROSPECTIVE_ELIGIBILITY=PASS')
+          PY
+      - name: Focused governance regressions
+        run: python -m pytest -q tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py
+      - name: Offline validation
+        run: python -m mstr_qualify validate
+      - name: Full test suite
+        run: python -m pytest -q
+      - name: Ruff
+        run: python -m ruff check .
+      - name: Canonical mypy
+        run: python -m mypy src
+      - name: Final immutable main and target guard
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$CANONICAL_MAIN"
+      - name: Commit and publish authority-capture candidate
+        run: |
+          set -euo pipefail
+          git config user.name 'TheHalfMoon'
+          git config user.email 'github-actions@users.noreply.github.com'
+          git add artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json configs/task-gate/mstr-000b.json tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py
+          git commit -m 'governance(b011): capture exact B010 weight-access authority'
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "B011_AUTHORITY_CAPTURE_HEAD=$(git rev-parse HEAD)"
+          echo 'B011_AUTHORITY_CAPTURE_BUILDER=PASS'
