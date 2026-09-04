@@ -1,0 +1,159 @@
+name: PR159 Frontier Independent Semantic Review v2
+
+on:
+  push:
+    branches:
+      - evidence/pr159-frontier-acceleration-independent-review-v2
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    env:
+      EXPECTED_BASE: b9aa4f7de8b924d283d09fa8d93dbaceb0f6b4cd
+      TARGET_HEAD: 7b22890d72e12829cf412e643527d24831feb30f
+      TARGET_BRANCH: plan/000b-frontier-acceleration-2026-09
+      PR_NUMBER: '159'
+      QUALIFICATION_RUN: '33878935851'
+    steps:
+      - name: Verify qualification dependency
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$QUALIFICATION_RUN" --jq .conclusion)" = success
+
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+
+      - name: Verify exact live topology and planning-only scope
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          git fetch --no-tags origin main "$TARGET_BRANCH"
+          test "$(git rev-parse origin/main)" = "$EXPECTED_BASE"
+          test "$(git rev-parse origin/$TARGET_BRANCH)" = "$TARGET_HEAD"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .head.sha)" = "$TARGET_HEAD"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .base.sha)" = "$EXPECTED_BASE"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .state)" = open
+          test "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .draft)" = false
+          test "$(git diff --name-only "$EXPECTED_BASE...$TARGET_HEAD" | wc -l)" -eq 9
+          git diff --quiet "$EXPECTED_BASE" "$TARGET_HEAD" -- \
+            configs/task-gate src schemas artifacts/authorities .github/workflows README.md docs/canonical/CURRENT_STATE.md
+
+      - name: Independent semantic consistency review
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import re
+          import subprocess
+          from pathlib import Path
+
+          base = "b9aa4f7de8b924d283d09fa8d93dbaceb0f6b4cd"
+          task_path = Path("specs/002-code-model-supremacy-foundation/tasks.md")
+          old_tasks = subprocess.check_output(["git", "show", f"{base}:{task_path.as_posix()}"], text=True)
+          tasks = task_path.read_text()
+          spec = Path("specs/002-code-model-supremacy-foundation/spec.md").read_text()
+          plan = Path("specs/002-code-model-supremacy-foundation/plan.md").read_text()
+          quick = Path("specs/002-code-model-supremacy-foundation/quickstart.md").read_text()
+          checklist = Path("specs/002-code-model-supremacy-foundation/checklists/implementation-readiness.md").read_text()
+          handoff = Path("specs/002-code-model-supremacy-foundation/implementation-handoff.md").read_text()
+          strategy = Path("docs/canonical/MSTR_FRONTIER_ACCELERATION_STRATEGY.md").read_text()
+          research = Path("specs/002-code-model-supremacy-foundation/research-frontier-2026-09-04.md").read_text()
+          constitution = Path(".specify/memory/constitution.md").read_text()
+          authority = json.loads(Path("artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json").read_text())
+          b010 = json.loads(Path("artifacts/manifests/B010-new-candidate-weight-access.json").read_text())
+
+          def require(condition: bool, finding: str) -> None:
+              if not condition:
+                  raise AssertionError(finding)
+
+          def checkbox_states(text: str):
+              return {
+                  task: state
+                  for state, task in re.findall(r"^- \[([ x])\] \*\*(B\d{3})\b", text, re.M)
+              }
+
+          require(checkbox_states(old_tasks) == checkbox_states(tasks), "B-task checkbox state changed")
+
+          for token in ["8_GB", "CPU_ONLY", "8K", "Q4", "TTVC"]:
+              require(token in constitution, f"constitution token missing: {token}")
+          for token in ["8_GB", "CPU", "8K", "Q4", "TTVC", "DVCR"]:
+              require(token in strategy, f"strategy product token missing: {token}")
+
+          for fr in range(25, 30):
+              require(f"FR-{fr:03d}" in spec, f"spec requirement missing: FR-{fr:03d}")
+
+          plan_low = plan.lower()
+          require("freshness gate" in plan_low and "b013" in plan_low, "B013 freshness gate missing from plan")
+          require("checkpoint-lineage" in plan_low or "checkpoint lineage" in plan_low, "checkpoint-lineage plan missing")
+          require("q4" in plan_low and "sub-q4" in plan_low, "Q4/sub-Q4 separation missing from plan")
+          require("targeted_trajectory_feedback" in plan_low or "targeted trajectory feedback" in plan_low, "targeted trajectory feedback missing from plan")
+          require("sealed headline evaluation" in plan_low, "sealed headline evaluation missing from plan")
+          require("constitution re-check after frontier amendment" in plan_low, "post-amendment constitution re-check missing")
+
+          for task in ["B013", "B032", "B033", "B034"]:
+              require(task in tasks, f"downstream task missing: {task}")
+          require("frontier" in tasks.lower() and "equivalent qualification" in tasks.lower(), "B013 task freshness semantics missing")
+
+          require("K2 Horizon 3.7B" in strategy and "K2 Horizon 3.7B" in research, "K2 3.7B mandatory review input missing")
+          require("preselect" in strategy.lower(), "K2 non-preselection language missing")
+
+          auth_text = json.dumps(authority, sort_keys=True)
+          b010_text = json.dumps(b010, sort_keys=True)
+          require("K2" not in auth_text and "K2" not in b010_text, "historical B010/B011 authority widened to K2")
+          require("mellum-4b" in auth_text and "qwen3.5-0.8b-control" in auth_text, "historical B011 authority candidates drifted")
+
+          strategy_low = strategy.lower()
+          require("anchor" in strategy_low and "challenger" in strategy_low and "sherry" in strategy_low, "Q4 anchor/sub-Q4 challenger semantics missing")
+          require("targeted trajectory feedback" in strategy_low, "targeted trajectory feedback strategy missing")
+          require("independent" in strategy_low and "verifier" in strategy_low, "independent verifier semantics missing")
+
+          for phrase in ["future-git-history", "public-solution", "cached", "evaluator", "network"]:
+              require(phrase in strategy_low, f"sealed leakage control missing: {phrase}")
+          require("No official Cursor Composer 3 release was verified" in strategy, "Composer 3 verification caveat missing")
+          require("vendor" in strategy_low and "evidence" in strategy_low, "vendor-claim evidence discipline missing")
+
+          for text, name in [(quick, "quickstart"), (checklist, "readiness"), (handoff, "handoff")]:
+              require("MSTR_FRONTIER_ACCELERATION_STRATEGY.md" in text, f"strategy not inherited by {name}")
+
+          print("INDEPENDENT_SEMANTIC_REVIEW=PASS")
+          print("FINDINGS=NONE")
+          PY
+
+      - name: Install canonical tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Offline repository validation
+        run: python -m mstr_qualify validate
+
+      - name: Full test suite
+        run: pytest
+
+      - name: Ruff
+        run: ruff check src tests
+
+      - name: Strict mypy
+        run: mypy
+
+      - name: Diff hygiene
+        run: git diff --check "$EXPECTED_BASE...$TARGET_HEAD"
+
+      - name: Final live immutability check
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_HEAD"
