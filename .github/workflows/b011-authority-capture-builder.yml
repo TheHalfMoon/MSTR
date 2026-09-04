@@ -50,7 +50,7 @@ jobs:
           git show origin/evidence/b011-authority-capture-builder-3e3ec4c:tools/evidence/build_b011_authority_capture.py > /tmp/build_b011_authority_capture.py
           python /tmp/build_b011_authority_capture.py
           git diff --check
-          mapfile -t files < <(git status --short | sed 's/^?? //; s/^ M //; s/^M  //' | sort)
+          mapfile -t files < <(git status --short --untracked-files=all | sed 's/^?? //; s/^ M //; s/^M  //' | sort)
           printf '%s\n' "${files[@]}"
           test "${#files[@]}" -eq 4
           expected=(
