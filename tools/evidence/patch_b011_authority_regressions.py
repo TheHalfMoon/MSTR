@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-PATH = Path.cwd() / "tests/contract/test_task_gate.py"
+CONTRACT_PATH = Path.cwd() / "tests/contract/test_task_gate.py"
+CLI_PATH = Path.cwd() / "tests/integration/test_task_gate_cli.py"
 
 
 def replace_once(text: str, old: str, new: str, *, label: str) -> str:
@@ -13,7 +14,7 @@ def replace_once(text: str, old: str, new: str, *, label: str) -> str:
 
 
 def main() -> None:
-    text = PATH.read_text(encoding="utf-8")
+    text = CONTRACT_PATH.read_text(encoding="utf-8")
 
     text = replace_once(
         text,
@@ -36,7 +37,16 @@ def main() -> None:
         label="B014/B011 authority isolation regression",
     )
 
-    PATH.write_text(text, encoding="utf-8")
+    CONTRACT_PATH.write_text(text, encoding="utf-8")
+
+    cli = CLI_PATH.read_text(encoding="utf-8")
+    cli = replace_once(
+        cli,
+        '''def test_task_eligible_b011_blocked_returns_one(\n    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]\n) -> None:\n    expected = evaluate_task_snapshot("B011", canonical_main=_CANONICAL_MAIN)\n\n    def fake_evaluate_task_eligibility(task_id: str) -> dict[str, object]:\n        assert task_id == "B011"\n        return expected\n\n    monkeypatch.setattr(\n        "mstr_qualify.cli.evaluate_task_eligibility", fake_evaluate_task_eligibility\n    )\n    exit_code = main(["task", "eligible", "B011"])\n    payload = _stdout_json(capsys)\n    assert exit_code == 1\n    assert payload == expected\n    assert payload["eligible"] is False\n    assert "task.blocked" in payload["reasons"]\n    validate_instance("mstr-task-eligibility-v0", payload)\n''',
+        '''def test_task_eligible_b011_authorized_returns_zero(\n    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]\n) -> None:\n    expected = evaluate_task_snapshot("B011", canonical_main=_CANONICAL_MAIN)\n\n    def fake_evaluate_task_eligibility(task_id: str) -> dict[str, object]:\n        assert task_id == "B011"\n        return expected\n\n    monkeypatch.setattr(\n        "mstr_qualify.cli.evaluate_task_eligibility", fake_evaluate_task_eligibility\n    )\n    exit_code = main(["task", "eligible", "B011"])\n    payload = _stdout_json(capsys)\n    assert exit_code == 0\n    assert payload == expected\n    assert payload["eligible"] is True\n    assert payload["authority_result"]["satisfied"] is True\n    validate_instance("mstr-task-eligibility-v0", payload)\n''',
+        label="B011 CLI blocked regression",
+    )
+    CLI_PATH.write_text(cli, encoding="utf-8")
 
 
 if __name__ == "__main__":
