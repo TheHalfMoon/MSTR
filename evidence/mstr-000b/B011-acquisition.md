@@ -42,10 +42,15 @@ Actions run `33865617854` independently executed one ephemeral job per candidate
 
 ## Independent Report Reconciliation
 
+The durable repository copies intentionally use deterministic minified JSON, while the source Actions reports use the runner's indented serialization. They are semantically identical but not byte-identical. Both identities are preserved explicitly; no formatting transformation is represented as byte identity.
+
 ### Mellum
 
-Runner report: `evidence/mstr-000b/B011-runner-reports/mellum-4b.json`  
-Report SHA-256: `e03f48e3a5744ef87ad39558c20ca96b61c47d8296e6f877795dac2dbfe0c9f9`
+Canonical report: `evidence/mstr-000b/B011-runner-reports/mellum-4b.json`  
+Canonical report SHA-256: `8e07bffeeb657eef35c294183c1af77ab3f3ffaa9ec87bd12fc5895cba76010d`  
+Source Actions report SHA-256: `e03f48e3a5744ef87ad39558c20ca96b61c47d8296e6f877795dac2dbfe0c9f9`  
+Actions artifact ID: `9933928427`  
+Actions artifact ZIP SHA-256: `985136da92696ac76440adea05b43472367e099ff9a96c78908a9a5a8f3d9915`
 
 - observed bytes: `8048099065` = authorized bytes;
 - weight shard `model-00001-of-00002.safetensors`: `04bf4f574526ebecd75283af1f7ed0a412362388ddd28360c1581706cb3a00d2`;
@@ -54,8 +59,11 @@ Report SHA-256: `e03f48e3a5744ef87ad39558c20ca96b61c47d8296e6f877795dac2dbfe0c9f
 
 ### Qwen control
 
-Runner report: `evidence/mstr-000b/B011-runner-reports/qwen3.5-0.8b-control.json`  
-Report SHA-256: `c4174fc784ea0ca43dae61a81665716d476a27b943e973923e18eb6eb6ab3ad7`
+Canonical report: `evidence/mstr-000b/B011-runner-reports/qwen3.5-0.8b-control.json`  
+Canonical report SHA-256: `0ca35318cf3ed37ce5c93eb2b2da5a83c50b0b692209c72cdf5a4d2c311ce691`  
+Source Actions report SHA-256: `c4174fc784ea0ca43dae61a81665716d476a27b943e973923e18eb6eb6ab3ad7`  
+Actions artifact ID: `9933865616`  
+Actions artifact ZIP SHA-256: `1a69e8df4c44cb90185495aee677582561dd835285dda9028af08f69fbf81abf`
 
 - observed bytes: `1769897109` = authorized bytes;
 - model weight SHA-256: `c2b1e5a17d9c1e27685d92ed9b382911ebb99955ecd89052d1721241adfbab6c`;
