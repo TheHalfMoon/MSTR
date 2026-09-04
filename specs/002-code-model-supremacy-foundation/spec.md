@@ -19,6 +19,8 @@ MSTR's mission is now explicitly code-specialized: software direction -> verifie
 9. training-method choice is not yet an equivalent measured tournament;
 10. long-run repository health is not yet a product metric.
 
+The external model/runtime frontier can also change materially between the initial scan and candidate-pool freeze. A terminal historical scan MUST NOT be treated as proof that a future candidate-pool decision is fresh enough to support selection.
+
 ## 2. User Outcome
 
 A future MSTR release should be small enough for ordinary low-resource laptops yet unusually strong at:
@@ -222,6 +224,47 @@ MSTR-001 MUST freeze a target language/tooling mixture derived from intended sof
 
 No weight-changing training gate may open until the MSTR-000B closeout explicitly verifies all required contracts and identifies unresolved risks.
 
+### FR-025 — Frontier freshness before stable candidate-pool freeze
+
+B013 MUST bind an exact frontier snapshot before `stable_pool=true`. The snapshot MUST identify the last canonical backbone/access scan cutoff and explicitly disposition every material compact code/model release after that cutoff that could plausibly change the universal-laptop candidate decision.
+
+A materially plausible challenger MUST NOT be rejected or ignored merely because it arrived after B010. If it lacks equivalent qualification, B013 MUST remain `PENDING` and stop for a separately governed refresh/task-graph amendment. Historical B005-B012 results MUST remain historical truth rather than being silently rewritten. New weight access remains behind a new exact authority where required.
+
+`K2 Horizon 3.7B` is a mandatory 2026-09-04 frontier-review input, not a preselected candidate or access authorization.
+
+### FR-026 — Checkpoint-lineage substrate comparison
+
+When a future finalist family exposes rights-compatible immutable base/intermediate/final checkpoints, downstream MSTR-001 planning MUST consider checkpoint identity as a controlled experiment dimension rather than assuming the final post-trained checkpoint is the best parent for MSTR continued training.
+
+Comparable cells MUST bind the exact checkpoint revision/hash and equal data/update/seed/context/evaluation/export/Q4 identities as applicable.
+
+### FR-027 — Q4 anchor plus evidence-gated sub-Q4 research
+
+Q4 MUST remain the mandatory checkpoint-promotion and primary product quality anchor.
+
+Future Q3/Q2/structured-ternary or Sherry-class methods MAY be evaluated only as additive research challengers. They MUST NOT replace the required Q4 promotion record. If a lower-bit method changes weights or requires QAT, sparse training, recovery training, distillation, or equivalent weight-changing preparation, it MUST remain behind exact training authority and ordinary material checkpoint promotion.
+
+Any speed/quality claim MUST bind exact quantization recipe, runtime/kernel, hardware, context, cache, and evaluator identities.
+
+### FR-028 — Executable agent-RL acceleration requirements
+
+When B032 becomes eligible, the downstream MSTR-003 entry amendment MUST include measured research surfaces for:
+
+- production-compatible executable RL;
+- dynamic synthetic environment/task generation with independent admission;
+- previous-MSTR environment/bootstrap assistance without self-admission authority;
+- targeted local trajectory feedback/on-policy corrective training as an optional measured arm for long-rollout credit assignment;
+- reward-shortcut and evaluator-extraction resistance;
+- future-Git-history and public-solution/network leakage controls.
+
+This requirement does not authorize RL or weight-changing execution.
+
+### FR-029 — Sealed headline evaluation and adaptive effort
+
+Downstream MSTR-004 planning MUST preserve TTVC as the speed north star and MAY compare bounded same-model `FAST`, `NORMAL`, and `DEEP` effort modes together with qualified runtime/quantization/speculation arms.
+
+Downstream MSTR-006 headline qualification MUST distinguish public continuity evidence from sealed public-derived and fresh/private MSTR Gauntlet evidence. Headline runs MUST control future Git history, public-solution/network lookup, protected evaluator/answer artifacts, and solution-bearing caches. Discovered leakage/reward shortcuts MUST invalidate or explicitly correct the affected claim and remain preserved as negative evidence.
+
 ## 5. Non-Functional Requirements
 
 ### NFR-001 — Reproducibility
@@ -262,7 +305,10 @@ MSTR-000B can close only when:
 12. training-method tournament preflight is frozen;
 13. repository-health metric contract is frozen;
 14. A019/A020 and downstream MSTR-001/002/003 dependencies are reconciled;
-15. weight-changing training remains behind an explicit founder gate.
+15. weight-changing training remains behind an explicit founder gate;
+16. B013 binds a frontier-freshness snapshot and every material post-scan challenger has equivalent qualification or an evidence-backed terminal disposition;
+17. B032 carries checkpoint-lineage, executable-RL/targeted-feedback, low-bit/runtime, adaptive-effort, and sealed-evaluation obligations into the downstream plan without granting execution authority;
+18. B033 independently red-teams frontier omission, benchmark leakage/reward hacking, low-bit/hardware claims, attribution, rights, and the 8GB product invariant.
 
 ## 7. Explicit Non-Authorities
 
@@ -274,6 +320,8 @@ LARGE DATASET INGESTION
 PAID COLAB
 RENTED GPU
 WEIGHT-CHANGING TRAINING
+LOW_BIT_WEIGHT_CHANGING_PREPARATION
+QUANTIZATION EXECUTION OUTSIDE EXACT TASK AUTHORITY
 LARGE-SCALE RL
 PRODUCTION RELEASE
 PRIVATE USER TRACE INGESTION
