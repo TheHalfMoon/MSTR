@@ -1,0 +1,100 @@
+name: Qualify PR156 B011 readiness reconciliation
+
+on:
+  push:
+    branches:
+      - evidence/pr156-b011-readiness-qualification
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  BASE_SHA: 7884af6b159534671ad4259addfcb319d7084d36
+  TARGET_SHA: f5b421cc81cb3add30be3c459cc3519d921ab39e
+  PR_NUMBER: '156'
+  CHECKLIST: specs/002-code-model-supremacy-foundation/checklists/implementation-readiness.md
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify immutable identity and one-file scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git rev-parse ${TARGET_SHA}^)" = "$BASE_SHA"
+          mapfile -t changed < <(git diff --name-only "$BASE_SHA" "$TARGET_SHA")
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = "$CHECKLIST"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$BASE_SHA" --arg head "$TARGET_SHA" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .changed_files == 1' /tmp/pr.json >/dev/null
+          echo 'PR156_IDENTITY_SCOPE=PASS'
+      - name: Verify checklist reconciliation semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('specs/002-code-model-supremacy-foundation/checklists/implementation-readiness.md')
+          text = path.read_text(encoding='utf-8')
+          section = text.split('## Before B011\n', 1)[1].split('\n## Before Any Weight-Changing Training', 1)[0]
+          assert section.count('- [x]') == 4
+          assert '- [ ]' not in section
+          required = [
+              '4c2fd1469cdcf728063ab8f5b6a603191ffdc9e1a4d4c2d794abd2a24950c3ef',
+              '5538049681',
+              'FOUNDER_B011_MODEL_WEIGHT_ACCESS_DECISION=AUTHORIZE_EXACT_B010_ENVELOPE',
+              '7884af6b159534671ad4259addfcb319d7084d36',
+              'founder_machine_large_artifacts = 0',
+              '9817996174',
+              'USD ceiling `0.0`',
+          ]
+          for needle in required:
+              assert needle in section, needle
+          assert 'Before Any Weight-Changing Training' in text
+          training = text.split('## Before Any Weight-Changing Training\n', 1)[1].split('\n## Blocking Conditions', 1)[0]
+          assert training.count('- [ ]') == 12
+          print('PR156_CHECKLIST_SEMANTICS=PASS')
+          PY
+      - name: Install candidate tooling
+        run: python -m pip install -e '.[dev]'
+      - name: Prove canonical B011 machine eligibility remains satisfied
+        shell: bash
+        run: |
+          set -euo pipefail
+          git update-ref refs/heads/main "$BASE_SHA"
+          git update-ref refs/remotes/origin/main "$BASE_SHA"
+          mstr-qualify task eligible B011 > /tmp/b011.json
+          jq -e '.task_id == "B011" and .eligible == true and .authority_result.required == true and .authority_result.satisfied == true and .state_consistency_result.observed_state == "PENDING" and (.reasons | length == 0)' /tmp/b011.json >/dev/null
+          echo 'PR156_B011_MACHINE_GATE=PASS'
+      - name: Fresh full quality verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          echo 'PR156_QUALITY=PASS'
+      - name: Final no-drift recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git diff --name-only "$BASE_SHA" "$TARGET_SHA")" = "$CHECKLIST"
+          echo 'PR156_QUALIFICATION=PASS'
