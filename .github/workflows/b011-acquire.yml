@@ -1,0 +1,71 @@
+name: b011-acquire
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate:
+        description: "Exact B011 candidate id"
+        required: true
+        type: choice
+        options:
+          - mellum-4b
+          - qwen3.5-0.8b-control
+
+permissions:
+  contents: read
+
+jobs:
+  acquire:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout exact dispatch revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Prove exact-main B011 eligibility before model-weight access
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "${GITHUB_SHA}"
+          git update-ref refs/heads/main "${GITHUB_SHA}"
+          git update-ref refs/remotes/origin/main "${GITHUB_SHA}"
+          git checkout -B main "${GITHUB_SHA}"
+          python -m pip install -e '.[dev]'
+          mstr-qualify task eligible B011 > /tmp/b011-eligibility.json
+          jq -e '.eligible == true and .authority_result.satisfied == true and .state_consistency_result.observed_state == "PENDING"' /tmp/b011-eligibility.json >/dev/null
+          echo 'B011_EXACT_MAIN_ELIGIBILITY=PASS'
+
+      - name: Acquire and verify exact authorized candidate
+        env:
+          CANDIDATE: ${{ inputs.candidate }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python colab/mstr_b011_acquire.py \
+            --manifest artifacts/manifests/B010-new-candidate-weight-access.json \
+            --authority artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json \
+            --candidate "${CANDIDATE}" \
+            --workdir "${RUNNER_TEMP}/mstr_b011_binaries" \
+            --report "reports/${CANDIDATE}.json"
+
+      - name: Upload durable report only
+        uses: actions/upload-artifact@v4
+        with:
+          name: b011-report-${{ inputs.candidate }}
+          path: reports/${{ inputs.candidate }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Destroy ephemeral binary copies
+        if: always()
+        shell: bash
+        run: rm -rf "${RUNNER_TEMP}/mstr_b011_binaries"
