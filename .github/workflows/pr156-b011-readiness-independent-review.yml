@@ -99,9 +99,10 @@ jobs:
               assert 'REMOVE_EPHEMERAL_RUNNER_STORAGE_AT_JOB_END' in candidate['cleanup']
               assert candidate['retention'] == 'RETAIN_VERIFIED_ARTIFACTS_ONLY_UNTIL_B012_QUALIFICATION_AND_DOWNSTREAM_ADMISSION_CLOSEOUT_REQUIRES_OTHERWISE'
 
-          denied = authority['scope']['explicit_non_grants']
+          scope = authority['scope']
           for key in ['paid_compute','paid_model_api','gated_terms_acceptance','quantization_execution','weight_changing_training','large_dataset_ingestion','production_release','git_model_binaries']:
-              assert denied[key] is False
+              assert scope[key] is False
+          assert scope['founder_machine_large_artifacts'] == 0
 
           training = checklist.split('## Before Any Weight-Changing Training\n', 1)[1].split('\n## Blocking Conditions', 1)[0]
           assert training.count('- [ ]') == 12
