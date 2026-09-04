@@ -16,6 +16,7 @@ EXPECTED_AUTHORITY_ID = "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"
 EXPECTED_DECISION = "FOUNDER_B011_MODEL_WEIGHT_ACCESS_DECISION=AUTHORIZE_EXACT_B010_ENVELOPE"
 EXPECTED_ISSUE = 153
 EXPECTED_COMMENT_ID = 5538049681
+EXPECTED_TOTAL_DOWNLOAD_BYTES = 9_817_996_174
 
 
 def replace_once(text: str, old: str, new: str, *, label: str) -> str:
@@ -38,6 +39,7 @@ def main() -> None:
     by_id = {row["candidate_id"]: row for row in envelopes}
     if sorted(by_id) != sorted(EXPECTED_CANDIDATES):
         raise RuntimeError("B010 envelope candidate identities changed")
+    total_download_bytes = 0
     for candidate_id in EXPECTED_CANDIDATES:
         row = by_id[candidate_id]
         if row["new_weight_access_required"] is not True:
@@ -46,6 +48,11 @@ def main() -> None:
             raise RuntimeError(f"{candidate_id}: non-zero USD ceiling")
         if row["rights_status"]["gated_terms_acceptance_required"] is not False:
             raise RuntimeError(f"{candidate_id}: gated terms unexpectedly required")
+        total_download_bytes += int(row["expected_required_download_bytes"])
+    if total_download_bytes != EXPECTED_TOTAL_DOWNLOAD_BYTES:
+        raise RuntimeError(
+            f"B010 download envelope changed: {total_download_bytes} != {EXPECTED_TOTAL_DOWNLOAD_BYTES}"
+        )
 
     authority = {
         "authority_id": EXPECTED_AUTHORITY_ID,
@@ -75,6 +82,17 @@ def main() -> None:
             "quantization_execution": False,
             "production_release": False,
             "large_dataset_ingestion": False,
+        },
+        "cost_resource_ceiling": {
+            "cost_model": "exact-b010-zero-usd-weight-access",
+            "limits": [
+                {"resource": "cost", "max": 0.0, "unit": "USD"},
+                {
+                    "resource": "required_download_bytes",
+                    "max": EXPECTED_TOTAL_DOWNLOAD_BYTES,
+                    "unit": "bytes",
+                },
+            ],
         },
     }
     AUTH_PATH.parent.mkdir(parents=True, exist_ok=True)
