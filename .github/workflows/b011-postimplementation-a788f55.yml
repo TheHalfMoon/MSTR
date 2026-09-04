@@ -1,0 +1,208 @@
+name: Verify B011 post-implementation canonical evidence
+
+on:
+  push:
+    branches:
+      - evidence/b011-postimplementation-a788f55
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: a788f55f5251f0be92b33e0765d0436cb321eb8b
+  PR157_BASE: dd547bb768598f92ad203764ce32be6e1fc710d6
+  PR157_HEAD: 450d9b5b9b3c6aca27222a553dc6230f6eef6783
+  PR157_MERGE: b9aa4f7de8b924d283d09fa8d93dbaceb0f6b4cd
+  ACQUISITION_RUN: '33865617854'
+  QUALIFICATION_RUN: '33867186224'
+  REVIEW_RUN: '33867564924'
+  PREMERGE_RUN: '33867838434'
+  PR159_POSTMERGE_RUN: '33926866711'
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact current canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify exact canonical topology and immutable B011 evidence lineage
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          git merge-base --is-ancestor "$PR157_MERGE" "$EXPECTED_MAIN"
+          test "$(git rev-parse "$PR157_MERGE^1")" = "$PR157_BASE"
+          test "$(git rev-parse "$PR157_MERGE^2")" = "$PR157_HEAD"
+
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/157" > /tmp/pr157.json
+          jq -e --arg base "$PR157_BASE" --arg head "$PR157_HEAD" --arg merge "$PR157_MERGE" '
+            .state == "closed" and .merged == true and .base.sha == $base and
+            .head.sha == $head and .merge_commit_sha == $merge and .changed_files == 6
+          ' /tmp/pr157.json >/dev/null
+
+          git diff --quiet "$PR157_MERGE" "$EXPECTED_MAIN" -- \
+            artifacts/manifests/B011-acquired-candidates.json \
+            artifacts/manifests/B011-artifact-mellum-4b.json \
+            artifacts/manifests/B011-artifact-qwen3.5-0.8b-control.json \
+            evidence/mstr-000b/B011-acquisition.md \
+            evidence/mstr-000b/B011-runner-reports/mellum-4b.json \
+            evidence/mstr-000b/B011-runner-reports/qwen3.5-0.8b-control.json \
+            artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json \
+            artifacts/manifests/B010-new-candidate-weight-access.json
+          echo 'B011_CANONICAL_LINEAGE=PASS'
+
+      - name: Reprove successful lifecycle runs and acquisition execution boundary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${ACQUISITION_RUN}" > /tmp/acquisition.json
+          jq -e '.status == "completed" and .conclusion == "success" and .head_sha == "86609c656e20ac959c206d15fc21eda1f633b6ec"' /tmp/acquisition.json >/dev/null
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${ACQUISITION_RUN}/jobs?per_page=100" > /tmp/acquisition-jobs.json
+          jq -e '
+            .total_count == 2 and
+            ([.jobs[].name] | sort) == (["acquire-mellum-4b", "acquire-qwen3.5-0.8b-control"] | sort) and
+            all(.jobs[]; .conclusion == "success") and
+            all(.jobs[]; any(.steps[]; .name == "Prove exact-main B011 machine eligibility immediately before access" and .conclusion == "success")) and
+            all(.jobs[]; any(.steps[]; .name == "Acquire and cryptographically verify exact authorized candidate" and .conclusion == "success")) and
+            all(.jobs[]; any(.steps[]; .name == "Delete all local model bodies defense-in-depth" and .conclusion == "success")) and
+            all(.jobs[]; any(.steps[]; .name == "Final canonical-main no-drift check" and .conclusion == "success"))
+          ' /tmp/acquisition-jobs.json >/dev/null
+
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${QUALIFICATION_RUN}" > /tmp/qualification.json
+          jq -e '.status == "completed" and .conclusion == "success" and .head_branch == "evidence/pr157-b011-acquisition-qualification-v3" and .head_sha == "8f25aefeb54c3e5ee50b67505f436edcc0c19839"' /tmp/qualification.json >/dev/null
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${REVIEW_RUN}" > /tmp/review.json
+          jq -e '.status == "completed" and .conclusion == "success" and .head_branch == "evidence/pr157-b011-independent-review" and .head_sha == "13369a862c1ee2b8cd9afa0beb24d3946d97b863"' /tmp/review.json >/dev/null
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PREMERGE_RUN}" > /tmp/premerge.json
+          jq -e '.status == "completed" and .conclusion == "success" and .head_branch == "evidence/pr157-b011-mandatory-premerge" and .head_sha == "493495b8f41dcbf28bf3e8ed8c3726694a2a9c5c"' /tmp/premerge.json >/dev/null
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PR159_POSTMERGE_RUN}" > /tmp/pr159-postmerge.json
+          jq -e '.status == "completed" and .conclusion == "success" and .head_sha == "3153cb7831de11b1cf34ede24d798d1b91640b93"' /tmp/pr159-postmerge.json >/dev/null
+          echo 'B011_LIFECYCLE_RUNS=PASS'
+
+      - name: Install canonical tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Reprove exact-current-main B011 entry state and successor blocking
+        shell: bash
+        run: |
+          set -euo pipefail
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python -m mstr_qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json >/dev/null
+          python -m mstr_qualify task eligible B011 > /tmp/b011.json
+          jq -e --arg main "$EXPECTED_MAIN" '
+            .task_id == "B011" and .canonical_main == $main and .eligible == true and
+            .state_consistency_result.observed_state == "PENDING" and
+            .authority_result.required == true and .authority_result.satisfied == true and
+            (.reasons | length) == 0
+          ' /tmp/b011.json >/dev/null
+          set +e
+          python -m mstr_qualify task eligible B012 > /tmp/b012.json
+          b012_exit=$?
+          python -m mstr_qualify task eligible B013 > /tmp/b013.json
+          b013_exit=$?
+          set -e
+          test "$b012_exit" -eq 1
+          test "$b013_exit" -eq 1
+          jq -e '(.reasons | index("prerequisite.unsatisfied:B011")) != null' /tmp/b012.json >/dev/null
+          jq -e '.state_consistency_result.observed_state == "BLOCKED" and (.reasons | index("prerequisite.unsatisfied:B012")) != null' /tmp/b013.json >/dev/null
+          echo 'B011_CURRENT_ENTRY=PASS'
+
+      - name: Independently reconcile authority, acquisition reports, and artifact manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path('.')
+          b010_path = root / 'artifacts/manifests/B010-new-candidate-weight-access.json'
+          auth_path = root / 'artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json'
+          aggregate_path = root / 'artifacts/manifests/B011-acquired-candidates.json'
+          b010 = json.loads(b010_path.read_text())
+          authority = json.loads(auth_path.read_text())
+          aggregate = json.loads(aggregate_path.read_text())
+          evidence = (root / 'evidence/mstr-000b/B011-acquisition.md').read_text()
+
+          assert hashlib.sha256(b010_path.read_bytes()).hexdigest() == '4c2fd1469cdcf728063ab8f5b6a603191ffdc9e1a4d4c2d794abd2a24950c3ef'
+          assert authority['authority_id'] == 'B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED'
+          assert authority['task_id'] == 'B011'
+          assert authority['status'] == 'AUTHORIZED_CANONICAL'
+          assert authority['external_effect_class'] == 'MODEL_WEIGHT_ACCESS'
+          assert authority['scope']['decision'] == 'FOUNDER_B011_MODEL_WEIGHT_ACCESS_DECISION=AUTHORIZE_EXACT_B010_ENVELOPE'
+          assert authority['scope']['candidate_ids'] == ['mellum-4b', 'qwen3.5-0.8b-control']
+          assert authority['cost_resource_ceiling']['limits'][0] == {'max': 0.0, 'resource': 'cost', 'unit': 'USD'}
+          assert all(authority['scope'][key] is False for key in (
+              'gated_terms_acceptance', 'paid_compute', 'paid_model_api', 'large_dataset_ingestion',
+              'quantization_execution', 'weight_changing_training', 'production_release', 'git_model_binaries'
+          ))
+          assert authority['scope']['founder_machine_large_artifacts'] == 0
+          assert 'K2' not in json.dumps(authority, sort_keys=True)
+          assert 'K2' not in json.dumps(b010, sort_keys=True)
+
+          assert aggregate['implementation_state'] == 'ACQUISITION_EXECUTED_VERIFIED_PENDING_CANONICAL_CLOSEOUT'
+          assert aggregate['successful_actions_run_id'] == '33865617854'
+          assert aggregate['canonical_execution_base'] == 'dd547bb768598f92ad203764ce32be6e1fc710d6'
+          assert aggregate['authorized_total_download_bytes'] == aggregate['observed_total_download_bytes'] == 9817996174
+          assert aggregate['resource_cost_usd'] == 0.0
+          assert aggregate['prior_fail_closed_attempt']['model_weight_download_started'] is False
+          assert 'CANONICAL_CLOSEOUT_PENDING' in evidence
+          assert 'B012 remains blocked' in evidence
+
+          envelopes = {item['candidate_id']: item for item in b010['candidate_access_envelopes']}
+          assert set(envelopes) == {'mellum-4b', 'qwen3.5-0.8b-control'}
+          for candidate in aggregate['candidates']:
+              cid = candidate['candidate_id']
+              envelope = envelopes[cid]
+              report_path = root / candidate['runner_report_path']
+              report = json.loads(report_path.read_text())
+              manifest = json.loads((root / candidate['artifact_manifest_path']).read_text())
+              assert hashlib.sha256(report_path.read_bytes()).hexdigest() == candidate['canonical_report_sha256']
+              assert report['result_classification'] == 'ACQUIRED_VERIFIED'
+              assert report['authority_id'] == 'B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED'
+              assert report['model_repo'] == envelope['upstream_id']
+              assert report['model_revision'] == envelope['exact_revision']
+              assert report['observed_download_bytes'] == envelope['expected_required_download_bytes']
+              assert report['resource_cost_usd'] == 0.0
+              assert set(report['observed_network_hosts']) <= set(envelope['network_hosts'])
+              assert manifest['schema_version'] == 'mstr.artifact-manifest.v1'
+          print('B011_ARTIFACT_RECONCILIATION=PASS')
+          PY
+
+      - name: Offline repository validation
+        run: python -m mstr_qualify validate
+
+      - name: Focused B011 task-gate regression
+        run: python -m pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/contract/test_convergence_external_bindings.py
+
+      - name: Full repository quality
+        run: |
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+
+      - name: Final immutable exact-main recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo 'B011_POSTIMPLEMENTATION_VERIFICATION=PASS'
