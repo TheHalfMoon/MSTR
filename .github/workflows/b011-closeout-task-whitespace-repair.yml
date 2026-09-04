@@ -45,18 +45,31 @@ jobs:
           from pathlib import Path
 
           path = Path('specs/002-code-model-supremacy-foundation/tasks.md')
-          text = path.read_text(encoding='utf-8')
-          old = '- [ ] **B011 EXPLICIT NEW WEIGHT ACCESS GATE — acquire/verify only founder-authorized B010 access-required candidates.**'
-          new = '- [x] **B011 EXPLICIT NEW WEIGHT ACCESS GATE — acquire/verify only founder-authorized B010 access-required candidates.**'
-          assert text.count(old) == 1
-          text = text.replace(old, new, 1)
-          marker = '  Outputs: `artifacts/manifests/B011-acquired-candidates.json` or explicit no-access decision artifact, runner evidence where executed, `evidence/mstr-000b/B011-acquisition.md`.  \n'
-          assert text.count(marker) == 1
-          provenance = '  Canonical implementation: PR #157 / final head `450d9b5b9b3c6aca27222a553dc6230f6eef6783` / merge `b9aa4f7de8b924d283d09fa8d93dbaceb0f6b4cd`.\n'
-          text = text.replace(marker, marker + provenance, 1)
-          path.write_text(text, encoding='utf-8')
+          lines = path.read_text(encoding='utf-8').splitlines(keepends=True)
+          checkbox_hits = [i for i, line in enumerate(lines) if line.startswith('- [ ] **B011 EXPLICIT NEW WEIGHT ACCESS GATE')]
+          assert len(checkbox_hits) == 1
+          checkbox_index = checkbox_hits[0]
+          lines[checkbox_index] = lines[checkbox_index].replace('- [ ]', '- [x]', 1).rstrip() + '\n'
+
+          output_hits = [
+              i
+              for i, line in enumerate(lines)
+              if i > checkbox_index
+              and line.startswith('  Outputs: ')
+              and 'B011-acquired-candidates.json' in line
+              and 'B011-acquisition.md' in line
+          ]
+          assert len(output_hits) == 1
+          output_index = output_hits[0]
+          provenance = (
+              '  Canonical implementation: PR #157 / final head '
+              '`450d9b5b9b3c6aca27222a553dc6230f6eef6783` / merge '
+              '`b9aa4f7de8b924d283d09fa8d93dbaceb0f6b4cd`.\n'
+          )
+          lines.insert(output_index + 1, provenance)
+          path.write_text(''.join(lines), encoding='utf-8')
           PY
-          git diff --check
+          git diff --check "$EXPECTED_MAIN" -- "$TASKS_PATH"
 
       - name: Verify bounded repair and final candidate scope
         shell: bash
@@ -78,6 +91,7 @@ jobs:
           git diff --name-only "$EXPECTED_MAIN" -- | sort > /tmp/actual-final-files
           diff -u /tmp/expected-final-files /tmp/actual-final-files
           git diff --quiet "$EXPECTED_MAIN" -- artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json artifacts/manifests/B010-new-candidate-weight-access.json artifacts/manifests/B011-acquired-candidates.json src schemas .github/workflows docs/canonical/CURRENT_STATE.md
+          git diff --check "$EXPECTED_MAIN" -- configs/task-gate/mstr-000b.json evidence/mstr-000b/B011-acquisition.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_convergence_external_bindings.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
 
       - name: Validate repaired candidate
         shell: bash
@@ -104,6 +118,7 @@ jobs:
           jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and (.reasons | index("prerequisite.unsatisfied:B012")) != null' /tmp/b013.json >/dev/null
           python -m mstr_qualify validate
           python -m pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/contract/test_convergence_external_bindings.py
+          python -m pytest -q
           python -m ruff check .
           python -m mypy src
           git update-ref refs/heads/main "$EXPECTED_MAIN"
