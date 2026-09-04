@@ -28,8 +28,10 @@ jobs:
           path: evidence
           persist-credentials: false
 
-      - name: Stage immutable builder outside worktree
-        run: cp evidence/.github/scripts/b011_closeout_builder.py /tmp/b011_closeout_builder.py
+      - name: Stage immutable builders outside worktree
+        run: |
+          cp evidence/.github/scripts/b011_closeout_builder.py /tmp/b011_closeout_builder.py
+          cp evidence/.github/scripts/b011_closeout_regression_patch.py /tmp/b011_closeout_regression_patch.py
 
       - name: Verify immutable canonical entry and post-implementation evidence
         env:
@@ -70,7 +72,9 @@ jobs:
 
       - name: Materialize bounded B011 closeout
         working-directory: target
-        run: python /tmp/b011_closeout_builder.py
+        run: |
+          python /tmp/b011_closeout_builder.py
+          python /tmp/b011_closeout_regression_patch.py
 
       - name: Verify exact bounded diff
         working-directory: target
