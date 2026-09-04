@@ -1,0 +1,184 @@
+name: Postmerge verification PR 159 frontier plan
+
+on:
+  push:
+    branches:
+      - evidence/pr159-frontier-postmerge
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+  pull-requests: read
+  statuses: read
+
+env:
+  OLD_BASE: b9aa4f7de8b924d283d09fa8d93dbaceb0f6b4cd
+  MERGED_HEAD: 7b22890d72e12829cf412e643527d24831feb30f
+  EXPECTED_MAIN: a788f55f5251f0be92b33e0765d0436cb321eb8b
+  EXPECTED_TREE: 876dc3546583e6871af4dbb2917294615b5592e8
+  PR_NUMBER: '159'
+  QUALIFICATION_RUN: '33878935851'
+  REVIEW_RUN: '33880015571'
+  PREMERGE_RUN: '33926553869'
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify exact merge identity and scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^1)" = "$OLD_BASE"
+          test "$(git rev-parse HEAD^2)" = "$MERGED_HEAD"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg merge "$EXPECTED_MAIN" --arg base "$OLD_BASE" --arg head "$MERGED_HEAD" '
+            .state == "closed" and .merged == true and .merge_commit_sha == $merge and
+            .base.sha == $base and .head.sha == $head and .changed_files == 9
+          ' /tmp/pr.json >/dev/null
+          cat > /tmp/expected-files <<'EOF'
+          docs/canonical/MSTR_FRONTIER_ACCELERATION_STRATEGY.md
+          specs/002-code-model-supremacy-foundation/checklists/implementation-readiness.md
+          specs/002-code-model-supremacy-foundation/clarification-closeout.md
+          specs/002-code-model-supremacy-foundation/implementation-handoff.md
+          specs/002-code-model-supremacy-foundation/plan.md
+          specs/002-code-model-supremacy-foundation/quickstart.md
+          specs/002-code-model-supremacy-foundation/research-frontier-2026-09-04.md
+          specs/002-code-model-supremacy-foundation/spec.md
+          specs/002-code-model-supremacy-foundation/tasks.md
+          EOF
+          sed -i 's/^          //' /tmp/expected-files
+          sort -o /tmp/expected-files /tmp/expected-files
+          git diff --name-only "$OLD_BASE...$EXPECTED_MAIN" | sort > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git diff --check "$OLD_BASE...$EXPECTED_MAIN"
+          test -z "$(git diff --name-only "$OLD_BASE...$EXPECTED_MAIN" -- configs/task-gate src schemas artifacts/authorities .github/workflows README.md docs/canonical/CURRENT_STATE.md)"
+          git diff --quiet "$OLD_BASE" "$EXPECTED_MAIN" -- configs/task-gate/mstr-000b.json artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json artifacts/manifests/B010-new-candidate-weight-access.json
+          echo 'MERGE_IDENTITY=PASS'
+
+      - name: Reprove lifecycle evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for run in "$QUALIFICATION_RUN" "$REVIEW_RUN" "$PREMERGE_RUN"; do
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run}" > "/tmp/run-${run}.json"
+            jq -e '.status == "completed" and .conclusion == "success"' "/tmp/run-${run}.json" >/dev/null
+          done
+          echo 'LIFECYCLE_EVIDENCE=PASS'
+
+      - name: Install canonical tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Reprove task frontier and authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify task eligible B011 > /tmp/b011.json
+          jq -e --arg main "$EXPECTED_MAIN" '
+            .task_id == "B011" and .canonical_main == $main and .eligible == true and
+            .state_consistency_result.observed_state == "PENDING" and
+            .authority_result.required == true and .authority_result.satisfied == true and
+            (.reasons | length == 0)
+          ' /tmp/b011.json >/dev/null
+
+          set +e
+          python -m mstr_qualify task eligible B012 > /tmp/b012.json
+          b012_exit=$?
+          python -m mstr_qualify task eligible B013 > /tmp/b013.json
+          b013_exit=$?
+          set -e
+          test "$b012_exit" -eq 1
+          test "$b013_exit" -eq 1
+          jq -e '
+            .task_id == "B012" and .eligible == false and
+            (.prerequisite_results | map(select(.task_id == "B011" and .satisfied == false)) | length == 1)
+          ' /tmp/b012.json >/dev/null
+          jq -e '
+            .task_id == "B013" and .eligible == false and
+            .state_consistency_result.observed_state == "BLOCKED"
+          ' /tmp/b013.json >/dev/null
+
+          python -m mstr_qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length == 0)' /tmp/drift.json >/dev/null
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          authority = json.loads(Path('artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json').read_text())
+          b010 = json.loads(Path('artifacts/manifests/B010-new-candidate-weight-access.json').read_text())
+          auth = json.dumps(authority, sort_keys=True)
+          manifest = json.dumps(b010, sort_keys=True)
+          assert 'K2' not in auth and 'K2' not in manifest
+          assert 'mellum-4b' in auth and 'qwen3.5-0.8b-control' in auth
+          print('AUTHORITY_CONTAINMENT=PASS')
+          PY
+          echo 'TASK_FRONTIER=PASS'
+
+      - name: Verify merged planning semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          tasks = Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text()
+          plan = Path('specs/002-code-model-supremacy-foundation/plan.md').read_text()
+          strategy = Path('docs/canonical/MSTR_FRONTIER_ACCELERATION_STRATEGY.md').read_text()
+          research = Path('specs/002-code-model-supremacy-foundation/research-frontier-2026-09-04.md').read_text()
+          low = strategy.lower()
+          plan_low = plan.lower()
+          assert 'B013' in tasks and 'equivalent qualification' in tasks.lower()
+          assert 'freshness gate' in plan_low and 'b013' in plan_low
+          assert 'checkpoint-lineage' in plan_low or 'checkpoint lineage' in plan_low
+          assert 'q4' in plan_low and 'sub-q4' in plan_low
+          assert 'targeted trajectory feedback' in plan_low or 'targeted_trajectory_feedback' in plan_low
+          assert 'sealed headline evaluation' in plan_low
+          assert 'K2 Horizon 3.7B' in strategy and 'K2 Horizon 3.7B' in research
+          assert 'preselect' in low
+          assert 'anchor' in low and 'challenger' in low and 'sherry' in low
+          assert 'No official Cursor Composer 3 release was verified' in strategy
+          print('MERGED_SEMANTICS=PASS')
+          PY
+
+      - name: Offline repository validation
+        run: python -m mstr_qualify validate
+
+      - name: Full test suite
+        run: python -m pytest -q
+
+      - name: Ruff
+        run: python -m ruff check .
+
+      - name: Strict mypy
+        run: python -m mypy
+
+      - name: Final immutable canonical-main recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr-final.json
+          jq -e --arg merge "$EXPECTED_MAIN" '.merged == true and .merge_commit_sha == $merge' /tmp/pr-final.json >/dev/null
+          echo 'POSTMERGE_VERIFICATION=PASS'
