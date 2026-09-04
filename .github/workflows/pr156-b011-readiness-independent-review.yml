@@ -80,19 +80,24 @@ jobs:
           assert authority['scope']['decision'] == 'FOUNDER_B011_MODEL_WEIGHT_ACCESS_DECISION=AUTHORIZE_EXACT_B010_ENVELOPE'
           assert any(c['id'] == 5538049681 and 'FOUNDER_B011_MODEL_WEIGHT_ACCESS_DECISION=AUTHORIZE_EXACT_B010_ENVELOPE' in c['body'] for c in comments)
 
-          access = manifest['new_weight_access_required_candidates']
-          assert [c['candidate_id'] for c in access] == ['mellum-4b', 'qwen3.5-0.8b-control']
-          assert manifest['access_envelope']['total_expected_required_download_bytes'] == 9817996174
-          assert manifest['access_envelope']['founder_machine_large_artifacts'] == 0
-          assert manifest['access_envelope']['git_model_binaries'] is False
-          assert manifest['access_envelope']['max_paid_cost']['amount'] == 0.0
+          expected_ids = ['mellum-4b', 'qwen3.5-0.8b-control']
+          assert manifest['decision']['new_weight_access_required_candidates'] == expected_ids
+          access = manifest['candidate_access_envelopes']
+          assert [c['candidate_id'] for c in access] == expected_ids
+          assert all(c['new_weight_access_required'] is True for c in access)
+          assert sum(c['expected_required_download_bytes'] for c in access) == 9817996174
+          assert manifest['authority_boundary']['founder_machine_large_artifacts'] == 0
+          assert manifest['authority_boundary']['model_weight_access'] is False
+          assert all(c['usd_ceiling'] == 0.0 and c['expected_usd'] == 0.0 for c in access)
           allowed = {'huggingface.co','cdn-lfs.huggingface.co','cas-bridge.xethub.hf.co','transfer.xethub.hf.co','us.aws.cdn.hf.co'}
           for candidate in access:
-              assert set(candidate['network']['allowlist_hosts']) == allowed
-              assert 'ABORT_ON_AUTH_GATING_PAYMENT_OR_UNLISTED_REDIRECT' in candidate['network']['method']
+              assert set(candidate['network_hosts']) == allowed
+              assert 'ABORT_ON_AUTH_GATING_PAYMENT_OR_UNLISTED_REDIRECT' in candidate['network_policy']
               assert candidate['executor'] == 'B011_APPROVED_EPHEMERAL_CLOUD_RUNNER_AFTER_EXACT_FOUNDER_AUTHORIZATION'
-              assert candidate['storage_location'] == 'EXTERNAL_EPHEMERAL_OR_APPROVED_EXTERNAL_ACQUISITION_DIR; NEVER_GIT; NEVER_FOUNDER_MACHINE'
-              assert candidate['max_paid_cost']['amount'] == 0.0
+              assert candidate['storage'] == 'EXTERNAL_EPHEMERAL_OR_APPROVED_EXTERNAL_ACQUISITION_DIR; NEVER_GIT; NEVER_FOUNDER_MACHINE'
+              assert 'DELETE_PARTIAL_OR_FAILED_DOWNLOADS_IMMEDIATELY' in candidate['cleanup']
+              assert 'REMOVE_EPHEMERAL_RUNNER_STORAGE_AT_JOB_END' in candidate['cleanup']
+              assert candidate['retention'] == 'RETAIN_VERIFIED_ARTIFACTS_ONLY_UNTIL_B012_QUALIFICATION_AND_DOWNSTREAM_ADMISSION_CLOSEOUT_REQUIRES_OTHERWISE'
 
           denied = authority['scope']['explicit_non_grants']
           for key in ['paid_compute','paid_model_api','gated_terms_acceptance','quantization_execution','weight_changing_training','large_dataset_ingestion','production_release','git_model_binaries']:
