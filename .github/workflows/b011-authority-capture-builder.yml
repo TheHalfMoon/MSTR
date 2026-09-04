@@ -48,7 +48,9 @@ jobs:
         run: |
           set -euo pipefail
           git show origin/evidence/b011-authority-capture-builder-3e3ec4c:tools/evidence/build_b011_authority_capture.py > /tmp/build_b011_authority_capture.py
+          git show origin/evidence/b011-authority-capture-builder-3e3ec4c:tools/evidence/patch_b011_authority_regressions.py > /tmp/patch_b011_authority_regressions.py
           python /tmp/build_b011_authority_capture.py
+          python /tmp/patch_b011_authority_regressions.py
           git diff --check
           mapfile -t files < <(git status --short --untracked-files=all | sed 's/^?? //; s/^ M //; s/^M  //' | sort)
           printf '%s\n' "${files[@]}"
@@ -87,6 +89,13 @@ jobs:
           assert auth['scope']['weight_changing_training'] is False
           assert auth['scope']['quantization_execution'] is False
           assert auth['scope']['production_release'] is False
+          assert auth['cost_resource_ceiling'] == {
+              'cost_model': 'exact-b010-zero-usd-weight-access',
+              'limits': [
+                  {'resource': 'cost', 'max': 0.0, 'unit': 'USD'},
+                  {'resource': 'required_download_bytes', 'max': 9817996174, 'unit': 'bytes'},
+              ],
+          }
           result = evaluate_task_snapshot('B011', canonical_main='a' * 40)
           assert result['eligible'] is True, result
           assert result['authority_result']['satisfied'] is True, result
