@@ -54,14 +54,15 @@ jobs:
           git diff --check
           mapfile -t files < <(git status --short --untracked-files=all | sed 's/^?? //; s/^ M //; s/^M  //' | sort)
           printf '%s\n' "${files[@]}"
-          test "${#files[@]}" -eq 4
+          test "${#files[@]}" -eq 5
           expected=(
             artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json
             configs/task-gate/mstr-000b.json
             tests/contract/test_convergence_external_bindings.py
             tests/contract/test_task_gate.py
+            tests/integration/test_task_gate_cli.py
           )
-          for i in 0 1 2 3; do test "${files[$i]}" = "${expected[$i]}"; done
+          for i in 0 1 2 3 4; do test "${files[$i]}" = "${expected[$i]}"; done
       - name: Validate authority semantics and prospective B011 eligibility
         run: |
           set -euo pipefail
@@ -104,7 +105,7 @@ jobs:
           print('B011_PROSPECTIVE_ELIGIBILITY=PASS')
           PY
       - name: Focused governance regressions
-        run: python -m pytest -q tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py
+        run: python -m pytest -q tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py tests/integration/test_task_gate_cli.py
       - name: Offline validation
         run: python -m mstr_qualify validate
       - name: Full test suite
@@ -123,7 +124,7 @@ jobs:
           set -euo pipefail
           git config user.name 'TheHalfMoon'
           git config user.email 'github-actions@users.noreply.github.com'
-          git add artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json configs/task-gate/mstr-000b.json tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py
+          git add artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json configs/task-gate/mstr-000b.json tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py tests/integration/test_task_gate_cli.py
           git commit -m 'governance(b011): capture exact B010 weight-access authority'
           git push origin "HEAD:refs/heads/$TARGET_BRANCH"
           echo "B011_AUTHORITY_CAPTURE_HEAD=$(git rev-parse HEAD)"
