@@ -162,7 +162,7 @@ jobs:
             .state_consistency_result.satisfied == true and (.reasons | length == 0)
           ' /tmp/b011-eligibility.json >/dev/null
           python -m mstr_qualify task drift > /tmp/task-drift.json
-          jq -e '.status == "pass"' /tmp/task-drift.json >/dev/null
+          jq -e '.status == "clean" and (.findings | length == 0)' /tmp/task-drift.json >/dev/null
           echo 'MACHINE_ELIGIBILITY=PASS'
 
       - name: Verify planning semantics and unchanged authority boundary
