@@ -1,0 +1,75 @@
+name: Qualify PR158 B011 executor
+
+on:
+  push:
+    branches:
+      - evidence/pr158-b011-executor-qualification
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f850d3b086036b2dcba9d8090816d468d9b6fee6
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify immutable base head scope and prior B011 gate evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=dd547bb768598f92ad203764ce32be6e1fc710d6
+          HEAD=f850d3b086036b2dcba9d8090816d468d9b6fee6
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git rev-parse ${HEAD}^)" = "$BASE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE"
+          gh api repos/${GITHUB_REPOSITORY}/pulls/158 > /tmp/pr.json
+          jq -e --arg base "$BASE" --arg head "$HEAD" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .commits == 1 and .changed_files == 4' /tmp/pr.json >/dev/null
+          gh api repos/${GITHUB_REPOSITORY}/actions/runs/33864503633 > /tmp/postmerge.json
+          jq -e '.status == "completed" and .conclusion == "success"' /tmp/postmerge.json >/dev/null
+          expected=$(printf '%s\n' '.github/workflows/b011-acquire.yml' 'colab/mstr_b011_acquire.py' 'src/mstr_qualify/b011_acquisition.py' 'tests/unit/test_b011_acquisition.py')
+          actual=$(git diff --name-only "$BASE" "$HEAD" | sort)
+          test "$actual" = "$expected"
+          echo 'PR158_IDENTITY_SCOPE_GATE=PASS'
+      - name: Install exact candidate
+        run: python -m pip install -e '.[dev]'
+      - name: Focused B011 executor tests
+        run: python -m pytest -q tests/unit/test_b011_acquisition.py
+      - name: Re-prove canonical B011 eligibility without external effect
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=dd547bb768598f92ad203764ce32be6e1fc710d6
+          git update-ref refs/heads/main "$BASE"
+          git update-ref refs/remotes/origin/main "$BASE"
+          git checkout --detach "$BASE"
+          mstr-qualify task eligible B011 > /tmp/b011.json
+          jq -e '.eligible == true and .authority_result.satisfied == true and .state_consistency_result.observed_state == "PENDING"' /tmp/b011.json >/dev/null
+          git checkout --detach f850d3b086036b2dcba9d8090816d468d9b6fee6
+          echo 'PR158_B011_ELIGIBILITY=PASS'
+      - name: Full quality suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          echo 'PR158_FULL_QUALITY=PASS'
+      - name: Final no-drift recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "f850d3b086036b2dcba9d8090816d468d9b6fee6"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "dd547bb768598f92ad203764ce32be6e1fc710d6"
+          echo 'PR158_EXACT_HEAD_QUALIFICATION=PASS'
