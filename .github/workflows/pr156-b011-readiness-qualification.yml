@@ -65,7 +65,6 @@ jobs:
           ]
           for needle in required:
               assert needle in section, needle
-          assert 'Before Any Weight-Changing Training' in text
           training = text.split('## Before Any Weight-Changing Training\n', 1)[1].split('\n## Blocking Conditions', 1)[0]
           assert training.count('- [ ]') == 12
           print('PR156_CHECKLIST_SEMANTICS=PASS')
@@ -78,8 +77,12 @@ jobs:
           set -euo pipefail
           git update-ref refs/heads/main "$BASE_SHA"
           git update-ref refs/remotes/origin/main "$BASE_SHA"
+          git checkout --detach "$BASE_SHA"
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
           mstr-qualify task eligible B011 > /tmp/b011.json
-          jq -e '.task_id == "B011" and .eligible == true and .authority_result.required == true and .authority_result.satisfied == true and .state_consistency_result.observed_state == "PENDING" and (.reasons | length == 0)' /tmp/b011.json >/dev/null
+          jq -e '.task_id == "B011" and .eligible == true and .authority_result.required == true and .authority_result.satisfied == true and .authority_result.authority_id == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED" and .state_consistency_result.observed_state == "PENDING" and (.reasons | length == 0)' /tmp/b011.json >/dev/null
+          git checkout --detach "$TARGET_SHA"
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
           echo 'PR156_B011_MACHINE_GATE=PASS'
       - name: Fresh full quality verification
         shell: bash
