@@ -4,7 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path.cwd()
 B010_PATH = ROOT / "artifacts/manifests/B010-new-candidate-weight-access.json"
 AUTH_PATH = ROOT / "artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json"
 CATALOG_PATH = ROOT / "configs/task-gate/mstr-000b.json"
