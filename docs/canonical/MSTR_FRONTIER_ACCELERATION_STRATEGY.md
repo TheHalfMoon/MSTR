@@ -1,7 +1,7 @@
 # MSTR Frontier Acceleration Strategy
 
-**Status:** FOUNDER-DIRECTED PROGRAM PLANNING AMENDMENT / canonical only when merged  
-**Date:** 2026-09-04  
+**Status:** FOUNDER-DIRECTED PROGRAM PLANNING AMENDMENT / canonical only when merged
+**Date:** 2026-09-04
 **Purpose:** Keep MSTR on the strongest defensible path to record-setting verified local software-engineering capability as the model, training, quantization, and agent-runtime frontier changes.
 
 ## Authority Boundary

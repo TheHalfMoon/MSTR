@@ -1,8 +1,8 @@
 # Research Addendum — 2026-09-04 Frontier Update
 
-**Workstream:** MSTR-000B  
-**Research status:** planning evidence only  
-**Execution authority created:** NONE  
+**Workstream:** MSTR-000B
+**Research status:** planning evidence only
+**Execution authority created:** NONE
 **Question:** What newly available model/training/quantization/agent-runtime evidence materially changes the pre-training plan before MSTR freezes its stable product-aligned candidate pool?
 
 ## 1. Scope and Method

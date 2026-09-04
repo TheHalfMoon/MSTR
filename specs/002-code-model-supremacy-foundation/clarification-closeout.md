@@ -1,7 +1,7 @@
 # Clarification Closeout — MSTR-000B
 
-**Status:** CLOSED_FOR_PLANNING / FRONTIER_AMENDMENT_RECONCILED  
-**Date:** 2026-08-27  
+**Status:** CLOSED_FOR_PLANNING / FRONTIER_AMENDMENT_RECONCILED
+**Date:** 2026-08-27
 **Frontier amendment:** 2026-09-04
 
 ## Founder Goal
