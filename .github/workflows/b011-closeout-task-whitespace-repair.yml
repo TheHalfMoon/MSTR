@@ -1,0 +1,127 @@
+name: Repair B011 closeout task-file diff
+
+on:
+  push:
+    branches:
+      - evidence/b011-closeout-task-whitespace-repair
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: a788f55f5251f0be92b33e0765d0436cb321eb8b
+  EXPECTED_TARGET: 4e32fc42a9a5b3b6cec7ebff887b68a8b176c8b7
+  TARGET_BRANCH: closeout/b011-acquisition
+  TASKS_PATH: specs/002-code-model-supremacy-foundation/tasks.md
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify immutable remote identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_TARGET"
+
+      - name: Checkout exact target
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_TARGET }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Restore canonical task formatting and reapply only B011 closeout lines
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$EXPECTED_MAIN:$TASKS_PATH" > /tmp/tasks-main.md
+          cp /tmp/tasks-main.md "$TASKS_PATH"
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('specs/002-code-model-supremacy-foundation/tasks.md')
+          text = path.read_text(encoding='utf-8')
+          old = '- [ ] **B011 EXPLICIT NEW WEIGHT ACCESS GATE — acquire/verify only founder-authorized B010 access-required candidates.**'
+          new = '- [x] **B011 EXPLICIT NEW WEIGHT ACCESS GATE — acquire/verify only founder-authorized B010 access-required candidates.**'
+          assert text.count(old) == 1
+          text = text.replace(old, new, 1)
+          marker = '  Outputs: `artifacts/manifests/B011-acquired-candidates.json` or explicit no-access decision artifact, runner evidence where executed, `evidence/mstr-000b/B011-acquisition.md`.  \n'
+          assert text.count(marker) == 1
+          provenance = '  Canonical implementation: PR #157 / final head `450d9b5b9b3c6aca27222a553dc6230f6eef6783` / merge `b9aa4f7de8b924d283d09fa8d93dbaceb0f6b4cd`.\n'
+          text = text.replace(marker, marker + provenance, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          git diff --check
+
+      - name: Verify bounded repair and final candidate scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only "$EXPECTED_TARGET" -- | wc -l)" -eq 1
+          test "$(git diff --name-only "$EXPECTED_TARGET" --)" = "$TASKS_PATH"
+          git diff --quiet "$EXPECTED_MAIN" HEAD -- configs/task-gate/mstr-000b.json evidence/mstr-000b/B011-acquisition.md tests/contract/test_convergence_external_bindings.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          cat > /tmp/expected-final-files <<'EOF'
+          configs/task-gate/mstr-000b.json
+          evidence/mstr-000b/B011-acquisition.md
+          specs/002-code-model-supremacy-foundation/tasks.md
+          tests/contract/test_convergence_external_bindings.py
+          tests/contract/test_task_gate.py
+          tests/integration/test_task_gate_cli.py
+          EOF
+          sed -i 's/^          //' /tmp/expected-final-files
+          sort -o /tmp/expected-final-files /tmp/expected-final-files
+          git diff --name-only "$EXPECTED_MAIN" -- | sort > /tmp/actual-final-files
+          diff -u /tmp/expected-final-files /tmp/actual-final-files
+          git diff --quiet "$EXPECTED_MAIN" -- artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json artifacts/manifests/B010-new-candidate-weight-access.json artifacts/manifests/B011-acquired-candidates.json src schemas .github/workflows docs/canonical/CURRENT_STATE.md
+
+      - name: Validate repaired candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main HEAD
+          git update-ref refs/remotes/origin/main HEAD
+          python -m mstr_qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json >/dev/null
+          set +e
+          python -m mstr_qualify task eligible B011 > /tmp/b011.json
+          b011_exit=$?
+          python -m mstr_qualify task eligible B012 > /tmp/b012.json
+          b012_exit=$?
+          python -m mstr_qualify task eligible B013 > /tmp/b013.json
+          b013_exit=$?
+          set -e
+          test "$b011_exit" -eq 1
+          test "$b012_exit" -eq 0
+          test "$b013_exit" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b011.json >/dev/null
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and (.reasons | length) == 0' /tmp/b012.json >/dev/null
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and (.reasons | index("prerequisite.unsatisfied:B012")) != null' /tmp/b013.json >/dev/null
+          python -m mstr_qualify validate
+          python -m pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/contract/test_convergence_external_bindings.py
+          python -m ruff check .
+          python -m mypy src
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+
+      - name: Commit and guarded push repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_TARGET"
+          git config user.name 'TheHalfMoon'
+          git config user.email '285091250+TheHalfMoon@users.noreply.github.com'
+          git add "$TASKS_PATH"
+          git commit -m 'fix(mstr): minimize B011 closeout task diff'
+          repaired="$(git rev-parse HEAD)"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$repaired"
+          echo "REPAIRED_HEAD=$repaired"
+          echo 'B011_TASK_DIFF_REPAIR=PASS'
