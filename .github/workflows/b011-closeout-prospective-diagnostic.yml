@@ -1,0 +1,103 @@
+name: Diagnose B011 closeout prospective frontier
+
+on:
+  push:
+    branches:
+      - evidence/b011-closeout-prospective-diagnostic
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: a788f55f5251f0be92b33e0765d0436cb321eb8b
+  TARGET_BRANCH: closeout/b011-acquisition
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout diagnostic evidence branch
+        uses: actions/checkout@v4
+        with:
+          ref: evidence/b011-closeout-prospective-diagnostic
+          fetch-depth: 1
+          path: evidence
+          persist-credentials: false
+
+      - name: Stage immutable builders outside worktree
+        run: |
+          cp evidence/.github/scripts/b011_closeout_builder.py /tmp/b011_closeout_builder.py
+          cp evidence/.github/scripts/b011_closeout_regression_patch.py /tmp/b011_closeout_regression_patch.py
+
+      - name: Checkout exact unchanged target
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+          path: target
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build local candidate and print prospective machine truth
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          python /tmp/b011_closeout_builder.py
+          python /tmp/b011_closeout_regression_patch.py
+          git diff --check
+          git config user.name 'B011 Diagnostic'
+          git config user.email 'b011-diagnostic@example.invalid'
+          git add configs/task-gate/mstr-000b.json evidence/mstr-000b/B011-acquisition.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_convergence_external_bindings.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          git commit -m 'diagnostic: materialize B011 closeout locally'
+          candidate="$(git rev-parse HEAD)"
+          echo "DIAGNOSTIC_CANDIDATE_HEAD=$candidate"
+          git update-ref refs/heads/main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+
+          set +e
+          python -m mstr_qualify task drift > /tmp/drift.json 2>/tmp/drift.err
+          drift_exit=$?
+          python -m mstr_qualify task eligible B011 > /tmp/b011.json 2>/tmp/b011.err
+          b011_exit=$?
+          python -m mstr_qualify task eligible B012 > /tmp/b012.json 2>/tmp/b012.err
+          b012_exit=$?
+          python -m mstr_qualify task eligible B013 > /tmp/b013.json 2>/tmp/b013.err
+          b013_exit=$?
+          set -e
+
+          echo "DRIFT_EXIT=$drift_exit"
+          cat /tmp/drift.json || true
+          cat /tmp/drift.err || true
+          echo "B011_EXIT=$b011_exit"
+          cat /tmp/b011.json || true
+          cat /tmp/b011.err || true
+          echo "B012_EXIT=$b012_exit"
+          cat /tmp/b012.json || true
+          cat /tmp/b012.err || true
+          echo "B013_EXIT=$b013_exit"
+          cat /tmp/b013.json || true
+          cat /tmp/b013.err || true
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for name in ('drift', 'b011', 'b012', 'b013'):
+              path = Path(f'/tmp/{name}.json')
+              if path.exists() and path.read_text().strip():
+                  data = json.loads(path.read_text())
+                  print(name.upper() + '_SUMMARY=' + json.dumps(data, sort_keys=True))
+          PY
+
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          echo 'REMOTE_IMMUTABILITY=PASS'
