@@ -1,0 +1,120 @@
+name: PR159 Frontier Acceleration Qualification
+
+on:
+  push:
+    branches:
+      - evidence/pr159-frontier-acceleration-qualification
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    env:
+      EXPECTED_BASE: b9aa4f7de8b924d283d09fa8d93dbaceb0f6b4cd
+      TARGET_HEAD: 954e72d2ff4ca3d49438676e9cff7401b8734fdd
+      TARGET_BRANCH: plan/000b-frontier-acceleration-2026-09
+    steps:
+      - name: Checkout exact planning candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+
+      - name: Verify exact identities and immutable scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          git fetch --no-tags origin main "$TARGET_BRANCH"
+          test "$(git rev-parse origin/main)" = "$EXPECTED_BASE"
+          test "$(git rev-parse origin/$TARGET_BRANCH)" = "$TARGET_HEAD"
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_BASE...$TARGET_HEAD" | sort)
+          expected=(
+            docs/canonical/MSTR_FRONTIER_ACCELERATION_STRATEGY.md
+            specs/002-code-model-supremacy-foundation/checklists/implementation-readiness.md
+            specs/002-code-model-supremacy-foundation/clarification-closeout.md
+            specs/002-code-model-supremacy-foundation/implementation-handoff.md
+            specs/002-code-model-supremacy-foundation/plan.md
+            specs/002-code-model-supremacy-foundation/quickstart.md
+            specs/002-code-model-supremacy-foundation/research-frontier-2026-09-04.md
+            specs/002-code-model-supremacy-foundation/spec.md
+            specs/002-code-model-supremacy-foundation/tasks.md
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#changed[@]}" -eq "${#expected_sorted[@]}"
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+          git diff --quiet "$EXPECTED_BASE" "$TARGET_HEAD" -- \
+            configs/task-gate src schemas artifacts/authorities .github/workflows README.md docs/canonical/CURRENT_STATE.md
+
+      - name: Verify task states and planning semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import re
+          import subprocess
+          from pathlib import Path
+
+          base = "b9aa4f7de8b924d283d09fa8d93dbaceb0f6b4cd"
+          task_path = "specs/002-code-model-supremacy-foundation/tasks.md"
+          old = subprocess.check_output(["git", "show", f"{base}:{task_path}"], text=True)
+          new = Path(task_path).read_text()
+
+          def states(text: str) -> dict[str, str]:
+              out = {}
+              for state, task in re.findall(r"^- \[([ x])\] \*\*(B\d{3})\b", text, re.M):
+                  out[task] = state
+              return out
+
+          assert states(old) == states(new), "planning PR must not change B-task checkbox states"
+
+          spec = Path("specs/002-code-model-supremacy-foundation/spec.md").read_text()
+          plan = Path("specs/002-code-model-supremacy-foundation/plan.md").read_text()
+          quick = Path("specs/002-code-model-supremacy-foundation/quickstart.md").read_text()
+          checklist = Path("specs/002-code-model-supremacy-foundation/checklists/implementation-readiness.md").read_text()
+          handoff = Path("specs/002-code-model-supremacy-foundation/implementation-handoff.md").read_text()
+          strategy = Path("docs/canonical/MSTR_FRONTIER_ACCELERATION_STRATEGY.md").read_text()
+          research = Path("specs/002-code-model-supremacy-foundation/research-frontier-2026-09-04.md").read_text()
+
+          for fr in range(25, 30):
+              assert f"FR-{fr:03d}" in spec
+          for text in (plan, new, quick, checklist, handoff, strategy):
+              assert "B013" in text
+          assert "K2 Horizon 3.7B" in strategy
+          assert "K2 Horizon 3.7B" in research
+          assert "not" in strategy.lower() and "preselect" in strategy.lower()
+          assert "Q4" in strategy and "Sherry" in strategy
+          assert "targeted" in strategy.lower() and "trajectory" in strategy.lower()
+          assert "future-git-history" in strategy.lower() or "future git history" in strategy.lower()
+          assert "8_GB" in strategy or "8 GB" in strategy
+          assert "CPU" in strategy
+          assert "<= 3" in strategy or "<=3" in strategy
+          assert "WEIGHT_CHANGING_TRAINING" in strategy
+          PY
+
+      - name: Install canonical tooling
+        run: python -m pip install -e '.[dev]'
+
+      - name: Offline repository validation
+        run: python -m mstr_qualify validate
+
+      - name: Full test suite
+        run: pytest
+
+      - name: Ruff
+        run: ruff check src tests
+
+      - name: Strict mypy
+        run: mypy
+
+      - name: Diff hygiene
+        run: git diff --check "$EXPECTED_BASE...$TARGET_HEAD"
+
+      - name: Final live immutability check
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_HEAD"
