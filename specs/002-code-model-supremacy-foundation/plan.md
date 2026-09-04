@@ -501,3 +501,141 @@ No design element:
 - allows a non-Q4-qualified material checkpoint to parent the next material stage.
 
 **Result:** PASS_FOR_TASKING.
+
+## 20. Frontier Acceleration Amendment — 2026-09-04
+
+This section consumes `docs/canonical/MSTR_FRONTIER_ACCELERATION_STRATEGY.md` and `research-frontier-2026-09-04.md` when those files are canonical. It changes planning obligations only and creates no external-effect authority.
+
+### 20.1 Why a freshness gate is required
+
+B005-B010 are historical canonical work. They must not be rewritten merely because the external model frontier changes. However B013 is a future decision that claims the product-aligned candidate pool is stable. That claim is invalid if a material post-scan challenger is silently omitted.
+
+Therefore B013 must bind an exact frontier snapshot before `stable_pool=true`.
+
+```text
+B012 complete
+-> exact B013 entry
+-> snapshot last canonical scan/access cutoff
+-> inspect material releases after cutoff
+-> explicit per-release disposition
+-> unresolved plausible universal-laptop challenger?
+   |
+   +-> NO -> compare qualified evidence -> stable pool may freeze
+   |
+   +-> YES -> B013 remains PENDING
+              -> create separately governed refresh/task-graph amendment
+              -> preserve old task history
+              -> obtain new exact authority if weight access is required
+              -> equivalent qualification or evidence-backed rejection
+              -> resume B013
+```
+
+For the 2026-09-04 frontier, `K2 Horizon 3.7B` is a mandatory review input because its size/coding focus could plausibly affect the primary candidate decision. Naming it does not admit it or authorize access.
+
+### 20.2 Frontier snapshot fields
+
+The B013 planning surface should bind at minimum:
+
+```text
+frontier_snapshot_id
+snapshot_time
+canonical_main
+last_backbone_scan_identity
+last_access_envelope_identity
+sources_checked[]
+material_releases[]
+release_dispositions[]
+refresh_required
+refresh_evidence[]
+stable_pool
+```
+
+A missing materially relevant release disposition blocks `stable_pool=true`.
+
+### 20.3 Checkpoint-lineage substrate comparison
+
+When a finalist family exposes compatible base/intermediate/final checkpoints, downstream MSTR-001 planning should compare immutable checkpoint lineage under equal bounded adaptation/evaluation rather than assume the final post-trained checkpoint is the best MSTR parent.
+
+Required comparability includes:
+
+```text
+same admitted data/update budget
+same seed policy
+same context
+same evaluation identity
+same export/Q4 path
+exact checkpoint revision/hash
+```
+
+### 20.4 Q4 anchor and low-bit research
+
+The existing Q4 promotion contract is not weakened.
+
+```text
+Q4 = MANDATORY QUALITY / PRODUCT ANCHOR
+```
+
+Future MSTR-004 research may compare:
+
+```text
+Q4
+Q3
+Q2
+STRUCTURED_TERNARY / SHERRY_CLASS
+```
+
+Sub-Q4 is a challenger lane only. If a method requires QAT, sparse training, distillation, recovery training, or another weight change, it is governed by exact training authority and material checkpoint promotion.
+
+### 20.5 Agent-RL acceleration requirements
+
+When B032 becomes eligible it must carry the following into MSTR-003 planning:
+
+```text
+PRODUCTION_COMPATIBLE_EXECUTABLE_RL
+DYNAMIC_SYNTHETIC_ENVIRONMENT_GENERATION
+PREVIOUS_MSTR_BOOTSTRAP_WITH_INDEPENDENT_ADMISSION
+TARGETED_TRAJECTORY_FEEDBACK_AS_MEASURED_ARM
+REWARD_SHORTCUT_BATTERY
+FUTURE_GIT_HISTORY_ISOLATION
+PUBLIC_SOLUTION / NETWORK LEAKAGE CONTROL
+```
+
+No synthetic task/environment can certify itself.
+
+### 20.6 Adaptive effort and TTVC
+
+MSTR-004 should test same-model bounded effort modes:
+
+```text
+FAST
+NORMAL
+DEEP
+```
+
+Budgets may differ for retrieval, planning, reasoning, branching, repair, and verification. Selection is by joint DVCR/TTVC/whole-laptop evidence, not raw tokens/second.
+
+### 20.7 Sealed headline evaluation
+
+MSTR-006 must distinguish:
+
+```text
+PUBLIC_CONTINUITY
+SEALED_PUBLIC_DERIVED
+FRESH_PRIVATE_MSTR_GAUNTLET
+```
+
+Headline evidence must control future Git history, public-solution/network access, evaluator/answer artifacts, and solution-bearing caches. Any discovered leakage invalidates or explicitly corrects the affected claim and remains negative evidence.
+
+### 20.8 Constitution re-check after frontier amendment
+
+The amendment:
+
+- preserves the 8 GB / CPU / 8K / <=3 GB Q4 primary envelope;
+- keeps Q4 mandatory;
+- creates no model/weight/training/quantization/paid/release authority;
+- prevents stale candidate selection rather than preselecting a new model;
+- keeps one builder + independent deterministic verifier as default;
+- strengthens evaluation-integrity requirements;
+- keeps TTVC tied to verified success.
+
+**Result:** PASS_FOR_TASKING / NO_CONSTITUTION_AMENDMENT_REQUIRED.

@@ -103,10 +103,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: `artifacts/results/backbone/B012/` and candidate Q4 manifests where applicable, explicit N/A evidence only for the true empty-candidate case, `evidence/mstr-000b/B012-new-candidate-qualification.md`.
 
 - [ ] **B013 Freeze stable product-aligned candidate pool for A019/tournament convergence.**  
-  Prerequisite: B002 `COMPLETE_CANONICAL` with exact-main `eligible=true`; the existing candidate set has completed T034 or a canonical equivalent hard-gate qualification; every B010 qualification candidate has completed B012 or been explicitly rejected before admission. Require comparable hard-gate evidence or explicit rejection reasons. Do not select the final backbone merely from this task.  
-  Outputs: `artifacts/decisions/B013-stable-candidate-pool.json`, `evidence/mstr-000b/B013-candidate-pool.md`.
+  Prerequisite: B002 `COMPLETE_CANONICAL` with exact-main `eligible=true`; the existing candidate set has completed T034 or a canonical equivalent hard-gate qualification; every B010 qualification candidate has completed B012 or been explicitly rejected before admission. Before `stable_pool=true`, bind a frontier-freshness snapshot at exact B013 entry and explicitly disposition every material compact code/model release since the last canonical backbone/access scan. A materially plausible primary-product challenger MUST NOT be ignored or rejected merely because it arrived after B010. If such a challenger lacks equivalent qualification, B013 remains `PENDING` and must stop for a separately governed refresh/task-graph amendment; historical B005-B012 truth is preserved rather than rewritten. Any new weight access remains behind a new exact authority. `K2 Horizon 3.7B` is a mandatory 2026-09-04 frontier-review input, not a preselected/admitted candidate. Require comparable hard-gate evidence or explicit evidence-backed rejection reasons. Do not select the final backbone merely from this task.
+  Outputs: `artifacts/decisions/B013-stable-candidate-pool.json` including frontier-snapshot identity/dispositions, `evidence/mstr-000b/B013-candidate-pool.md`.
 
-**Checkpoint B:** candidate pool reflects MSTR's code-specialized mission and has equivalent deployment evidence.
+**Checkpoint B:** candidate pool reflects MSTR's code-specialized mission, current material frontier, and equivalent deployment evidence.
 
 ---
 
@@ -195,7 +195,7 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Canonical implementation: PR #141 / final head `b5e152552f3b840fd74f2fe9b092eca17b56a91d` / merge `f667226dbf6cd380fefef5ff90fbc14eb1de3630`.
 
 - [x] **B028 Freeze Q4-in-the-loop promotion contract and training-method tournament preflight.**
-  Require release-relevant Q4 regression after every material weight-changing stage and a fail-closed `Q4PromotionRecord` before a checkpoint may become the parent of another material stage. Supported comparisons MUST include 16-bit LoRA, 16-bit LoRA+rsLoRA, 4-bit QLoRA, and 4-bit QLoRA+rsLoRA where current backbone/framework support permits; every unsupported arm requires an exact recorded reason. Revalidate backbone/Unsloth/Transformers guidance immediately before execution.  
+  Require release-relevant Q4 regression after every material weight-changing stage and a fail-closed `Q4PromotionRecord` before a checkpoint may become the parent of another material stage. Supported comparisons MUST include 16-bit LoRA, 16-bit LoRA+rsLoRA, 4-bit QLoRA, and 4-bit QLoRA+rsLoRA where current backbone/framework support permits; every unsupported arm requires an exact recorded reason. Revalidate backbone/Unsloth/Transformers guidance immediately before execution. Q4 remains the mandatory quality/product anchor even if later MSTR-004 planning evaluates Q3/Q2/structured-ternary challengers.
   Outputs: `artifacts/manifests/B028-method-tournament-preflight.json`, `docs/training/Q4_PROMOTION_CONTRACT.md`, `evidence/mstr-000b/B028-training-methods.md`.
   Canonical implementation: PR #90 / final head `3c9d8624745ad34e1e96d7f150afaccd2f02bc8f` / merge `01a070e27098fc3798a87ad57dd62b63fdf8fdee`.
 
@@ -219,19 +219,19 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Exact prerequisites: A019 `COMPLETE_CANONICAL`, A020 `COMPLETE_CANONICAL`, B002/B003/B004 `COMPLETE_CANONICAL`, B015/B017/B019/B021/B023/B024/B025/B027/B028/B029/B030 `COMPLETE_CANONICAL`, plus exact-main `eligible=true`. A019 itself requires A001-A018 complete, B013 stable candidate pool, B023 verifier-health implementation, and B026 research ladder; A020 consumes B026. Legacy candidate/tournament/data tasks must be marked retained, superseded, or amended; no incompatible duplicate remains.  
   Outputs: task supersession/dependency map, canonical task updates, `evidence/mstr-000b/B031-tournament-reconciliation.md`.
 
-- [ ] **B032 Amend MSTR-001/MSTR-002/MSTR-003 entry requirements.**  
-  Prerequisite: B031 `COMPLETE_CANONICAL`. MSTR-001 consumes Data Constitution, language mix, software evolution, frontier curriculum and Q4 promotion. MSTR-002 consumes self-alignment, teacher policy, verifier health, test generation, greenfield/feature and same-loop trajectories. MSTR-003 consumes frontier curriculum, admitted environments, verifier health and multi-fidelity RL promotion.  
+- [ ] **B032 Amend MSTR-001/MSTR-002/MSTR-003 entry requirements and downstream acceleration obligations.**
+  Prerequisite: B031 `COMPLETE_CANONICAL`. Consume `docs/canonical/MSTR_FRONTIER_ACCELERATION_STRATEGY.md` and the canonical B013 frontier snapshot. MSTR-001 consumes Data Constitution, language mix, software evolution, frontier curriculum, checkpoint-lineage substrate experiments where applicable, early low-bit compatibility evidence, and mandatory Q4 promotion. MSTR-002 consumes self-alignment, teacher policy, verifier health, test generation, greenfield/feature and production-compatible same-loop trajectories including failure/negative examples. MSTR-003 consumes frontier curriculum, admitted environments, verifier health, multi-fidelity RL promotion, dynamic synthetic environment generation, previous-MSTR bootstrap with independent admission, targeted trajectory-feedback research, and reward-shortcut controls. The downstream roadmap amendment MUST also carry the non-executing consequences for MSTR-004 (Q4 anchor plus Q3/Q2/structured-ternary, kernel, speculation/parallel-generation, and FAST/NORMAL/DEEP effort-control tournament) and MSTR-006 (sealed anti-leakage headline qualification). B032 itself authorizes none of those external effects.
   Outputs: roadmap/training strategy/preplan amendments, `evidence/mstr-000b/B032-downstream-contracts.md`.
 
 - [ ] **B033 Independent consistency/red-team review.**  
-  Prerequisite: B032 `COMPLETE_CANONICAL`. Review candidate fairness, data leakage, rights, reward hacking, task-gate bypass, teacher contamination, tokenizer comparability, Q4 promotion, WePLD attribution, and 8GB product preservation. Resolve all material findings.  
+  Prerequisite: B032 `COMPLETE_CANONICAL`. Review frontier freshness/candidate omission, candidate fairness, data leakage, future-Git-history/public-solution/network leakage, rights, reward hacking/evaluator extraction, task-gate bypass, teacher contamination, tokenizer comparability, mandatory Q4 promotion, low-bit quality claims, hardware-specific speed/runtime claims, speculative/parallel-generation attribution, WePLD attribution, and 8GB product preservation. Confirm that no experimental sub-Q4 artifact can replace the required Q4 promotion anchor and that vendor benchmark/speed claims are not represented as MSTR evidence without exact reproduction. Resolve all material findings.
   Outputs: `evidence/mstr-000b/B033-independent-review.md`.
 
 - [ ] **B034 Close MSTR-000B canonical.**  
-  Exact prerequisite: **every B001-B033 task is `COMPLETE_CANONICAL` or, only where the task contract explicitly permits it, a canonical `NOT_REQUIRED` terminal state with evidence**. Before closeout, machine validation MUST verify every predecessor state and every task's declared evidence artifact path, including governance B001-B004; backbone B005-B013; data/curriculum B014-B021; verifier/build-skill B022-B025; research/product B026-B030; and convergence B031-B033. Freeze exact contract versions, stable candidate pool state, unresolved risks, supersession map, training-readiness statement and next exact authority. This task MUST NOT authorize weight-changing training.  
+  Exact prerequisite: **every B001-B033 task is `COMPLETE_CANONICAL` or, only where the task contract explicitly permits it, a canonical `NOT_REQUIRED` terminal state with evidence**. Before closeout, machine validation MUST verify every predecessor state and every task's declared evidence artifact path, including governance B001-B004; backbone B005-B013; data/curriculum B014-B021; verifier/build-skill B022-B025; research/product B026-B030; and convergence B031-B033. Freeze exact contract versions, stable candidate pool state including the B013 frontier snapshot/dispositions, unresolved risks, supersession map, training-readiness statement and next exact authority. This task MUST NOT authorize weight-changing training.
   Outputs: `artifacts/decisions/B034-mstr-000b-closeout.json`, `evidence/mstr-000b/B034-closeout.md`, canonical state updates.
 
-**Checkpoint C:** MSTR can approach weight-changing training only with product-aligned candidates, high-signal data contracts, healthy verifiers, dynamic curriculum, Q4 promotion and machine-enforced governance.
+**Checkpoint C:** MSTR can approach weight-changing training only with product-aligned and frontier-fresh candidates, high-signal data contracts, healthy verifiers, dynamic curriculum, mandatory Q4 promotion, sealed-evaluation requirements and machine-enforced governance.
 
 ---
 
@@ -243,6 +243,8 @@ MSTR-000B cannot close with any of:
 TASK_DEPENDENCY_GATE_UNENFORCED = YES
 MISSION_ALIGNED_RESCAN_MISSING = YES
 SERIOUS_CODE_BASE_OMITTED_WITHOUT_REASON = YES
+FRONTIER_SNAPSHOT_OR_MATERIAL_RELEASE_DISPOSITION_MISSING = YES
+MATERIAL_FRONTIER_CHALLENGER_IGNORED_BECAUSE_IT_POSTDATES_B010 = YES
 CANDIDATE_EVIDENCE_NOT_COMPARABLE = YES
 DATA_CONSTITUTION_MISSING = YES
 SOFTWARE_EVOLUTION_FUTURE_LEAKAGE_UNCONTROLLED = YES
@@ -254,6 +256,9 @@ TEST_WEAKENING_CAN_CREATE_SUCCESS = YES
 GREENFIELD_FEATURE_COVERAGE_MISSING = YES
 RESEARCH_LOOP_CAN_SKIP_FROZEN_EVALUATION = YES
 Q4_REGRESSION_NOT_BLOCKING = YES
+SUB_Q4_REPLACES_REQUIRED_Q4_PROMOTION = YES
+HEADLINE_BENCHMARK_HISTORY_NETWORK_OR_SOLUTION_LEAKAGE_UNCONTROLLED = YES
+LOW_BIT_OR_SPEED_CLAIM_WITHOUT_EXACT_HARDWARE_RUNTIME_IDENTITY = YES
 REPOSITORY_HEALTH_UNMEASURED_FOR_LONG_HORIZON_CLAIMS = YES
 HARNESS_GAIN_MISATTRIBUTED = YES
 NEW_WEIGHT_ACCESS_WITHOUT_EXACT_AUTHORITY = YES
@@ -271,7 +276,8 @@ B005 -> B006 -> B007 -> B008 -> B009 -> B010
 B002 + B010(non-empty access list) + SEPARATE_FOUNDER_AUTHORITY -> B011 -> B012
 B002 + B010(empty access list but non-empty qualification list) -> B011(NOT_REQUIRED_NO_NEW_ACCESS) -> B012
 B010(empty qualification list) -> B011(NOT_REQUIRED_NO_NEW_ACCESS) -> B012(NOT_REQUIRED_NO_NEW_CANDIDATES)
-B002 + T034_OR_CANONICAL_EQUIVALENT + B012 -> B013
+B002 + T034_OR_CANONICAL_EQUIVALENT + B012 -> B013_FRONTIER_SNAPSHOT_AND_STABLE_POOL
+B013_MATERIAL_UNQUALIFIED_CHALLENGER -> STOP_AND_CREATE_SEPARATELY_GOVERNED_REFRESH_AMENDMENT -> B013_RESUME_AFTER_CANONICAL_REFRESH_OR_REJECTION
 
 B014 -> B015
 B014 -> B016 -> B017

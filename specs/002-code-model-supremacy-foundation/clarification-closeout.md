@@ -1,7 +1,8 @@
 # Clarification Closeout — MSTR-000B
 
-**Status:** CLOSED_FOR_PLANNING  
+**Status:** CLOSED_FOR_PLANNING / FRONTIER_AMENDMENT_RECONCILED
 **Date:** 2026-08-27
+**Frontier amendment:** 2026-09-04
 
 ## Founder Goal
 
@@ -77,6 +78,30 @@ No. Evaluators, hidden tasks, product constraints, rights, and contamination pol
 
 WePLD is the primary Half Moon orchestration partner and a full-system score surface. It must not be required for standalone MSTR or used to misattribute harness gains to model weights.
 
+### C-018 — May B013 freeze the candidate pool using only the older canonical scan because B005-B010 are terminal?
+
+No. Historical scan completion proves what was known at that time, not that a later pool freeze is frontier-fresh. B013 must record a current frontier snapshot and explicitly disposition material post-scan releases. A plausible challenger with missing equivalent evidence keeps B013 pending and requires a separately governed refresh amendment.
+
+### C-019 — Is K2 Horizon 3.7B now selected or authorized because it is a mandatory frontier-review input?
+
+No. It is mandatory to review because it materially post-dates the prior scan and plausibly fits the compact coding frontier. Admission, weight access, equivalent qualification, and selection remain separate fail-closed gates.
+
+### C-020 — Is Composer 3 a technical input to this amendment?
+
+No official Cursor Composer 3 specification/release was verified as of the 2026-09-04 research snapshot. The amendment uses only verified official Composer 2/2.5 and related Cursor engineering material. Future Composer releases may enter a later freshness review.
+
+### C-021 — Does sub-Q4 research replace Q4 as the product/promotion anchor?
+
+No. Q4 remains mandatory. Q3/Q2/structured-ternary or Sherry-class approaches are challenger research only. If such a method changes weights, it is a separately authorized material training stage.
+
+### C-022 — Are targeted trajectory feedback, autoinstall, speculative decoding, Uno-style generation, or low-bit kernels selected implementation methods?
+
+No. They are measured downstream research arms where applicable. Exact architecture/framework/runtime compatibility, rights, hardware identity, cost, and product evidence determine admission. This planning amendment authorizes no execution.
+
+### C-023 — May public benchmark scores be headline truth without sealing against solution/history leakage?
+
+No. Public continuity scores remain supporting evidence. Headline claims require controlled future-Git-history, public-solution/network, evaluator/answer, and solution-cache boundaries plus fresh/private evidence where required.
+
 ## No Remaining Planning Blockers
 
-The workstream is ready for plan/task consistency review. External-effect gates remain intentionally unresolved until their exact future task is reached.
+The workstream is ready for plan/task consistency review with the 2026-09-04 frontier amendment incorporated. External-effect gates remain intentionally unresolved until their exact future task is reached.

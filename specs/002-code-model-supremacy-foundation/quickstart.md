@@ -86,7 +86,32 @@ static rights/provenance PASS
 
 `B011 = NOT_REQUIRED_NO_NEW_ACCESS` does not skip B012 when a qualification candidate exists.
 
-Then B013 may include the candidate in the stable pool.
+Before B013 may freeze `stable_pool=true`, create a frontier-freshness snapshot at exact B013 entry. Compare the snapshot cutoff against the last canonical backbone/access scan and explicitly disposition every material compact code/model release that could plausibly change the universal-laptop candidate decision.
+
+```text
+B012 complete
+-> exact B013 entry gate
+-> frontier snapshot
+-> material post-scan releases?
+   |
+   +-> NO / all evidence-backed terminal dispositions
+   |      -> comparable stable pool may be frozen
+   |
+   +-> YES / plausible challenger lacks equivalent qualification
+          -> B013 remains PENDING
+          -> STOP
+          -> create separately governed refresh/task-graph amendment
+          -> metadata/rights/tokenizer/compatibility
+          -> exact access envelope + Founder authority if new weight access is required
+          -> equivalent qualification
+          -> resume B013 only after canonical refresh or evidence-backed rejection
+```
+
+Do not rewrite completed historical B005-B012 work to simulate a new scan. Preserve historical truth and use a canonical successor/addendum path.
+
+For the 2026-09-04 frontier snapshot, `K2 Horizon 3.7B` is a mandatory review input only. It is not admitted or authorized by naming it.
+
+The detailed planning amendment is `docs/canonical/MSTR_FRONTIER_ACCELERATION_STRATEGY.md`; external research detail is in `research-frontier-2026-09-04.md`.
 
 ## Q4 Promotion
 
@@ -104,6 +129,43 @@ source checkpoint hash
 ```
 
 Only a promoted checkpoint may parent the next material stage.
+
+Q4 remains the mandatory promotion/product anchor. Future Q3/Q2/structured-ternary or Sherry-class experiments are additive challenger arms only; they cannot replace the required Q4 record. Any low-bit method that changes weights remains behind exact training authority.
+
+## Downstream Acceleration Handoff
+
+When B032 becomes eligible, it must carry the canonical frontier-acceleration strategy into downstream work without executing it prematurely:
+
+```text
+MSTR-001
+  checkpoint-lineage substrate comparison where applicable
+  + code/FIM/repository prior
+  + low-bit compatibility awareness
+  + mandatory Q4 promotion
+
+MSTR-002
+  production-compatible software-engineering trajectories
+  + failure/recovery/negative examples
+
+MSTR-003
+  executable RL
+  + dynamic synthetic environments
+  + previous-MSTR bootstrap with independent admission
+  + targeted trajectory-feedback research
+  + reward-shortcut resistance
+
+MSTR-004
+  Q4 anchor
+  + Q3/Q2/structured-ternary challengers
+  + runtime/kernel/speculation/parallel-generation research
+  + FAST/NORMAL/DEEP effort control
+  + TTVC as the speed north star
+
+MSTR-006
+  sealed public-derived evaluation
+  + fresh/private Gauntlet
+  + future-Git-history/network/public-solution leakage controls
+```
 
 ## Training Hard Stop
 
