@@ -1,0 +1,263 @@
+name: Qualify PR157 B011 acquisition
+
+on:
+  push:
+    branches:
+      - evidence/pr157-b011-acquisition-qualification
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+env:
+  BASE_SHA: dd547bb768598f92ad203764ce32be6e1fc710d6
+  TARGET_SHA: 450d9b5b9b3c6aca27222a553dc6230f6eef6783
+  PR_NUMBER: '157'
+  SUCCESS_RUN: '33865617854'
+  FAIL_RUN: '33865467059'
+  B010_SHA256: 4c2fd1469cdcf728063ab8f5b6a603191ffdc9e1a4d4c2d794abd2a24950c3ef
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify immutable PR identity and exact six-file scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git merge-base "$BASE_SHA" "$TARGET_SHA")" = "$BASE_SHA"
+          remote_main="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)"
+          test "$remote_main" = "$BASE_SHA"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$BASE_SHA" --arg head "$TARGET_SHA" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .changed_files == 6' /tmp/pr.json >/dev/null
+          mapfile -t changed < <(git diff --name-only "$BASE_SHA" "$TARGET_SHA" | sort)
+          expected=(
+            "artifacts/manifests/B011-acquired-candidates.json"
+            "artifacts/manifests/B011-artifact-mellum-4b.json"
+            "artifacts/manifests/B011-artifact-qwen3.5-0.8b-control.json"
+            "evidence/mstr-000b/B011-acquisition.md"
+            "evidence/mstr-000b/B011-runner-reports/mellum-4b.json"
+            "evidence/mstr-000b/B011-runner-reports/qwen3.5-0.8b-control.json"
+          )
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          for i in "${!expected[@]}"; do test "${changed[$i]}" = "${expected[$i]}"; done
+          if git diff --name-only "$BASE_SHA" "$TARGET_SHA" | grep -Ei '\.(safetensors|gguf|bin|pt|pth|ckpt)$'; then exit 1; fi
+          echo 'PR157_SCOPE=PASS'
+
+      - name: Verify successful and fail-closed Actions execution topology
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SUCCESS_RUN}" > /tmp/success-run.json
+          jq -e '.status == "completed" and .conclusion == "success" and .head_branch == "evidence/b011-acquisition-dd547bb" and .head_sha == "86609c656e20ac959c206d15fc21eda1f633b6ec"' /tmp/success-run.json >/dev/null
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SUCCESS_RUN}/jobs?per_page=100" > /tmp/success-jobs.json
+          jq -e '[.jobs[] | select(.name == "acquire-mellum-4b" or .name == "acquire-qwen3.5-0.8b-control") | select(.conclusion == "success")] | length == 2' /tmp/success-jobs.json >/dev/null
+          jq -e '[.jobs[] | select(.name == "acquire-mellum-4b" or .name == "acquire-qwen3.5-0.8b-control") | .steps[] | select(.name == "Acquire and cryptographically verify exact authorized candidate") | select(.conclusion == "success")] | length == 2' /tmp/success-jobs.json >/dev/null
+          jq -e '[.jobs[] | select(.name == "acquire-mellum-4b" or .name == "acquire-qwen3.5-0.8b-control") | .steps[] | select(.name == "Delete all local model bodies defense-in-depth") | select(.conclusion == "success")] | length == 2' /tmp/success-jobs.json >/dev/null
+          jq -e '[.jobs[] | select(.name == "acquire-mellum-4b" or .name == "acquire-qwen3.5-0.8b-control") | .steps[] | select(.name == "Final canonical-main no-drift check") | select(.conclusion == "success")] | length == 2' /tmp/success-jobs.json >/dev/null
+
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${FAIL_RUN}" > /tmp/fail-run.json
+          jq -e '.status == "completed" and .conclusion == "failure" and .head_branch == "evidence/b011-acquisition-dd547bb"' /tmp/fail-run.json >/dev/null
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${FAIL_RUN}/jobs?per_page=100" > /tmp/fail-jobs.json
+          jq -e '[.jobs[] | select(.name == "acquire-mellum-4b" or .name == "acquire-qwen3.5-0.8b-control") | .steps[] | select(.name == "Acquire and cryptographically verify exact authorized candidate") | select(.conclusion == "skipped")] | length == 2' /tmp/fail-jobs.json >/dev/null
+          echo 'PR157_EXECUTION_TOPOLOGY=PASS'
+
+      - name: Download and bind exact source Actions reports
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/9933928427" > /tmp/mellum-artifact.json
+          jq -e '.name == "b011-report-mellum-4b" and .expired == false and .workflow_run.id == 33865617854 and .digest == "sha256:985136da92696ac76440adea05b43472367e099ff9a96c78908a9a5a8f3d9915"' /tmp/mellum-artifact.json >/dev/null
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/9933865616" > /tmp/qwen-artifact.json
+          jq -e '.name == "b011-report-qwen3.5-0.8b-control" and .expired == false and .workflow_run.id == 33865617854 and .digest == "sha256:1a69e8df4c44cb90185495aee677582561dd835285dda9028af08f69fbf81abf"' /tmp/qwen-artifact.json >/dev/null
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/9933928427/zip" > /tmp/mellum.zip
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/9933865616/zip" > /tmp/qwen.zip
+          unzip -p /tmp/mellum.zip b011-report-mellum-4b.json > /tmp/source-mellum.json
+          unzip -p /tmp/qwen.zip b011-report-qwen3.5-0.8b-control.json > /tmp/source-qwen.json
+          echo 'e03f48e3a5744ef87ad39558c20ca96b61c47d8296e6f877795dac2dbfe0c9f9  /tmp/source-mellum.json' | sha256sum -c -
+          echo 'c4174fc784ea0ca43dae61a81665716d476a27b943e973923e18eb6eb6ab3ad7  /tmp/source-qwen.json' | sha256sum -c -
+          echo 'PR157_SOURCE_REPORTS=PASS'
+
+      - name: Verify canonical evidence semantics against B010 and source reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$B010_SHA256  artifacts/manifests/B010-new-candidate-weight-access.json" | sha256sum -c -
+          echo '8e07bffeeb657eef35c294183c1af77ab3f3ffaa9ec87bd12fc5895cba76010d  evidence/mstr-000b/B011-runner-reports/mellum-4b.json' | sha256sum -c -
+          echo '0ca35318cf3ed37ce5c93eb2b2da5a83c50b0b692209c72cdf5a4d2c311ce691  evidence/mstr-000b/B011-runner-reports/qwen3.5-0.8b-control.json' | sha256sum -c -
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          b010 = json.loads(Path('artifacts/manifests/B010-new-candidate-weight-access.json').read_text())
+          authority = json.loads(Path('artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json').read_text())
+          aggregate = json.loads(Path('artifacts/manifests/B011-acquired-candidates.json').read_text())
+          reports = {
+              'mellum-4b': json.loads(Path('evidence/mstr-000b/B011-runner-reports/mellum-4b.json').read_text()),
+              'qwen3.5-0.8b-control': json.loads(Path('evidence/mstr-000b/B011-runner-reports/qwen3.5-0.8b-control.json').read_text()),
+          }
+          source_reports = {
+              'mellum-4b': json.loads(Path('/tmp/source-mellum.json').read_text()),
+              'qwen3.5-0.8b-control': json.loads(Path('/tmp/source-qwen.json').read_text()),
+          }
+          artifact_paths = {
+              'mellum-4b': Path('artifacts/manifests/B011-artifact-mellum-4b.json'),
+              'qwen3.5-0.8b-control': Path('artifacts/manifests/B011-artifact-qwen3.5-0.8b-control.json'),
+          }
+          expected_canonical_sha = {
+              'mellum-4b': '8e07bffeeb657eef35c294183c1af77ab3f3ffaa9ec87bd12fc5895cba76010d',
+              'qwen3.5-0.8b-control': '0ca35318cf3ed37ce5c93eb2b2da5a83c50b0b692209c72cdf5a4d2c311ce691',
+          }
+          expected_source_sha = {
+              'mellum-4b': 'e03f48e3a5744ef87ad39558c20ca96b61c47d8296e6f877795dac2dbfe0c9f9',
+              'qwen3.5-0.8b-control': 'c4174fc784ea0ca43dae61a81665716d476a27b943e973923e18eb6eb6ab3ad7',
+          }
+          expected_artifact_ids = {'mellum-4b':'9933928427','qwen3.5-0.8b-control':'9933865616'}
+          expected_zip_sha = {
+              'mellum-4b':'985136da92696ac76440adea05b43472367e099ff9a96c78908a9a5a8f3d9915',
+              'qwen3.5-0.8b-control':'1a69e8df4c44cb90185495aee677582561dd835285dda9028af08f69fbf81abf',
+          }
+          expected_hosts = {'huggingface.co','cdn-lfs.huggingface.co','cas-bridge.xethub.hf.co','transfer.xethub.hf.co','us.aws.cdn.hf.co'}
+
+          assert aggregate['schema_version'] == 'mstr.b011-acquired-candidates.v1'
+          assert aggregate['implementation_state'] == 'ACQUISITION_EXECUTED_VERIFIED_PENDING_CANONICAL_CLOSEOUT'
+          assert aggregate['canonical_execution_base'] == 'dd547bb768598f92ad203764ce32be6e1fc710d6'
+          assert aggregate['b010_manifest']['sha256'] == '4c2fd1469cdcf728063ab8f5b6a603191ffdc9e1a4d4c2d794abd2a24950c3ef'
+          assert aggregate['authority']['authority_id'] == 'B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED'
+          assert aggregate['authority']['decision'] == 'FOUNDER_B011_MODEL_WEIGHT_ACCESS_DECISION=AUTHORIZE_EXACT_B010_ENVELOPE'
+          assert authority['status'] == 'AUTHORIZED_CANONICAL'
+          assert authority['scope']['b010_manifest']['sha256'] == aggregate['b010_manifest']['sha256']
+          assert aggregate['successful_actions_run_id'] == '33865617854'
+          assert aggregate['execution_evidence_head'] == '86609c656e20ac959c206d15fc21eda1f633b6ec'
+          assert aggregate['prior_fail_closed_attempt']['actions_run_id'] == '33865467059'
+          assert aggregate['prior_fail_closed_attempt']['model_weight_download_started'] is False
+          assert aggregate['resource_cost_usd'] == 0.0
+          assert aggregate['authorized_total_download_bytes'] == aggregate['observed_total_download_bytes'] == 9817996174
+          assert set(aggregate['network_allowlist']) == expected_hosts
+          assert set(aggregate['observed_network_hosts']) <= expected_hosts
+          assert aggregate['storage_architecture'] == 'EPHEMERAL_RUNNER_ONLY; NO_GIT_BINARIES; NO_FOUNDER_MACHINE_BINARIES'
+
+          b010_env = {x['candidate_id']: x for x in b010['candidate_access_envelopes']}
+          agg_env = {x['candidate_id']: x for x in aggregate['candidates']}
+          assert set(b010_env) == set(agg_env) == set(reports) == {'mellum-4b','qwen3.5-0.8b-control'}
+
+          for candidate_id in sorted(reports):
+              report = reports[candidate_id]
+              source = source_reports[candidate_id]
+              assert report == source, f'semantic source/canonical mismatch: {candidate_id}'
+              candidate = agg_env[candidate_id]
+              frozen = b010_env[candidate_id]
+              assert candidate['status'] == report['result_classification'] == 'ACQUIRED_VERIFIED'
+              assert candidate['model_repo'] == report['model_repo'] == frozen['upstream_id']
+              assert candidate['revision'] == report['model_revision'] == frozen['exact_revision']
+              assert candidate['observed_download_bytes'] == report['observed_download_bytes'] == report['authorized_download_bytes'] == frozen['expected_required_download_bytes']
+              assert candidate['actions_run_id'] == '33865617854'
+              assert candidate['canonical_report_sha256'] == expected_canonical_sha[candidate_id]
+              assert candidate['source_actions_report_sha256'] == expected_source_sha[candidate_id]
+              assert candidate['actions_artifact_id'] == expected_artifact_ids[candidate_id]
+              assert candidate['actions_artifact_zip_sha256'] == expected_zip_sha[candidate_id]
+              assert report['canonical_main'] == aggregate['canonical_execution_base']
+              assert report['b010_manifest_sha256'] == aggregate['b010_manifest']['sha256']
+              assert report['authority_id'] == aggregate['authority']['authority_id']
+              assert report['founder_decision'] == aggregate['authority']['decision']
+              assert report['resource_cost_usd'] == 0.0
+              assert set(report['network_allowlist']) == expected_hosts
+              assert report['binary_retention'] == 'EPHEMERAL_RUNNER_ONLY_DELETED_BEFORE_EXIT'
+              assert all(item['status'] == 'ACQUIRED_VERIFIED' for item in report['files'])
+              assert sum(item['size_bytes'] for item in report['files']) == frozen['expected_required_download_bytes']
+              observed_hosts = {item['initial_host'] for item in report['files']} | {item['final_host'] for item in report['files']}
+              observed_hosts |= {host for item in report['files'] for host in item['redirect_hosts']}
+              assert observed_hosts <= expected_hosts
+
+              required = {x['path']: x for x in frozen['required_files']}
+              reported = {x['filename']: x for x in report['files']}
+              assert set(required) == set(reported)
+              for path, frozen_file in required.items():
+                  got = reported[path]
+                  assert got['size_bytes'] == frozen_file['size_bytes']
+                  if frozen_file['sha256'] is not None:
+                      assert got['sha256'] == frozen_file['sha256']
+
+              artifact = json.loads(artifact_paths[candidate_id].read_text())
+              assert artifact['schema_version'] == 'mstr.artifact-manifest.v1'
+              manifest_files = {x['path'].split('/',1)[1]: x for x in artifact['files']}
+              assert set(manifest_files) == set(reported)
+              for path, got in reported.items():
+                  bound = manifest_files[path]
+                  assert bound['sha256'] == got['sha256']
+                  assert bound['size_bytes'] == got['size_bytes']
+
+          assert sum(x['observed_download_bytes'] for x in agg_env.values()) == 9817996174
+          assert 'NO_MODEL_EXECUTION' in aggregate['prohibitions_respected']
+          assert 'NO_QUANTIZATION' in aggregate['prohibitions_respected']
+          assert 'NO_TRAINING' in aggregate['prohibitions_respected']
+          print('PR157_ACQUISITION_SEMANTICS=PASS')
+          PY
+
+      - name: Install exact candidate tooling and parse T024-compatible manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python - <<'PY'
+          from pathlib import Path
+          from mstr_qualify.artifacts import load_artifact_manifest
+          for path in (
+              Path('artifacts/manifests/B011-artifact-mellum-4b.json'),
+              Path('artifacts/manifests/B011-artifact-qwen3.5-0.8b-control.json'),
+          ):
+              manifest = load_artifact_manifest(path)
+              assert manifest.entries
+          print('PR157_T024_MANIFEST_PARSE=PASS')
+          PY
+
+      - name: Prove exact-main B011 eligibility and B012 closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          git update-ref refs/heads/main "$BASE_SHA"
+          git update-ref refs/remotes/origin/main "$BASE_SHA"
+          git checkout --detach "$BASE_SHA"
+          mstr-qualify task eligible B011 > /tmp/b011.json
+          jq -e '.eligible == true and .authority_result.satisfied == true and .state_consistency_result.observed_state == "PENDING"' /tmp/b011.json >/dev/null
+          if mstr-qualify task eligible B012 > /tmp/b012.json; then exit 1; else test "$?" -eq 1; fi
+          jq -e '(.reasons | index("prerequisite.unsatisfied:B011")) != null' /tmp/b012.json >/dev/null
+          git checkout --detach "$TARGET_SHA"
+          echo 'PR157_TASK_GATE=PASS'
+
+      - name: Fresh full quality verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          echo 'PR157_QUALITY=PASS'
+
+      - name: Final no-drift recheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$BASE_SHA"
+          echo 'PR157_QUALIFICATION=PASS'
