@@ -93,13 +93,25 @@ jobs:
           git diff --quiet "$EXPECTED_MAIN" -- artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json artifacts/manifests/B010-new-candidate-weight-access.json artifacts/manifests/B011-acquired-candidates.json src schemas .github/workflows docs/canonical/CURRENT_STATE.md
           git diff --check "$EXPECTED_MAIN" -- configs/task-gate/mstr-000b.json evidence/mstr-000b/B011-acquisition.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_convergence_external_bindings.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
 
-      - name: Validate repaired candidate
+      - name: Commit repair locally before drift verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'TheHalfMoon'
+          git config user.email '285091250+TheHalfMoon@users.noreply.github.com'
+          git add "$TASKS_PATH"
+          git commit -m 'fix(mstr): minimize B011 closeout task diff'
+          repaired="$(git rev-parse HEAD)"
+          test "$(git status --porcelain | wc -l)" -eq 0
+          echo "REPAIRED_HEAD=$repaired" >> "$GITHUB_ENV"
+
+      - name: Validate repaired candidate from clean exact local head
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install -e '.[dev]'
-          git update-ref refs/heads/main HEAD
-          git update-ref refs/remotes/origin/main HEAD
+          git update-ref refs/heads/main "$REPAIRED_HEAD"
+          git update-ref refs/remotes/origin/main "$REPAIRED_HEAD"
           python -m mstr_qualify task drift > /tmp/drift.json
           jq -e '.status == "clean" and (.findings | length) == 0' /tmp/drift.json >/dev/null
           set +e
@@ -121,22 +133,20 @@ jobs:
           python -m pytest -q
           python -m ruff check .
           python -m mypy src
+          test "$(git status --porcelain | wc -l)" -eq 0
           git update-ref refs/heads/main "$EXPECTED_MAIN"
           git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
 
-      - name: Commit and guarded push repair
+      - name: Guarded push validated repair
         shell: bash
         run: |
           set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$REPAIRED_HEAD"
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
           test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_TARGET"
-          git config user.name 'TheHalfMoon'
-          git config user.email '285091250+TheHalfMoon@users.noreply.github.com'
-          git add "$TASKS_PATH"
-          git commit -m 'fix(mstr): minimize B011 closeout task diff'
-          repaired="$(git rev-parse HEAD)"
-          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git merge-base "$EXPECTED_TARGET" "$REPAIRED_HEAD")" = "$EXPECTED_TARGET"
+          git push origin "$REPAIRED_HEAD:refs/heads/$TARGET_BRANCH"
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
-          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$repaired"
-          echo "REPAIRED_HEAD=$repaired"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$REPAIRED_HEAD"
+          echo "REPAIRED_HEAD=$REPAIRED_HEAD"
           echo 'B011_TASK_DIFF_REPAIR=PASS'
