@@ -27,10 +27,10 @@
 
 ## Before B011
 
-- [ ] B010 exact manifest frozen.
-- [ ] Founder authorization names exact B010 manifest/envelope.
-- [ ] Zero-large-artifact founder Mac policy preserved.
-- [ ] Cost/network/retention/cleanup explicit.
+- [x] B010 exact manifest frozen. Canonical B010 was merged by PR #65 as `215d52f4de772639c5e64193ff48deaafb6eb2d7`; the authority merged by PR #155 binds `artifacts/manifests/B010-new-candidate-weight-access.json` at SHA-256 `4c2fd1469cdcf728063ab8f5b6a603191ffdc9e1a4d4c2d794abd2a24950c3ef`.
+- [x] Founder authorization names exact B010 manifest/envelope. Issue #153 comment `5538049681` records `FOUNDER_B011_MODEL_WEIGHT_ACCESS_DECISION=AUTHORIZE_EXACT_B010_ENVELOPE`; PR #155 canonicalized authority `B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED` as merge `7884af6b159534671ad4259addfcb319d7084d36`.
+- [x] Zero-large-artifact founder Mac policy preserved. Canonical B010 and the PR #155 authority both require `founder_machine_large_artifacts = 0`, `NEVER_FOUNDER_MACHINE`, and zero Git model binaries.
+- [x] Cost/network/retention/cleanup explicit. The canonical authority preserves the exact B010 HTTPS allowlisted hosts, abort-on-unlisted-redirect/auth/payment/gated-terms policy, total required-download ceiling `9817996174` bytes, USD ceiling `0.0`, verified-artifact-only bounded retention, immediate partial/failed-download cleanup, and ephemeral-runner cleanup at job end.
 
 ## Before Any Weight-Changing Training
 
