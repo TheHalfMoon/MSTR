@@ -20,7 +20,7 @@ def main() -> None:
     evidence = evidence_path.read_text(encoding="utf-8")
     old_state = "**Evidence state:** `ACQUISITION_EXECUTED_VERIFIED / CANONICAL_CLOSEOUT_PENDING`  "
     assert old_state in evidence
-    evidence = evidence.replace(old_state, "**Evidence state:** `COMPLETE_CANONICAL`  ", 1)
+    evidence = evidence.replace(old_state, "**Evidence state:** `COMPLETE_CANONICAL`", 1)
 
     founder_marker = (
         "**Founder decision:** "
@@ -29,15 +29,15 @@ def main() -> None:
     assert founder_marker in evidence
     provenance = "\n".join(
         [
-            "**Closeout entry canonical main:** `a788f55f5251f0be92b33e0765d0436cb321eb8b`  ",
-            "**Implementation PR:** `#157`  ",
-            "**Final implementation head:** `450d9b5b9b3c6aca27222a553dc6230f6eef6783`  ",
-            "**Canonical implementation merge:** `b9aa4f7de8b924d283d09fa8d93dbaceb0f6b4cd`  ",
-            "**Successful acquisition run:** `33865617854`  ",
-            "**Exact-head qualification:** `33867186224`  ",
-            "**Independent substantive semantic review:** `33867564924`  ",
-            "**Mandatory premerge verification:** `33867838434`  ",
-            "**Post-implementation verification:** `33927258696`  ",
+            "**Closeout entry canonical main:** `a788f55f5251f0be92b33e0765d0436cb321eb8b`",
+            "**Implementation PR:** `#157`",
+            "**Final implementation head:** `450d9b5b9b3c6aca27222a553dc6230f6eef6783`",
+            "**Canonical implementation merge:** `b9aa4f7de8b924d283d09fa8d93dbaceb0f6b4cd`",
+            "**Successful acquisition run:** `33865617854`",
+            "**Exact-head qualification:** `33867186224`",
+            "**Independent substantive semantic review:** `33867564924`",
+            "**Mandatory premerge verification:** `33867838434`",
+            "**Post-implementation verification:** `33927258696`",
             "**Frontier-planning postmerge verification:** `33926866711`",
         ]
     )
@@ -69,6 +69,7 @@ def main() -> None:
     new_b011 = old_b011.replace("- [ ]", "- [x]", 1)
     assert old_b011 in tasks
     tasks = tasks.replace(old_b011, new_b011, 1)
+    tasks = "\n".join(line.rstrip() for line in tasks.split("\n"))
     boundary = (
         "  Outputs: `artifacts/manifests/B011-acquired-candidates.json` or explicit "
         "no-access decision artifact, runner evidence where executed, "
