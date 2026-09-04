@@ -1,0 +1,99 @@
+name: PR159 Sealed Evaluation Plan Repair
+
+on:
+  push:
+    branches:
+      - evidence/pr159-plan-sealed-review-repair
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    env:
+      EXPECTED_BASE: b9aa4f7de8b924d283d09fa8d93dbaceb0f6b4cd
+      EXPECTED_HEAD: 7b22890d72e12829cf412e643527d24831feb30f
+      TARGET_BRANCH: plan/000b-frontier-acceleration-2026-09
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Guard live target and add missing plan semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main "$TARGET_BRANCH"
+          test "$(git rev-parse origin/main)" = "$EXPECTED_BASE"
+          test "$(git rev-parse origin/$TARGET_BRANCH)" = "$EXPECTED_HEAD"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("specs/002-code-model-supremacy-foundation/plan.md")
+          text = path.read_text()
+          marker = "## 20. Frontier Acceleration Amendment — 2026-09-04"
+          if marker not in text:
+              raise SystemExit("frontier amendment missing")
+          if "### 20.7 Sealed evaluation and claim discipline" in text:
+              raise SystemExit("sealed evaluation repair already present")
+
+          addition = r'''
+
+### 20.7 Sealed evaluation and claim discipline
+
+MSTR-006 headline claims must be derived from a fresh/private or otherwise sealed evaluation surface. Public benchmark runs remain continuity evidence and may not substitute for the sealed claim surface.
+
+The sealed execution profile must fail closed on answer-recovery channels and bind exact evidence for at least:
+
+```text
+future_git_history_access = PROHIBITED
+public_solution_lookup = PROHIBITED
+network_answer_recovery = PROHIBITED
+cached_solution_reuse = PROHIBITED
+evaluator_or_hidden_answer_mutation = PROHIBITED
+evaluator_or_hidden_answer_extraction = PROHIBITED
+benchmark_identity_leakage = CONTROLLED
+```
+
+The exact benchmark/task manifest, repository snapshot, visible Git history boundary, network policy, cache state, evaluator identity, protected paths, harness profile, runtime/model identity, and invalidation reason must be recorded for every material claim run. Any violated or unproven leakage control invalidates that run for headline comparison rather than being repaired by post-hoc interpretation.
+
+B033 must red-team these controls before MSTR-000B closes. B032 must pass the requirement downstream to MSTR-006 without changing the existing raw/H0/H1/H2 attribution rule.
+
+### 20.8 Constitution Check — After Frontier Amendment
+
+The frontier amendment is additive planning only. It:
+
+- preserves the 8 GB / CPU-only / 8K / primary-Q4 <=3 GB product floor;
+- preserves local/accountless/offline/privacy defaults;
+- makes candidate selection more evidence-bound through a B013 freshness gate;
+- keeps K2 Horizon and every other named frontier model unselected until equivalent evidence exists;
+- keeps Q4 promotion mandatory while treating sub-Q4 methods only as later measured challengers;
+- adds no model-weight, model-execution, quantization-execution, training, RL, paid-compute, large-data, or release authority;
+- strengthens evaluation integrity through sealed anti-leakage requirements;
+- preserves separate raw/H0/H1/H2 attribution and TTVC/DVCR product metrics.
+
+**Result:** PASS_FOR_TASKING_WITH_FRONTIER_AMENDMENT. No constitution amendment is required.
+'''
+          path.write_text(text.rstrip() + addition + "\n")
+          PY
+          test "$(git diff --name-only | wc -l)" -eq 1
+          test "$(git diff --name-only)" = "specs/002-code-model-supremacy-foundation/plan.md"
+          grep -F "### 20.7 Sealed evaluation and claim discipline" specs/002-code-model-supremacy-foundation/plan.md
+          grep -F "### 20.8 Constitution Check — After Frontier Amendment" specs/002-code-model-supremacy-foundation/plan.md
+          git diff --check
+
+      - name: Commit guarded semantic repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add specs/002-code-model-supremacy-foundation/plan.md
+          git diff --cached --check
+          git commit -m "docs(mstr): seal frontier evaluation plan"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_BASE"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
