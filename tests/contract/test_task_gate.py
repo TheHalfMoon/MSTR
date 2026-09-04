@@ -188,17 +188,21 @@ def test_b010_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b011_remains_blocked_after_b010_closeout() -> None:
+def test_b011_is_eligible_after_exact_founder_authority_capture() -> None:
     result = evaluate_task_snapshot("B011", canonical_main=_CANONICAL_MAIN)
 
-    assert result["eligible"] is False
-    assert result["state_consistency_result"]["observed_state"] == "BLOCKED"
-    assert "task.blocked" in result["reasons"]
-    assert "task.unresolved_binding" in result["reasons"]
+    assert result["eligible"] is True
+    assert result["state_consistency_result"]["observed_state"] == "PENDING"
+    assert "task.blocked" not in result["reasons"]
+    assert "task.unresolved_binding" not in result["reasons"]
     predecessor = next(row for row in result["prerequisite_results"] if row["task_id"] == "B010")
     assert predecessor["satisfied"] is True
-    assert result["authority_result"]["required"] is True
-    assert result["authority_result"]["satisfied"] is False
+    assert result["authority_result"] == {
+        "required": True,
+        "authority_id": "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED",
+        "satisfied": True,
+        "reasons": [],
+    }
     validate_instance("mstr-task-eligibility-v0", result)
 
 
@@ -465,12 +469,17 @@ def test_b010_fails_closed_when_b009_decision_artifact_is_missing(tmp_path: Path
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_explicitly_blocked_task_never_becomes_eligible() -> None:
+def test_exact_founder_authority_unblocks_pending_b011() -> None:
     result = evaluate_task_snapshot("B011", canonical_main=_CANONICAL_MAIN)
 
-    assert result["eligible"] is False
-    assert "task.blocked" in result["reasons"]
-    assert "task.unresolved_binding" in result["reasons"]
+    assert result["eligible"] is True
+    assert result["state_consistency_result"]["observed_state"] == "PENDING"
+    assert "task.blocked" not in result["reasons"]
+    assert "task.unresolved_binding" not in result["reasons"]
+    assert result["authority_result"]["authority_id"] == (
+        "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"
+    )
+    assert result["authority_result"]["satisfied"] is True
 
 
 def test_terminal_task_is_not_execution_eligible() -> None:
@@ -880,16 +889,16 @@ def test_live_catalog_binds_reviewed_machine_outputs() -> None:
     assert catalog.nodes["B006"]["closeout_rule"]["require_all_outputs"] is True
 
 
-def test_b011_stays_weight_access_fail_closed_until_b010_resolution() -> None:
+def test_b011_weight_access_observes_exact_authority_after_b010_resolution() -> None:
     catalog = load_task_catalog()
     node = catalog.nodes["B011"]
-    assert node["canonical_state"] == "BLOCKED"
+    assert node["canonical_state"] == "PENDING"
     assert node["external_effect_class"] == "MODEL_WEIGHT_ACCESS"
     assert node["required_authority_id"] == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"
     result = evaluate_task_snapshot("B011", canonical_main=_CANONICAL_MAIN)
-    assert result["eligible"] is False
+    assert result["eligible"] is True
     assert result["authority_result"]["required"] is True
-    assert result["authority_result"]["satisfied"] is False
+    assert result["authority_result"]["satisfied"] is True
 
 
 def _symlink_or_skip(link: Path, target: Path) -> None:
@@ -1234,13 +1243,13 @@ def test_b020_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b014_closeout_does_not_authorize_b011_weight_access() -> None:
+def test_b014_closeout_does_not_change_b011_exact_authority_identity() -> None:
     result = evaluate_task_snapshot("B011", canonical_main=_CANONICAL_MAIN)
 
-    assert result["eligible"] is False
-    assert result["state_consistency_result"]["observed_state"] == "BLOCKED"
+    assert result["eligible"] is True
+    assert result["state_consistency_result"]["observed_state"] == "PENDING"
     assert result["authority_result"]["required"] is True
-    assert result["authority_result"]["satisfied"] is False
+    assert result["authority_result"]["satisfied"] is True
     assert result["authority_result"]["authority_id"] == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"
     validate_instance("mstr-task-eligibility-v0", result)
 

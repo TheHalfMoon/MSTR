@@ -173,7 +173,7 @@
       ]
     },
     "B011": {
-      "canonical_state": "BLOCKED",
+      "canonical_state": "PENDING",
       "closeout_rule": {
         "terminal_states": [
           "COMPLETE_CANONICAL",
@@ -530,7 +530,6 @@
   },
   "tasks_file": "specs/002-code-model-supremacy-foundation/tasks.md",
   "unresolved_bindings": {
-    "B011": "B010 must first determine whether new access is required. Until that decision is canonical, B011 remains BLOCKED under MODEL_WEIGHT_ACCESS. The access path must bind exact founder authority; the no-access path must explicitly change the node to NO_EXTERNAL_EFFECT before closing NOT_REQUIRED_NO_NEW_ACCESS.",
     "B013": "Existing-candidate T034 or canonical-equivalent hard-gate identity must be bound before B013 is unblocked."
   },
   "workstream_id": "MSTR-000B",

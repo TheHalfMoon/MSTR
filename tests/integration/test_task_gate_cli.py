@@ -186,7 +186,7 @@ def test_task_eligible_b010_terminal_returns_one(
     validate_instance("mstr-task-eligibility-v0", payload)
 
 
-def test_task_eligible_b011_blocked_returns_one(
+def test_task_eligible_b011_authorized_returns_zero(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     expected = evaluate_task_snapshot("B011", canonical_main=_CANONICAL_MAIN)
@@ -200,10 +200,10 @@ def test_task_eligible_b011_blocked_returns_one(
     )
     exit_code = main(["task", "eligible", "B011"])
     payload = _stdout_json(capsys)
-    assert exit_code == 1
+    assert exit_code == 0
     assert payload == expected
-    assert payload["eligible"] is False
-    assert "task.blocked" in payload["reasons"]
+    assert payload["eligible"] is True
+    assert payload["authority_result"]["satisfied"] is True
     validate_instance("mstr-task-eligibility-v0", payload)
 
 

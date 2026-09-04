@@ -22,7 +22,7 @@ def test_convergence_bindings_are_exact_and_fail_closed() -> None:
     unresolved = catalog["unresolved_bindings"]
     external = catalog["external_prerequisites"]
 
-    assert set(unresolved) == {"B011", "B013"}
+    assert set(unresolved) == {"B013"}
     assert tasks["B029"]["canonical_state"] == "COMPLETE_CANONICAL"
     assert tasks["B029"]["prerequisites"] == [
         "A005",
@@ -58,7 +58,8 @@ def test_convergence_bindings_are_exact_and_fail_closed() -> None:
         "B029",
         "B030",
     ]
-    assert tasks["B011"]["canonical_state"] == "BLOCKED"
+    assert tasks["B011"]["canonical_state"] == "PENDING"
+    assert tasks["B011"]["required_authority_id"] == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"
     assert tasks["B013"]["canonical_state"] == "BLOCKED"
 
     expected_paths = {
