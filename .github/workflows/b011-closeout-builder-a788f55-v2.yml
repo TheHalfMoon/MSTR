@@ -60,6 +60,8 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
           test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
           python -m pip install -e '.[dev]'
           python -m mstr_qualify task drift > /tmp/entry-drift.json
           jq -e '.status == "clean" and (.findings | length) == 0' /tmp/entry-drift.json >/dev/null
