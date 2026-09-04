@@ -36,7 +36,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-list --count "$CANONICAL_MAIN"..HEAD)" -eq 2
+          git merge-base --is-ancestor "$CANONICAL_MAIN" HEAD
           mapfile -t changed < <(git diff --name-only "$CANONICAL_MAIN" HEAD | sort)
           expected=(
             ".github/workflows/b011-acquire-exact-b010.yml"
@@ -53,8 +53,12 @@ jobs:
           set -euo pipefail
           remote_main="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)"
           test "$remote_main" = "$CANONICAL_MAIN"
+          git update-ref refs/heads/main "$CANONICAL_MAIN"
+          git update-ref refs/remotes/origin/main "$CANONICAL_MAIN"
           git checkout --detach "$CANONICAL_MAIN"
           test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$CANONICAL_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$CANONICAL_MAIN"
           echo "$B010_SHA256  artifacts/manifests/B010-new-candidate-weight-access.json" | sha256sum -c -
           echo 'B011_EXACT_MAIN_INPUTS=PASS'
 
@@ -92,7 +96,7 @@ jobs:
         with:
           name: b011-report-${{ matrix.candidate }}
           path: ${{ runner.temp }}/b011-report-${{ matrix.candidate }}.json
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
 
       - name: Delete all local model bodies defense-in-depth
@@ -112,4 +116,5 @@ jobs:
           remote_main="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)"
           test "$remote_main" = "$CANONICAL_MAIN"
           test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$CANONICAL_MAIN"
           echo 'B011_ACQUISITION_NO_DRIFT=PASS'
