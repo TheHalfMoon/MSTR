@@ -1,0 +1,147 @@
+name: Build B011 canonical closeout candidate v2
+
+on:
+  push:
+    branches:
+      - evidence/b011-closeout-builder-a788f55-v2
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: a788f55f5251f0be92b33e0765d0436cb321eb8b
+  TARGET_BRANCH: closeout/b011-acquisition
+  POSTIMPLEMENTATION_RUN: '33927258696'
+  POSTIMPLEMENTATION_HEAD: 20cfa49df97012f42a810856e13bcc0bacce2fd6
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout evidence-side builder
+        uses: actions/checkout@v4
+        with:
+          ref: evidence/b011-closeout-builder-a788f55-v2
+          fetch-depth: 1
+          path: evidence
+          persist-credentials: false
+
+      - name: Stage immutable builder outside worktree
+        run: cp evidence/.github/scripts/b011_closeout_builder.py /tmp/b011_closeout_builder.py
+
+      - name: Verify immutable canonical entry and post-implementation evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${POSTIMPLEMENTATION_RUN}" > /tmp/postimplementation.json
+          jq -e --arg sha "$POSTIMPLEMENTATION_HEAD" '.status == "completed" and .conclusion == "success" and .head_sha == $sha and .head_branch == "evidence/b011-postimplementation-a788f55-v2"' /tmp/postimplementation.json >/dev/null
+
+      - name: Checkout exact closeout target
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+          path: target
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify exact B011 entry gate
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task drift > /tmp/entry-drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/entry-drift.json >/dev/null
+          python -m mstr_qualify task eligible B011 > /tmp/b011-entry.json
+          jq -e --arg main "$EXPECTED_MAIN" '.canonical_main == $main and .task_id == "B011" and .eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == true and .authority_result.satisfied == true and (.reasons | length) == 0' /tmp/b011-entry.json >/dev/null
+
+      - name: Materialize bounded B011 closeout
+        working-directory: target
+        run: python /tmp/b011_closeout_builder.py
+
+      - name: Verify exact bounded diff
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          cat > /tmp/expected-files <<'EOF'
+          configs/task-gate/mstr-000b.json
+          evidence/mstr-000b/B011-acquisition.md
+          specs/002-code-model-supremacy-foundation/tasks.md
+          tests/contract/test_convergence_external_bindings.py
+          tests/contract/test_task_gate.py
+          tests/integration/test_task_gate_cli.py
+          EOF
+          sed -i 's/^          //' /tmp/expected-files
+          sort -o /tmp/expected-files /tmp/expected-files
+          git diff --name-only | sort > /tmp/actual-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git diff --quiet -- artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json artifacts/manifests/B010-new-candidate-weight-access.json artifacts/manifests/B011-acquired-candidates.json src schemas .github/workflows docs/canonical/CURRENT_STATE.md
+
+      - name: Candidate validation and quality
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify validate
+          python -m pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/contract/test_convergence_external_bindings.py
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+
+      - name: Commit candidate and prove prospective task frontier
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'TheHalfMoon'
+          git config user.email '285091250+TheHalfMoon@users.noreply.github.com'
+          git add configs/task-gate/mstr-000b.json evidence/mstr-000b/B011-acquisition.md specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_convergence_external_bindings.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          git commit -m 'closeout(mstr): canonicalize B011 acquisition'
+          candidate="$(git rev-parse HEAD)"
+          git update-ref refs/heads/main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          python -m mstr_qualify task drift > /tmp/prospective-drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0' /tmp/prospective-drift.json >/dev/null
+          set +e
+          python -m mstr_qualify task eligible B011 > /tmp/b011-prospective.json
+          b011_exit=$?
+          python -m mstr_qualify task eligible B012 > /tmp/b012-prospective.json
+          b012_exit=$?
+          python -m mstr_qualify task eligible B013 > /tmp/b013-prospective.json
+          b013_exit=$?
+          set -e
+          test "$b011_exit" -eq 1
+          test "$b012_exit" -eq 0
+          test "$b013_exit" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b011-prospective.json >/dev/null
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and (.reasons | length) == 0' /tmp/b012-prospective.json >/dev/null
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and (.reasons | index("prerequisite.unsatisfied:B012")) != null' /tmp/b013-prospective.json >/dev/null
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          echo "CANDIDATE_HEAD=$candidate"
+
+      - name: Guarded fast-forward push of target branch only
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git merge-base "$EXPECTED_MAIN" HEAD)" = "$EXPECTED_MAIN"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$(git rev-parse HEAD)"
+          echo 'B011_CLOSEOUT_CANDIDATE_BUILT=PASS'
