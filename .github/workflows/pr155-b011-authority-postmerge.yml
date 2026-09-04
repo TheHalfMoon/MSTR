@@ -44,6 +44,10 @@ jobs:
           test "${parents[1]}" = "$CANDIDATE_HEAD"
           gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
           jq -e --arg merge "$MERGE_SHA" --arg head "$CANDIDATE_HEAD" '.state == "closed" and .merged == true and .merge_commit_sha == $merge and .head.sha == $head' /tmp/pr.json >/dev/null
+          git update-ref refs/heads/main "$MERGE_SHA"
+          git update-ref refs/remotes/origin/main "$MERGE_SHA"
+          test "$(git rev-parse refs/heads/main)" = "$MERGE_SHA"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$MERGE_SHA"
           echo 'PR155_POSTMERGE_IDENTITY=PASS'
       - name: Install canonical tooling
         run: python -m pip install -e '.[dev]'
@@ -91,4 +95,6 @@ jobs:
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
           test "$(git rev-parse HEAD)" = "$MERGE_SHA"
           test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git rev-parse refs/heads/main)" = "$MERGE_SHA"
+          test "$(git rev-parse refs/remotes/origin/main)" = "$MERGE_SHA"
           echo 'PR155_B011_AUTHORITY_POSTMERGE=PASS'
