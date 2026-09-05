@@ -1,0 +1,163 @@
+name: Postmerge verification PR165 T030 implementation
+
+on:
+  push:
+    branches:
+      - evidence/pr165-t030-postmerge-8916fa7
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  checks: read
+  statuses: read
+
+env:
+  OLD_MAIN: 226609e3a29a5e5d038bbd0e9c744f3ff2877112
+  IMPL_HEAD: 0462786550d24096272b7541ab286e838b4a1c2e
+  MERGE_SHA: 8916fa7138ad56d18452b7a20db9c8cb982648ba
+  MERGE_TREE: b016ab6a3899accc352d8f177a2ba76451259f66
+  QUALIFICATION_RUN: '33971815139'
+  QUALIFICATION_EVIDENCE_HEAD: f48819767b1d571819736562aba22e84a84b3a85
+  REVIEW_RUN: '33972061731'
+  REVIEW_EVIDENCE_HEAD: 540d3346863f8be053e8ac199703a884a33998da
+  REVIEW_SUBMISSION_ID: '5121599106'
+  PREMERGE_RUN: '33972305104'
+  PREMERGE_EVIDENCE_HEAD: 62e7684531a788c22888eadcfc6e8d09b0c54e96
+
+jobs:
+  merge_identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Verify canonical main and merge provenance
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          token = os.environ["GH_TOKEN"]
+          headers = {
+              "Authorization": f"Bearer {token}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+          root = "https://api.github.com/repos/TheHalfMoon/MSTR"
+
+          def get(path: str):
+              request = urllib.request.Request(f"{root}{path}", headers=headers)
+              with urllib.request.urlopen(request) as response:
+                  return json.load(response)
+
+          pr = get("/pulls/165")
+          assert pr["state"] == "closed" and pr["merged"] is True
+          assert pr["merge_commit_sha"] == os.environ["MERGE_SHA"]
+          assert pr["head"]["sha"] == os.environ["IMPL_HEAD"]
+
+          merge = get(f"/commits/{os.environ['MERGE_SHA']}")
+          assert merge["commit"]["tree"]["sha"] == os.environ["MERGE_TREE"]
+          assert [parent["sha"] for parent in merge["parents"]] == [
+              os.environ["OLD_MAIN"],
+              os.environ["IMPL_HEAD"],
+          ]
+          assert merge["commit"]["verification"]["verified"] is True
+
+          for run_env, evidence_env in (
+              ("QUALIFICATION_RUN", "QUALIFICATION_EVIDENCE_HEAD"),
+              ("REVIEW_RUN", "REVIEW_EVIDENCE_HEAD"),
+              ("PREMERGE_RUN", "PREMERGE_EVIDENCE_HEAD"),
+          ):
+              run = get(f"/actions/runs/{os.environ[run_env]}")
+              assert run["status"] == "completed" and run["conclusion"] == "success"
+              assert run["head_sha"] == os.environ[evidence_env]
+
+          review = get(f"/pulls/165/reviews/{os.environ['REVIEW_SUBMISSION_ID']}")
+          assert review["state"] == "COMMENTED"
+          assert review["commit_id"] == os.environ["IMPL_HEAD"]
+          assert "Findings: NONE." in review["body"]
+
+          authority = urllib.request.Request(
+              f"{root}/contents/artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json?ref={os.environ['MERGE_SHA']}",
+              headers=headers,
+          )
+          try:
+              urllib.request.urlopen(authority)
+          except urllib.error.HTTPError as exc:
+              assert exc.code == 404
+          else:
+              raise AssertionError("B012 authority unexpectedly exists after T030 implementation merge")
+          PY
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Verify exact merged tree and preserved authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git rev-parse HEAD^1)" = "$OLD_MAIN"
+          test "$(git rev-parse HEAD^2)" = "$IMPL_HEAD"
+          git diff --check "$OLD_MAIN" "$MERGE_SHA"
+          grep -Fq 'self._verify_loaded_artifact_identity()' src/mstr_qualify/runtimes/benchmark_cli.py
+          grep -Fq '_BLOCKED_RUNTIME_ENV_PREFIXES = ("LLAMA_ARG_", "HF_")' src/mstr_qualify/runtimes/benchmark_cli.py
+          grep -Fq '"--model-url"' src/mstr_qualify/runtimes/benchmark_cli.py
+          grep -Fq '"--docker-repo"' src/mstr_qualify/runtimes/benchmark_cli.py
+          grep -Fq 'T031_EXECUTION_AUTHORITY = NONE_INFERRED_BY_T030' evidence/T030-runtime-adapters.md
+          test ! -e artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json
+
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run postmerge frozen quality gates on canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q \
+            tests/unit/test_runtime_benchmark_cli.py \
+            tests/security/test_runtime_benchmark_boundary.py \
+            tests/security/test_runtime_profile_alias_boundary.py \
+            tests/security/test_runtime_environment_boundary.py \
+            tests/integration/test_runtime_adapters.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          ruff check .
+          mypy
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test -z "$(git status --porcelain)"
+
+  final_postmerge:
+    needs: [merge_identity, quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Recheck canonical main and emit postmerge verdict
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          echo 'POSTMERGE_VERIFICATION=PASS'
+          echo "CANONICAL_MAIN=$MERGE_SHA"
+          echo 'T030_IMPLEMENTATION_MERGED=YES'
+          echo 'T030_COMPLETE_CANONICAL=NO_UNTIL_GOVERNANCE_CLOSEOUT'
+          echo 'T031_EXECUTION_AUTHORITY=NONE_INFERRED'
+          echo 'B012_AUTHORITY=ABSENT'
