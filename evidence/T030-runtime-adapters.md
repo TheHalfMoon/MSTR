@@ -156,22 +156,36 @@ FINAL_QUALIFICATION = SKIPPED
 DISPOSITION = NEGATIVE CANDIDATE EVIDENCE / SUPERSEDED BY FORMATTING REPAIR
 ```
 
-That run did execute and pass focused T030 tests, offline validation, full pytest, Ruff, and mypy, but its results do not transfer to the repaired head. Fresh qualification must bind the exact repaired head and execute all gates again.
+That run did execute and pass focused T030 tests, offline validation, full pytest, Ruff, and mypy, but its results do not transfer to the repaired head.
+
+The second current-main qualification attempt was also not a PASS:
 
 ```text
-T030_FOCUSED_TESTS = REQUIRED_ON_REPAIRED_HEAD
-MSTR_QUALIFY_VALIDATE = REQUIRED_ON_REPAIRED_HEAD
-FULL_PYTEST = REQUIRED_ON_REPAIRED_HEAD
-RUFF = REQUIRED_ON_REPAIRED_HEAD
-MYPY = REQUIRED_ON_REPAIRED_HEAD
-EXACT_HEAD_SCOPE_AND_IDENTITY = REQUIRED_ON_REPAIRED_HEAD
+RUN = 33969546445
+TARGET_HEAD = 776b5d4c1d8ba07f23ab7f78b27c067a1d132e07
+IDENTITY_SCOPE = SUCCESS
+QUALITY = SUCCESS
+FINAL_QUALIFICATION = FAILURE
+CAUSE = live PR head advanced during the run, so the exact-live-head final guard rejected transfer
+DISPOSITION = NEGATIVE QUALIFICATION EVIDENCE / NOT TRANSFERABLE TO A LATER HEAD
+```
+
+The v2 failure is a correct fail-closed outcome: successful tests on a superseded head do not qualify the live candidate. The final candidate must be frozen before a fresh qualification begins.
+
+```text
+T030_FOCUSED_TESTS = REQUIRED_ON_FINAL_FROZEN_HEAD
+MSTR_QUALIFY_VALIDATE = REQUIRED_ON_FINAL_FROZEN_HEAD
+FULL_PYTEST = REQUIRED_ON_FINAL_FROZEN_HEAD
+RUFF = REQUIRED_ON_FINAL_FROZEN_HEAD
+MYPY = REQUIRED_ON_FINAL_FROZEN_HEAD
+EXACT_HEAD_SCOPE_AND_IDENTITY = REQUIRED_ON_FINAL_FROZEN_HEAD
 INDEPENDENT_SUBSTANTIVE_REVIEW = REQUIRED
 MANDATORY_PREMERGE = REQUIRED
 POSTMERGE_VERIFICATION = REQUIRED
 T030_COMPLETE_CANONICAL = NO_UNTIL_GOVERNED_CLOSEOUT
 ```
 
-Qualification v2 is currently bound externally to repaired head `776b5d4c1d8ba07f23ab7f78b27c067a1d132e07`; no PASS is claimed here until the run is terminal and successful.
+No qualification PASS is claimed by this candidate before a fresh exact-head run reaches a successful terminal final guard.
 
 ## Authority Boundary
 
