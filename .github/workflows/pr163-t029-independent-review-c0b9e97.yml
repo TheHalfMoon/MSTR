@@ -17,6 +17,7 @@ env:
   TARGET_BRANCH: fix/000-t029-recovery-current-main
   QUALIFICATION_RUN: '33965047138'
   QUALIFICATION_EVIDENCE_HEAD: 43523ce4a4fc5e8af5c5974664c1cb02d4ba03ee
+  PRIOR_REVIEW_NEGATIVE_RUN: '33965245059'
   QWEN_ARTIFACT_ID: '9603552151'
   QWEN_ARCHIVE_SHA256: 69a78e2185337b58940b2dc3ab993d182fa9be9f3eaad95fa43a5bf682f9e4a3
   QWEN_REPORT_SHA256: aad35a2f4db1aff3f2a436a7b98d03a92def063067fc9f294d4a0fcabd8f5d61
@@ -56,6 +57,11 @@ jobs:
           assert qualification['status'] == 'completed'
           assert qualification['conclusion'] == 'success'
           assert qualification['head_sha'] == os.environ['QUALIFICATION_EVIDENCE_HEAD']
+          negative_review = get(
+              f"https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/{os.environ['PRIOR_REVIEW_NEGATIVE_RUN']}"
+          )
+          assert negative_review['status'] == 'completed'
+          assert negative_review['conclusion'] == 'failure'
           pr = get('https://api.github.com/repos/TheHalfMoon/MSTR/pulls/163')
           assert pr['state'] == 'open'
           assert pr['draft'] is False
@@ -142,13 +148,45 @@ jobs:
           for arm in ('Q4_K_M', 'Q4_K_S'):
               assert ministral['quantization_arms'][arm]['output_sha256'] == mp['quantization_arms'][arm]['output_sha256']
           PY
-      - name: Review fail-closed network security design
+      - name: Review fail-closed network security design behaviorally
         shell: bash
         run: |
           set -euo pipefail
-          grep -F 'if parsed.username is not None or parsed.password is not None:' colab/mstr_t029_quantize.py
-          grep -F 'if parsed.port not in (None, 443):' colab/mstr_t029_quantize.py
-          grep -F 'AllowlistedRedirectHandler' colab/mstr_t029_quantize.py
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+
+          path = Path('colab/mstr_t029_quantize.py')
+          spec = importlib.util.spec_from_file_location('mstr_t029_quantize_review', path)
+          assert spec is not None and spec.loader is not None
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+
+          allowed = frozenset({'huggingface.co', 'us.aws.cdn.hf.co'})
+          assert module._validated_https_host('https://huggingface.co/x', allowed) == 'huggingface.co'
+          assert module._validated_https_host('https://huggingface.co:443/x', allowed) == 'huggingface.co'
+          rejected = (
+              'http://huggingface.co/x',
+              'https://user:pass@huggingface.co/x',
+              'https://huggingface.co:444/x',
+              'https://huggingface.co:notaport/x',
+              'https://example.com/x',
+          )
+          for url in rejected:
+              try:
+                  module._validated_https_host(url, allowed)
+              except module.NetworkPolicyError:
+                  pass
+              else:
+                  raise AssertionError(f'network policy accepted forbidden URL: {url}')
+          handler = module.AllowlistedRedirectHandler(frozenset({'huggingface.co'}))
+          try:
+              handler.redirect_request(None, None, 302, 'Found', {}, 'https://example.com/blob')
+          except module.NetworkPolicyError:
+              pass
+          else:
+              raise AssertionError('redirect handler accepted unlisted host')
+          PY
           grep -F 'binding.get("sha256") != sha256_file(t027_manifest_path)' colab/mstr_t029_quantize.py
           grep -F 'package indexes (pypi/npm)' specs/000-universal-laptop-interaction-contract/evidence/T027-weight-access-preflight.md
           grep -F 'pip install numpy torch --index-url https://pypi.org/simple/' .github/workflows/t029-quantize.yml
@@ -171,5 +209,6 @@ jobs:
           set -euo pipefail
           test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
           test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_HEAD"
+          echo 'PRIOR_REVIEW_NEGATIVE_RUN=33965245059_HARNESS_ONLY'
           echo 'FINDINGS=NONE'
           echo 'INDEPENDENT_SEMANTIC_SECURITY_REVIEW=PASS'
