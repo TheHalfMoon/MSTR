@@ -69,6 +69,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git add -N \
+            artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json \
+            artifacts/manifests/T031-local-measurement-execution-envelope.json \
+            tests/contract/test_t031_authority.py
           changed="$(git diff --name-only | sort)"
           expected="$(printf '%s\n' artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json artifacts/manifests/T031-local-measurement-execution-envelope.json tests/contract/test_t031_authority.py | sort)"
           test "$changed" = "$expected"
