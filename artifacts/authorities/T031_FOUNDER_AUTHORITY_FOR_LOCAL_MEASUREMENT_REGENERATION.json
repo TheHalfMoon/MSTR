@@ -1,0 +1,65 @@
+{
+  "authority_id": "T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION",
+  "cost_resource_ceiling": {
+    "cost_model": "exact-t029-zero-usd-local-measurement-regeneration",
+    "limits": [
+      {
+        "max": 0.0,
+        "resource": "cost",
+        "unit": "USD"
+      },
+      {
+        "max": 48742940294,
+        "resource": "aggregate_required_source_download_bytes",
+        "unit": "bytes"
+      }
+    ]
+  },
+  "external_effect_class": "MODEL_WEIGHT_ACCESS",
+  "scope": {
+    "allowed_operations": [
+      "REACQUIRE_EXACT_T027_INPUTS_FOR_EIGHT_T029_CANDIDATES",
+      "VERIFY_EVERY_ACQUIRED_ARTIFACT",
+      "REGENERATE_EXACT_T029_F16_AND_Q4_IDENTITIES_OR_FAIL_CLOSED",
+      "EXECUTE_T030_PORTABLE_CPU_RUNTIME_FOR_T031_MEASUREMENTS",
+      "RETAIN_REVIEWED_JSONL_JSON_MARKDOWN_MANIFEST_RESULTS_ONLY"
+    ],
+    "b010_b012_candidates": false,
+    "bounded_execution_envelope": {
+      "dispatch_state": "BLOCKED_PENDING_CANONICAL_EXECUTOR_TOOLCHAIN_BINDING",
+      "path": "artifacts/manifests/T031-local-measurement-execution-envelope.json",
+      "sha256": "4507a5d9c00c76e56115d451bb40848315c439fc37aa3954c33df02b055ebf12"
+    },
+    "candidate_ids": [
+      "granite-4.1-3b",
+      "ministral-3-3b",
+      "qwen2.5-coder-1.5b",
+      "qwen3-4b",
+      "qwen3.5-2b",
+      "qwen3.5-4b",
+      "smollm3-3b",
+      "yi-coder-1.5b"
+    ],
+    "candidate_revision_or_file_expansion": false,
+    "decision": "FOUNDER_T031_LOCAL_MEASUREMENT_DECISION=AUTHORIZE_EXACT_T029_CANDIDATES",
+    "decision_surface": {
+      "comment_id": 5553875809,
+      "issue": 167
+    },
+    "founder_machine_large_artifacts": 0,
+    "gated_terms_acceptance": false,
+    "git_model_binaries": false,
+    "large_dataset_ingestion": false,
+    "new_candidates": false,
+    "paid_compute": false,
+    "paid_model_api": false,
+    "production_release": false,
+    "t032_execution": false,
+    "t033_execution": false,
+    "t034_admission_decision": false,
+    "training": false,
+    "weight_changing_training": false
+  },
+  "status": "AUTHORIZED_CANONICAL",
+  "task_id": "T031"
+}
