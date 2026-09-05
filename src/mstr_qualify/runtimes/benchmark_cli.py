@@ -35,6 +35,10 @@ from .base import (
 _SHA1_RE = re.compile(r"^[0-9a-f]{40}$")
 _SHORT_GIT_RE = re.compile(r"^[0-9a-f]{7,40}$")
 _FORBIDDEN_NETWORK_FLAGS = (
+    "-mu",
+    "--model-url",
+    "-dr",
+    "--docker-repo",
     "-hf",
     "-hfr",
     "--hf-repo",
