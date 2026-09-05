@@ -1,9 +1,13 @@
 # T030 Portable CPU Runtime Adapter Evidence
 
-**Task:** `T030`  
-**Canonical reconciliation base:** `226609e3a29a5e5d038bbd0e9c744f3ff2877112`  
-**Historical source PR:** `#96`  
-**Historical source head:** `b4adce223a9a5c833f2c2392d742cb93bdad0ba3`  
+**Task:** `T030`
+
+**Canonical reconciliation base:** `226609e3a29a5e5d038bbd0e9c744f3ff2877112`
+
+**Historical source PR:** `#96`
+
+**Historical source head:** `b4adce223a9a5c833f2c2392d742cb93bdad0ba3`
+
 **State:** `CURRENT_MAIN_RECONCILIATION / IMPLEMENTATION_CANDIDATE / QUALIFICATION_PENDING / NOT_COMPLETE_CANONICAL`
 
 ## Entry Gate
