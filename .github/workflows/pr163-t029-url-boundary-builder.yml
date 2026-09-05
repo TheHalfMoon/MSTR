@@ -36,6 +36,9 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install formatter
+        run: python -m pip install 'ruff<1,>=0.12'
+
       - name: Materialize bounded URL-boundary and evidence repair
         shell: bash
         run: |
