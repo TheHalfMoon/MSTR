@@ -1,8 +1,8 @@
 # T029 Q4 Profile Qualification Evidence
 
 **Task:** `T029`
-**State:** `Q4_PROFILE_SET_READY / QUALIFICATION_PENDING / NOT_COMPLETE_CANONICAL`
-**Current reconciliation base:** `5cadbd754686ebff6f5327e9746f0b074b35e318`
+**State:** `CLOSEOUT_CANDIDATE / COMPLETE_CANONICAL_ON_MERGE / Q4_PROFILE_SET_READY`
+**Canonical implementation merge:** `29df1b4be142407fbd31e13dca00e525dd729365`
 **Historical recovery PR:** `#95` / current historical head `deac1ffd5a9ef4107ad3ad28e472d7d17c47033f`
 
 ## Contract
@@ -155,12 +155,33 @@ GATED_TERMS_ACCEPTANCE = NONE
 PRODUCTION_RELEASE = NONE
 ```
 
+## Canonical Closeout Lifecycle
+
+The current-main reconciliation completed the full governed lifecycle without new model execution or authority expansion:
+
+```text
+IMPLEMENTATION_PR = #163
+IMPLEMENTATION_HEAD = c0b9e977dedf38282872e469aa364dae8e5abf50
+IMPLEMENTATION_TREE = 15fb0a0088e1be09d1071c960dbea1fd91df5cb5
+EXACT_HEAD_QUALIFICATION = 33965047138 / SUCCESS / evidence 43523ce4a4fc5e8af5c5974664c1cb02d4ba03ee
+INDEPENDENT_SEMANTIC_SECURITY_REVIEW = 33965362614 / SUCCESS / evidence faa42705bd9143f4e17771ca59a40e491b00576a
+MANDATORY_PREMERGE = 33965724065 / SUCCESS / evidence 172fd9f956421d109fbed9336fb993ab90b3597d
+MERGE = 29df1b4be142407fbd31e13dca00e525dd729365
+POSTMERGE = 33966014675 / SUCCESS / evidence a5524296012c5cc1c15f01fe3ec4796c8b436db2
+```
+
+The earlier review run `33965245059` remains harness-only negative evidence: primary-artifact and authority checks passed, while a brittle textual assertion failed before the full-quality step. It is not treated as a semantic finding and does not replace the corrected successful independent review.
+
+This closeout is governance-only. It does not rerun quantization, acquire weights, widen T027/T028, create B012 authority, authorize K2 Horizon, or make the historical T029 workflow dispatch-ready for future regeneration.
+
 ## Completion Boundary
 
 ```text
 T029_EXECUTION_PROFILE_SET = 8_FULLY_VERIFIED
-T029_CURRENT_RECONCILIATION_QUALIFICATION = PENDING
-T029_COMPLETE_CANONICAL = NO
+T029_RECONCILIATION_LIFECYCLE = COMPLETE
+T029_CLOSEOUT_STATE = COMPLETE_CANONICAL_ON_MERGE
+T029_FUTURE_REGENERATION_EXECUTION_READY = NO
+T029_COMPLETE_CANONICAL = YES_ON_CLOSEOUT_MERGE
 ```
 
-T029 may become canonical only after this current-main reconciliation passes the complete governed lifecycle and a separate closeout proves the task/evidence state on exact canonical `main`.
+Upon merge of this bounded closeout, T029 is `COMPLETE_CANONICAL`. Future T029 regeneration remains separately fail-closed until exact toolchain/network authority is proven; canonical completion does not create execution authority.
