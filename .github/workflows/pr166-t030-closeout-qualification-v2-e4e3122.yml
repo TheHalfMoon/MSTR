@@ -1,0 +1,147 @@
+name: Exact-head qualification PR166 T030 closeout v2
+
+on:
+  push:
+    branches:
+      - evidence/pr166-t030-closeout-qualification-v2-e4e3122
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  PR_NUMBER: '166'
+  BASE_SHA: 8916fa7138ad56d18452b7a20db9c8cb982648ba
+  HEAD_SHA: e4e312252b314cb47e3b4a93b026bf9f33bc0b2c
+  HEAD_TREE: 12e384972d7c3d66af8616cc0b783c2b2e5727a2
+  TARGET_BRANCH: closeout/000-t030-canonical
+
+jobs:
+  identity_semantics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify exact live identity and lifecycle prerequisites
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          python - <<'PY'
+          import json, os, urllib.request, urllib.error
+          token=os.environ['GH_TOKEN']
+          headers={'Authorization':f'Bearer {token}','Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}
+          root='https://api.github.com/repos/TheHalfMoon/MSTR'
+          def get(path):
+              req=urllib.request.Request(root+path,headers=headers)
+              with urllib.request.urlopen(req) as r: return json.load(r)
+          pr=get('/pulls/166')
+          assert pr['state']=='open' and not pr['draft'] and not pr['merged']
+          assert pr['base']['sha']==os.environ['BASE_SHA'] and pr['head']['sha']==os.environ['HEAD_SHA']
+          assert pr['commits']==3 and pr['changed_files']==3
+          expected={'docs/canonical/CURRENT_STATE.md','evidence/T030-runtime-adapters.md','specs/000-universal-laptop-interaction-contract/tasks.md'}
+          assert {f['filename'] for f in get('/pulls/166/files?per_page=100')}==expected
+          for run_id in (33971815139,33971878391,33972061731,33972305104,33972551215):
+              run=get(f'/actions/runs/{run_id}')
+              assert run['status']=='completed' and run['conclusion']=='success', run_id
+          reviews=get('/pulls/165/reviews?per_page=100')
+          rv=next(r for r in reviews if r['id']==5121599106)
+          assert rv['state']=='COMMENTED' and rv['commit_id']=='0462786550d24096272b7541ab286e838b4a1c2e'
+          assert 'Findings: NONE' in rv['body']
+          req=urllib.request.Request(root+'/contents/artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json?ref='+os.environ['BASE_SHA'],headers=headers)
+          try: urllib.request.urlopen(req)
+          except urllib.error.HTTPError as exc: assert exc.code==404
+          else: raise AssertionError('B012 authority unexpectedly exists')
+          PY
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - name: Verify exact bounded diff and reconciled canonical semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          test "$(git merge-base "$BASE_SHA" "$HEAD_SHA")" = "$BASE_SHA"
+          test "$(git rev-list --count "$BASE_SHA..$HEAD_SHA")" = 3
+          git diff --check "$BASE_SHA" "$HEAD_SHA"
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort > /tmp/actual
+          printf '%s\n' docs/canonical/CURRENT_STATE.md evidence/T030-runtime-adapters.md specs/000-universal-laptop-interaction-contract/tasks.md | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/actual
+          python - <<'PY'
+          import json,re
+          from pathlib import Path
+          t=Path('specs/000-universal-laptop-interaction-contract/tasks.md').read_text()
+          assert '- [x] T030 [US1]' in t and '- [ ] T031 [US1]' in t
+          a=Path('specs/001-agent-harness-verified-loop-foundation/tasks.md').read_text()
+          for n in range(5,19): assert re.search(rf'- \[x\] \*\*A{n:03d}\b',a),n
+          for n in range(19,25): assert re.search(rf'- \[ \] \*\*A{n:03d}\b',a),n
+          b=json.loads(Path('configs/task-gate/mstr-000b.json').read_text())['tasks']
+          for n in list(range(1,12))+list(range(14,31)): assert b[f'B{n:03d}']['canonical_state']=='COMPLETE_CANONICAL',n
+          assert b['B012']['canonical_state']=='PENDING'
+          assert b['B012']['required_authority_id']=='B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
+          assert b['B013']['canonical_state']=='BLOCKED'
+          for n in range(31,35): assert b[f'B{n:03d}']['canonical_state']=='PENDING',n
+          s=Path('docs/canonical/CURRENT_STATE.md').read_text()
+          required=(
+            '## Canonical History Through T030 + A018',
+            'T000-T030 = COMPLETE_CANONICAL',
+            'A005-A018 = COMPLETE_CANONICAL',
+            'A001-A018 are `COMPLETE_CANONICAL`.',
+            'A019 = PENDING / CONVERGENCE_GATED / REQUIRES_B013_STABLE_POOL',
+            'A020 = PENDING / CONVERGENCE_GATED / REQUIRES_B013_STABLE_POOL_AND_B026_RESEARCH_LADDER',
+            'LAST_COMPLETE_MSTR_000B_TASK = B030 / COMPLETE_CANONICAL',
+            'B012 = PENDING / BLOCKED_BY_EXACT_FOUNDER_AUTHORITY',
+            'B013 = BLOCKED_BY_B012',
+            'B014-B030 = COMPLETE_CANONICAL',
+            'T031 = NEXT / MATERIAL_EXECUTION_AUTHORITY_AND_EPHEMERAL_ARTIFACT_RECONCILIATION_REQUIRED / NOT_COMPLETE_CANONICAL',
+          )
+          for x in required: assert x in s,x
+          assert 'The next MSTR-000A early-safe task is A005' not in s
+          e=Path('evidence/T030-runtime-adapters.md').read_text()
+          for x in ('IMPLEMENTATION_PR = #165','POSTMERGE = 33972551215 / SUCCESS','FULL_PYTEST = 1354 PASSED','T030_COMPLETE_CANONICAL = YES_ON_CLOSEOUT_MERGE','T031_EXECUTION_AUTHORITY = NOT_CREATED_BY_T030','B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION = ABSENT'):
+              assert x in e,x
+          assert not Path('artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json').exists()
+          PY
+
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run frozen repository gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          python -m pytest -q
+          ruff check .
+          mypy
+          git diff --check "$BASE_SHA" "$HEAD_SHA"
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          test -z "$(git status --porcelain)"
+
+  final_qualification:
+    needs: [identity_semantics, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recheck immutable exact live heads
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          echo T030_CLOSEOUT_EXACT_HEAD_QUALIFICATION=PASS
+          echo QUALIFIED_HEAD=$HEAD_SHA
+          echo QUALIFIED_TREE=$HEAD_TREE
+          echo EXTERNAL_EXECUTION=NONE
