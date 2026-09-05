@@ -1,0 +1,175 @@
+name: Independent review PR163 T029 exact head
+
+on:
+  push:
+    branches:
+      - evidence/pr163-t029-independent-review-c0b9e97
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: 5cadbd754686ebff6f5327e9746f0b074b35e318
+  TARGET_HEAD: c0b9e977dedf38282872e469aa364dae8e5abf50
+  TARGET_TREE: 15fb0a0088e1be09d1071c960dbea1fd91df5cb5
+  TARGET_BRANCH: fix/000-t029-recovery-current-main
+  QUALIFICATION_RUN: '33965047138'
+  QUALIFICATION_EVIDENCE_HEAD: 43523ce4a4fc5e8af5c5974664c1cb02d4ba03ee
+  QWEN_ARTIFACT_ID: '9603552151'
+  QWEN_ARCHIVE_SHA256: 69a78e2185337b58940b2dc3ab993d182fa9be9f3eaad95fa43a5bf682f9e4a3
+  QWEN_REPORT_SHA256: aad35a2f4db1aff3f2a436a7b98d03a92def063067fc9f294d4a0fcabd8f5d61
+  QWEN_Q4KS_SHA256: a6fe3727940dde3382e2f2a353a51bc2e6970d4e660260428899c29c8e4583e9
+  MINISTRAL_ARTIFACT_ID: '9729481097'
+  MINISTRAL_ARCHIVE_SHA256: 2ee155799e1e163cd1c0c90290fec2ce7f1a621dbc6f93960cd620c956a006c5
+  MINISTRAL_REPORT_SHA256: 120dfabdc328bb7f2adceffd534c651edef57d6dfb9f5dbf0add627f1364b194
+
+jobs:
+  independent_semantic_security_review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Verify exact candidate and prerequisite qualification
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_HEAD"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          headers = {
+              'Authorization': f"Bearer {os.environ['GH_TOKEN']}",
+              'Accept': 'application/vnd.github+json',
+          }
+          def get(url: str):
+              request = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(request) as response:
+                  return json.load(response)
+          qualification = get(
+              f"https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/{os.environ['QUALIFICATION_RUN']}"
+          )
+          assert qualification['status'] == 'completed'
+          assert qualification['conclusion'] == 'success'
+          assert qualification['head_sha'] == os.environ['QUALIFICATION_EVIDENCE_HEAD']
+          pr = get('https://api.github.com/repos/TheHalfMoon/MSTR/pulls/163')
+          assert pr['state'] == 'open'
+          assert pr['draft'] is False
+          assert pr['base']['sha'] == os.environ['EXPECTED_MAIN']
+          assert pr['head']['sha'] == os.environ['TARGET_HEAD']
+          assert pr['changed_files'] == 9
+          PY
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Review exact scope and authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$EXPECTED_MAIN" "$TARGET_HEAD")" = "$EXPECTED_MAIN"
+          git diff --check "$EXPECTED_MAIN" "$TARGET_HEAD"
+          git diff --name-only "$EXPECTED_MAIN" "$TARGET_HEAD" | sort > /tmp/actual.txt
+          cat > /tmp/expected.txt <<'EOF'
+          .github/workflows/t029-quantize.yml
+          artifacts/manifests/quantization/T029-ministral-recovery-provenance.json
+          artifacts/manifests/quantization/T029-q4-profiles.json
+          artifacts/manifests/quantization/T029-qwen3.5-2b-historical-provenance.json
+          colab/mstr_t029_quantize.py
+          evidence/T029-q4-profiles.md
+          evidence/T029-runner-recovery.md
+          tests/contract/test_t029_quantization_manifest.py
+          tests/unit/test_t029_quantize_runner.py
+          EOF
+          sed -i 's/^          //' /tmp/expected.txt
+          sort -o /tmp/expected.txt /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+          test -z "$(git diff --name-only "$EXPECTED_MAIN" "$TARGET_HEAD" -- artifacts/authorities configs/task-gate docs/canonical/CURRENT_STATE.md specs/002-code-model-supremacy-foundation/tasks.md)"
+          test ! -e artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json
+          ! git diff "$EXPECTED_MAIN" "$TARGET_HEAD" -- . ':!evidence/**' | grep -F 'AUTHORIZED_CANONICAL'
+          ! git diff "$EXPECTED_MAIN" "$TARGET_HEAD" -- . ':!evidence/**' | grep -F 'K2 Horizon'
+      - name: Independently verify primary artifact truth
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/qwen /tmp/ministral
+          curl -L --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/TheHalfMoon/MSTR/actions/artifacts/$QWEN_ARTIFACT_ID/zip" \
+            -o /tmp/qwen.zip
+          test "$(sha256sum /tmp/qwen.zip | cut -d' ' -f1)" = "$QWEN_ARCHIVE_SHA256"
+          unzip -q /tmp/qwen.zip -d /tmp/qwen
+          test "$(sha256sum /tmp/qwen/t029-qwen3.5-2b.json | cut -d' ' -f1)" = "$QWEN_REPORT_SHA256"
+          curl -L --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/TheHalfMoon/MSTR/actions/artifacts/$MINISTRAL_ARTIFACT_ID/zip" \
+            -o /tmp/ministral.zip
+          test "$(sha256sum /tmp/ministral.zip | cut -d' ' -f1)" = "$MINISTRAL_ARCHIVE_SHA256"
+          unzip -q /tmp/ministral.zip -d /tmp/ministral
+          test "$(sha256sum /tmp/ministral/t029-ministral-3-3b.json | cut -d' ' -f1)" = "$MINISTRAL_REPORT_SHA256"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          manifest = json.loads(Path('artifacts/manifests/quantization/T029-q4-profiles.json').read_text())
+          qwen = json.loads(Path('/tmp/qwen/t029-qwen3.5-2b.json').read_text())
+          ministral = json.loads(Path('/tmp/ministral/t029-ministral-3-3b.json').read_text())
+          profiles = manifest['profiles']
+          assert len(profiles) == 8
+          assert manifest['pending'] == []
+          assert manifest['completion_state'] == 'Q4_PROFILE_SET_READY_NOT_T029_COMPLETE_CANONICAL'
+          assert all(p['result_classification'] == 'Q4_PROFILE_READY' for p in profiles)
+          qp = next(p for p in profiles if p['candidate_id'] == 'qwen3.5-2b')
+          mp = next(p for p in profiles if p['candidate_id'] == 'ministral-3-3b')
+          assert qwen['result_classification'] == 'Q4_PROFILE_READY'
+          assert qwen['quantization_arms']['Q4_K_S']['output_sha256'] == os.environ['QWEN_Q4KS_SHA256']
+          assert qwen['quantization_arms']['Q4_K_S']['output_sha256'] == qp['quantization_arms']['Q4_K_S']['output_sha256']
+          assert ministral['result_classification'] == 'Q4_PROFILE_READY'
+          assert ministral['conversion']['gguf_f16_sha256'] == mp['f16_sha256']
+          for arm in ('Q4_K_M', 'Q4_K_S'):
+              assert ministral['quantization_arms'][arm]['output_sha256'] == mp['quantization_arms'][arm]['output_sha256']
+          PY
+      - name: Review fail-closed network security design
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'if parsed.username is not None or parsed.password is not None:' colab/mstr_t029_quantize.py
+          grep -F 'if parsed.port not in (None, 443):' colab/mstr_t029_quantize.py
+          grep -F 'AllowlistedRedirectHandler' colab/mstr_t029_quantize.py
+          grep -F 'binding.get("sha256") != sha256_file(t027_manifest_path)' colab/mstr_t029_quantize.py
+          grep -F 'package indexes (pypi/npm)' specs/000-universal-laptop-interaction-contract/evidence/T027-weight-access-preflight.md
+          grep -F 'pip install numpy torch --index-url https://pypi.org/simple/' .github/workflows/t029-quantize.yml
+          grep -F 'T029_FUTURE_REGENERATION_EXECUTION_READY = NO' evidence/T029-q4-profiles.md
+          grep -F 'TOOLCHAIN_NETWORK_AUTHORITY = MUST_BE_PROVEN_BEFORE_DISPATCH' evidence/T029-q4-profiles.md
+          grep -F 'T029_COMPLETE_CANONICAL = NO' evidence/T029-q4-profiles.md
+      - name: Independent focused and full quality rerun
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_t029_quantization_manifest.py tests/unit/test_t029_quantize_runner.py
+          mstr-qualify validate
+          python -m pytest -q
+          ruff check .
+          mypy
+      - name: Final immutability and review verdict
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_HEAD"
+          echo 'FINDINGS=NONE'
+          echo 'INDEPENDENT_SEMANTIC_SECURITY_REVIEW=PASS'
