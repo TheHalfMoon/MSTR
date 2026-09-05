@@ -17,7 +17,7 @@ jobs:
       EXPECTED_MAIN: 5cadbd754686ebff6f5327e9746f0b074b35e318
       EXPECTED_TARGET: 55544a4d9a0cc7b062caa98fe0f730952f9d76e5
       TARGET_BRANCH: fix/000-t029-recovery-current-main
-      BUILDER_COMMIT: 7e19faf3353c02ac4366c1972525298e18739d4b
+      BUILDER_COMMIT: d8661c104e08d1f64c891be936a159ab1619b41d
       QWEN_ARTIFACT_ID: '9603552151'
       QWEN_ARCHIVE_SHA256: 69a78e2185337b58940b2dc3ab993d182fa9be9f3eaad95fa43a5bf682f9e4a3
       QWEN_REPORT_SHA256: aad35a2f4db1aff3f2a436a7b98d03a92def063067fc9f294d4a0fcabd8f5d61
@@ -76,7 +76,7 @@ jobs:
           git show "$BUILDER_COMMIT:.github/scripts/pr163_qwen_primary_truth_repair.py" > /tmp/builder.py
           python /tmp/builder.py
 
-      - name: Verify exact four-file repair scope and whitespace
+      - name: Verify exact five-file repair scope and whitespace
         shell: bash
         run: |
           set -euo pipefail
@@ -86,6 +86,7 @@ jobs:
           artifacts/manifests/quantization/T029-q4-profiles.json
           artifacts/manifests/quantization/T029-qwen3.5-2b-historical-provenance.json
           evidence/T029-q4-profiles.md
+          evidence/T029-runner-recovery.md
           tests/contract/test_t029_quantization_manifest.py
           EOF
           sed -i 's/^          //' /tmp/expected.txt
@@ -119,6 +120,7 @@ jobs:
           git add artifacts/manifests/quantization/T029-q4-profiles.json \
             artifacts/manifests/quantization/T029-qwen3.5-2b-historical-provenance.json \
             evidence/T029-q4-profiles.md \
+            evidence/T029-runner-recovery.md \
             tests/contract/test_t029_quantization_manifest.py
           git commit -m "fix(mstr-000): restore Qwen T029 primary artifact truth"
 
