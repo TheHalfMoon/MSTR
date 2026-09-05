@@ -1,0 +1,145 @@
+name: Build B012 fail-closed external-effect authority gate
+
+on:
+  push:
+    branches:
+      - evidence/b012-external-effect-gate-builder-5aaa64c
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_MAIN: 5aaa64c2f93f7edbe991f62ce822ed134d9f1b59
+  TARGET_BRANCH: governance/b012-external-effect-gate
+  AUTHORITY_ID: B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout evidence-side builder
+        uses: actions/checkout@v4
+        with:
+          ref: evidence/b012-external-effect-gate-builder-5aaa64c
+          fetch-depth: 1
+          path: evidence
+          persist-credentials: false
+
+      - name: Stage immutable builder outside worktree
+        shell: bash
+        run: cp evidence/.github/scripts/b012_external_effect_gate_builder.py /tmp/b012_external_effect_gate_builder.py
+
+      - name: Checkout exact unchanged governance target
+        uses: actions/checkout@v4
+        with:
+          ref: governance/b012-external-effect-gate
+          fetch-depth: 0
+          path: target
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify exact canonical entry and current B012 truth
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          git update-ref refs/remotes/origin/main "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          mstr-qualify task drift > /tmp/entry-drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/entry-drift.json >/dev/null
+          set +e
+          mstr-qualify task eligible B012 > /tmp/entry-b012.json
+          entry_exit=$?
+          set -e
+          test "$entry_exit" -eq 0
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and (.reasons | length) == 0' /tmp/entry-b012.json >/dev/null
+          echo 'B012_PRE_REPAIR_MACHINE_ELIGIBILITY_WITHOUT_AUTHORITY=PROVEN'
+
+      - name: Materialize bounded governance repair
+        working-directory: target
+        shell: bash
+        run: python /tmp/b012_external_effect_gate_builder.py
+
+      - name: Verify exact four-file bounded diff
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          mapfile -t actual < <(git diff --name-only | sort)
+          expected=(
+            configs/task-gate/mstr-000b.json
+            specs/002-code-model-supremacy-foundation/tasks.md
+            tests/contract/test_convergence_external_bindings.py
+            tests/contract/test_task_gate.py
+            tests/integration/test_task_gate_cli.py
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 5
+          diff -u <(printf '%s\n' "${wanted[@]}") <(printf '%s\n' "${actual[@]}")
+          test -z "$(git diff --name-only -- src schemas artifacts/authorities artifacts/manifests docs/canonical/CURRENT_STATE.md .github/workflows)"
+          echo 'B012_AUTHORITY_GATE_BOUNDED_DIFF=PASS'
+
+      - name: Validate candidate and run full quality
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify validate
+          python -m pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/contract/test_convergence_external_bindings.py
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          echo 'B012_AUTHORITY_GATE_QUALITY=PASS'
+
+      - name: Commit locally and prove prospective fail-closed frontier
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'MSTR Governance Builder'
+          git config user.email 'mstr-governance-builder@example.invalid'
+          git add configs/task-gate/mstr-000b.json specs/002-code-model-supremacy-foundation/tasks.md tests/contract/test_convergence_external_bindings.py tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py
+          git commit -m 'fix(mstr): gate B012 external qualification authority'
+          candidate="$(git rev-parse HEAD)"
+          echo "CANDIDATE_HEAD=$candidate"
+          git update-ref refs/heads/main "$candidate"
+          git update-ref refs/remotes/origin/main "$candidate"
+          mstr-qualify task drift > /tmp/candidate-drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/candidate-drift.json >/dev/null
+          set +e
+          mstr-qualify task eligible B011 > /tmp/b011.json; b011_exit=$?
+          mstr-qualify task eligible B012 > /tmp/b012.json; b012_exit=$?
+          mstr-qualify task eligible B013 > /tmp/b013.json; b013_exit=$?
+          set -e
+          test "$b011_exit" -eq 1
+          test "$b012_exit" -eq 1
+          test "$b013_exit" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b011.json >/dev/null
+          jq -e --arg authority "$AUTHORITY_ID" '.eligible == false and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == true and .authority_result.satisfied == false and .authority_result.authority_id == $authority and (.authority_result.reasons | index("authority.canonical_envelope_missing_or_invalid")) != null and (.reasons | index("authority.canonical_envelope_missing_or_invalid")) != null' /tmp/b012.json >/dev/null
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and (.reasons | index("prerequisite.unsatisfied:B012")) != null' /tmp/b013.json >/dev/null
+          grep -F 'B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION' configs/task-gate/mstr-000b.json
+          grep -F 'B011 authority never transfers' specs/002-code-model-supremacy-foundation/tasks.md
+          echo 'B012_AUTHORITY_GATE_PROSPECTIVE_FRONTIER=PASS'
+
+      - name: Guarded fast-forward push of governance target only
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_MAIN"
+          git push origin "$candidate:refs/heads/$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$candidate"
+          echo "B012_AUTHORITY_GATE_TARGET_PUSH=$candidate"
