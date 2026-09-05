@@ -1,0 +1,128 @@
+name: Resolve B012 T031 conversion toolchain on exact main
+
+on:
+  push:
+    branches:
+      - evidence/toolchain-resolution-fc35562-891af22
+
+permissions:
+  contents: read
+
+env:
+  CANONICAL_MAIN: 891af2215a2244a6a0912d49d782f42bcc38b6ef
+  LLAMA_CPP_CONVERSION_COMMIT: fc35562ba46fbbf8e30cac85edbb39642c37d248
+  PIP_VERSION: 25.2
+
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANONICAL_MAIN }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Prove exact-main identity before toolchain discovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+
+      - name: Set up exact Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.9"
+
+      - name: Resolve exact conversion dependency identities without model access
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check "pip==$PIP_VERSION"
+          work="$RUNNER_TEMP/mstr_toolchain_resolution"
+          mkdir -p "$work"
+          git init "$work/llama.cpp"
+          git -C "$work/llama.cpp" remote add origin https://github.com/ggml-org/llama.cpp.git
+          git -C "$work/llama.cpp" fetch --depth 1 origin "$LLAMA_CPP_CONVERSION_COMMIT"
+          git -C "$work/llama.cpp" checkout --detach FETCH_HEAD
+          test "$(git -C "$work/llama.cpp" rev-parse HEAD)" = "$LLAMA_CPP_CONVERSION_COMMIT"
+          python -m pip install \
+            --disable-pip-version-check \
+            --dry-run \
+            --ignore-installed \
+            --report "$work/pip-report.json" \
+            -r "$work/llama.cpp/requirements/requirements-convert_hf_to_gguf.txt"
+          python - <<'PY'
+          import json
+          import os
+          import platform
+          import subprocess
+          from pathlib import Path
+          from urllib.parse import urlparse
+
+          root = Path(os.environ['RUNNER_TEMP']) / 'mstr_toolchain_resolution'
+          report = json.loads((root / 'pip-report.json').read_text(encoding='utf-8'))
+          allowed_hosts = {'files.pythonhosted.org', 'download.pytorch.org'}
+          packages = []
+          observed_hosts = set()
+          for item in report.get('install', []):
+              metadata = item.get('metadata', {})
+              download = item.get('download_info', {})
+              url = download.get('url', '')
+              host = (urlparse(url).hostname or '').lower()
+              if host:
+                  observed_hosts.add(host)
+              archive = download.get('archive_info', {})
+              sha256 = archive.get('hashes', {}).get('sha256')
+              if not metadata.get('name') or not metadata.get('version') or not sha256:
+                  raise SystemExit(f'incomplete package identity: {metadata.get("name")!r}')
+              packages.append({
+                  'name': metadata['name'],
+                  'version': metadata['version'],
+                  'url': url,
+                  'sha256': sha256,
+              })
+          if not packages:
+              raise SystemExit('no packages resolved')
+          if not observed_hosts.issubset(allowed_hosts):
+              raise SystemExit(f'unexpected package host(s): {sorted(observed_hosts - allowed_hosts)}')
+          payload = {
+              'schema_version': 'mstr.executor-toolchain-resolution.v1',
+              'purpose': 'B012_T031_CONVERSION_TOOLCHAIN_DISCOVERY_ONLY',
+              'canonical_main': os.environ['CANONICAL_MAIN'],
+              'runner': 'ubuntu-24.04',
+              'python': platform.python_version(),
+              'pip': subprocess.check_output(['python', '-m', 'pip', '--version'], text=True).strip(),
+              'llama_cpp_conversion_commit': os.environ['LLAMA_CPP_CONVERSION_COMMIT'],
+              'package_hosts': sorted(observed_hosts),
+              'packages': sorted(packages, key=lambda row: row['name'].lower()),
+              'system_build_tools': {
+                  'cmake': subprocess.check_output(['cmake', '--version'], text=True).splitlines()[0],
+                  'gcc': subprocess.check_output(['gcc', '--version'], text=True).splitlines()[0],
+                  'g++': subprocess.check_output(['g++', '--version'], text=True).splitlines()[0],
+              },
+              'model_access': 'NONE',
+              'model_execution': 'NONE',
+              'training': 'NONE',
+              'paid_cost_usd': 0.0,
+          }
+          out = root / 'toolchain-resolution.json'
+          out.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(json.dumps({'resolved_packages': len(packages), 'hosts': sorted(observed_hosts)}))
+          PY
+
+      - name: Upload durable toolchain resolution only
+        uses: actions/upload-artifact@v4
+        with:
+          name: b012-t031-toolchain-resolution
+          path: ${{ runner.temp }}/mstr_toolchain_resolution/toolchain-resolution.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Destroy temporary toolchain checkout and reports
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/mstr_toolchain_resolution"
