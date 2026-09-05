@@ -205,7 +205,9 @@
         "B002",
         "B010",
         "B011"
-      ]
+      ],
+      "external_effect_class": "MODEL_WEIGHT_ACCESS",
+      "required_authority_id": "B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION"
     },
     "B013": {
       "canonical_state": "BLOCKED",

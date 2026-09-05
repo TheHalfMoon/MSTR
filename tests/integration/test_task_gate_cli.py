@@ -207,7 +207,7 @@ def test_task_eligible_b011_terminal_returns_one(
     validate_instance("mstr-task-eligibility-v0", payload)
 
 
-def test_task_eligible_b012_successor_returns_zero(
+def test_task_eligible_b012_missing_authority_returns_one(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     expected = evaluate_task_snapshot("B012", canonical_main=_CANONICAL_MAIN)
@@ -221,9 +221,15 @@ def test_task_eligible_b012_successor_returns_zero(
     )
     exit_code = main(["task", "eligible", "B012"])
     payload = _stdout_json(capsys)
-    assert exit_code == 0
+    assert exit_code == 1
     assert payload == expected
-    assert payload["eligible"] is True
+    assert payload["eligible"] is False
+    assert payload["authority_result"]["required"] is True
+    assert payload["authority_result"]["satisfied"] is False
+    assert payload["authority_result"]["authority_id"] == (
+        "B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION"
+    )
+    assert "authority.canonical_envelope_missing_or_invalid" in payload["reasons"]
     validate_instance("mstr-task-eligibility-v0", payload)
 
 
