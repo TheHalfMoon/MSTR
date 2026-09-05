@@ -1,0 +1,65 @@
+name: PR171 T031 quality diagnostic 2138e72
+
+on:
+  push:
+    branches:
+      - evidence/pr171-t031-quality-diagnostic-2138e72
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: quality-${{ matrix.gate }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        gate:
+          - validate
+          - ruff-check
+          - ruff-format
+          - mypy
+          - pytest
+          - build
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 2138e729570e8cba59ee4e9ab573e5b6001dd1cc
+          fetch-depth: 0
+      - name: Guard exact head and live main
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=891af2215a2244a6a0912d49d782f42bcc38b6ef
+          HEAD=2138e729570e8cba59ee4e9ab573e5b6001dd1cc
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE"
+          test "$(git ls-remote origin refs/heads/feat/t031-governed-measurement-executor | awk '{print $1}')" = "$HEAD"
+      - name: Setup Python 3.11.9
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: 3.11.9
+      - name: Install canonical dev environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pip install build
+      - name: Run isolated quality gate
+        shell: bash
+        env:
+          GATE: ${{ matrix.gate }}
+        run: |
+          set -euo pipefail
+          case "$GATE" in
+            validate) python -m mstr_qualify validate ;;
+            ruff-check) ruff check . ;;
+            ruff-format) ruff format --check . ;;
+            mypy) mypy src ;;
+            pytest) pytest -q ;;
+            build) python -m build ;;
+            *) echo "unknown gate: $GATE" >&2; exit 2 ;;
+          esac
