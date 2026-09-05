@@ -1,0 +1,321 @@
+name: PR171 T031 executor independent semantic security governance review
+
+on:
+  push:
+    branches:
+      - evidence/pr171-t031-executor-independent-review-0b25193
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+env:
+  REPO: TheHalfMoon/MSTR
+  PR_NUMBER: "171"
+  BASE_SHA: 891af2215a2244a6a0912d49d782f42bcc38b6ef
+  TARGET_HEAD: 0b25193c160a16750294977f225dca421bc5d211
+  TARGET_TREE: f3cd47b76a0e837c3f9357fa62d566d5b1e4a9cc
+  QUALIFICATION_RUN: "33996764161"
+  QUALIFICATION_EVIDENCE_HEAD: b28247ee9e81602a7a7f2e542f8d77525e3fe31d
+
+jobs:
+  semantic_security_governance:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact reviewed executor head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact provenance qualification and containment
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          git fetch origin main --quiet
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          test "$(git merge-base "$BASE_SHA" "$TARGET_HEAD")" = "$BASE_SHA"
+          git diff --check "$BASE_SHA...$TARGET_HEAD"
+
+          changed="$(git diff --name-only "$BASE_SHA...$TARGET_HEAD" | sort)"
+          expected="$(printf '%s\n' \
+            .github/workflows/t031-measure.yml \
+            artifacts/manifests/T031-executor-toolchain-binding.json \
+            artifacts/manifests/T031-executor-toolchain-lock.json \
+            colab/mstr_executor_toolchain.py \
+            colab/mstr_t031_artifacts.py \
+            colab/mstr_t031_execute.py \
+            colab/mstr_t031_governance.py \
+            colab/mstr_t031_measure.py \
+            colab/mstr_t031_source.py \
+            evidence/T031-executor-toolchain-binding.md \
+            tests/contract/test_t031_executor_binding.py | sort)"
+          test "$changed" = "$expected"
+
+          qual_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/actions/runs/$QUALIFICATION_RUN")"
+          python - "$qual_json" <<'PY'
+          import json, os, sys
+          run = json.loads(sys.argv[1])
+          assert run['status'] == 'completed'
+          assert run['conclusion'] == 'success'
+          assert run['head_sha'] == os.environ['QUALIFICATION_EVIDENCE_HEAD']
+          PY
+          qual_workflow=".github/workflows/pr171-t031-executor-qualification6-0b25193.yml"
+          git show "$QUALIFICATION_EVIDENCE_HEAD:$qual_workflow" | grep -F "TARGET_HEAD: $TARGET_HEAD"
+          git show "$QUALIFICATION_EVIDENCE_HEAD:$qual_workflow" | grep -F "TARGET_TREE: $TARGET_TREE"
+          git show "$QUALIFICATION_EVIDENCE_HEAD:$qual_workflow" | grep -F "BASE_SHA: $BASE_SHA"
+
+      - name: Independently inspect authority binding dispatch and supply chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          def load(path: str):
+              return json.loads(Path(path).read_text(encoding='utf-8'))
+
+          def digest(path: str) -> str:
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+          binding_path = 'artifacts/manifests/T031-executor-toolchain-binding.json'
+          lock_path = 'artifacts/manifests/T031-executor-toolchain-lock.json'
+          authority_path = 'artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json'
+          envelope_path = 'artifacts/manifests/T031-local-measurement-execution-envelope.json'
+          workflow_path = '.github/workflows/t031-measure.yml'
+          helper_path = 'colab/mstr_executor_toolchain.py'
+          governance_path = 'colab/mstr_t031_governance.py'
+          source_path = 'colab/mstr_t031_source.py'
+          artifacts_path = 'colab/mstr_t031_artifacts.py'
+          measure_path = 'colab/mstr_t031_measure.py'
+          executor_path = 'colab/mstr_t031_execute.py'
+
+          binding = load(binding_path)
+          lock = load(lock_path)
+          authority = load(authority_path)
+          envelope = load(envelope_path)
+
+          ids = [
+              'granite-4.1-3b', 'ministral-3-3b', 'qwen2.5-coder-1.5b', 'qwen3-4b',
+              'qwen3.5-2b', 'qwen3.5-4b', 'smollm3-3b', 'yi-coder-1.5b'
+          ]
+
+          assert binding['schema_version'] == 'mstr.t031-executor-binding.v1'
+          assert binding['task_id'] == 'T031'
+          assert binding['status'] == 'SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL'
+          assert binding['source_main'] == '891af2215a2244a6a0912d49d782f42bcc38b6ef'
+          assert binding['authority_id'] == authority['authority_id']
+          assert binding['authority_sha256'] == digest(authority_path) == 'f7ac76d05d2a9dfa91fc4ff76fef42aac0c080aaefc89b9c2dc6348d93fb92cd'
+          assert binding['envelope_sha256'] == digest(envelope_path) == '700be8f090ac13dd26b9f1720ecd9911ca432e94df970d3aae3e7a6c8afd6ff6'
+          assert binding['candidate_ids'] == ids
+          assert binding['contexts'] == [4096, 8192, 16384]
+
+          component_hashes = {
+              lock_path: binding['toolchain_lock_sha256'],
+              helper_path: binding['toolchain_helper_sha256'],
+              governance_path: binding['governance_script_sha256'],
+              source_path: binding['source_script_sha256'],
+              artifacts_path: binding['artifact_script_sha256'],
+              measure_path: binding['measurement_script_sha256'],
+              executor_path: binding['executor_script_sha256'],
+              workflow_path: binding['workflow_sha256'],
+          }
+          for path, expected in component_hashes.items():
+              assert digest(path) == expected, path
+
+          mp = binding['measurement_protocol']
+          assert mp['id'] == 'MSTR-MEASURE-v0'
+          assert mp['warmups_excluded'] == 2
+          assert mp['measured_repetitions'] == 10
+          assert mp['threads'] == 2
+          assert mp['primary_measurement_arm'] == 'Q4_K_M'
+          assert mp['q4_k_s_scope'] == 'IDENTITY_REGENERATION_ONLY'
+          assert mp['decode_tokens'] == 128
+          assert mp['decode_semantics'] == 'T030_ISOLATED_DECODE_COMPANION_NOT_POST_PREFILL_KV_CACHE'
+          assert 'ESTIMATED_' in mp['load_behavior_semantics']
+          assert mp['tokenizer_normalized_output_rates'] == 'NOT_MEASURED_BY_T031_RUNTIME_MICROBENCHMARK'
+          assert mp['hosted_lane_claim'] == 'AUTHORIZED_EPHEMERAL_REFERENCE_NOT_U1_8GB_HARDWARE_CLAIM'
+
+          dispatch = binding['dispatch_boundary']
+          assert dispatch == {
+              'canonicalization_required': True,
+              'connector_dispatch_surface': 'ISSUE_COMMENT_CANONICAL_MAIN',
+              'connector_dispatch_issue': 167,
+              'connector_dispatch_author': 'TheHalfMoon',
+              'connector_dispatch_author_association': 'OWNER',
+              'connector_dispatch_command': 'T031_RUN <authorized-candidate>',
+              'checkout_ref': 'main',
+              'max_parallel_candidates': 1,
+              'max_job_minutes': 120,
+          }
+
+          boundary = binding['execution_boundary']
+          assert boundary['authority_transfer'] is False
+          assert boundary['paid_cost_usd'] == 0.0
+          assert boundary['git_model_binaries'] == 0
+          assert boundary['founder_machine_model_binaries'] == 0
+          assert boundary['training'] is False
+          assert boundary['b012_execution'] is False
+          assert boundary['t032_execution'] is False
+          assert boundary['t033_execution'] is False
+          assert boundary['t034_admission_decision'] is False
+          assert boundary['durable_outputs'] == ['JSON', 'JSONL']
+
+          assert authority['status'] == 'AUTHORIZED_CANONICAL'
+          assert authority['scope']['candidate_ids'] == ids
+          assert authority['scope']['b010_b012_candidates'] is False
+          assert authority['scope']['new_candidates'] is False
+          assert authority['scope']['candidate_revision_or_file_expansion'] is False
+          assert authority['scope']['training'] is False
+          assert authority['scope']['weight_changing_training'] is False
+          assert authority['scope']['paid_compute'] is False
+          assert authority['scope']['paid_model_api'] is False
+          assert authority['scope']['t032_execution'] is False
+          assert authority['scope']['t033_execution'] is False
+          assert authority['scope']['t034_admission_decision'] is False
+
+          network = envelope['model_artifact_network']
+          assert network['https_get_only'] is True
+          assert network['hosts'] == ['huggingface.co', 'us.aws.cdn.hf.co']
+          for key in ('abort_on_authentication_requirement', 'abort_on_gated_terms', 'abort_on_payment', 'abort_on_unlisted_redirect'):
+              assert network[key] is True
+
+          runner = lock['runner']
+          assert runner['python_version'] == '3.11.9'
+          python_toolchain = lock['python_toolchain']
+          assert python_toolchain['hosts'] == ['files.pythonhosted.org', 'download.pytorch.org', 'download-r2.pytorch.org']
+          all_entries = [python_toolchain['pip'], *python_toolchain['packages']]
+          assert len(all_entries) == 28
+          for entry in all_entries:
+              assert entry['url'].startswith('https://')
+              assert len(entry['sha256']) == 64
+
+          workflow = Path(workflow_path).read_text(encoding='utf-8')
+          assert 'issue_comment:' in workflow
+          assert 'workflow_dispatch:' not in workflow
+          assert '\n  push:' not in workflow
+          assert "github.event.issue.number == 167" in workflow
+          assert "github.actor == 'TheHalfMoon'" in workflow
+          assert "github.event.comment.user.login == 'TheHalfMoon'" in workflow
+          assert "github.event.comment.author_association == 'OWNER'" in workflow
+          assert '[[ "$GITHUB_REF" == "refs/heads/main" ]]' in workflow
+          assert 'ref: main' in workflow
+          assert 'timeout-minutes: 120' in workflow
+          assert 'cancel-in-progress: false' in workflow
+          assert 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' in workflow
+          assert 'actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065' in workflow
+          assert 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' in workflow
+          for candidate in ids:
+              assert f'"T031_RUN {candidate}"' in workflow
+          assert '*.json' in workflow and '*.jsonl' in workflow
+
+          source = Path(source_path).read_text(encoding='utf-8')
+          assert 'path.is_absolute()' in source
+          assert 'any(part in {"", ".", ".."} for part in path.parts)' in source
+          assert 'unsafe candidate source path rejected' in source
+          assert 'frozenset({"huggingface.co", "us.aws.cdn.hf.co"})' in source
+          assert 'set(required_files) != set(t028)' in source
+          assert 'expected_total_download_bytes' in source
+
+          helper = Path(helper_path).read_text(encoding='utf-8')
+          assert 'class AllowlistedRedirectHandler' in helper
+          assert '_validated_https_host(newurl, self.allowed_hosts)' in helper
+          assert 'if parsed.scheme.lower() != "https"' in helper
+          assert 'if host not in allowed_hosts' in helper
+          assert 'timeout=timeout' in helper
+          assert '"--no-index"' in helper and '"--no-deps"' in helper
+          assert 'blocked_prefixes = ("LLAMA_ARG_", "HF_", "HUGGINGFACE_", "CUDA_", "NVIDIA_")' in helper
+          assert 'OPENAI_API_KEY' in helper and 'ANTHROPIC_API_KEY' in helper and 'AWS_SECRET_ACCESS_KEY' in helper
+
+          executor = Path(executor_path).read_text(encoding='utf-8')
+          assert '# Recheck live main immediately before the first model-artifact byte is requested.' in executor
+          assert 'canonical_main_at_end": _require_live_main(repo_root)' in executor
+          assert 'finally:' in executor and 'shutil.rmtree(workdir, ignore_errors=True)' in executor
+          assert 'T031_EXECUTION_FAILED_CLOSED' in executor
+          assert '"paid_cost_usd": 0.0' in executor
+          assert '"training": False' in executor
+          assert '"u1_hardware_claim": False' in executor
+          assert 'NOT_MEASURED_BY_T031_RUNTIME_MICROBENCHMARK' in executor
+
+          measure = Path(measure_path).read_text(encoding='utf-8')
+          assert '"-ngl",' in measure and '"0",' in measure
+          assert '"--device",' in measure and '"none",' in measure
+          assert 'n_gpu_layers": 0' in measure
+          assert 'devices": "none"' in measure
+          assert 'estimated_load_and_process_startup_seconds' in measure
+          assert 'process_peak_rss_bytes' in measure
+          assert 'system_pgmajfault_delta' in measure
+          assert 'warmups_excluded' in measure
+          assert 'measured_repetitions' in measure
+          assert 'sample_count' in measure and 'median' in measure and 'p90' in measure
+          PY
+
+      - name: Verify no model execution in review
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e "$RUNNER_TEMP/t031-work"
+          echo "MODEL_ACCESS=NONE"
+          echo "MODEL_EXECUTION=NONE"
+          echo "PAID_COST_USD=0"
+
+  independent_quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact reviewed executor head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup Python 3.11.9
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.9"
+          check-latest: false
+      - name: Re-run frozen quality and binding contract independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_t031_executor_binding.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m ruff format --check colab/mstr_executor_toolchain.py colab/mstr_t031_artifacts.py colab/mstr_t031_execute.py colab/mstr_t031_governance.py colab/mstr_t031_measure.py colab/mstr_t031_source.py tests/contract/test_t031_executor_binding.py
+          python -m mypy src/mstr_qualify
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test -z "$(git status --porcelain)"
+
+  final_review:
+    needs: [semantic_security_governance, independent_quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Emit exact-head independent substantive verdict
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          main_sha="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/branches/main" | python -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])')"
+          pr_head="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER" | python -c 'import json,sys; print(json.load(sys.stdin)["head"]["sha"])')"
+          test "$main_sha" = "$BASE_SHA"
+          test "$pr_head" = "$TARGET_HEAD"
+          echo "INDEPENDENT_REVIEW_VERDICT=PASS"
+          echo "Findings: NONE"
+          echo "DISPATCH=ISSUE_COMMENT_CANONICAL_MAIN_ONLY"
+          echo "HOSTED_LANE=NOT_U1_8GB_HARDWARE_CLAIM"
+          echo "DECODE=ISOLATED_COMPANION_NOT_POST_PREFILL_KV_CACHE"
+          echo "LOAD_BEHAVIOR=EXPLICIT_ESTIMATE"
+          echo "TOKENIZER_NORMALIZED_OUTPUT_RATES=NOT_MEASURED"
+          echo "B012_T032_T033_T034_TRAINING_AUTHORITY_TRANSFER=NONE"
+          echo "MODEL_ACCESS=NONE"
