@@ -28,9 +28,7 @@ def _candidate_source(envelope: dict[str, object], candidate_id: str) -> dict[st
 
 
 def _t028_hashes(repo_root: Path, candidate_id: str) -> dict[str, tuple[str, int]]:
-    manifest = read_json(
-        repo_root / f"artifacts/manifests/T028-artifact-{candidate_id}.json"
-    )
+    manifest = read_json(repo_root / f"artifacts/manifests/T028-artifact-{candidate_id}.json")
     files = manifest.get("files")
     if not isinstance(files, list):
         raise ExecutionError("T028 per-file manifest files list is missing")

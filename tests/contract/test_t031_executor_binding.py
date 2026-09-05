@@ -101,9 +101,7 @@ def test_toolchain_and_measurement_surface_are_frozen() -> None:
     assert task["measured_repetitions"] == 10
     assert task["threads"] == 2
     assert task["decode_tokens"] == 128
-    assert task["decode_semantics"] == (
-        "T030_ISOLATED_DECODE_COMPANION_NOT_POST_PREFILL_KV_CACHE"
-    )
+    assert task["decode_semantics"] == ("T030_ISOLATED_DECODE_COMPANION_NOT_POST_PREFILL_KV_CACHE")
     assert set(task["prohibited_authority_transfer"]) == {
         "B012",
         "T032",

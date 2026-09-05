@@ -55,9 +55,7 @@ def _run(
         raise ExecutionError(f"command timed out after {timeout}s: {argv!r}") from exc
     if completed.returncode != 0:
         diagnostic = (completed.stdout + "\n" + completed.stderr).strip()[-4000:]
-        raise ExecutionError(
-            f"command failed ({completed.returncode}): {argv!r}\n{diagnostic}"
-        )
+        raise ExecutionError(f"command failed ({completed.returncode}): {argv!r}\n{diagnostic}")
     return completed
 
 

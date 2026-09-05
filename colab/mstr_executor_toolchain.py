@@ -38,9 +38,7 @@ def read_json(path: Path) -> dict[str, object]:
 def require_file_sha256(path: Path, expected: str) -> None:
     actual = sha256_file(path)
     if actual != expected:
-        raise ToolchainError(
-            f"SHA-256 mismatch for {path}: expected {expected}, got {actual}"
-        )
+        raise ToolchainError(f"SHA-256 mismatch for {path}: expected {expected}, got {actual}")
 
 
 def _validated_https_host(url: str, allowed_hosts: frozenset[str]) -> str:
@@ -150,9 +148,7 @@ def require_system_identity(lock: dict[str, object]) -> None:
         output = _run_checked(argv)
         actual = output.splitlines()[0] if output else ""
         if actual != expected:
-            raise ToolchainError(
-                f"{name} identity mismatch: expected {expected!r}, got {actual!r}"
-            )
+            raise ToolchainError(f"{name} identity mismatch: expected {expected!r}, got {actual!r}")
 
 
 def install_verified_python_toolchain(lock_path: Path, root: Path) -> Path:

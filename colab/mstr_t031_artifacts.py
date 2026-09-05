@@ -139,9 +139,14 @@ def _prepare_llama_cpp(
     runtime_copy = tools_dir / "llama-bench"
     shutil.copy2(runtime, runtime_copy)
     shutil.rmtree(runtime_dir, ignore_errors=True)
-    return conversion_dir, quantizer_copy, runtime_copy, {
-        "repository": repository,
-        "conversion_quantization_commit": conversion_commit,
-        "runtime_commit": runtime_commit,
-        "build_flags": build_flags,
-    }
+    return (
+        conversion_dir,
+        quantizer_copy,
+        runtime_copy,
+        {
+            "repository": repository,
+            "conversion_quantization_commit": conversion_commit,
+            "runtime_commit": runtime_commit,
+            "build_flags": build_flags,
+        },
+    )
