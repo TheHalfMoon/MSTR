@@ -56,7 +56,11 @@
   },
   "dispatch_boundary": {
     "canonicalization_required": true,
-    "manual_dispatch_branch": "main",
+    "connector_dispatch_surface": "ISSUE_COMMENT_CANONICAL_MAIN",
+    "connector_dispatch_issue": 167,
+    "connector_dispatch_author": "TheHalfMoon",
+    "connector_dispatch_author_association": "OWNER",
+    "connector_dispatch_command": "T031_RUN <authorized-candidate>",
     "checkout_ref": "main",
     "max_parallel_candidates": 1,
     "max_job_minutes": 120
