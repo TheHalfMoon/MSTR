@@ -1,0 +1,13 @@
+name: T030 closeout builder v4
+
+on:
+  push:
+    branches:
+      - evidence/t030-closeout-builder-v4-8916fa7
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Diagnostic
+        run: echo ok
