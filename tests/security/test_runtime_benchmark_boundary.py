@@ -169,6 +169,33 @@ def test_runtime_device_identity_mismatch_is_rejected(tmp_path: Path) -> None:
     assert exc_info.value.code == "runtime.output_device_identity"
 
 
+def test_artifact_mutation_after_load_fails_before_process(tmp_path: Path) -> None:
+    artifact = tmp_path / "model.gguf"
+    artifact.write_bytes(b"fixture")
+    profile = load_benchmark_profile(PROFILE_PATH)
+    called = False
+
+    def runner(_: tuple[str, ...], __: float) -> CommandResult:
+        nonlocal called
+        called = True
+        raise AssertionError("mutated artifact must fail before runtime execution")
+
+    adapter = BenchmarkCliRuntimeAdapter(
+        profile=profile,
+        artifact_path=artifact,
+        threads=1,
+        command_runner=runner,
+    )
+    adapter.load(_request(artifact))
+    artifact.write_bytes(b"mutated-after-load")
+
+    with pytest.raises(BenchmarkCliError) as exc_info:
+        adapter.prefill(4)
+
+    assert exc_info.value.code == "runtime.artifact_hash_changed_after_load"
+    assert called is False
+
+
 @pytest.mark.parametrize("nonfinite", [float("nan"), float("inf"), float("-inf")])
 def test_nonfinite_benchmark_rate_fails_closed(
     tmp_path: Path,
