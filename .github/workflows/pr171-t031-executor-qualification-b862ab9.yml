@@ -1,0 +1,191 @@
+name: PR171 T031 executor exact-head qualification
+
+on:
+  push:
+    branches:
+      - evidence/pr171-t031-executor-qualification-b862ab9
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  REPO: TheHalfMoon/MSTR
+  PR_NUMBER: "171"
+  BASE_SHA: 891af2215a2244a6a0912d49d782f42bcc38b6ef
+  TARGET_HEAD: b862ab93c31157a566307e752a54004b3621bfc8
+  TARGET_TREE: f7822be5311c7dc13918bab29f7afa4e6d7a95fd
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact executor head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.9"
+          check-latest: false
+
+      - name: Verify exact PR identity, scope, and binding hashes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          git fetch origin main --quiet
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          test "$(git merge-base "$BASE_SHA" "$TARGET_HEAD")" = "$BASE_SHA"
+          git diff --check "$BASE_SHA...$TARGET_HEAD"
+
+          changed="$(git diff --name-only "$BASE_SHA...$TARGET_HEAD" | sort)"
+          expected="$(printf '%s\n' \
+            .github/workflows/t031-measure.yml \
+            artifacts/manifests/T031-executor-toolchain-binding.json \
+            artifacts/manifests/T031-executor-toolchain-lock.json \
+            colab/mstr_executor_toolchain.py \
+            colab/mstr_t031_artifacts.py \
+            colab/mstr_t031_execute.py \
+            colab/mstr_t031_governance.py \
+            colab/mstr_t031_measure.py \
+            colab/mstr_t031_source.py \
+            evidence/T031-executor-toolchain-binding.md \
+            tests/contract/test_t031_executor_binding.py | sort)"
+          test "$changed" = "$expected"
+
+          pr_json="$(curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER")"
+          python - "$pr_json" <<'PY'
+          import json
+          import os
+          import sys
+
+          pr = json.loads(sys.argv[1])
+          assert pr["state"] == "open"
+          assert pr["base"]["sha"] == os.environ["BASE_SHA"]
+          assert pr["head"]["sha"] == os.environ["TARGET_HEAD"]
+          assert pr["changed_files"] == 11
+          assert pr["commits"] == 1
+          PY
+
+          python -m py_compile \
+            colab/mstr_executor_toolchain.py \
+            colab/mstr_t031_governance.py \
+            colab/mstr_t031_source.py \
+            colab/mstr_t031_artifacts.py \
+            colab/mstr_t031_measure.py \
+            colab/mstr_t031_execute.py \
+            tests/contract/test_t031_executor_binding.py
+
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path(".")
+          binding_path = root / "artifacts/manifests/T031-executor-toolchain-binding.json"
+          binding = json.loads(binding_path.read_text(encoding="utf-8"))
+          authority_path = root / binding["authority_path"]
+          envelope_path = root / binding["envelope_path"]
+          assert hashlib.sha256(authority_path.read_bytes()).hexdigest() == binding["authority_sha256"]
+          assert hashlib.sha256(envelope_path.read_bytes()).hexdigest() == binding["envelope_sha256"]
+          components = {
+              root / binding["toolchain_lock_path"]: binding["toolchain_lock_sha256"],
+              root / binding["toolchain_helper_path"]: binding["toolchain_helper_sha256"],
+              root / binding["governance_script_path"]: binding["governance_script_sha256"],
+              root / binding["source_script_path"]: binding["source_script_sha256"],
+              root / binding["artifact_script_path"]: binding["artifact_script_sha256"],
+              root / binding["measurement_script_path"]: binding["measurement_script_sha256"],
+              root / binding["executor_script_path"]: binding["executor_script_sha256"],
+              root / binding["workflow_path"]: binding["workflow_sha256"],
+          }
+          for path, expected in components.items():
+              assert hashlib.sha256(path.read_bytes()).hexdigest() == expected, path
+          assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
+          assert binding["source_main"] == "891af2215a2244a6a0912d49d782f42bcc38b6ef"
+          boundary = binding["execution_boundary"]
+          assert boundary["authority_transfer"] is False
+          assert boundary["b012_execution"] is False
+          assert boundary["t032_execution"] is False
+          assert boundary["t033_execution"] is False
+          assert boundary["t034_admission_decision"] is False
+          assert boundary["training"] is False
+          assert boundary["paid_cost_usd"] == 0.0
+          PY
+
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact executor head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.9"
+          check-latest: false
+
+      - name: Run focused and full canonical quality gates without model access
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pip install build
+          python -m pytest -q \
+            tests/contract/test_t031_executor_binding.py \
+            tests/contract/test_t031_authority.py \
+            tests/contract/test_b012_authority.py
+          python -m mstr_qualify validate
+          python -m ruff check .
+          python -m ruff format --check .
+          python -m mypy src
+          python -m pytest -q
+          python -m build
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+  final_qualification:
+    needs: [identity_scope, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Recheck live main and exact PR head
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          main_sha="$(curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/branches/main" \
+            | python -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])')"
+          pr_head="$(curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER" \
+            | python -c 'import json,sys; print(json.load(sys.stdin)["head"]["sha"])')"
+          test "$main_sha" = "$BASE_SHA"
+          test "$pr_head" = "$TARGET_HEAD"
+          echo "T031_EXECUTOR_EXACT_HEAD_QUALIFICATION=PASS"
+          echo "BASE_SHA=$BASE_SHA"
+          echo "TARGET_HEAD=$TARGET_HEAD"
+          echo "TARGET_TREE=$TARGET_TREE"
+          echo "MODEL_ACCESS=NONE"
+          echo "B012_T032_T033_T034_TRAINING_AUTHORITY_TRANSFER=PROHIBITED"
