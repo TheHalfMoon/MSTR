@@ -65,7 +65,11 @@ jobs:
 
           root = Path(os.environ['RUNNER_TEMP']) / 'mstr_toolchain_resolution'
           report = json.loads((root / 'pip-report.json').read_text(encoding='utf-8'))
-          allowed_hosts = {'files.pythonhosted.org', 'download.pytorch.org'}
+          allowed_hosts = {
+              'files.pythonhosted.org',
+              'download.pytorch.org',
+              'download-r2.pytorch.org',
+          }
           packages = []
           observed_hosts = set()
           for item in report.get('install', []):
