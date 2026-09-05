@@ -49,6 +49,7 @@ jobs:
         run: |
           python colab/mstr_t029_quantize.py \
             --t027-manifest artifacts/manifests/T027-weight-access.json \
+            --network-addendum artifacts/manifests/T028-network-scope-addendum.json \
             --candidate "$CANDIDATE" \
             --llama-cpp-commit "$LC_COMMIT" \
             --workdir "$RUNNER_TEMP/mstr_t029_work" \
