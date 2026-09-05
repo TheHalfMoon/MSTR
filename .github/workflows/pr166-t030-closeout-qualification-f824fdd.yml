@@ -1,0 +1,136 @@
+name: PR166 T030 closeout exact-head qualification
+
+on:
+  push:
+    branches:
+      - evidence/pr166-t030-closeout-qualification-f824fdd
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr166-t030-closeout-qualification-f824fdd
+  cancel-in-progress: false
+
+env:
+  REPO: TheHalfMoon/MSTR
+  PR_NUMBER: "166"
+  BASE_SHA: 8916fa7138ad56d18452b7a20db9c8cb982648ba
+  TARGET_HEAD: f824fdd082457de0542eed703b8e4b7b4edf5002
+  TARGET_TREE: c94b97fcdf20a56e2de08db9eab4667ebe632644
+  IMPLEMENTATION_PR: "165"
+  POSTMERGE_RUN: "33972551215"
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact closeout head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+
+      - name: Verify live identity, bounded scope, lifecycle and authority
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          git fetch origin main --quiet
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          test "$(git merge-base "$BASE_SHA" "$TARGET_HEAD")" = "$BASE_SHA"
+          git diff --check "$BASE_SHA...$TARGET_HEAD"
+
+          changed="$(git diff --name-only "$BASE_SHA...$TARGET_HEAD" | sort)"
+          expected="$(printf '%s\n' docs/canonical/CURRENT_STATE.md evidence/T030-runtime-adapters.md specs/000-universal-laptop-interaction-contract/tasks.md | sort)"
+          test "$changed" = "$expected"
+
+          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER")"
+          python - "$pr_json" <<'PY'
+          import json, sys
+          pr = json.loads(sys.argv[1])
+          assert pr["state"] == "open"
+          assert pr["draft"] is False
+          assert pr["base"]["sha"] == "8916fa7138ad56d18452b7a20db9c8cb982648ba"
+          assert pr["head"]["sha"] == "f824fdd082457de0542eed703b8e4b7b4edf5002"
+          assert pr["changed_files"] == 3
+          PY
+
+          impl_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/pulls/$IMPLEMENTATION_PR")"
+          python - "$impl_json" <<'PY'
+          import json, sys
+          pr = json.loads(sys.argv[1])
+          assert pr["merged_at"] is not None
+          assert pr["merge_commit_sha"] == "8916fa7138ad56d18452b7a20db9c8cb982648ba"
+          PY
+
+          run_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/actions/runs/$POSTMERGE_RUN")"
+          python - "$run_json" <<'PY'
+          import json, sys
+          run = json.loads(sys.argv[1])
+          assert run["status"] == "completed"
+          assert run["conclusion"] == "success"
+          PY
+
+          grep -Fqx -- '- [x] T030 [US1] Implement/qualify portable CPU runtime adapters; acceleration is separate bonus data → `src/mstr_qualify/runtimes/<runtime>.py`, `configs/runtimes/*.json`, `tests/integration/test_runtime_adapters.py`, `evidence/T030-runtime-adapters.md`.' specs/000-universal-laptop-interaction-contract/tasks.md
+          grep -Fqx -- '- [ ] T031 [US1] Measure 4K/8K/16K artifact/load/memory/paging/prefill/decode behavior → `artifacts/results/local/T031/*.jsonl`, `evidence/T031-local-memory-throughput.md`.' specs/000-universal-laptop-interaction-contract/tasks.md
+          grep -F 'T000-T030 = COMPLETE_CANONICAL' docs/canonical/CURRENT_STATE.md
+          grep -F 'T031 = NEXT' docs/canonical/CURRENT_STATE.md
+          grep -F 'B012 = PENDING / BLOCKED_BY_EXACT_FOUNDER_AUTHORITY' docs/canonical/CURRENT_STATE.md
+          grep -F 'T030_COMPLETE_CANONICAL = YES_ON_CLOSEOUT_MERGE' evidence/T030-runtime-adapters.md
+          grep -F 'T031_EXECUTION_AUTHORITY = NOT_CREATED_BY_T030' evidence/T030-runtime-adapters.md
+          test ! -e artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact closeout head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+
+      - name: Run frozen quality gates on exact closeout head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          python -m pip install -e '.[dev]'
+          python -m pytest -q \
+            tests/unit/test_runtime_benchmark_cli.py \
+            tests/security/test_runtime_benchmark_boundary.py \
+            tests/security/test_runtime_profile_alias_boundary.py \
+            tests/security/test_runtime_environment_boundary.py \
+            tests/integration/test_runtime_adapters.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          ruff check .
+          mypy
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test -z "$(git status --porcelain)"
+
+  final_qualification:
+    needs: [identity_scope, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recheck exact live head and emit verdict
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          main_sha="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/branches/main" | python -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])')"
+          pr_head="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER" | python -c 'import json,sys; print(json.load(sys.stdin)["head"]["sha"])')"
+          test "$main_sha" = "$BASE_SHA"
+          test "$pr_head" = "$TARGET_HEAD"
+          echo "T030_CLOSEOUT_EXACT_HEAD_QUALIFICATION=PASS"
+          echo "BASE_SHA=$BASE_SHA"
+          echo "TARGET_HEAD=$TARGET_HEAD"
+          echo "TARGET_TREE=$TARGET_TREE"
+          echo "B012_AUTHORITY=ABSENT"
+          echo "T031_EXECUTION_AUTHORITY=NOT_CREATED"
