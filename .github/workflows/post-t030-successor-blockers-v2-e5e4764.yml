@@ -1,0 +1,99 @@
+name: Post-T030 successor blocker verification v2
+
+on:
+  push:
+    branches:
+      - evidence/post-t030-successor-blockers-v2-e5e4764
+
+permissions:
+  contents: read
+
+env:
+  MAIN_SHA: e5e47644fb7122cbb47b43cdf13d072f82ebfdf7
+  MAIN_TREE: c94b97fcdf20a56e2de08db9eab4667ebe632644
+
+jobs:
+  successor_graph:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MAIN_SHA }}
+          fetch-depth: 0
+
+      - name: Verify all current convergence successors remain blocked
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MAIN_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MAIN_TREE"
+          git update-ref refs/heads/main "$MAIN_SHA"
+          python -m pip install -e '.[dev]'
+
+          for task in B013 B031 B032 B033 B034; do
+            set +e
+            python -m mstr_qualify task eligible "$task" > "/tmp/${task}.json"
+            rc=$?
+            set -e
+            test "$rc" -eq 1
+            cat "/tmp/${task}.json"
+          done
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payloads = {
+              task: json.loads(Path(f'/tmp/{task}.json').read_text())
+              for task in ('B013', 'B031', 'B032', 'B033', 'B034')
+          }
+          expected_states = {
+              'B013': 'BLOCKED',
+              'B031': 'PENDING',
+              'B032': 'PENDING',
+              'B033': 'PENDING',
+              'B034': 'PENDING',
+          }
+          for task, payload in payloads.items():
+              assert payload['task_id'] == task
+              assert payload['eligible'] is False
+              assert payload['state_consistency_result']['observed_state'] == expected_states[task]
+              assert payload['state_consistency_result']['satisfied'] is True
+              assert payload['supersession_result']['superseded'] is False
+
+          b013_prereqs = {row['task_id']: row for row in payloads['B013']['prerequisite_results']}
+          assert b013_prereqs['B012']['satisfied'] is False
+          assert 'prerequisite.unsatisfied:B012' in payloads['B013']['reasons']
+
+          b031_prereqs = {row['task_id']: row for row in payloads['B031']['prerequisite_results']}
+          assert b031_prereqs['A019']['satisfied'] is False
+          assert b031_prereqs['A020']['satisfied'] is False
+          assert 'prerequisite.unsatisfied:A019' in payloads['B031']['reasons']
+          assert 'prerequisite.unsatisfied:A020' in payloads['B031']['reasons']
+
+          b032_prereqs = {row['task_id']: row for row in payloads['B032']['prerequisite_results']}
+          assert b032_prereqs['B031']['satisfied'] is False
+
+          b033_prereqs = {row['task_id']: row for row in payloads['B033']['prerequisite_results']}
+          assert b033_prereqs['B032']['satisfied'] is False
+
+          b034_reasons = set(payloads['B034']['reasons'])
+          for prerequisite in ('B012', 'B013', 'B031', 'B032', 'B033'):
+              assert f'prerequisite.unsatisfied:{prerequisite}' in b034_reasons
+          PY
+
+          grep -F 'A019/A020 MUST NOT run as headline/final candidate evidence until MSTR-000B has produced the required stable pool and verifier/research contracts.' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F 'existing-candidate T034/equivalent qualification' specs/001-agent-harness-verified-loop-foundation/tasks.md
+          grep -F 'MSTR-000B B013 stable product-aligned candidate pool' specs/001-agent-harness-verified-loop-foundation/tasks.md
+
+          grep -Fqx -- '- [ ] T031 [US1] Measure 4K/8K/16K artifact/load/memory/paging/prefill/decode behavior → `artifacts/results/local/T031/*.jsonl`, `evidence/T031-local-memory-throughput.md`.' specs/000-universal-laptop-interaction-contract/tasks.md
+          grep -Fqx -- '- [ ] T032 [US1] Measure 10-minute sustained CPU behavior and reference-editor responsiveness on required lanes → `artifacts/results/local/T032/*.jsonl`, `evidence/T032-sustained-responsiveness.md`.' specs/000-universal-laptop-interaction-contract/tasks.md
+          grep -Fqx -- '- [ ] T033 [US1] Measure Q4 regressions in raw coding/FIM/multilingual/schema/tool/edit primitives → `artifacts/results/local/T033/*.jsonl`, `evidence/T033-q4-regressions.md`.' specs/000-universal-laptop-interaction-contract/tasks.md
+          grep -Fqx -- '- [ ] T034 [US1] Reject rights/U1/offline/size/runtime failures and freeze local-qualified set → `artifacts/decisions/T034-local-artifact-admission.json`, `evidence/T034-local-artifact-admission.md`.' specs/000-universal-laptop-interaction-contract/tasks.md
+
+          echo 'B013_ELIGIBLE=NO / STATE=BLOCKED / BLOCKED_BY_B012'
+          echo 'A019_A020_EXECUTABLE=NO / REQUIRE_T034_EQUIVALENT_QUALIFICATION_AND_B013_STABLE_POOL'
+          echo 'B031_ELIGIBLE=NO / BLOCKED_BY_A019_A020'
+          echo 'B032_B033_B034_ELIGIBLE=NO / DOWNSTREAM_BLOCKED'
+          echo 'T031_T034_STATE=PENDING / MATERIAL_MEASUREMENT_CHAIN_NOT_AUTHORIZED'
