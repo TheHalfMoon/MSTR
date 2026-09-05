@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 from pathlib import Path
@@ -156,29 +157,37 @@ def test_execution_boundary_does_not_transfer_later_authority() -> None:
     assert boundary["durable_outputs"] == ["JSON", "JSONL"]
 
 
-def test_workflow_dispatch_is_canonical_main_only() -> None:
+def test_issue_comment_dispatch_is_canonical_owner_scoped_and_branch_trigger_free() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     binding = _read_json(BINDING)
 
-    assert "workflow_dispatch:" in workflow
+    assert "issue_comment:" in workflow
+    assert "workflow_dispatch:" not in workflow
     assert "\n  push:" not in workflow
     assert "execute/t031-" not in workflow
-    assert '[[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]' in workflow
+    assert "github.event.issue.number == 167" in workflow
+    assert "github.actor == 'TheHalfMoon'" in workflow
+    assert "github.event.comment.user.login == 'TheHalfMoon'" in workflow
+    assert "github.event.comment.author_association == 'OWNER'" in workflow
+    assert '[[ "$GITHUB_EVENT_NAME" == "issue_comment" ]]' in workflow
     assert '[[ "$GITHUB_REF" == "refs/heads/main" ]]' in workflow
+    assert '[[ "$ISSUE_NUMBER" == "167" ]]' in workflow
     assert "ref: main" in workflow
     assert "persist-credentials: false" in workflow
     assert "permissions:\n  contents: read" in workflow
     assert "group: t031-governed-model-execution" in workflow
     assert "cancel-in-progress: false" in workflow
     for candidate in CANDIDATES:
-        assert candidate in workflow
+        assert f"T031_RUN {candidate}" in workflow
 
     dispatch = binding["dispatch_boundary"]
     assert isinstance(dispatch, dict)
     assert dispatch["canonicalization_required"] is True
-    assert dispatch["manual_dispatch_branch"] == "main"
-    assert "connector_dispatch_branch_pattern" not in dispatch
-    assert "connector_dispatch_event" not in dispatch
+    assert dispatch["connector_dispatch_surface"] == "ISSUE_COMMENT_CANONICAL_MAIN"
+    assert dispatch["connector_dispatch_issue"] == 167
+    assert dispatch["connector_dispatch_author"] == "TheHalfMoon"
+    assert dispatch["connector_dispatch_author_association"] == "OWNER"
+    assert dispatch["connector_dispatch_command"] == "T031_RUN <authorized-candidate>"
     assert dispatch["checkout_ref"] == "main"
     assert dispatch["max_parallel_candidates"] == 1
     assert dispatch["max_job_minutes"] == 120
@@ -201,7 +210,23 @@ def test_executor_contains_fail_closed_network_and_runtime_boundaries() -> None:
     assert "estimated_load_and_process_startup_seconds" in measure
     assert "unquote(Path(urlparse(url).path).name)" in helper
     assert 'blocked_prefixes = ("LLAMA_ARG_", "HF_", "HUGGINGFACE_", "CUDA_", "NVIDIA_")' in helper
+
+
+def test_toolchain_subprocesses_are_bounded_and_workdir_setup_fails_closed() -> None:
+    helper = HELPER.read_text(encoding="utf-8")
+    executor = EXECUTOR.read_text(encoding="utf-8")
+    tree = ast.parse(helper)
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "_run_checked"
+    ]
+    assert calls
+    for call in calls:
+        assert any(keyword.arg == "timeout" for keyword in call.keywords)
     assert "timeout=timeout" in helper
     assert "except subprocess.TimeoutExpired as exc:" in helper
-    assert "workdir.mkdir(parents=True)" in executor
-    assert executor.index("try:") < executor.index("workdir.mkdir(parents=True)")
+    assert executor.index("    try:\n") < executor.index("        if workdir.exists():")
+    assert executor.index("    try:\n") < executor.index("        workdir.mkdir(parents=True)")
