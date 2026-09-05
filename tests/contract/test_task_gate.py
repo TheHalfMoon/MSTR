@@ -204,22 +204,20 @@ def test_b011_is_terminal_after_canonical_closeout() -> None:
     validate_instance("mstr-task-eligibility-v0", result)
 
 
-def test_b012_fails_closed_without_exact_equivalent_qualification_authority() -> None:
+def test_b012_is_eligible_with_exact_equivalent_qualification_authority() -> None:
     result = evaluate_task_snapshot("B012", canonical_main=_CANONICAL_MAIN)
 
-    assert result["eligible"] is False
+    assert result["eligible"] is True
     assert result["state_consistency_result"]["observed_state"] == "PENDING"
     predecessor = next(row for row in result["prerequisite_results"] if row["task_id"] == "B011")
     assert predecessor["satisfied"] is True
     assert result["authority_result"] == {
         "required": True,
         "authority_id": "B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION",
-        "satisfied": False,
-        "reasons": ["authority.canonical_envelope_missing_or_invalid"],
+        "satisfied": True,
+        "reasons": [],
     }
-    assert "authority.canonical_envelope_missing_or_invalid" in result["reasons"]
-    assert "task.blocked" not in result["reasons"]
-    assert "task.unresolved_binding" not in result["reasons"]
+    assert result["reasons"] == []
     validate_instance("mstr-task-eligibility-v0", result)
 
 
