@@ -1,0 +1,158 @@
+name: Qualify exact PR163 T029 head 971bcd1
+
+on:
+  push:
+    branches:
+      - evidence/pr163-t029-exact-qualification-971bcd1
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      EXPECTED_MAIN: 5cadbd754686ebff6f5327e9746f0b074b35e318
+      EXPECTED_HEAD: 971bcd120e254e369247159cad8bf7ce7e12a80c
+      TARGET_BRANCH: fix/000-t029-recovery-current-main
+    steps:
+      - name: Verify exact live identities before qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify exact lineage and nine-file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git merge-base "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "$EXPECTED_MAIN"
+          test "$(git rev-list --count "$EXPECTED_MAIN..$EXPECTED_HEAD")" = "12"
+          git diff --check "$EXPECTED_MAIN..$EXPECTED_HEAD"
+          git diff --name-only "$EXPECTED_MAIN..$EXPECTED_HEAD" | sort > /tmp/actual.txt
+          cat > /tmp/expected.txt <<'EOF'
+          .github/workflows/t029-quantize.yml
+          artifacts/manifests/quantization/T029-ministral-recovery-provenance.json
+          artifacts/manifests/quantization/T029-q4-profiles.json
+          artifacts/manifests/quantization/T029-qwen3.5-2b-historical-provenance.json
+          colab/mstr_t029_quantize.py
+          evidence/T029-q4-profiles.md
+          evidence/T029-runner-recovery.md
+          tests/contract/test_t029_quantization_manifest.py
+          tests/unit/test_t029_quantize_runner.py
+          EOF
+          sed -i 's/^          //' /tmp/expected.txt
+          sort -o /tmp/expected.txt /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+
+      - name: Verify hardening byte identities and fail-closed Qwen state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum .github/workflows/t029-quantize.yml | cut -d' ' -f1)" = "2f6c167aed9d7f5b33a308647ecce8c3934549f7d5f246b1caa8cfca220faebc"
+          test "$(sha256sum colab/mstr_t029_quantize.py | cut -d' ' -f1)" = "5c7057bc51464ad08340094df2f1577d2f12fadde9dcc6c864e4caef8caed050"
+          test "$(sha256sum tests/unit/test_t029_quantize_runner.py | cut -d' ' -f1)" = "8a870692d3c1b4e67606e1a071298b1e700f83089edfeda0ef7fcfaa6f0710e1"
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          manifest = json.loads(Path('artifacts/manifests/quantization/T029-q4-profiles.json').read_text())
+          raw = Path('artifacts/manifests/quantization/T029-qwen3.5-2b-historical-provenance.json').read_text()
+          prov = json.loads(raw)
+          invalid = prov['historical_recorded_sha256']
+          assert len(invalid) == 65
+          assert re.fullmatch(r'[0-9a-f]{65}', invalid)
+          text = Path('evidence/T029-q4-profiles.md').read_text()
+          assert 'qwen3.5-2b' in text
+          assert 'PRIMARY_ACTIONS_ARTIFACT_RECORDED_INVALID_65_HEX_SHA256_REQUIRES_GOVERNED_REPAIR_EXECUTION' in text
+          serialized = json.dumps(manifest)
+          assert 'PRIMARY_ACTIONS_ARTIFACT_RECORDED_INVALID_65_HEX_SHA256_REQUIRES_GOVERNED_REPAIR_EXECUTION' in serialized
+          print('T029_QWEN_FAIL_CLOSED_PROVENANCE=PASS')
+          PY
+
+      - name: Verify network and integrity hardening semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import importlib.util
+          import json
+          from pathlib import Path
+
+          root = Path('.')
+          path = root / 'colab/mstr_t029_quantize.py'
+          spec = importlib.util.spec_from_file_location('t029', path)
+          assert spec is not None and spec.loader is not None
+          mod = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+          t027_path = root / 'artifacts/manifests/T027-weight-access.json'
+          addendum_path = root / 'artifacts/manifests/T028-network-scope-addendum.json'
+          t027 = json.loads(t027_path.read_text())
+          hosts = mod.load_model_artifact_allowlist(t027, t027_path, addendum_path)
+          assert hosts == frozenset(set(t027['network']['allowlist_hosts']) | {'us.aws.cdn.hf.co'})
+          assert mod._validated_https_host('https://huggingface.co/x', hosts) == 'huggingface.co'
+          for bad in ('http://huggingface.co/x', 'https://example.com/x'):
+              try:
+                  mod._validated_https_host(bad, hosts)
+              except mod.NetworkPolicyError:
+                  pass
+              else:
+                  raise AssertionError(f'network policy accepted {bad}')
+          src = path.read_text()
+          assert 'AllowlistedRedirectHandler' in src
+          assert 'EXCLUDED_NETWORK_POLICY' in src
+          assert 'result["verified"] = hash_ok and size_ok' in src
+          assert 'source_path.unlink(missing_ok=True)' in src
+          workflow = Path('.github/workflows/t029-quantize.yml').read_text()
+          assert '--network-addendum artifacts/manifests/T028-network-scope-addendum.json' in workflow
+          print('T029_NETWORK_INTEGRITY_HARDENING=PASS')
+          PY
+
+      - name: Verify authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git diff --name-only "$EXPECTED_MAIN..$EXPECTED_HEAD" | grep -E '(^|/)configs/task-gate|(^|/)artifacts/authorities|(^|/)specs/002-code-model' || true)"
+          test ! -e artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json
+
+      - name: Install repository development dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Focused T029 tests
+        run: python -m pytest -q tests/unit/test_t029_quantize_runner.py tests/contract/test_t029_quantization_manifest.py
+
+      - name: Repository validation
+        run: mstr-qualify validate
+
+      - name: Full pytest
+        run: python -m pytest -q
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: Mypy
+        run: mypy
+
+      - name: Final exact live immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE_MAIN="$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)"
+          LIVE_HEAD="$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)"
+          echo "FINAL_MAIN=$LIVE_MAIN"
+          echo "FINAL_TARGET=$LIVE_HEAD"
+          test "$LIVE_MAIN" = "$EXPECTED_MAIN"
+          test "$LIVE_HEAD" = "$EXPECTED_HEAD"
