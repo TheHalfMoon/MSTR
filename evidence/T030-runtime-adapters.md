@@ -8,7 +8,7 @@
 
 **Historical source head:** `b4adce223a9a5c833f2c2392d742cb93bdad0ba3`
 
-**State:** `CURRENT_MAIN_RECONCILIATION / SECURITY_HARDENED_IMPLEMENTATION_CANDIDATE / QUALIFICATION_PENDING / NOT_COMPLETE_CANONICAL`
+**State:** `CURRENT_MAIN_RECONCILIATION / FINAL_SECURITY_HARDENING_CANDIDATE / QUALIFICATION_PENDING / NOT_COMPLETE_CANONICAL`
 
 ## Entry Gate
 
@@ -40,14 +40,15 @@ tests/integration/test_runtime_adapters.py
 evidence/T030-runtime-adapters.md
 ```
 
-The implementation is intentionally model-independent and preserves the historical security hardening that remained compatible with current T023 and identifier interfaces.
+The implementation is intentionally model-independent and preserves the historical hardening that remained compatible with current T023 and identifier interfaces while adding current-main security repairs discovered during substantive inspection.
 
 The adapter:
 
-- keeps `LoadRequest` identity-only; artifact location remains an environment/caller input;
+- keeps `LoadRequest` identity-only; artifact location remains a caller input;
 - verifies local artifact SHA-256 against the exact load identity before entering `READY`;
+- revalidates the loaded artifact SHA-256 immediately before every benchmark process and rejects observed post-load mutation or disappearance before launch;
 - performs no artifact acquisition;
-- rejects Hugging Face provider-acquisition flags and llama.cpp RPC flags, including `--flag=value` forms;
+- rejects direct model-URL, Docker repository, Hugging Face provider-acquisition, and llama.cpp RPC CLI flags, including equals forms;
 - strips inherited `LLAMA_ARG_*` and `HF_*` environment option surfaces before the real runtime subprocess executes;
 - requires exactly one runtime device selector across the complete generated CLI token set and requires it to be `none`;
 - forces `n_gpu_layers=0` and `--device none` for the portable CPU path;
@@ -57,11 +58,17 @@ The adapter:
 - represents isolated benchmark processes as `supports_prefix_cache=false` with `PrefixCacheState.EMPTY` rather than inventing reusable cache state;
 - retains a verified benchmark observation structure for later T031 plumbing without authorizing or performing T031 execution.
 
+The pre-process SHA-256 revalidation is a fail-closed check against observed post-load mutation. It does not claim filesystem-level atomicity between the final hash read and a separate external executable opening the path.
+
 ## Security Boundary
 
-The historical review discovered a cross-field CLI alias path where device-selector validation could have covered only `output_args`. The retained hardened implementation validates the complete generated `command_tokens` tuple. Dedicated regression coverage injects both `-dev` and `--device` through all non-output CLI argument fields and requires rejection.
+### Cross-field device selector alias
 
-A fresh current-main substantive inspection found a second material boundary issue before merge: the pinned upstream parser accepts runtime options from environment variables, while the historical adapter only rejected unsafe argv tokens. At the pinned revision, `common/arg.cpp` exposes environment-backed surfaces including:
+Historical review discovered a cross-field CLI alias path where device-selector validation could have covered only `output_args`. The retained hardened implementation validates the complete generated `command_tokens` tuple. Dedicated regression coverage injects both `-dev` and `--device` through all non-output CLI argument fields and requires rejection.
+
+### Inherited upstream option environment
+
+Current-main substantive inspection found that the pinned upstream parser accepts runtime options from environment variables, while the historical adapter only rejected unsafe argv tokens. At the pinned revision, `common/arg.cpp` exposes environment-backed surfaces including:
 
 ```text
 LLAMA_ARG_MODEL_URL
@@ -76,13 +83,35 @@ LLAMA_ARG_N_GPU_LAYERS
 
 Because `subprocess.run` inherits environment by default, a hostile or accidental inherited variable could have re-enabled network acquisition, RPC, or non-CPU behavior despite a safe argv profile. That finding invalidated the pre-finding candidate for merge qualification.
 
-The repair makes the default real subprocess runner pass an explicit sanitized environment that removes every `LLAMA_ARG_*` and `HF_*` variable while preserving unrelated process environment. `tests/security/test_runtime_environment_boundary.py` proves both removal of current/future upstream option variables and preservation of an unrelated sentinel variable. Injected deterministic test runners remain unaffected because they receive only command tokens and timeout.
+The repair makes the default real subprocess runner pass an explicit sanitized environment that removes every `LLAMA_ARG_*` and `HF_*` variable while preserving unrelated process environment. `tests/security/test_runtime_environment_boundary.py` proves removal of current/future upstream option variables and preservation of an unrelated sentinel variable. Injected deterministic test runners remain unaffected because they receive only command tokens and timeout.
+
+### Post-load artifact identity drift
+
+A later substantive inspection found that artifact SHA-256 was originally checked only during `load()`, while each `prefill()` or `decode()` launches a new process that opens the artifact path later. A file changed after `READY` could therefore have caused execution against bytes different from the `LoadRequest.artifact_sha256` identity.
+
+The repair revalidates file existence and SHA-256 immediately before each benchmark process. A dedicated regression mutates the local artifact after `load()` and proves that `runtime.artifact_hash_changed_after_load` is raised before the injected runner is called.
+
+### Direct acquisition aliases in argv
+
+A further pinned-upstream review found direct acquisition surfaces not covered by the historical HF/RPC denylist:
+
+```text
+-mu / --model-url
+-dr / --docker-repo
+```
+
+These are now prohibited alongside Hugging Face and RPC flags. Regression cases cover both long and short equals forms.
+
+The consolidated boundary is:
 
 ```text
 INHERITED_LLAMA_ARG_* -> REMOVED_BEFORE_REAL_SUBPROCESS
 INHERITED_HF_* -> REMOVED_BEFORE_REAL_SUBPROCESS
 SAFE_UNRELATED_ENV -> PRESERVED
-ARGV_PROVIDER_OR_RPC_FLAGS -> REJECT
+ARGV_MODEL_URL_OR_DOCKER_ACQUISITION -> REJECT
+ARGV_HF_PROVIDER_ACQUISITION -> REJECT
+ARGV_RPC -> REJECT
+POST_LOAD_ARTIFACT_MUTATION_OBSERVED_BEFORE_LAUNCH -> REJECT
 DUPLICATE_OR_NON_NONE_DEVICE_SELECTOR -> REJECT
 CROSS_FIELD_DEVICE_SELECTOR_ALIAS -> REJECT
 ```
@@ -103,21 +132,27 @@ The pinned interface documents or implements:
 
 ```text
 -m / --model
+-mu / --model-url
+-dr / --docker-repo
 -p / --n-prompt
 -n / --n-gen
 -t / --threads
 -ngl / --n-gpu-layers
 -dev / --device
 -r / --repetitions
+-hf / -hfr / --hf-repo
+-hff / --hf-file
+-hft / --hf-token
 -rpc / --rpc
 -o / --output json
 ```
 
-Pinned source proves `device=none` is accepted and serialized as `devices=none`, exposes the identity/measurement fields consumed by the adapter, and proves that runtime option environment variables are first-class parser inputs. The latter is why environment sanitization is now part of the adapter security boundary.
+Pinned source proves `device=none` is accepted and serialized as `devices=none`, exposes the identity/measurement fields consumed by the adapter, and proves that runtime option environment variables are first-class parser inputs. These interfaces define the current denylist and environment-sanitization boundary.
 
 The repository profile supplies:
 
 ```text
+-m <already-present-local-artifact>
 -ngl 0
 --device none
 -r 1
@@ -144,9 +179,11 @@ Focused assertions include:
 
 ```text
 LOCAL_ARTIFACT_SHA_MISMATCH -> REJECT
+POST_LOAD_ARTIFACT_SHA_MUTATION -> REJECT_BEFORE_PROCESS
 FORMAT_OR_CONTEXT_UNSUPPORTED -> REJECT
 CPU_ONLY_COMMAND -> -ngl 0 + --device none
-RPC_OR_PROVIDER_NETWORK_FLAGS -> REJECT
+MODEL_URL_OR_DOCKER_ACQUISITION_FLAGS -> REJECT
+RPC_OR_HF_PROVIDER_NETWORK_FLAGS -> REJECT
 INHERITED_RUNTIME_NETWORK_OR_DEVICE_ENV -> REMOVED
 DUPLICATE_OR_NON_NONE_DEVICE_SELECTOR -> REJECT
 CROSS_FIELD_DEVICE_SELECTOR_ALIAS -> REJECT
@@ -161,7 +198,7 @@ VALID_PINNED_RESULT -> ACCEPT
 
 ## Qualification History
 
-Historical PR #96 qualification attempts remain immutable infrastructure evidence only because its hosted jobs failed before executing repository gates. They do not transfer to this candidate.
+Historical PR #96 qualification attempts remain immutable infrastructure evidence only. They do not transfer to this candidate.
 
 Current-main attempt 1:
 
@@ -207,27 +244,83 @@ TARGET_HEAD = 5f51b19e929062623a4c9adfe0ae847307e6a421
 IDENTITY_SCOPE = SUCCESS
 QUALITY = SUCCESS
 FINAL_QUALIFICATION = SUCCESS
-LATER_DISPOSITION = SUPERSEDED_BY_MATERIAL_SECURITY_REVIEW_FINDING
+LATER_DISPOSITION = SUPERSEDED_BY_MATERIAL_ENVIRONMENT_SECURITY_FINDING
 ```
 
-Attempt 4 genuinely qualified its exact target at the time it completed, but a later substantive inspection found the inherited runtime environment bypass described above. The candidate was therefore repaired after that run. The successful run is historical evidence only and cannot qualify the security-hardened head.
+Attempt 4 genuinely qualified its exact target at the time it completed. A later substantive inspection found the inherited runtime environment bypass, so the successful run became historical evidence only.
 
-Fresh qualification after the environment repair must execute every frozen gate again on one final immutable head:
+Current-main attempt 5:
 
 ```text
-T030_FOCUSED_TESTS = REQUIRED_ON_FINAL_SECURITY_HARDENED_HEAD
-MSTR_QUALIFY_VALIDATE = REQUIRED_ON_FINAL_SECURITY_HARDENED_HEAD
-FULL_PYTEST = REQUIRED_ON_FINAL_SECURITY_HARDENED_HEAD
-RUFF = REQUIRED_ON_FINAL_SECURITY_HARDENED_HEAD
-MYPY = REQUIRED_ON_FINAL_SECURITY_HARDENED_HEAD
-EXACT_HEAD_SCOPE_AND_IDENTITY = REQUIRED_ON_FINAL_SECURITY_HARDENED_HEAD
+RUN = 33970180495
+TARGET_HEAD = e14409f7b0d3d672bba1faf69c84e46eb20da369
+IDENTITY_SCOPE = SUCCESS
+FOCUSED_TESTS = 40 PASSED
+MSTR_QUALIFY_VALIDATE = PASS
+FULL_PYTEST = 1349 PASSED
+RUFF = FAILURE_I001_IMPORT_FORMATTING
+MYPY = NOT_REACHED
+FINAL_QUALIFICATION = SKIPPED
+DISPOSITION = NEGATIVE QUALIFICATION EVIDENCE / FORMATTING_REPAIRED
+```
+
+The Ruff finding required only removal of one blank line in `tests/security/test_runtime_environment_boundary.py`; no runtime logic changed in that repair.
+
+Current-main attempt 6:
+
+```text
+RUN = 33971084397
+TARGET_HEAD = db6677d4ec1ae2d06b27344a80e95257097070a3
+IDENTITY_SCOPE = SUCCESS
+QUALITY = SUCCESS
+FINAL_QUALIFICATION = SUCCESS
+LATER_DISPOSITION = SUPERSEDED_BY_MATERIAL_SUBSTANTIVE_REVIEW_FINDINGS
+```
+
+Attempt 6 genuinely qualified its exact target. Subsequent independent substantive inspection found both the post-load artifact identity drift and the missing `--model-url` / `--docker-repo` acquisition aliases. The candidate changed to repair those findings, so attempt 6 does not transfer to the final hardened head.
+
+Two focused hardening diagnostics were then executed on repaired intermediate heads:
+
+```text
+RUN = 33971363161
+TARGET_HEAD = 4ac2bdd527dad23ec931c9eaecc8e2c41d97eff8
+FUNCTIONAL_TESTS = 29 PASSED
+RUFF = PASS
+MYPY = PASS
+WORKFLOW_RESULT = FAILURE
+CAUSE = diagnostic checkout was shallow, so final git diff --check could not resolve canonical base object
+DISPOSITION = HARNESS_ONLY_NEGATIVE_EVIDENCE / NOT_QUALIFICATION
+```
+
+```text
+RUN = 33971535582
+TARGET_HEAD = 4dc1220bd6f3b8e14ffa978b363e443c15f1232b
+FUNCTIONAL_TESTS = 45 PASSED
+RUFF = PASS
+MYPY = PASS
+WORKFLOW_RESULT = FAILURE
+CAUSE = diagnostic checkout was shallow, so final git diff --check could not resolve canonical base object
+DISPOSITION = HARNESS_ONLY_NEGATIVE_EVIDENCE / NOT_QUALIFICATION
+```
+
+Those diagnostics prove the focused code/static gates reached PASS before the harness-only failure, but neither is a qualification result and neither may be promoted to merge authority.
+
+Fresh qualification must execute every frozen gate again on one final immutable head with full Git history available for exact base/head topology checks:
+
+```text
+T030_FOCUSED_TESTS = REQUIRED_ON_FINAL_HARDENED_HEAD
+MSTR_QUALIFY_VALIDATE = REQUIRED_ON_FINAL_HARDENED_HEAD
+FULL_PYTEST = REQUIRED_ON_FINAL_HARDENED_HEAD
+RUFF = REQUIRED_ON_FINAL_HARDENED_HEAD
+MYPY = REQUIRED_ON_FINAL_HARDENED_HEAD
+EXACT_HEAD_SCOPE_AND_IDENTITY = REQUIRED_ON_FINAL_HARDENED_HEAD
 INDEPENDENT_SUBSTANTIVE_REVIEW = REQUIRED_AFTER_QUALIFICATION
 MANDATORY_PREMERGE = REQUIRED
 POSTMERGE_VERIFICATION = REQUIRED
 T030_COMPLETE_CANONICAL = NO_UNTIL_GOVERNED_CLOSEOUT
 ```
 
-No qualification PASS is claimed for the security-hardened head before a fresh exact-head run reaches a successful terminal final guard.
+No qualification PASS is claimed for the final hardened head before a fresh exact-head run reaches a successful terminal final guard.
 
 ## Authority Boundary
 
