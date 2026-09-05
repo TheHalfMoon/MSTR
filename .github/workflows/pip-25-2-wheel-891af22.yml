@@ -1,0 +1,86 @@
+name: Resolve exact pip 25.2 wheel identity
+
+on:
+  push:
+    branches:
+      - evidence/pip-25-2-wheel-891af22
+
+permissions:
+  contents: read
+
+env:
+  CANONICAL_MAIN: 891af2215a2244a6a0912d49d782f42bcc38b6ef
+
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact canonical main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.CANONICAL_MAIN }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Prove exact-main identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$CANONICAL_MAIN"
+      - name: Set up exact Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.9"
+      - name: Resolve pip wheel without installation
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/pip_identity"
+          mkdir -p "$work"
+          python -m pip install --disable-pip-version-check --dry-run --ignore-installed --report "$work/report.json" 'pip==25.2'
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from urllib.parse import urlparse
+          root = Path(os.environ['RUNNER_TEMP']) / 'pip_identity'
+          report = json.loads((root / 'report.json').read_text(encoding='utf-8'))
+          installs = report.get('install', [])
+          if len(installs) != 1:
+              raise SystemExit(f'expected one pip artifact, got {len(installs)}')
+          item = installs[0]
+          metadata = item['metadata']
+          info = item['download_info']
+          url = info['url']
+          host = (urlparse(url).hostname or '').lower()
+          sha256 = info.get('archive_info', {}).get('hashes', {}).get('sha256')
+          if metadata.get('name', '').lower() != 'pip' or metadata.get('version') != '25.2':
+              raise SystemExit('pip identity mismatch')
+          if host != 'files.pythonhosted.org' or not sha256:
+              raise SystemExit(f'unexpected pip artifact identity: host={host!r} hash={sha256!r}')
+          out = {
+              'schema_version': 'mstr.pip-wheel-identity.v1',
+              'canonical_main': os.environ['CANONICAL_MAIN'],
+              'python': '3.11.9',
+              'name': metadata['name'],
+              'version': metadata['version'],
+              'url': url,
+              'sha256': sha256,
+              'model_access': 'NONE',
+              'paid_cost_usd': 0.0,
+          }
+          (root / 'pip-25.2.json').write_text(json.dumps(out, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(json.dumps(out, sort_keys=True))
+          PY
+      - name: Upload durable pip identity only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pip-25-2-wheel-identity
+          path: ${{ runner.temp }}/pip_identity/pip-25.2.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Cleanup
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/pip_identity"
