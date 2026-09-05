@@ -1,0 +1,48 @@
+name: Reconcile PR166 current-state frontier
+
+on:
+  push:
+    branches:
+      - evidence/pr166-current-state-a018-reconcile
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact PR166 target
+        uses: actions/checkout@v4
+        with:
+          ref: closeout/000-t030-canonical
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify exact target head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "50df3540fc4c1568169d8b5dcb27e8e49a0e1737"
+          test "$(git rev-parse HEAD^{tree})" = "288a818c532a04028219b64dee6b3295f09aa249"
+
+      - name: Repair stale A000A current-state prose only
+        shell: bash
+        env:
+          PATCH_B64: CmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aApwID0gUGF0aCgiZG9jcy9jYW5vbmljYWwvQ1VSUkVOVF9TVEFURS5tZCIpCnMgPSBwLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKQoKcmVwbHMgPSB7CiAgICAiIyMgQ2Fub25pY2FsIEhpc3RvcnkgVGhyb3VnaCBUMDMwICsgQTAwNCI6ICIjIyBDYW5vbmljYWwgSGlzdG9yeSBUaHJvdWdoIFQwMzAgKyBBMDE4IiwKICAgICIiIiMjIE1TVFItMDAwQSBOZXh0IFN0YXRlCgpBMDAxLUEwMDQgYXJlIGNhbm9uaWNhbC4gVGhlIG5leHQgTVNUUi0wMDBBIGVhcmx5LXNhZmUgdGFzayBpcyBBMDA1LCBidXQgQjAwNCBkb2VzIG5vdCBleGVjdXRlIG9yIGF1dGhvcml6ZSBBMDA1LiBBMDA1LUEwMTggcmVtYWluIGluZGl2aWR1YWxseSBnYXRlZCBieSB0aGVpciBleGFjdCBwcmVyZXF1aXNpdGVzIGFuZCB0aGUgbWFjaGluZSB0YXNrIHZhbGlkYXRvciB3aGVyZSByZXByZXNlbnRlZC4gQ2FuZGlkYXRlLWRlcGVuZGVudCBBMDE5LUEwMjQgcmVtYWluIGNvbnZlcmdlbmNlLWdhdGVkIGFuZCBtYXkgbm90IGNvbnN1bWUgYW4gaW5jb21wbGV0ZSBvciBpbmNvbXBhcmFibGUgY2FuZGlkYXRlIHBvb2wuIiIiOiAiIiIjIyBNU1RSLTAwMEEgTmV4dCBTdGF0ZQoKQTAwMS1BMDE4IGFyZSBgQ09NUExFVEVfQ0FOT05JQ0FMYC4gVGhlIG5leHQgTVNUUi0wMDBBIGZyb250aWVyIGlzIGNvbnZlcmdlbmNlLCBub3QgYW5vdGhlciBlYXJseS1zYWZlIGltcGxlbWVudGF0aW9uIHRhc2suCgpgYGB0ZXh0CkEwMTkgPSBQRU5ESU5HIC8gQ09OVkVSR0VOQ0VfR0FURUQgLyBSRVFVSVJFU19CMDEzX1NUQUJMRV9QT09MCkEwMjAgPSBQRU5ESU5HIC8gQ09OVkVSR0VOQ0VfR0FURUQgLyBSRVFVSVJFU19CMDEzX1NUQUJMRV9QT09MX0FORF9CMDI2X1JFU0VBUkNIX0xBRERFUgpBMDIxLUEwMjQgPSBQRU5ESU5HIC8gRE9XTlNUUkVBTV9PRl9BMDE5X0EwMjBfQU5EX0NPTlZFUkdFTkNFX1JFQ09OQ0lMSUFUSU9OCmBgYAoKQjAxMyBjYW5ub3QgZnJlZXplIHRoZSBzdGFibGUgcHJvZHVjdC1hbGlnbmVkIGNhbmRpZGF0ZSBwb29sIHVudGlsIEIwMTIgcmVhY2hlcyBhbiBhbGxvd2VkIHRlcm1pbmFsIHN0YXRlLiBCMDEyIHJlbWFpbnMgYFBFTkRJTkdgIGFuZCByZXF1aXJlcyBleGFjdCBGb3VuZGVyIGF1dGhvcml0eSBgQjAxMl9GT1VOREVSX0FVVEhPUklUWV9GT1JfRVFVSVZBTEVOVF9RVUFMSUZJQ0FUSU9OYC4gVGhlcmVmb3JlIEEwMTkvQTAyMCBhcmUgbm90IGN1cnJlbnRseSBleGVjdXRhYmxlIGhlYWRsaW5lL2ZpbmFsIGNvbnZlcmdlbmNlIHdvcmssIGFuZCBBMDIxLUEwMjQgcmVtYWluIGRvd25zdHJlYW0uIFRoaXMgaXMgYSBkZXBlbmRlbmN5IHJlc3VsdCwgbm90IGF1dGhvcml0eSBjcmVhdGVkIGJ5IFQwMzAgY2xvc2VvdXQuIiIiCn0KZm9yIG9sZCxuZXcgaW4gcmVwbHMuaXRlbXMoKToKICAgIGFzc2VydCBzLmNvdW50KG9sZCk9PTEsIGYic291cmNlIGRyaWZ0IGZvciB7b2xkWzo4MF19IgogICAgcz1zLnJlcGxhY2Uob2xkLG5ldywxKQpwLndyaXRlX3RleHQocywgZW5jb2Rpbmc9InV0Zi04IikK
+        run: |
+          set -euo pipefail
+          printf '%s' "$PATCH_B64" | base64 -d > /tmp/reconcile.py
+          python /tmp/reconcile.py
+          git diff --check
+          test "$(git diff --name-only)" = "docs/canonical/CURRENT_STATE.md"
+
+      - name: Commit and push repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add docs/canonical/CURRENT_STATE.md
+          git commit -m "docs(canonical): reconcile A018 completion frontier"
+          git push origin HEAD:closeout/000-t030-canonical
