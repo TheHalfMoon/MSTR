@@ -1,0 +1,127 @@
+name: Verify PR160 B011 postcloseout exact main
+
+on:
+  push:
+    branches:
+      - evidence/pr160-b011-postcloseout
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  PREMERGE_MAIN: a788f55f5251f0be92b33e0765d0436cb321eb8b
+  CANDIDATE_HEAD: 60eb83121a80fc4f30058c62e3d18b01d89d68cf
+  CANDIDATE_TREE: 2f0480a380c746b8a59ec39d2381303098738f5e
+  MERGE_SHA: 5aaa64c2f93f7edbe991f62ce822ed134d9f1b59
+  PR_NUMBER: '160'
+  QUALIFICATION_RUN: '33957022743'
+  REVIEW_RUN: '33957202006'
+  PREMERGE_RUN: '33957441822'
+
+jobs:
+  topology_lifecycle:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5aaa64c2f93f7edbe991f62ce822ed134d9f1b59
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify exact merge topology, lifecycle evidence, successor frontier, and authority containment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$CANDIDATE_TREE"
+          mapfile -t parents < <(git show -s --format='%P' "$MERGE_SHA" | tr ' ' '\n')
+          test "${#parents[@]}" -eq 2
+          test "${parents[0]}" = "$PREMERGE_MAIN"
+          test "${parents[1]}" = "$CANDIDATE_HEAD"
+          test "$(git rev-parse "$CANDIDATE_HEAD^{tree}")" = "$CANDIDATE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg merge "$MERGE_SHA" --arg head "$CANDIDATE_HEAD" '.state == "closed" and .merged == true and .merge_commit_sha == $merge and .head.sha == $head' /tmp/pr.json >/dev/null
+          for run in "$QUALIFICATION_RUN" "$REVIEW_RUN" "$PREMERGE_RUN"; do
+            test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/$run --jq .status)" = completed
+            test "$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/$run --jq .conclusion)" = success
+          done
+
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$MERGE_SHA"
+          git update-ref refs/remotes/origin/main "$MERGE_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json >/dev/null
+
+          set +e
+          mstr-qualify task eligible B011 > /tmp/b011.json; b011_exit=$?
+          mstr-qualify task eligible B012 > /tmp/b012.json; b012_exit=$?
+          mstr-qualify task eligible B013 > /tmp/b013.json; b013_exit=$?
+          set -e
+          test "$b011_exit" -eq 1
+          test "$b012_exit" -eq 0
+          test "$b013_exit" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null and .authority_result.required == true and .authority_result.satisfied == true and .authority_result.authority_id == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"' /tmp/b011.json >/dev/null
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == false and (.reasons | length) == 0' /tmp/b012.json >/dev/null
+          jq -e '[.prerequisite_results[] | select(.task_id == "B011")][0] | .observed_state == "COMPLETE_CANONICAL" and .evidence_present == true and .satisfied == true' /tmp/b012.json >/dev/null
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and (.reasons | index("prerequisite.unsatisfied:B012")) != null' /tmp/b013.json >/dev/null
+
+          grep -F '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000b/B011-acquisition.md
+          grep -F 'ENTRY_GATE_CANONICAL_MAIN=dd547bb768598f92ad203764ce32be6e1fc710d6' evidence/mstr-000b/B011-acquisition.md
+          grep -F 'does not transfer to, authorize, or widen B012 or any later task' evidence/mstr-000b/B011-acquisition.md
+          grep -F 'does not authorize K2 Horizon or any newly discovered candidate' evidence/mstr-000b/B011-acquisition.md
+          echo 'PR160_B011_POSTCLOSEOUT_TOPOLOGY_LIFECYCLE=PASS'
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5aaa64c2f93f7edbe991f62ce822ed134d9f1b59
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify exact-main repository quality and immutable authority artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          python -m pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/contract/test_convergence_external_bindings.py
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          git update-ref refs/heads/main "$MERGE_SHA"
+          git update-ref refs/remotes/origin/main "$MERGE_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json >/dev/null
+          git diff --quiet "$PREMERGE_MAIN" "$MERGE_SHA" -- artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json artifacts/manifests/B010-new-candidate-weight-access.json artifacts/manifests/B011-acquired-candidates.json
+          test -z "$(git diff --name-only "$PREMERGE_MAIN" "$MERGE_SHA" -- src schemas .github/workflows docs/canonical/CURRENT_STATE.md artifacts/authorities artifacts/manifests)"
+          echo 'PR160_B011_POSTCLOSEOUT_QUALITY=PASS'
+
+  complete:
+    needs: [topology_lifecycle, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5aaa64c2f93f7edbe991f62ce822ed134d9f1b59
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Final canonical-main immutability proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$CANDIDATE_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          echo 'PR160_B011_POSTCLOSEOUT=PASS'
