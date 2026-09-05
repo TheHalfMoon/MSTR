@@ -144,22 +144,34 @@ VALID_PINNED_RESULT -> ACCEPT
 
 Historical PR #96 qualification attempts remain immutable infrastructure evidence only because its hosted jobs failed before executing repository gates. They do not transfer to this candidate.
 
-Fresh qualification must bind the exact current-main reconciliation head and actually execute:
+The first current-main qualification attempt was also not a PASS:
 
 ```text
-T030_FOCUSED_TESTS = REQUIRED
-MSTR_QUALIFY_VALIDATE = REQUIRED
-FULL_PYTEST = REQUIRED
-RUFF = REQUIRED
-MYPY = REQUIRED
-EXACT_HEAD_SCOPE_AND_IDENTITY = REQUIRED
+RUN = 33969313680
+TARGET_HEAD = 67a0842c24fe1e7d0732626d5decce13badf5223
+IDENTITY_SCOPE = FAILURE
+CAUSE = git diff --check rejected four Markdown trailing-whitespace hard breaks in this evidence file
+QUALITY = SUCCESS
+FINAL_QUALIFICATION = SKIPPED
+DISPOSITION = NEGATIVE CANDIDATE EVIDENCE / SUPERSEDED BY FORMATTING REPAIR
+```
+
+That run did execute and pass focused T030 tests, offline validation, full pytest, Ruff, and mypy, but its results do not transfer to the repaired head. Fresh qualification must bind the exact repaired head and execute all gates again.
+
+```text
+T030_FOCUSED_TESTS = REQUIRED_ON_REPAIRED_HEAD
+MSTR_QUALIFY_VALIDATE = REQUIRED_ON_REPAIRED_HEAD
+FULL_PYTEST = REQUIRED_ON_REPAIRED_HEAD
+RUFF = REQUIRED_ON_REPAIRED_HEAD
+MYPY = REQUIRED_ON_REPAIRED_HEAD
+EXACT_HEAD_SCOPE_AND_IDENTITY = REQUIRED_ON_REPAIRED_HEAD
 INDEPENDENT_SUBSTANTIVE_REVIEW = REQUIRED
 MANDATORY_PREMERGE = REQUIRED
 POSTMERGE_VERIFICATION = REQUIRED
 T030_COMPLETE_CANONICAL = NO_UNTIL_GOVERNED_CLOSEOUT
 ```
 
-No PASS is claimed in this file before those gates complete.
+No PASS is claimed in this file for the repaired head before those gates complete.
 
 ## Authority Boundary
 
