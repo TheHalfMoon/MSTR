@@ -1,0 +1,154 @@
+name: Qualify PR160 B011 closeout exact head
+
+on:
+  push:
+    branches:
+      - evidence/pr160-b011-closeout-qualification
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+env:
+  BASE_SHA: a788f55f5251f0be92b33e0765d0436cb321eb8b
+  HEAD_SHA: 60eb83121a80fc4f30058c62e3d18b01d89d68cf
+  EXPECTED_TREE: 2f0480a380c746b8a59ec39d2381303098738f5e
+  TARGET_BRANCH: closeout/b011-acquisition
+  PR_NUMBER: '160'
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact closeout identity, PR, lineage, and six-file scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          test "$(git rev-parse "$HEAD_SHA^{tree}")" = "$EXPECTED_TREE"
+          test "$(git merge-base "$BASE_SHA" "$HEAD_SHA")" = "$BASE_SHA"
+          test "$(git rev-list --count "$BASE_SHA".."$HEAD_SHA")" -eq 2
+          test "$(git rev-parse "$HEAD_SHA^")" = "4e32fc42a9a5b3b6cec7ebff887b68a8b176c8b7"
+          test "$(git rev-parse "4e32fc42a9a5b3b6cec7ebff887b68a8b176c8b7^")" = "$BASE_SHA"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '.state == "open" and .draft == false and .base.ref == "main" and .base.sha == $base and .head.ref == "closeout/b011-acquisition" and .head.sha == $head and .commits == 2 and .changed_files == 6' /tmp/pr.json >/dev/null
+          mapfile -t actual < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort)
+          expected=(
+            configs/task-gate/mstr-000b.json
+            evidence/mstr-000b/B011-acquisition.md
+            specs/002-code-model-supremacy-foundation/tasks.md
+            tests/contract/test_convergence_external_bindings.py
+            tests/contract/test_task_gate.py
+            tests/integration/test_task_gate_cli.py
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
+          test "${#actual[@]}" -eq 6
+          diff -u <(printf '%s\n' "${wanted[@]}") <(printf '%s\n' "${actual[@]}")
+          test -z "$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- src schemas .github/workflows docs/canonical/CURRENT_STATE.md artifacts/authorities artifacts/manifests)"
+          git diff --check "$BASE_SHA" "$HEAD_SHA"
+          echo 'PR160_B011_CLOSEOUT_IDENTITY_SCOPE=PASS'
+
+  lifecycle_semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 60eb83121a80fc4f30058c62e3d18b01d89d68cf
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove B011 terminal semantics, B012 successor eligibility, B013 blocking, and authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$HEAD_SHA"
+          git update-ref refs/remotes/origin/main "$HEAD_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json >/dev/null
+          set +e
+          mstr-qualify task eligible B011 > /tmp/b011.json
+          b011_exit=$?
+          mstr-qualify task eligible B012 > /tmp/b012.json
+          b012_exit=$?
+          mstr-qualify task eligible B013 > /tmp/b013.json
+          b013_exit=$?
+          set -e
+          test "$b011_exit" -eq 1
+          test "$b012_exit" -eq 0
+          test "$b013_exit" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and .state_consistency_result.satisfied == true and (.reasons | index("task.already_terminal")) != null and .authority_result.required == true and .authority_result.satisfied == true and .authority_result.authority_id == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"' /tmp/b011.json >/dev/null
+          jq -e '.eligible == true and .state_consistency_result.observed_state == "PENDING" and (.reasons | length) == 0 and .authority_result.required == false' /tmp/b012.json >/dev/null
+          jq -e '[.prerequisite_results[] | select(.task_id == "B011")][0] | .observed_state == "COMPLETE_CANONICAL" and .evidence_present == true and .satisfied == true' /tmp/b012.json >/dev/null
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and (.reasons | index("prerequisite.unsatisfied:B012")) != null' /tmp/b013.json >/dev/null
+          grep -F '**State:** `COMPLETE_CANONICAL`' evidence/mstr-000b/B011-acquisition.md
+          grep -F 'ENTRY_GATE_TASK=B011' evidence/mstr-000b/B011-acquisition.md
+          grep -F 'ENTRY_GATE_CANONICAL_MAIN=dd547bb768598f92ad203764ce32be6e1fc710d6' evidence/mstr-000b/B011-acquisition.md
+          grep -F 'ENTRY_GATE_ELIGIBLE=true' evidence/mstr-000b/B011-acquisition.md
+          grep -F '**Implementation PR:** `#157`' evidence/mstr-000b/B011-acquisition.md
+          grep -F '**Final implementation head:** `450d9b5b9b3c6aca27222a553dc6230f6eef6783`' evidence/mstr-000b/B011-acquisition.md
+          grep -F '**Canonical implementation merge:** `b9aa4f7de8b924d283d09fa8d93dbaceb0f6b4cd`' evidence/mstr-000b/B011-acquisition.md
+          grep -F '33865467059' evidence/mstr-000b/B011-acquisition.md
+          grep -F 'does not transfer to, authorize, or widen B012 or any later task' evidence/mstr-000b/B011-acquisition.md
+          grep -F 'does not authorize K2 Horizon or any newly discovered candidate' evidence/mstr-000b/B011-acquisition.md
+          git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json artifacts/manifests/B010-new-candidate-weight-access.json artifacts/manifests/B011-acquired-candidates.json
+          echo 'PR160_B011_CLOSEOUT_LIFECYCLE_SEMANTICS=PASS'
+
+  quality_drift:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 60eb83121a80fc4f30058c62e3d18b01d89d68cf
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run exact-head validation, focused/full tests, Ruff, mypy, and drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          python -m pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/contract/test_convergence_external_bindings.py
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          git update-ref refs/heads/main "$HEAD_SHA"
+          git update-ref refs/remotes/origin/main "$HEAD_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json >/dev/null
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          echo 'PR160_B011_CLOSEOUT_QUALITY_DRIFT=PASS'
+
+  complete:
+    needs: [identity_scope, lifecycle_semantics, quality_drift]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 60eb83121a80fc4f30058c62e3d18b01d89d68cf
+          fetch-depth: 0
+      - name: Final immutable exact-head and canonical-main recheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > /tmp/pr.json
+          jq -e --arg base "$BASE_SHA" --arg head "$HEAD_SHA" '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .mergeable != false' /tmp/pr.json >/dev/null
+          echo 'PR160_B011_CLOSEOUT_QUALIFICATION=PASS'
