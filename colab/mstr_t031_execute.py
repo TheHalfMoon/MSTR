@@ -26,8 +26,8 @@ from mstr_t031_governance import (
     _require_binding,
     _require_live_main,
 )
-from mstr_t031_source import _candidate_source, _download_candidate
 from mstr_t031_measure import _measure_set
+from mstr_t031_source import _candidate_source, _download_candidate
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:

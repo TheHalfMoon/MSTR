@@ -1,9 +1,9 @@
 # T031 Canonical Executor / Toolchain Binding
 
-**Task:** MSTR-000 / T031 pre-dispatch execution binding  
-**Source main:** `891af2215a2244a6a0912d49d782f42bcc38b6ef`  
-**Scope:** exact Founder-authorized T029 candidate set only  
-**External model execution in this change:** NONE  
+**Task:** MSTR-000 / T031 pre-dispatch execution binding
+**Source main:** `891af2215a2244a6a0912d49d782f42bcc38b6ef`
+**Scope:** exact Founder-authorized T029 candidate set only
+**External model execution in this change:** NONE
 **Paid cost:** USD 0.00
 
 ## Purpose

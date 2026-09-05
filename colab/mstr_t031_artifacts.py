@@ -145,4 +145,3 @@ def _prepare_llama_cpp(
         "runtime_commit": runtime_commit,
         "build_flags": build_flags,
     }
-

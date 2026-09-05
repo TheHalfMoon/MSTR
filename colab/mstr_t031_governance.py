@@ -157,4 +157,3 @@ def _require_binding(repo_root: Path) -> tuple[dict[str, object], dict[str, obje
         raise ExecutionError("founder-machine large artifacts must remain zero")
 
     return binding, envelope
-

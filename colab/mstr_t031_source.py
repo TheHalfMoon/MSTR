@@ -145,4 +145,3 @@ def _download_candidate(
     if not isinstance(ceiling, int) or total > ceiling:
         raise ExecutionError("candidate acquisition exceeds canonical source download ceiling")
     return records
-
