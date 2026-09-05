@@ -1,8 +1,8 @@
 # T029 Q4 Profile Qualification Evidence
 
-**Task:** `T029`  
-**State:** `Q4_PROFILE_SET_READY / QUALIFICATION_PENDING / NOT_COMPLETE_CANONICAL`  
-**Current reconciliation base:** `5cadbd754686ebff6f5327e9746f0b074b35e318`  
+**Task:** `T029`
+**State:** `Q4_PROFILE_SET_READY / QUALIFICATION_PENDING / NOT_COMPLETE_CANONICAL`
+**Current reconciliation base:** `5cadbd754686ebff6f5327e9746f0b074b35e318`
 **Historical recovery PR:** `#95` / current historical head `deac1ffd5a9ef4107ad3ad28e472d7d17c47033f`
 
 ## Contract
