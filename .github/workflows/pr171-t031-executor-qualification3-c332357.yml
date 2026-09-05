@@ -1,0 +1,164 @@
+name: PR171 T031 executor qualification3 c332357
+
+on:
+  push:
+    branches:
+      - evidence/pr171-t031-executor-qualification3-c332357
+
+permissions:
+  contents: read
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: c332357f248704b1f6386dc8cbe8aacf603d3e79
+          fetch-depth: 0
+
+      - name: Verify exact base head tree and file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=891af2215a2244a6a0912d49d782f42bcc38b6ef
+          HEAD=c332357f248704b1f6386dc8cbe8aacf603d3e79
+          TREE=d73b15254f4e53c607c9e92eae01b40485b9f949
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TREE"
+          test "$(git merge-base "$BASE" "$HEAD")" = "$BASE"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE"
+          test "$(git ls-remote origin refs/heads/feat/t031-governed-measurement-executor | awk '{print $1}')" = "$HEAD"
+          git diff --check "$BASE".."$HEAD"
+          cat > /tmp/expected-files <<'EOF'
+          .github/workflows/t031-measure.yml
+          artifacts/manifests/T031-executor-toolchain-binding.json
+          artifacts/manifests/T031-executor-toolchain-lock.json
+          colab/mstr_executor_toolchain.py
+          colab/mstr_t031_artifacts.py
+          colab/mstr_t031_execute.py
+          colab/mstr_t031_governance.py
+          colab/mstr_t031_measure.py
+          colab/mstr_t031_source.py
+          evidence/T031-executor-toolchain-binding.md
+          tests/contract/test_t031_executor_binding.py
+          EOF
+          git diff --name-only "$BASE".."$HEAD" | sort > /tmp/actual-files
+          sort /tmp/expected-files -o /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
+
+      - name: Verify binding identities authority boundaries and syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          binding = json.loads(Path("artifacts/manifests/T031-executor-toolchain-binding.json").read_text(encoding="utf-8"))
+          expected = {
+              "authority_sha256": ("artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json", "f7ac76d05d2a9dfa91fc4ff76fef42aac0c080aaefc89b9c2dc6348d93fb92cd"),
+              "envelope_sha256": ("artifacts/manifests/T031-local-measurement-execution-envelope.json", "700be8f090ac13dd26b9f1720ecd9911ca432e94df970d3aae3e7a6c8afd6ff6"),
+              "toolchain_lock_sha256": ("artifacts/manifests/T031-executor-toolchain-lock.json", None),
+              "toolchain_helper_sha256": ("colab/mstr_executor_toolchain.py", None),
+              "governance_script_sha256": ("colab/mstr_t031_governance.py", None),
+              "source_script_sha256": ("colab/mstr_t031_source.py", None),
+              "artifact_script_sha256": ("colab/mstr_t031_artifacts.py", None),
+              "measurement_script_sha256": ("colab/mstr_t031_measure.py", None),
+              "executor_script_sha256": ("colab/mstr_t031_execute.py", None),
+              "workflow_sha256": (".github/workflows/t031-measure.yml", None),
+          }
+          for key, (path, frozen) in expected.items():
+              actual = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+              assert binding[key] == actual, (key, binding[key], actual)
+              if frozen is not None:
+                  assert actual == frozen, (path, actual, frozen)
+
+          assert binding["candidate_ids"] == [
+              "granite-4.1-3b",
+              "ministral-3-3b",
+              "qwen2.5-coder-1.5b",
+              "qwen3-4b",
+              "qwen3.5-2b",
+              "qwen3.5-4b",
+              "smollm3-3b",
+              "yi-coder-1.5b",
+          ]
+          assert binding["contexts"] == [4096, 8192, 16384]
+          boundary = binding["execution_boundary"]
+          assert boundary["authority_transfer"] is False
+          for key in (
+              "b012_execution",
+              "t032_execution",
+              "t033_execution",
+              "t034_admission_decision",
+              "training",
+          ):
+              assert boundary[key] is False, key
+          assert boundary["paid_cost_usd"] == 0.0
+          assert boundary["git_model_binaries"] == 0
+          assert boundary["founder_machine_model_binaries"] == 0
+          PY
+
+          python -m py_compile \
+            colab/mstr_executor_toolchain.py \
+            colab/mstr_t031_governance.py \
+            colab/mstr_t031_source.py \
+            colab/mstr_t031_artifacts.py \
+            colab/mstr_t031_measure.py \
+            colab/mstr_t031_execute.py \
+            tests/contract/test_t031_executor_binding.py
+
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: c332357f248704b1f6386dc8cbe8aacf603d3e79
+          fetch-depth: 0
+
+      - name: Setup Python 3.11.9
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.9'
+
+      - name: Install canonical dev environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pip install build
+
+      - name: Focused contract test
+        run: pytest -q tests/contract/test_t031_executor_binding.py
+
+      - name: Canonical full quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify validate
+          ruff check .
+          ruff format --check .
+          mypy src
+          pytest -q
+          python -m build
+
+  final_exact_head:
+    needs: [identity_scope, quality]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Reverify immutable exact head and main
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=891af2215a2244a6a0912d49d782f42bcc38b6ef
+          HEAD=c332357f248704b1f6386dc8cbe8aacf603d3e79
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | awk '{print $1}')" = "$BASE"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/feat/t031-governed-measurement-executor | awk '{print $1}')" = "$HEAD"
+          echo "PR171 T031 executor exact-head qualification PASS: $HEAD"
