@@ -1,0 +1,76 @@
+name: Materialize complete tested PR163 T029 hardening
+
+on:
+  push:
+    branches:
+      - evidence/pr163-t029-network-hardening-materialize-v2-a647a02
+
+permissions:
+  contents: read
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EXPECTED_MAIN: 5cadbd754686ebff6f5327e9746f0b074b35e318
+      EXPECTED_TARGET: a647a02fae25ea1176264a14739e2bcf5efebfbd
+      TARGET_BRANCH: fix/000-t029-recovery-current-main
+      BUILDER_COMMIT: 89737e2cfce6fd7d4750e4647770d1ad29e77f5f
+    steps:
+      - name: Verify exact remote identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN_SHA="$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)"
+          TARGET_SHA="$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)"
+          test "$MAIN_SHA" = "$EXPECTED_MAIN"
+          test "$TARGET_SHA" = "$EXPECTED_TARGET"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_TARGET }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Reproduce exact tested files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$BUILDER_COMMIT"
+          git show "$BUILDER_COMMIT:.github/scripts/pr163_t029_network_hardening_builder.py" > /tmp/builder.py
+          python /tmp/builder.py
+          python -m pip install 'ruff==0.16.6'
+          ruff format colab/mstr_t029_quantize.py tests/unit/test_t029_quantize_runner.py
+          git diff --check "$EXPECTED_TARGET"
+          git diff --name-only "$EXPECTED_TARGET" | sort > /tmp/actual.txt
+          cat > /tmp/expected.txt <<'EOF'
+          .github/workflows/t029-quantize.yml
+          colab/mstr_t029_quantize.py
+          tests/unit/test_t029_quantize_runner.py
+          EOF
+          sed -i 's/^          //' /tmp/expected.txt
+          sort -o /tmp/expected.txt /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+
+      - name: Package exact generated files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/materialized/.github/workflows /tmp/materialized/colab /tmp/materialized/tests/unit
+          cp .github/workflows/t029-quantize.yml /tmp/materialized/.github/workflows/t029-quantize.yml
+          cp colab/mstr_t029_quantize.py /tmp/materialized/colab/mstr_t029_quantize.py
+          cp tests/unit/test_t029_quantize_runner.py /tmp/materialized/tests/unit/test_t029_quantize_runner.py
+          (cd /tmp/materialized && sha256sum .github/workflows/t029-quantize.yml colab/mstr_t029_quantize.py tests/unit/test_t029_quantize_runner.py > SHA256SUMS)
+          (cd /tmp/materialized && sha256sum -c SHA256SUMS)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr163-t029-network-hardening-tested-files-complete
+          path: /tmp/materialized
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
