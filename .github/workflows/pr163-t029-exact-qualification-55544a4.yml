@@ -1,0 +1,223 @@
+name: Qualify exact PR163 T029 head 55544a4
+
+on:
+  push:
+    branches:
+      - evidence/pr163-t029-exact-qualification-55544a4
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      EXPECTED_MAIN: 5cadbd754686ebff6f5327e9746f0b074b35e318
+      EXPECTED_HEAD: 55544a4d9a0cc7b062caa98fe0f730952f9d76e5
+      EXPECTED_TREE: 98569d359d2166898de75a19486b29d4657abc2e
+      TARGET_BRANCH: fix/000-t029-recovery-current-main
+      QWEN_ARTIFACT_ID: '9603552151'
+      QWEN_ARCHIVE_SHA256: 69a78e2185337b58940b2dc3ab993d182fa9be9f3eaad95fa43a5bf682f9e4a3
+      QWEN_REPORT_SHA256: aad35a2f4db1aff3f2a436a7b98d03a92def063067fc9f294d4a0fcabd8f5d61
+      MINISTRAL_ARTIFACT_ID: '9729481097'
+      MINISTRAL_ARCHIVE_SHA256: 2ee155799e1e163cd1c0c90290fec2ce7f1a621dbc6f93960cd620c956a006c5
+      MINISTRAL_REPORT_SHA256: 120dfabdc328bb7f2adceffd534c651edef57d6dfb9f5dbf0add627f1364b194
+    steps:
+      - name: Verify exact live identities before qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify exact lineage tree and nine-file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git merge-base "$EXPECTED_MAIN" "$EXPECTED_HEAD")" = "$EXPECTED_MAIN"
+          test "$(git rev-list --count "$EXPECTED_MAIN..$EXPECTED_HEAD")" = '13'
+          git diff --check "$EXPECTED_MAIN..$EXPECTED_HEAD"
+          git diff --name-only "$EXPECTED_MAIN..$EXPECTED_HEAD" | sort > /tmp/actual.txt
+          cat > /tmp/expected.txt <<'EOF'
+          .github/workflows/t029-quantize.yml
+          artifacts/manifests/quantization/T029-ministral-recovery-provenance.json
+          artifacts/manifests/quantization/T029-q4-profiles.json
+          artifacts/manifests/quantization/T029-qwen3.5-2b-historical-provenance.json
+          colab/mstr_t029_quantize.py
+          evidence/T029-q4-profiles.md
+          evidence/T029-runner-recovery.md
+          tests/contract/test_t029_quantization_manifest.py
+          tests/unit/test_t029_quantize_runner.py
+          EOF
+          sed -i 's/^          //' /tmp/expected.txt
+          sort -o /tmp/expected.txt /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+
+      - name: Verify primary historical artifacts and Qwen defect
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/qwen /tmp/ministral
+          curl -L --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/TheHalfMoon/MSTR/actions/artifacts/$QWEN_ARTIFACT_ID/zip" \
+            -o /tmp/qwen.zip
+          test "$(sha256sum /tmp/qwen.zip | cut -d' ' -f1)" = "$QWEN_ARCHIVE_SHA256"
+          unzip -q /tmp/qwen.zip -d /tmp/qwen
+          test "$(sha256sum /tmp/qwen/t029-qwen3.5-2b.json | cut -d' ' -f1)" = "$QWEN_REPORT_SHA256"
+          curl -L --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/TheHalfMoon/MSTR/actions/artifacts/$MINISTRAL_ARTIFACT_ID/zip" \
+            -o /tmp/ministral.zip
+          test "$(sha256sum /tmp/ministral.zip | cut -d' ' -f1)" = "$MINISTRAL_ARCHIVE_SHA256"
+          unzip -q /tmp/ministral.zip -d /tmp/ministral
+          test "$(sha256sum /tmp/ministral/t029-ministral-3-3b.json | cut -d' ' -f1)" = "$MINISTRAL_REPORT_SHA256"
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          qwen_report = json.loads(Path('/tmp/qwen/t029-qwen3.5-2b.json').read_text())
+          historical = json.loads(Path('artifacts/manifests/quantization/T029-qwen3.5-2b-historical-provenance.json').read_text())
+          manifest = json.loads(Path('artifacts/manifests/quantization/T029-q4-profiles.json').read_text())
+          invalid = historical['q4_k_s_historical_reported_output_sha256']
+          assert invalid == qwen_report['quantization_arms']['Q4_K_S']['output_sha256']
+          assert len(invalid) == 65 and re.fullmatch(r'[0-9a-f]{65}', invalid)
+          profile = next(p for p in manifest['profiles'] if p['candidate_id'] == 'qwen3.5-2b')
+          assert profile['quantization_arms']['Q4_K_S']['output_sha256'] is None
+          assert profile['quantization_arms']['Q4_K_S']['historical_reported_output_sha256'] == invalid
+          assert profile['result_classification'] == 'Q4_PROFILE_PARTIAL'
+          assert profile['qualification_defect'] == 'Q4_K_S_RECORDED_SHA256_INVALID_65_HEX'
+          assert sum(p['result_classification'] == 'Q4_PROFILE_READY' for p in manifest['profiles']) == 7
+          assert len(manifest['profiles']) == 8
+          ministral = json.loads(Path('/tmp/ministral/t029-ministral-3-3b.json').read_text())
+          assert ministral['result_classification'] == 'Q4_PROFILE_READY'
+          print('PRIMARY_ARTIFACT_PROVENANCE=PASS')
+          print('T029_PROFILE_STATE=7_FULL_1_PARTIAL')
+          PY
+
+      - name: Verify fail-closed model-artifact network semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import importlib.util
+          import json
+          from pathlib import Path
+
+          path = Path('colab/mstr_t029_quantize.py')
+          spec = importlib.util.spec_from_file_location('t029', path)
+          assert spec is not None and spec.loader is not None
+          mod = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+          t027_path = Path('artifacts/manifests/T027-weight-access.json')
+          addendum_path = Path('artifacts/manifests/T028-network-scope-addendum.json')
+          t027 = json.loads(t027_path.read_text())
+          hosts = mod.load_model_artifact_allowlist(t027, t027_path, addendum_path)
+          assert t027['network']['method'] == 'HTTPS_GET_ONLY'
+          assert hosts == frozenset(set(t027['network']['allowlist_hosts']) | {'us.aws.cdn.hf.co'})
+          assert mod._validated_https_host('https://huggingface.co/x', hosts) == 'huggingface.co'
+          assert mod._validated_https_host('https://huggingface.co:443/x', hosts) == 'huggingface.co'
+          bad = (
+              'http://huggingface.co/x',
+              'https://example.com/x',
+              'https://user@huggingface.co/x',
+              'https://huggingface.co:8443/x',
+          )
+          for url in bad:
+              try:
+                  mod._validated_https_host(url, hosts)
+              except mod.NetworkPolicyError:
+                  pass
+              else:
+                  raise AssertionError(f'network policy accepted {url}')
+          src = path.read_text()
+          assert 'AllowlistedRedirectHandler' in src
+          assert 'EXCLUDED_NETWORK_POLICY' in src
+          assert 'result["verified"] = hash_ok and size_ok' in src
+          assert 'source_path.unlink(missing_ok=True)' in src
+          workflow = Path('.github/workflows/t029-quantize.yml').read_text()
+          assert '--network-addendum artifacts/manifests/T028-network-scope-addendum.json' in workflow
+          print('MODEL_ARTIFACT_NETWORK_HARDENING=PASS')
+          PY
+
+      - name: Verify execution-readiness remains fail closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/t029-quantize.yml').read_text()
+          runner = Path('colab/mstr_t029_quantize.py').read_text()
+          evidence = Path('evidence/T029-q4-profiles.md').read_text()
+          t027_evidence = Path('specs/000-universal-laptop-interaction-contract/evidence/T027-weight-access-preflight.md').read_text()
+          tasks = Path('specs/000-universal-laptop-interaction-contract/tasks.md').read_text()
+          assert 'pip install' in workflow
+          assert 'apt-get' in workflow
+          assert 'git", "clone"' in runner
+          assert 'package indexes (pypi/npm)' in t027_evidence
+          assert 'T029_QWEN_REPAIR_EXECUTION_READY = NO' in evidence
+          assert 'TOOLCHAIN_NETWORK_AUTHORITY = MUST_BE_PROVEN_BEFORE_DISPATCH' in evidence
+          assert '- [ ] T029 [US1]' in tasks
+          print('PR_RECONCILIATION_QUALIFIED_EXECUTION_BOUNDARY=PRESENT')
+          print('T029_EXTERNAL_REPAIR_EXECUTION_READY=NO')
+          print('BLOCKING_REASON=TOOLCHAIN_NETWORK_AUTHORITY_UNPROVEN')
+          PY
+
+      - name: Verify authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git diff --name-only "$EXPECTED_MAIN..$EXPECTED_HEAD" | grep -E '(^|/)configs/task-gate|(^|/)artifacts/authorities|(^|/)specs/002-code-model' || true)"
+          test ! -e artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json
+          grep -q 'B012_AUTHORITY = NONE' evidence/T029-q4-profiles.md
+          grep -q 'K2_AUTHORITY = NONE' evidence/T029-q4-profiles.md
+
+      - name: Install repository development dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Focused T029 tests
+        run: python -m pytest -q tests/unit/test_t029_quantize_runner.py tests/contract/test_t029_quantization_manifest.py
+
+      - name: Repository validation
+        run: mstr-qualify validate
+
+      - name: Full pytest
+        run: python -m pytest -q
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: Mypy
+        run: mypy
+
+      - name: Final exact live immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE_MAIN="$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)"
+          LIVE_HEAD="$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)"
+          echo "FINAL_MAIN=$LIVE_MAIN"
+          echo "FINAL_TARGET=$LIVE_HEAD"
+          test "$LIVE_MAIN" = "$EXPECTED_MAIN"
+          test "$LIVE_HEAD" = "$EXPECTED_HEAD"
+          echo 'PR_RECONCILIATION_QUALIFIED=YES'
+          echo 'T029_EXTERNAL_REPAIR_EXECUTION_READY=NO'
