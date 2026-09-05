@@ -1,0 +1,151 @@
+name: T031 exact review repair relay
+
+on:
+  push:
+    branches:
+      - feat/t031-governed-measurement-executor
+    paths:
+      - .github/workflows/t031-review-repair-relay.yml
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact relay head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - name: Rebind exact reviewed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path('.')
+          binding_path = root / 'artifacts/manifests/T031-executor-toolchain-binding.json'
+          evidence_path = root / 'evidence/T031-executor-toolchain-binding.md'
+          test_path = root / 'tests/contract/test_t031_executor_binding.py'
+
+          def sha256(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          binding = json.loads(binding_path.read_text(encoding='utf-8'))
+          binding['toolchain_helper_sha256'] = sha256(root / 'colab/mstr_executor_toolchain.py')
+          binding['executor_script_sha256'] = sha256(root / 'colab/mstr_t031_execute.py')
+          binding['workflow_sha256'] = sha256(root / '.github/workflows/t031-measure.yml')
+          dispatch = binding['dispatch_boundary']
+          dispatch.pop('connector_dispatch_branch_pattern', None)
+          dispatch.pop('connector_dispatch_event', None)
+          binding_path.write_text(json.dumps(binding, indent=2) + '\n', encoding='utf-8')
+
+          evidence = evidence_path.read_text(encoding='utf-8')
+          marker = '## Dispatch lifecycle\n'
+          prefix, sep, _ = evidence.partition(marker)
+          if not sep:
+              raise SystemExit('dispatch lifecycle marker missing')
+          replacement = '''## Dispatch lifecycle
+
+This binding PR itself performs no model access.
+
+After this exact binding becomes canonical, dispatch is permitted only through `workflow_dispatch`
+from canonical `main`, selecting one of the eight exact Founder-authorized candidates. The governed
+workflow has no push, branch-creation, wildcard-branch, or arbitrary-ref execution trigger.
+
+The workflow verifies `refs/heads/main` before selecting the candidate, explicitly checks out live
+canonical `main` with persisted Git credentials disabled, and then invokes the exact bound executor.
+Global workflow concurrency is one candidate and `cancel-in-progress` is false. The executor
+rechecks live `main` again immediately before model access and again before reporting success. A
+main movement invalidates the run.
+
+Only JSON/JSONL measurement evidence is uploaded. Any identity, authority, toolchain, network,
+artifact, runtime, or live-main mismatch fails closed; failed runs remain failure evidence and are
+never rewritten as success.
+'''
+          evidence_path.write_text(prefix + replacement, encoding='utf-8')
+
+          tests = test_path.read_text(encoding='utf-8')
+          start = tests.index('def test_workflow_dispatch_is_canonical_and_branch_creation_only() -> None:\n')
+          end = tests.index('\ndef test_executor_contains_fail_closed_network_and_runtime_boundaries() -> None:\n', start)
+          new_test = '''def test_workflow_dispatch_is_canonical_main_only() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    binding = _read_json(BINDING)
+
+    assert "workflow_dispatch:" in workflow
+    assert "\\n  push:" not in workflow
+    assert "execute/t031-" not in workflow
+    assert '[[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]' in workflow
+    assert '[[ "$GITHUB_REF" == "refs/heads/main" ]]' in workflow
+    assert "ref: main" in workflow
+    assert "persist-credentials: false" in workflow
+    assert "permissions:\\n  contents: read" in workflow
+    assert "group: t031-governed-model-execution" in workflow
+    assert "cancel-in-progress: false" in workflow
+    for candidate in CANDIDATES:
+        assert candidate in workflow
+
+    dispatch = binding["dispatch_boundary"]
+    assert isinstance(dispatch, dict)
+    assert dispatch["canonicalization_required"] is True
+    assert dispatch["manual_dispatch_branch"] == "main"
+    assert "connector_dispatch_branch_pattern" not in dispatch
+    assert "connector_dispatch_event" not in dispatch
+    assert dispatch["checkout_ref"] == "main"
+    assert dispatch["max_parallel_candidates"] == 1
+    assert dispatch["max_job_minutes"] == 120
+
+'''
+          tests = tests[:start] + new_test + tests[end + 1:]
+          needle = '    assert \'blocked_prefixes = ("LLAMA_ARG_", "HF_", "HUGGINGFACE_", "CUDA_", "NVIDIA_")\' in helper\n'
+          if needle not in tests:
+              raise SystemExit('executor boundary assertion marker missing')
+          additions = '''    assert "timeout=timeout" in helper
+    assert "except subprocess.TimeoutExpired as exc:" in helper
+    assert "workdir.mkdir(parents=True)" in executor
+    assert executor.index("try:") < executor.index("workdir.mkdir(parents=True)")
+'''
+          tests = tests.replace(needle, needle + additions, 1)
+          test_path.write_text(tests, encoding='utf-8')
+          PY
+
+          python3 -m compileall -q colab/mstr_executor_toolchain.py colab/mstr_t031_execute.py tests/contract/test_t031_executor_binding.py
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+
+          path = Path('tests/contract/test_t031_executor_binding.py')
+          spec = importlib.util.spec_from_file_location('t031_contract', path)
+          if spec is None or spec.loader is None:
+              raise SystemExit('cannot load T031 contract tests')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          tests = sorted(name for name in vars(module) if name.startswith('test_'))
+          if not tests:
+              raise SystemExit('no T031 contract tests discovered')
+          for name in tests:
+              getattr(module, name)()
+          print(f'T031_NO_MODEL_CONTRACT_TESTS=PASS count={len(tests)}')
+          PY
+          git diff --check
+      - name: Commit exact repaired candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin feat/t031-governed-measurement-executor
+          test "$(git rev-parse origin/feat/t031-governed-measurement-executor)" = "$GITHUB_SHA"
+          git rm .github/workflows/t031-review-repair-relay.yml
+          git add artifacts/manifests/T031-executor-toolchain-binding.json \
+            evidence/T031-executor-toolchain-binding.md \
+            tests/contract/test_t031_executor_binding.py
+          unexpected="$(git diff --cached --name-only | grep -v -E '^(\.github/workflows/t031-review-repair-relay\.yml|artifacts/manifests/T031-executor-toolchain-binding\.json|evidence/T031-executor-toolchain-binding\.md|tests/contract/test_t031_executor_binding\.py)$' || true)"
+          test -z "$unexpected"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(t031): reconcile review-bound execution contract'
+          git push origin HEAD:feat/t031-governed-measurement-executor
