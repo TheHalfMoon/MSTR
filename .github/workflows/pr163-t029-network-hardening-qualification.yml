@@ -1,0 +1,134 @@
+name: Qualify exact PR163 T029 network hardening
+
+on:
+  push:
+    branches:
+      - evidence/pr163-t029-network-hardening-qualification-ba60f54
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      EXPECTED_MAIN: 5cadbd754686ebff6f5327e9746f0b074b35e318
+      EXPECTED_OLD_TARGET: a647a02fae25ea1176264a14739e2bcf5efebfbd
+      EXPECTED_HEAD: ba60f5435ca1e1670b80cc5ea24b98f0d0d6c78a
+      TARGET_BRANCH: fix/000-t029-recovery-current-main
+      STAGING_BRANCH: staging/pr163-t029-network-hardening-a647a02
+    steps:
+      - name: Verify exact remote identities before qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_OLD_TARGET"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$STAGING_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify exact lineage, scope, and tested byte identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git merge-base "$EXPECTED_OLD_TARGET" "$EXPECTED_HEAD")" = "$EXPECTED_OLD_TARGET"
+          test "$(git rev-list --count "$EXPECTED_OLD_TARGET..$EXPECTED_HEAD")" = "2"
+          git diff --check "$EXPECTED_OLD_TARGET..$EXPECTED_HEAD"
+          git diff --name-only "$EXPECTED_OLD_TARGET..$EXPECTED_HEAD" | sort > /tmp/actual.txt
+          cat > /tmp/expected.txt <<'EOF'
+          .github/workflows/t029-quantize.yml
+          colab/mstr_t029_quantize.py
+          tests/unit/test_t029_quantize_runner.py
+          EOF
+          sed -i 's/^          //' /tmp/expected.txt
+          sort -o /tmp/expected.txt /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+          test "$(sha256sum .github/workflows/t029-quantize.yml | cut -d' ' -f1)" = "2f6c167aed9d7f5b33a308647ecce8c3934549f7d5f246b1caa8cfca220faebc"
+          test "$(sha256sum colab/mstr_t029_quantize.py | cut -d' ' -f1)" = "5c7057bc51464ad08340094df2f1577d2f12fadde9dcc6c864e4caef8caed050"
+          test "$(sha256sum tests/unit/test_t029_quantize_runner.py | cut -d' ' -f1)" = "8a870692d3c1b4e67606e1a071298b1e700f83089edfeda0ef7fcfaa6f0710e1"
+
+      - name: Verify fail-closed network and integrity semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import importlib.util
+          import json
+          from pathlib import Path
+
+          root = Path('.')
+          path = root / 'colab/mstr_t029_quantize.py'
+          spec = importlib.util.spec_from_file_location('t029', path)
+          assert spec is not None and spec.loader is not None
+          mod = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+
+          t027_path = root / 'artifacts/manifests/T027-weight-access.json'
+          addendum_path = root / 'artifacts/manifests/T028-network-scope-addendum.json'
+          t027 = json.loads(t027_path.read_text())
+          hosts = mod.load_model_artifact_allowlist(t027, t027_path, addendum_path)
+          assert 'huggingface.co' in hosts
+          assert 'us.aws.cdn.hf.co' in hosts
+          assert mod._validated_https_host('https://huggingface.co/x', hosts) == 'huggingface.co'
+          try:
+              mod._validated_https_host('https://example.com/x', hosts)
+          except mod.NetworkPolicyError:
+              pass
+          else:
+              raise AssertionError('unlisted host was not rejected')
+
+          src = path.read_text()
+          assert 'AllowlistedRedirectHandler' in src
+          assert 'EXCLUDED_NETWORK_POLICY' in src
+          assert 'hash_ok = expected_sha is None or actual_sha == expected_sha' in src
+          assert 'size_ok = expected_size is None or actual_size == expected_size' in src
+          assert 'result["verified"] = hash_ok and size_ok' in src
+          assert 'source_path.unlink(missing_ok=True)' in src
+
+          workflow = (root / '.github/workflows/t029-quantize.yml').read_text()
+          assert '--network-addendum artifacts/manifests/T028-network-scope-addendum.json' in workflow
+          print('T029_NETWORK_HARDENING_SEMANTICS=PASS')
+          PY
+
+      - name: Verify B012 remains fail-closed and untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git diff --name-only "$EXPECTED_OLD_TARGET..$EXPECTED_HEAD" | grep -E '(^|/)mstr-000b|configs/task-gate|artifacts/authorities|specs/002-code-model' || true)"
+          test ! -e artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json
+
+      - name: Install repository development dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Focused T029 tests
+        run: python -m pytest -q tests/unit/test_t029_quantize_runner.py tests/contract/test_t029_quantization_manifest.py
+
+      - name: Repository validation
+        run: mstr-qualify validate
+
+      - name: Full pytest
+        run: python -m pytest -q
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: Mypy
+        run: mypy
+
+      - name: Final remote immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_OLD_TARGET"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$STAGING_BRANCH | cut -f1)" = "$EXPECTED_HEAD"
