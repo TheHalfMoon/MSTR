@@ -93,6 +93,8 @@ Runtime:
   removed before llama.cpp execution
 - runtime output must report the requested model, token counts, threads, zero GPU layers,
   `devices=none`, and a build commit matching the pinned runtime identity
+- every local toolchain subprocess is bounded by an explicit timeout; timeout is a fail-closed
+  `ToolchainError`, never an implicit hang or success
 
 ## Source acquisition and artifact regeneration
 
@@ -108,6 +110,9 @@ The regenerated F16, `Q4_K_M`, and `Q4_K_S` hashes and byte sizes must match can
 exactly. `Q4_K_S` is identity-regeneration evidence only; T031 measures `Q4_K_M`. Source, F16,
 `Q4_K_S`, tool builds, and model binaries are deleted from the ephemeral runner as soon as their
 bounded purpose is complete.
+
+Workdir cleanup and creation are inside the fail-closed execution envelope. A filesystem error
+before acquisition therefore produces failure evidence and the final cleanup path still runs.
 
 ## Measurement semantics
 
@@ -144,17 +149,12 @@ claim, sustained T032 requirement, T033 quality-regression requirement, or T034 
 
 This binding PR itself performs no model access.
 
-After this exact binding becomes canonical, dispatch can occur by either:
+After this exact binding becomes canonical, dispatch is permitted only through `workflow_dispatch`
+from canonical `main`, selecting one of the eight exact Founder-authorized candidates. The governed
+workflow has no push, branch-creation, wildcard-branch, or arbitrary-ref execution trigger.
 
-1. `workflow_dispatch` from canonical `main`, selecting one of the eight exact candidates; or
-2. creation of a new branch named `execute/t031-<authorized-candidate>` from exact live `main`.
-
-The branch-trigger path exists so repository automation can dispatch with the available GitHub
-connector without introducing a second noncanonical execution workflow. It accepts only a branch
-creation event, derives and allowlists the candidate from the branch name, then explicitly checks
-out `main` with persisted Git credentials disabled. Ordinary pushes to an existing execution branch
-fail before checkout/model access.
-
+The workflow verifies `refs/heads/main` before selecting the candidate, explicitly checks out live
+canonical `main` with persisted Git credentials disabled, and then invokes the exact bound executor.
 Global workflow concurrency is one candidate and `cancel-in-progress` is false. The executor
 rechecks live `main` again immediately before model access and again before reporting success. A
 main movement invalidates the run.
