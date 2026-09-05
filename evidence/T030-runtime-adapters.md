@@ -8,11 +8,11 @@
 
 **Historical source head:** `b4adce223a9a5c833f2c2392d742cb93bdad0ba3`
 
-**State:** `CURRENT_MAIN_RECONCILIATION / IMPLEMENTATION_CANDIDATE / QUALIFICATION_PENDING / NOT_COMPLETE_CANONICAL`
+**State:** `CURRENT_MAIN_RECONCILIATION / SECURITY_HARDENED_IMPLEMENTATION_CANDIDATE / QUALIFICATION_PENDING / NOT_COMPLETE_CANONICAL`
 
 ## Entry Gate
 
-Canonical `docs/canonical/PROGRAM_ROADMAP.md` treats MSTR-000 T030-T034 as a parallel candidate/runtime qualification branch. T029 is now `COMPLETE_CANONICAL`. T030 is model-independent adapter infrastructure only: this reconciliation consumes the canonical T023 runtime protocol but performs no T031 measurement, model inference, artifact acquisition, conversion, quantization, or other model execution.
+Canonical `docs/canonical/PROGRAM_ROADMAP.md` treats MSTR-000 T030-T034 as a parallel candidate/runtime qualification branch. T029 is `COMPLETE_CANONICAL`. T030 is model-independent adapter infrastructure only: this reconciliation consumes the canonical T023 runtime protocol but performs no T031 measurement, model inference, artifact acquisition, conversion, quantization, or other model execution.
 
 ```text
 T029 = COMPLETE_CANONICAL
@@ -23,7 +23,7 @@ PAID_COMPUTE = NONE
 PRODUCTION_RELEASE = NONE
 ```
 
-PR #96 is retained as historical evidence only. Its branch diverged from current main and is not merge-authorized. This candidate reconstructs the still-valid nine-file T030 implementation directly on exact current main rather than rebasing or merging the stale branch.
+PR #96 is retained as historical evidence only. Its branch diverged from current main and is not merge-authorized. This candidate reconstructs and hardens the still-valid T030 implementation directly on exact current main rather than rebasing or merging the stale branch.
 
 ## Reconciled Surface
 
@@ -35,6 +35,7 @@ artifacts/decisions/T030-runtime-interface-scan.json
 tests/unit/test_runtime_benchmark_cli.py
 tests/security/test_runtime_benchmark_boundary.py
 tests/security/test_runtime_profile_alias_boundary.py
+tests/security/test_runtime_environment_boundary.py
 tests/integration/test_runtime_adapters.py
 evidence/T030-runtime-adapters.md
 ```
@@ -47,6 +48,7 @@ The adapter:
 - verifies local artifact SHA-256 against the exact load identity before entering `READY`;
 - performs no artifact acquisition;
 - rejects Hugging Face provider-acquisition flags and llama.cpp RPC flags, including `--flag=value` forms;
+- strips inherited `LLAMA_ARG_*` and `HF_*` environment option surfaces before the real runtime subprocess executes;
 - requires exactly one runtime device selector across the complete generated CLI token set and requires it to be `none`;
 - forces `n_gpu_layers=0` and `--device none` for the portable CPU path;
 - binds prompt/generation token counts, thread count, GPU-layer count, device selection, model filename, and runtime build commit to returned JSON before accepting a result;
@@ -59,16 +61,31 @@ The adapter:
 
 The historical review discovered a cross-field CLI alias path where device-selector validation could have covered only `output_args`. The retained hardened implementation validates the complete generated `command_tokens` tuple. Dedicated regression coverage injects both `-dev` and `--device` through all non-output CLI argument fields and requires rejection.
 
+A fresh current-main substantive inspection found a second material boundary issue before merge: the pinned upstream parser accepts runtime options from environment variables, while the historical adapter only rejected unsafe argv tokens. At the pinned revision, `common/arg.cpp` exposes environment-backed surfaces including:
+
 ```text
-model_arg
-prompt_arg
-generation_arg
-threads_arg
-gpu_layers_arg
-repetitions_arg
+LLAMA_ARG_MODEL_URL
+LLAMA_ARG_DOCKER_REPO
+LLAMA_ARG_HF_REPO
+LLAMA_ARG_HF_FILE
+HF_TOKEN
+LLAMA_ARG_RPC
+LLAMA_ARG_DEVICE
+LLAMA_ARG_N_GPU_LAYERS
 ```
 
-Provider acquisition and RPC paths are also prohibited by profile validation. This candidate contains no network operation and no runtime acquisition operation.
+Because `subprocess.run` inherits environment by default, a hostile or accidental inherited variable could have re-enabled network acquisition, RPC, or non-CPU behavior despite a safe argv profile. That finding invalidated the pre-finding candidate for merge qualification.
+
+The repair makes the default real subprocess runner pass an explicit sanitized environment that removes every `LLAMA_ARG_*` and `HF_*` variable while preserving unrelated process environment. `tests/security/test_runtime_environment_boundary.py` proves both removal of current/future upstream option variables and preservation of an unrelated sentinel variable. Injected deterministic test runners remain unaffected because they receive only command tokens and timeout.
+
+```text
+INHERITED_LLAMA_ARG_* -> REMOVED_BEFORE_REAL_SUBPROCESS
+INHERITED_HF_* -> REMOVED_BEFORE_REAL_SUBPROCESS
+SAFE_UNRELATED_ENV -> PRESERVED
+ARGV_PROVIDER_OR_RPC_FLAGS -> REJECT
+DUPLICATE_OR_NON_NONE_DEVICE_SELECTOR -> REJECT
+CROSS_FIELD_DEVICE_SELECTOR_ALIAS -> REJECT
+```
 
 ## llama.cpp Interface Reverification
 
@@ -79,6 +96,7 @@ repository = https://github.com/ggml-org/llama.cpp
 revision   = 3173a56471c1753650cd806694145ffd6dcace67
 interfaces = tools/llama-bench/README.md
              tools/llama-bench/llama-bench.cpp
+             common/arg.cpp
 ```
 
 The pinned interface documents or implements:
@@ -95,7 +113,7 @@ The pinned interface documents or implements:
 -o / --output json
 ```
 
-Pinned source still proves `device=none` is accepted and serialized as `devices=none`, and exposes the identity/measurement fields consumed by the adapter, including `build_commit`, `model_filename`, `n_prompt`, `n_gen`, `n_threads`, `n_gpu_layers`, `devices`, `avg_ns`, and `avg_ts`.
+Pinned source proves `device=none` is accepted and serialized as `devices=none`, exposes the identity/measurement fields consumed by the adapter, and proves that runtime option environment variables are first-class parser inputs. The latter is why environment sanitization is now part of the adapter security boundary.
 
 The repository profile supplies:
 
@@ -120,7 +138,7 @@ No guessed adapter or compatibility result is created.
 
 ## Test Boundary
 
-The T030 tests use temporary synthetic bytes and injected deterministic command runners only. They do not download or execute model weights, require a real runtime binary, or access the network.
+The T030 tests use temporary synthetic bytes and injected deterministic command runners, plus a monkeypatched subprocess regression that inspects the sanitized environment without executing a real runtime. They do not download or execute model weights, require a real runtime binary, or access the network.
 
 Focused assertions include:
 
@@ -129,6 +147,7 @@ LOCAL_ARTIFACT_SHA_MISMATCH -> REJECT
 FORMAT_OR_CONTEXT_UNSUPPORTED -> REJECT
 CPU_ONLY_COMMAND -> -ngl 0 + --device none
 RPC_OR_PROVIDER_NETWORK_FLAGS -> REJECT
+INHERITED_RUNTIME_NETWORK_OR_DEVICE_ENV -> REMOVED
 DUPLICATE_OR_NON_NONE_DEVICE_SELECTOR -> REJECT
 CROSS_FIELD_DEVICE_SELECTOR_ALIAS -> REJECT
 PREFIX_CACHE_REUSE -> FALSE / EMPTY
@@ -140,25 +159,23 @@ MODEL_OR_RUNTIME_BUILD_IDENTITY_MISMATCH -> REJECT
 VALID_PINNED_RESULT -> ACCEPT
 ```
 
-## Qualification Boundary
+## Qualification History
 
 Historical PR #96 qualification attempts remain immutable infrastructure evidence only because its hosted jobs failed before executing repository gates. They do not transfer to this candidate.
 
-The first current-main qualification attempt was also not a PASS:
+Current-main attempt 1:
 
 ```text
 RUN = 33969313680
 TARGET_HEAD = 67a0842c24fe1e7d0732626d5decce13badf5223
 IDENTITY_SCOPE = FAILURE
-CAUSE = git diff --check rejected four Markdown trailing-whitespace hard breaks in this evidence file
+CAUSE = git diff --check rejected Markdown trailing whitespace
 QUALITY = SUCCESS
 FINAL_QUALIFICATION = SKIPPED
-DISPOSITION = NEGATIVE CANDIDATE EVIDENCE / SUPERSEDED BY FORMATTING REPAIR
+DISPOSITION = NEGATIVE CANDIDATE EVIDENCE / SUPERSEDED
 ```
 
-That run did execute and pass focused T030 tests, offline validation, full pytest, Ruff, and mypy, but its results do not transfer to the repaired head.
-
-The second current-main qualification attempt was also not a PASS:
+Current-main attempt 2:
 
 ```text
 RUN = 33969546445
@@ -166,26 +183,51 @@ TARGET_HEAD = 776b5d4c1d8ba07f23ab7f78b27c067a1d132e07
 IDENTITY_SCOPE = SUCCESS
 QUALITY = SUCCESS
 FINAL_QUALIFICATION = FAILURE
-CAUSE = live PR head advanced during the run, so the exact-live-head final guard rejected transfer
-DISPOSITION = NEGATIVE QUALIFICATION EVIDENCE / NOT TRANSFERABLE TO A LATER HEAD
+CAUSE = live PR head advanced during the run
+DISPOSITION = NON_TRANSFERABLE EXACT-HEAD EVIDENCE
 ```
 
-The v2 failure is a correct fail-closed outcome: successful tests on a superseded head do not qualify the live candidate. The final candidate must be frozen before a fresh qualification begins.
+Current-main attempt 3:
 
 ```text
-T030_FOCUSED_TESTS = REQUIRED_ON_FINAL_FROZEN_HEAD
-MSTR_QUALIFY_VALIDATE = REQUIRED_ON_FINAL_FROZEN_HEAD
-FULL_PYTEST = REQUIRED_ON_FINAL_FROZEN_HEAD
-RUFF = REQUIRED_ON_FINAL_FROZEN_HEAD
-MYPY = REQUIRED_ON_FINAL_FROZEN_HEAD
-EXACT_HEAD_SCOPE_AND_IDENTITY = REQUIRED_ON_FINAL_FROZEN_HEAD
-INDEPENDENT_SUBSTANTIVE_REVIEW = REQUIRED
+RUN = 33969770038
+TARGET_HEAD = 829e9e400849a7cd2670dfc300d4ed78ead0989c
+IDENTITY_SCOPE = SUCCESS
+QUALITY = SUCCESS
+FINAL_QUALIFICATION = FAILURE
+CAUSE = live PR head advanced before final guard
+DISPOSITION = NON_TRANSFERABLE EXACT-HEAD EVIDENCE
+```
+
+Current-main attempt 4:
+
+```text
+RUN = 33969835802
+TARGET_HEAD = 5f51b19e929062623a4c9adfe0ae847307e6a421
+IDENTITY_SCOPE = SUCCESS
+QUALITY = SUCCESS
+FINAL_QUALIFICATION = SUCCESS
+LATER_DISPOSITION = SUPERSEDED_BY_MATERIAL_SECURITY_REVIEW_FINDING
+```
+
+Attempt 4 genuinely qualified its exact target at the time it completed, but a later substantive inspection found the inherited runtime environment bypass described above. The candidate was therefore repaired after that run. The successful run is historical evidence only and cannot qualify the security-hardened head.
+
+Fresh qualification after the environment repair must execute every frozen gate again on one final immutable head:
+
+```text
+T030_FOCUSED_TESTS = REQUIRED_ON_FINAL_SECURITY_HARDENED_HEAD
+MSTR_QUALIFY_VALIDATE = REQUIRED_ON_FINAL_SECURITY_HARDENED_HEAD
+FULL_PYTEST = REQUIRED_ON_FINAL_SECURITY_HARDENED_HEAD
+RUFF = REQUIRED_ON_FINAL_SECURITY_HARDENED_HEAD
+MYPY = REQUIRED_ON_FINAL_SECURITY_HARDENED_HEAD
+EXACT_HEAD_SCOPE_AND_IDENTITY = REQUIRED_ON_FINAL_SECURITY_HARDENED_HEAD
+INDEPENDENT_SUBSTANTIVE_REVIEW = REQUIRED_AFTER_QUALIFICATION
 MANDATORY_PREMERGE = REQUIRED
 POSTMERGE_VERIFICATION = REQUIRED
 T030_COMPLETE_CANONICAL = NO_UNTIL_GOVERNED_CLOSEOUT
 ```
 
-No qualification PASS is claimed by this candidate before a fresh exact-head run reaches a successful terminal final guard.
+No qualification PASS is claimed for the security-hardened head before a fresh exact-head run reaches a successful terminal final guard.
 
 ## Authority Boundary
 
