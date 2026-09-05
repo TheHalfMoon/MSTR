@@ -1,0 +1,28 @@
+name: PR165 T030 Ruff import diagnostic
+
+on:
+  push:
+    branches:
+      - evidence/pr165-t030-ruff-import-diagnostic-e14409f
+
+permissions:
+  contents: read
+
+jobs:
+  ruff_import_diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e14409f7b0d3d672bba1faf69c84e46eb20da369
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Show exact Ruff import fix
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          ruff check tests/security/test_runtime_environment_boundary.py --select I --fix --diff || true
+          echo '--- fixed file ---'
+          ruff check tests/security/test_runtime_environment_boundary.py --select I --fix
+          sed -n '1,20p' tests/security/test_runtime_environment_boundary.py
