@@ -1,11 +1,26 @@
 # B011 — Exact B010 Candidate Acquisition
 
 **Task:** `MSTR-000B / B011`  
-**Evidence state:** `ACQUISITION_EXECUTED_VERIFIED / CANONICAL_CLOSEOUT_PENDING`  
+**Evidence state:** `COMPLETE_CANONICAL`
 **Canonical execution base:** `dd547bb768598f92ad203764ce32be6e1fc710d6`  
 **B010 manifest SHA-256:** `4c2fd1469cdcf728063ab8f5b6a603191ffdc9e1a4d4c2d794abd2a24950c3ef`  
 **Founder authority:** `B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED`  
 **Founder decision:** `FOUNDER_B011_MODEL_WEIGHT_ACCESS_DECISION=AUTHORIZE_EXACT_B010_ENVELOPE`
+
+**State:** `COMPLETE_CANONICAL`
+ENTRY_GATE_TASK=B011
+ENTRY_GATE_CANONICAL_MAIN=dd547bb768598f92ad203764ce32be6e1fc710d6
+ENTRY_GATE_ELIGIBLE=true
+**Closeout entry canonical main:** `a788f55f5251f0be92b33e0765d0436cb321eb8b`
+**Implementation PR:** `#157`
+**Final implementation head:** `450d9b5b9b3c6aca27222a553dc6230f6eef6783`
+**Canonical implementation merge:** `b9aa4f7de8b924d283d09fa8d93dbaceb0f6b4cd`
+**Successful acquisition run:** `33865617854`
+**Exact-head qualification:** `33867186224`
+**Independent substantive semantic review:** `33867564924`
+**Mandatory premerge verification:** `33867838434`
+**Post-implementation verification:** `33927258696`
+**Frontier-planning postmerge verification:** `33926866711`
 
 ## Scope
 
@@ -85,6 +100,12 @@ This execution performed model-weight access only. It performed no model inferen
 
 Successful binaries were intentionally not retained. Canonical storage policy requires downstream B012 qualification runners to re-acquire the same pinned inputs when B012 becomes independently eligible.
 
-## Closeout Boundary
+## Canonical Closeout
 
-This evidence does **not** by itself set B011 to `COMPLETE_CANONICAL`. B011 remains `PENDING` until this implementation evidence is qualified, independently reviewed, merged, and then closed by a separate governed closeout. B012 remains blocked until that canonical closeout.
+The B011 acquisition/verification implementation is complete and all required lifecycle evidence is bound above. The earlier fail-closed run `33865467059` remains preserved as negative evidence: no model-weight download started in that attempt.
+
+This closeout changes only the canonical lifecycle state of B011. It does not re-acquire any model body, does not perform model execution, conversion, quantization, training, large-dataset ingestion, gated-terms acceptance, paid compute/API use, production release, or model-binary persistence.
+
+The historical authority `B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED` remains an execution record scoped only to B011 and the exact B010 envelope. It does not transfer to, authorize, or widen B012 or any later task. In particular, it does not authorize K2 Horizon or any newly discovered candidate.
+
+`COMPLETE_CANONICAL` is valid only after this closeout candidate is merged to canonical `main` and the required post-closeout exact-main verification succeeds. Until then, canonical `main` remains authoritative.

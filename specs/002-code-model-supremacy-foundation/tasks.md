@@ -94,9 +94,10 @@ MSTR-000A A001-A018 may proceed in parallel when model-independent. A019-A024 mu
   Outputs: `artifacts/manifests/B010-new-candidate-weight-access.json`, `evidence/mstr-000b/B010-weight-access-preflight.md`.
   Canonical implementation: PR #65 / final head `2047a3aa8b7063736a490d00d1fe10709aba23e2` / merge `215d52f4de772639c5e64193ff48deaafb6eb2d7`.
 
-- [ ] **B011 EXPLICIT NEW WEIGHT ACCESS GATE — acquire/verify only founder-authorized B010 access-required candidates.**  
+- [x] **B011 EXPLICIT NEW WEIGHT ACCESS GATE — acquire/verify only founder-authorized B010 access-required candidates.**
   Prerequisites: B002 `COMPLETE_CANONICAL`, exact-main `eligible=true`, B010 canonical, and separate exact founder authorization when `new_weight_access_required_candidates[]` is non-empty. Use approved ephemeral runners; founder Mac and Git receive no binaries. Verify exact integrity and emit T024-compatible manifests. If the access-required list is empty, close B011 as `NOT_REQUIRED_NO_NEW_ACCESS` with evidence and perform no model-weight access. This status says nothing about whether B012 qualification is still required.  
   Outputs: `artifacts/manifests/B011-acquired-candidates.json` or explicit no-access decision artifact, runner evidence where executed, `evidence/mstr-000b/B011-acquisition.md`.
+  Canonical implementation: PR #157 / final head `450d9b5b9b3c6aca27222a553dc6230f6eef6783` / merge `b9aa4f7de8b924d283d09fa8d93dbaceb0f6b4cd`.
 
 - [ ] **B012 Run equivalent Q4/runtime/resource/raw-code qualification for every B010 qualification candidate.**  
   Prerequisites: B002 `COMPLETE_CANONICAL`, exact-main `eligible=true`, B010 canonical, and B011 complete or `NOT_REQUIRED_NO_NEW_ACCESS`. A candidate that needs no new acquisition but has already-authorized/already-available artifacts MUST still receive equivalent qualification. B012 may close `NOT_REQUIRED_NO_NEW_CANDIDATES` only when B010 explicitly records `qualification_candidates=[]` / `NO_NEW_CANDIDATES_REQUIRING_QUALIFICATION`. Reuse canonical T029-T034 protocols where compatible; if superseded, record migration.  

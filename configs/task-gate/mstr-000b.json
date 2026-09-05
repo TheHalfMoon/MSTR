@@ -173,7 +173,7 @@
       ]
     },
     "B011": {
-      "canonical_state": "PENDING",
+      "canonical_state": "COMPLETE_CANONICAL",
       "closeout_rule": {
         "terminal_states": [
           "COMPLETE_CANONICAL",

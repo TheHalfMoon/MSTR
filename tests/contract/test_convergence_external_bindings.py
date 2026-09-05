@@ -58,7 +58,8 @@ def test_convergence_bindings_are_exact_and_fail_closed() -> None:
         "B029",
         "B030",
     ]
-    assert tasks["B011"]["canonical_state"] == "PENDING"
+    assert tasks["B011"]["canonical_state"] == "COMPLETE_CANONICAL"
+    assert tasks["B012"]["canonical_state"] == "PENDING"
     assert tasks["B011"]["required_authority_id"] == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"
     assert tasks["B013"]["canonical_state"] == "BLOCKED"
 
