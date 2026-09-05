@@ -1,0 +1,55 @@
+{
+  "format_version": "mstr.t030-runtime-interface-scan.v1",
+  "task_id": "T030",
+  "canonical_base": "226609e3a29a5e5d038bbd0e9c744f3ff2877112",
+  "reconciliation_source_pr": 96,
+  "reconciliation_source_head": "b4adce223a9a5c833f2c2392d742cb93bdad0ba3",
+  "observed_on": "2026-09-05",
+  "execution_performed": false,
+  "model_weight_access_performed": false,
+  "runtime_candidates": [
+    {
+      "runtime_id": "llama.cpp-llama-bench-cpu",
+      "upstream_repository": "https://github.com/ggml-org/llama.cpp",
+      "upstream_revision": "3173a56471c1753650cd806694145ffd6dcace67",
+      "interface_evidence": "tools/llama-bench/README.md, tools/llama-bench/llama-bench.cpp, and common/arg.cpp at the pinned revision; reverified 2026-09-05",
+      "interface": {
+        "model": "-m",
+        "model_url": ["-mu", "--model-url"],
+        "docker_repo": ["-dr", "--docker-repo"],
+        "prompt_tokens": "-p",
+        "generation_tokens": "-n",
+        "threads": "-t",
+        "gpu_layers": "-ngl",
+        "device": ["--device", "none"],
+        "repetitions": "-r",
+        "json_output": ["-o", "json"]
+      },
+      "required_json_identity_fields": [
+        "build_commit",
+        "model_filename",
+        "n_prompt",
+        "n_gen",
+        "n_threads",
+        "n_gpu_layers",
+        "devices",
+        "avg_ns",
+        "avg_ts"
+      ],
+      "cpu_only_policy": "Adapter always supplies -ngl 0 and --device none, strips inherited LLAMA_ARG_* and HF_* option environment variables before subprocess execution, then rejects any result that does not report n_gpu_layers=0 and devices=none.",
+      "network_policy": "The repository-owned profile uses only an already-present local artifact path. Direct model URL, Docker repository, Hugging Face provider-acquisition, and RPC CLI flags are prohibited by profile validation, including equals forms. Inherited LLAMA_ARG_* / HF_* environment option surfaces are removed before subprocess execution so upstream environment parsing cannot re-enable acquisition, RPC, device, or GPU-layer paths.",
+      "artifact_identity_policy": "The local artifact SHA-256 must match LoadRequest before READY and is revalidated immediately before every benchmark process. Observed post-load disappearance or hash mutation is rejected before process launch. This is a pre-launch fail-closed check and does not claim filesystem-level atomicity across a separate executable opening the path.",
+      "adapter_state": "RECONCILED_IMPLEMENTATION_UNEXECUTED_FINAL_SECURITY_HARDENED"
+    },
+    {
+      "runtime_id": "llamafile",
+      "upstream_repository": "https://github.com/mozilla-ai/llamafile",
+      "release": "0.10.5",
+      "release_commit": "486e6c5f9356eae50b851b07517bfae1f2420193",
+      "source_tree": "088f5d67a6459c47d58f098f33dc0906f8b3f0d4",
+      "adapter_state": "DEFERRED_INTERFACE_NOT_PROVEN",
+      "reason": "Release 0.10.5 remains the latest published release as reverified on 2026-09-05, and current repository code search exposes no llamafile-bench entry point. Historical benchmark-interface claims are not promoted to current T030 authority."
+    }
+  ],
+  "decision": "Reconcile and security-harden the historical profile-driven portable CPU benchmark adapter onto exact current main using the proven llama-bench interface. Force device=none, revalidate local artifact identity immediately before each process, remove inherited upstream option environment surfaces, prohibit direct model URL, Docker, Hugging Face provider, and RPC acquisition paths, and do not manufacture a llamafile adapter until a current stable interface is evidenced."
+}
