@@ -1,0 +1,123 @@
+name: PR171 T031 format repair b862ab9
+
+on:
+  push:
+    branches:
+      - builder/pr171-t031-format-repair-b862ab9
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: feat/t031-governed-measurement-executor
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Guard exact target head
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED=b862ab93c31157a566307e752a54004b3621bfc8
+          test "$(git rev-parse HEAD)" = "$EXPECTED"
+          REMOTE="$(git ls-remote origin refs/heads/feat/t031-governed-measurement-executor | awk '{print $1}')"
+          test "$REMOTE" = "$EXPECTED"
+
+      - name: Apply deterministic qualification repair and refresh binding hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          from pathlib import Path
+
+          eof_files = [
+              Path("colab/mstr_t031_artifacts.py"),
+              Path("colab/mstr_t031_governance.py"),
+              Path("colab/mstr_t031_source.py"),
+          ]
+          for path in eof_files:
+              text = path.read_text(encoding="utf-8")
+              path.write_text(text.rstrip("\n") + "\n", encoding="utf-8")
+
+          execute = Path("colab/mstr_t031_execute.py")
+          text = execute.read_text(encoding="utf-8")
+          old = (
+              "from mstr_t031_source import _candidate_source, _download_candidate\n"
+              "from mstr_t031_measure import _measure_set\n"
+          )
+          new = (
+              "from mstr_t031_measure import _measure_set\n"
+              "from mstr_t031_source import _candidate_source, _download_candidate\n"
+          )
+          if text.count(old) != 1:
+              raise SystemExit("exact import-order repair anchor not found exactly once")
+          execute.write_text(text.replace(old, new), encoding="utf-8")
+
+          evidence = Path("evidence/T031-executor-toolchain-binding.md")
+          clean_lines = [line.rstrip() for line in evidence.read_text(encoding="utf-8").splitlines()]
+          evidence.write_text("\n".join(clean_lines) + "\n", encoding="utf-8")
+
+          def sha256(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          binding_path = Path("artifacts/manifests/T031-executor-toolchain-binding.json")
+          binding = json.loads(binding_path.read_text(encoding="utf-8"))
+          updates = {
+              "artifact_script_sha256": sha256(Path("colab/mstr_t031_artifacts.py")),
+              "governance_script_sha256": sha256(Path("colab/mstr_t031_governance.py")),
+              "source_script_sha256": sha256(Path("colab/mstr_t031_source.py")),
+              "executor_script_sha256": sha256(Path("colab/mstr_t031_execute.py")),
+          }
+          for key, value in updates.items():
+              binding[key] = value
+          binding_path.write_text(json.dumps(binding, indent=2) + "\n", encoding="utf-8")
+
+          print(json.dumps(updates, indent=2, sort_keys=True))
+          PY
+
+          git diff --check
+          python -m py_compile \
+            colab/mstr_executor_toolchain.py \
+            colab/mstr_t031_governance.py \
+            colab/mstr_t031_source.py \
+            colab/mstr_t031_artifacts.py \
+            colab/mstr_t031_measure.py \
+            colab/mstr_t031_execute.py \
+            tests/contract/test_t031_executor_binding.py
+
+      - name: Commit one forward-only repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git status --short
+          git diff --name-only
+          test "$(git diff --name-only | wc -l)" -eq 6
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            artifacts/manifests/T031-executor-toolchain-binding.json \
+            colab/mstr_t031_artifacts.py \
+            colab/mstr_t031_governance.py \
+            colab/mstr_t031_source.py \
+            colab/mstr_t031_execute.py \
+            evidence/T031-executor-toolchain-binding.md
+          git commit -m "fix(t031): normalize executor qualification formatting"
+
+      - name: Guard remote and fast-forward target branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED=b862ab93c31157a566307e752a54004b3621bfc8
+          REMOTE="$(git ls-remote origin refs/heads/feat/t031-governed-measurement-executor | awk '{print $1}')"
+          test "$REMOTE" = "$EXPECTED"
+          git push origin HEAD:refs/heads/feat/t031-governed-measurement-executor
