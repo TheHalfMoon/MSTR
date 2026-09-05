@@ -1,0 +1,29 @@
+name: PR165 T030 TOCTOU focused verification
+
+on:
+  push:
+    branches:
+      - evidence/pr165-t030-toctou-focused-4ac2bdd
+
+permissions:
+  contents: read
+
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 4ac2bdd527dad23ec931c9eaecc8e2c41d97eff8
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify artifact-identity repair
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/security/test_runtime_benchmark_boundary.py tests/security/test_runtime_environment_boundary.py tests/unit/test_runtime_benchmark_cli.py tests/integration/test_runtime_adapters.py
+          ruff check src/mstr_qualify/runtimes/benchmark_cli.py tests/security/test_runtime_benchmark_boundary.py tests/security/test_runtime_environment_boundary.py
+          mypy
+          git diff --check 226609e3a29a5e5d038bbd0e9c744f3ff2877112 4ac2bdd527dad23ec931c9eaecc8e2c41d97eff8
