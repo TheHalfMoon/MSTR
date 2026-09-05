@@ -107,7 +107,9 @@ def main() -> None:
             "    assert payload[\"eligible\"] is False",
             "    assert payload[\"authority_result\"][\"required\"] is True",
             "    assert payload[\"authority_result\"][\"satisfied\"] is False",
-            f"    assert payload[\"authority_result\"][\"authority_id\"] == \"{AUTHORITY_ID}\"",
+            "    assert payload[\"authority_result\"][\"authority_id\"] == (",
+            f"        \"{AUTHORITY_ID}\"",
+            "    )",
             "    assert \"authority.canonical_envelope_missing_or_invalid\" in payload[\"reasons\"]",
             "    validate_instance(\"mstr-task-eligibility-v0\", payload)",
             "",
@@ -126,7 +128,9 @@ def main() -> None:
     replacement = (
         marker
         + '    assert tasks["B012"]["external_effect_class"] == "MODEL_WEIGHT_ACCESS"\n'
-        + f'    assert tasks["B012"]["required_authority_id"] == "{AUTHORITY_ID}"\n'
+        + '    assert tasks["B012"]["required_authority_id"] == (\n'
+        + f'        "{AUTHORITY_ID}"\n'
+        + '    )\n'
     )
     convergence_path.write_text(convergence.replace(marker, replacement, 1), encoding="utf-8")
 
