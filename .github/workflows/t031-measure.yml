@@ -16,9 +16,6 @@ on:
           - qwen3.5-4b
           - smollm3-3b
           - yi-coder-1.5b
-  push:
-    branches:
-      - "execute/t031-*"
 
 permissions:
   contents: read
@@ -42,21 +39,9 @@ jobs:
           DISPATCH_CANDIDATE: ${{ inputs.candidate }}
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
-            [[ "$GITHUB_REF" == "refs/heads/main" ]]
-            candidate="$DISPATCH_CANDIDATE"
-          elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            created="$(python -c 'import json,os; print(json.load(open(
-              os.environ["GITHUB_EVENT_PATH"]))["created"])')"
-            deleted="$(python -c 'import json,os; print(json.load(open(
-              os.environ["GITHUB_EVENT_PATH"]))["deleted"])')"
-            [[ "$created" == "True" && "$deleted" != "True" ]]
-            candidate="${GITHUB_REF_NAME#execute/t031-}"
-            [[ "execute/t031-$candidate" == "$GITHUB_REF_NAME" ]]
-          else
-            echo "Unsupported trigger: $GITHUB_EVENT_NAME" >&2
-            exit 1
-          fi
+          [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]
+          [[ "$GITHUB_REF" == "refs/heads/main" ]]
+          candidate="$DISPATCH_CANDIDATE"
           case "$candidate" in
             granite-4.1-3b|ministral-3-3b|qwen2.5-coder-1.5b|qwen3-4b|\
               qwen3.5-2b|qwen3.5-4b|smollm3-3b|yi-coder-1.5b) ;;
