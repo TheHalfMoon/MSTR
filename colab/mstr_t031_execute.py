@@ -41,13 +41,14 @@ def execute(args: argparse.Namespace) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     failure_path = output_dir / f"T031-{args.candidate}-failure.json"
     workdir = args.workdir.resolve()
-    if workdir.exists():
-        shutil.rmtree(workdir)
-    workdir.mkdir(parents=True)
 
     started_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     head = "UNKNOWN"
     try:
+        if workdir.exists():
+            shutil.rmtree(workdir)
+        workdir.mkdir(parents=True)
+
         head = _require_live_main(repo_root)
         binding, envelope = _require_binding(repo_root)
         candidates = binding.get("candidate_ids")
