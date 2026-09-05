@@ -1,0 +1,179 @@
+name: Exact-head qualification PR165 T030 current-main reconciliation
+
+on:
+  push:
+    branches:
+      - evidence/pr165-t030-qualification-67a0842
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  checks: read
+  statuses: read
+
+concurrency:
+  group: pr165-t030-qualification-67a0842
+  cancel-in-progress: false
+
+env:
+  PR_NUMBER: '165'
+  BASE_SHA: 226609e3a29a5e5d038bbd0e9c744f3ff2877112
+  HEAD_SHA: 67a0842c24fe1e7d0732626d5decce13badf5223
+  HEAD_TREE: 92f33fb0f15faa25c2302f60e52fb678732b4893
+  TARGET_BRANCH: reconcile/000-t030-portable-cpu-runtime-adapters
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Verify exact live PR identity and bounded authority
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          token = os.environ["GH_TOKEN"]
+          headers = {
+              "Authorization": f"Bearer {token}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+          root = "https://api.github.com/repos/TheHalfMoon/MSTR"
+
+          def get(path: str):
+              request = urllib.request.Request(f"{root}{path}", headers=headers)
+              with urllib.request.urlopen(request) as response:
+                  return json.load(response)
+
+          pr = get(f"/pulls/{os.environ['PR_NUMBER']}")
+          assert pr["state"] == "open" and pr["draft"] is False and pr["merged"] is False
+          assert pr["base"]["ref"] == "main" and pr["base"]["sha"] == os.environ["BASE_SHA"]
+          assert pr["head"]["ref"] == os.environ["TARGET_BRANCH"] and pr["head"]["sha"] == os.environ["HEAD_SHA"]
+          assert pr["commits"] == 1 and pr["changed_files"] == 9
+
+          expected = {
+              "artifacts/decisions/T030-runtime-interface-scan.json",
+              "configs/runtimes/llama-cpp-cpu.json",
+              "evidence/T030-runtime-adapters.md",
+              "src/mstr_qualify/runtimes/__init__.py",
+              "src/mstr_qualify/runtimes/benchmark_cli.py",
+              "tests/integration/test_runtime_adapters.py",
+              "tests/security/test_runtime_benchmark_boundary.py",
+              "tests/security/test_runtime_profile_alias_boundary.py",
+              "tests/unit/test_runtime_benchmark_cli.py",
+          }
+          files = get(f"/pulls/{os.environ['PR_NUMBER']}/files?per_page=100")
+          assert {item["filename"] for item in files} == expected
+
+          authority_request = urllib.request.Request(
+              f"{root}/contents/artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json?ref={os.environ['BASE_SHA']}",
+              headers=headers,
+          )
+          try:
+              urllib.request.urlopen(authority_request)
+          except urllib.error.HTTPError as exc:
+              assert exc.code == 404
+          else:
+              raise AssertionError("B012 authority unexpectedly exists")
+          PY
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - name: Verify exact topology, scope, provenance, and no external-effect expansion
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          git diff --check "$BASE_SHA" "$HEAD_SHA"
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort > /tmp/actual.txt
+          printf '%s\n' \
+            artifacts/decisions/T030-runtime-interface-scan.json \
+            configs/runtimes/llama-cpp-cpu.json \
+            evidence/T030-runtime-adapters.md \
+            src/mstr_qualify/runtimes/__init__.py \
+            src/mstr_qualify/runtimes/benchmark_cli.py \
+            tests/integration/test_runtime_adapters.py \
+            tests/security/test_runtime_benchmark_boundary.py \
+            tests/security/test_runtime_profile_alias_boundary.py \
+            tests/unit/test_runtime_benchmark_cli.py | sort > /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+          test -z "$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- artifacts/authorities artifacts/manifests configs/task-gate .github/workflows docs/canonical specs)"
+          grep -Fq 'CURRENT_MAIN_RECONCILIATION / IMPLEMENTATION_CANDIDATE / QUALIFICATION_PENDING / NOT_COMPLETE_CANONICAL' evidence/T030-runtime-adapters.md
+          grep -Fq 'T031_EXECUTION_AUTHORITY = NONE_INFERRED_BY_T030' evidence/T030-runtime-adapters.md
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          decision = json.loads(Path("artifacts/decisions/T030-runtime-interface-scan.json").read_text())
+          assert decision["task_id"] == "T030"
+          assert decision["canonical_base"] == "226609e3a29a5e5d038bbd0e9c744f3ff2877112"
+          assert decision["reconciliation_source_pr"] == 96
+          assert decision["reconciliation_source_head"] == "b4adce223a9a5c833f2c2392d742cb93bdad0ba3"
+          assert decision["execution_performed"] is False
+          assert decision["model_weight_access_performed"] is False
+          primary = decision["runtime_candidates"][0]
+          assert primary["upstream_revision"] == "3173a56471c1753650cd806694145ffd6dcace67"
+          assert primary["adapter_state"] == "RECONCILED_IMPLEMENTATION_UNEXECUTED"
+          assert decision["runtime_candidates"][1]["adapter_state"] == "DEFERRED_INTERFACE_NOT_PROVEN"
+          assert not Path("artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json").exists()
+          PY
+
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run focused and frozen quality gates on exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q \
+            tests/unit/test_runtime_benchmark_cli.py \
+            tests/security/test_runtime_benchmark_boundary.py \
+            tests/security/test_runtime_profile_alias_boundary.py \
+            tests/integration/test_runtime_adapters.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          ruff check src tests
+          mypy
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          test -z "$(git status --porcelain)"
+
+  final_qualification:
+    needs: [identity_scope, quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Recheck exact live heads and emit qualification verdict
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          echo 'EXACT_HEAD_QUALIFICATION=PASS'
+          echo "QUALIFIED_HEAD=$HEAD_SHA"
+          echo "QUALIFIED_TREE=$HEAD_TREE"
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'MODEL_WEIGHT_ACCESS=NONE'
