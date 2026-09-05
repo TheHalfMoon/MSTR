@@ -57,6 +57,12 @@ def test_network_policy_accepts_only_https_allowlisted_hosts() -> None:
         runner._validated_https_host("http://huggingface.co/x", allowed)
     with pytest.raises(runner.NetworkPolicyError):
         runner._validated_https_host("https://example.com/x", allowed)
+    with pytest.raises(runner.NetworkPolicyError):
+        runner._validated_https_host("https://user@huggingface.co/x", allowed)
+    with pytest.raises(runner.NetworkPolicyError):
+        runner._validated_https_host("https://huggingface.co:8443/x", allowed)
+
+    assert runner._validated_https_host("https://huggingface.co:443/x", allowed) == "huggingface.co"
 
 
 def test_redirect_handler_rejects_unlisted_host_before_following() -> None:

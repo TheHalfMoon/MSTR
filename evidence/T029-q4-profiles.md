@@ -115,6 +115,19 @@ INFERRED_OR_TRUNCATED_REPLACEMENT_HASH = NONE
 
 A fresh governed T029 repair execution is required for this cell before the profile set may return to 8/8.
 
+## Execution Readiness Boundary
+
+The current reconciliation also identifies a separate execution-readiness question in the historical T029 workflow. Model-artifact acquisition is now fail-closed on the exact T027 HTTPS host allowlist plus the byte-bound `T028-network-scope-addendum-us-aws-cdn` addendum. However, the workflow still provisions conversion/build tooling through package indexes and clones the pinned llama.cpp source from GitHub. Canonical T027 evidence lists package indexes and unrelated/git-protocol network surfaces as unauthorized, while the storage architecture requires external effects to remain within exact authority.
+
+Therefore this reconciliation does **not** treat the historical workflow as dispatch-ready merely because model-artifact redirect enforcement is hardened. Before any fresh Qwen repair execution, exact-head qualification and independent semantic/security review must either identify an already-canonical authority that covers the frozen toolchain acquisition surface or leave execution fail-closed pending a separate exact Founder decision/governance amendment. No package-index, llama.cpp source, model-weight, conversion, or quantization network action is authorized by this reconciliation.
+
+```text
+T029_RECONCILIATION_MERGE_ELIGIBILITY = MAY_BE_QUALIFIED_WITHOUT_EXTERNAL_EXECUTION
+T029_QWEN_REPAIR_EXECUTION_READY = NO
+TOOLCHAIN_NETWORK_AUTHORITY = MUST_BE_PROVEN_BEFORE_DISPATCH
+MODEL_ARTIFACT_NETWORK = T027_ALLOWLIST_PLUS_BOUND_T028_ADDENDUM_ONLY
+```
+
 ## Historical Qualification Boundary
 
 Run `33263175072` also established the following on the older recovery head:

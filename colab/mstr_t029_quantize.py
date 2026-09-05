@@ -45,6 +45,14 @@ def _validated_https_host(url: str, allowed_hosts: frozenset[str]) -> str:
     host = (parsed.hostname or "").lower()
     if parsed.scheme.lower() != "https":
         raise NetworkPolicyError(f"non-HTTPS model-artifact URL rejected: {url}")
+    if parsed.username is not None or parsed.password is not None:
+        raise NetworkPolicyError("model-artifact URL credentials are prohibited")
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise NetworkPolicyError("invalid model-artifact URL port") from exc
+    if port not in (None, 443):
+        raise NetworkPolicyError(f"nonstandard model-artifact HTTPS port rejected: {port}")
     if host not in allowed_hosts:
         raise NetworkPolicyError(f"model-artifact host outside canonical allowlist: {host!r}")
     return host
