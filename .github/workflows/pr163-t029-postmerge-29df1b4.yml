@@ -1,0 +1,178 @@
+name: Postmerge PR163 T029 reconciliation
+
+on:
+  push:
+    branches:
+      - evidence/pr163-t029-postmerge-29df1b4
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  MERGE_SHA: 29df1b4be142407fbd31e13dca00e525dd729365
+  MERGE_TREE: 15fb0a0088e1be09d1071c960dbea1fd91df5cb5
+  BASE_SHA: 5cadbd754686ebff6f5327e9746f0b074b35e318
+  CANDIDATE_HEAD: c0b9e977dedf38282872e469aa364dae8e5abf50
+  QWEN_ARTIFACT_ID: '9603552151'
+  QWEN_ARCHIVE_SHA256: 69a78e2185337b58940b2dc3ab993d182fa9be9f3eaad95fa43a5bf682f9e4a3
+  QWEN_REPORT_SHA256: aad35a2f4db1aff3f2a436a7b98d03a92def063067fc9f294d4a0fcabd8f5d61
+  QWEN_Q4KS_SHA256: a6fe3727940dde3382e2f2a353a51bc2e6970d4e660260428899c29c8e4583e9
+  MINISTRAL_ARTIFACT_ID: '9729481097'
+  MINISTRAL_ARCHIVE_SHA256: 2ee155799e1e163cd1c0c90290fec2ce7f1a621dbc6f93960cd620c956a006c5
+  MINISTRAL_REPORT_SHA256: 120dfabdc328bb7f2adceffd534c651edef57d6dfb9f5dbf0add627f1364b194
+
+jobs:
+  topology_state:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify exact merge topology and PR state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          headers = {
+              "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+          def get(url: str):
+              request = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(request) as response:
+                  return json.load(response)
+
+          root = "https://api.github.com/repos/TheHalfMoon/MSTR"
+          commit = get(f"{root}/git/commits/{os.environ['MERGE_SHA']}")
+          assert commit["tree"]["sha"] == os.environ["MERGE_TREE"]
+          assert [p["sha"] for p in commit["parents"]] == [os.environ["BASE_SHA"], os.environ["CANDIDATE_HEAD"]]
+          assert commit["verification"]["verified"] is True
+          assert commit["verification"]["reason"] == "valid"
+
+          pr = get(f"{root}/pulls/163")
+          assert pr["state"] == "closed"
+          assert pr["merged"] is True
+          assert pr["merge_commit_sha"] == os.environ["MERGE_SHA"]
+          assert pr["head"]["sha"] == os.environ["CANDIDATE_HEAD"]
+          PY
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Verify pre-closeout canonical state and authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path("artifacts/manifests/quantization/T029-q4-profiles.json").read_text())
+          assert len(manifest["profiles"]) == 8
+          assert manifest["pending"] == []
+          assert manifest["completion_state"] == "Q4_PROFILE_SET_READY_NOT_T029_COMPLETE_CANONICAL"
+          assert all(p["result_classification"] == "Q4_PROFILE_READY" for p in manifest["profiles"])
+
+          tasks = Path("specs/000-universal-laptop-interaction-contract/tasks.md").read_text()
+          assert "- [ ] T029 [US1]" in tasks
+          assert "- [x] T029 [US1]" not in tasks
+
+          evidence = Path("evidence/T029-q4-profiles.md").read_text()
+          assert "T029_Q4_PROFILE_CELLS_FULLY_VERIFIED = 8 / 8" in evidence
+          assert "T029_COMPLETE_CANONICAL = NO" in evidence
+          assert "T029_FUTURE_REGENERATION_EXECUTION_READY = NO" in evidence
+          assert "TOOLCHAIN_NETWORK_AUTHORITY = MUST_BE_PROVEN_BEFORE_DISPATCH" in evidence
+
+          assert not Path("artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json").exists()
+          PY
+          ! git show "$MERGE_SHA" --format= -- . ':!evidence/**' | grep -F 'AUTHORIZED_CANONICAL'
+
+  primary_artifacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+      - name: Reverify primary Qwen and Ministral artifacts on canonical main
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/qwen /tmp/ministral
+          curl -L --fail --silent --show-error -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/TheHalfMoon/MSTR/actions/artifacts/$QWEN_ARTIFACT_ID/zip" -o /tmp/qwen.zip
+          test "$(sha256sum /tmp/qwen.zip | cut -d' ' -f1)" = "$QWEN_ARCHIVE_SHA256"
+          unzip -q /tmp/qwen.zip -d /tmp/qwen
+          test "$(sha256sum /tmp/qwen/t029-qwen3.5-2b.json | cut -d' ' -f1)" = "$QWEN_REPORT_SHA256"
+
+          curl -L --fail --silent --show-error -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/TheHalfMoon/MSTR/actions/artifacts/$MINISTRAL_ARTIFACT_ID/zip" -o /tmp/ministral.zip
+          test "$(sha256sum /tmp/ministral.zip | cut -d' ' -f1)" = "$MINISTRAL_ARCHIVE_SHA256"
+          unzip -q /tmp/ministral.zip -d /tmp/ministral
+          test "$(sha256sum /tmp/ministral/t029-ministral-3-3b.json | cut -d' ' -f1)" = "$MINISTRAL_REPORT_SHA256"
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          manifest = json.loads(Path("artifacts/manifests/quantization/T029-q4-profiles.json").read_text())
+          qwen = json.loads(Path("/tmp/qwen/t029-qwen3.5-2b.json").read_text())
+          ministral = json.loads(Path("/tmp/ministral/t029-ministral-3-3b.json").read_text())
+          qp = next(p for p in manifest["profiles"] if p["candidate_id"] == "qwen3.5-2b")
+          mp = next(p for p in manifest["profiles"] if p["candidate_id"] == "ministral-3-3b")
+          assert qwen["quantization_arms"]["Q4_K_S"]["output_sha256"] == os.environ["QWEN_Q4KS_SHA256"]
+          assert qp["quantization_arms"]["Q4_K_S"]["output_sha256"] == os.environ["QWEN_Q4KS_SHA256"]
+          assert ministral["conversion"]["gguf_f16_sha256"] == mp["f16_sha256"]
+          for arm in ("Q4_K_M", "Q4_K_S"):
+              assert ministral["quantization_arms"][arm]["output_sha256"] == mp["quantization_arms"][arm]["output_sha256"]
+          PY
+
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run exact-main quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_t029_quantization_manifest.py tests/unit/test_t029_quantize_runner.py
+          mstr-qualify validate
+          python -m pytest -q
+          ruff check .
+          mypy
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test -z "$(git status --porcelain)"
+
+  final_immutability:
+    needs: [topology_state, primary_artifacts, quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Recheck canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          echo 'POSTMERGE=PASS'
+          echo 'T029_CLOSEOUT_ELIGIBLE=YES'
