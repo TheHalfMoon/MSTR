@@ -1,0 +1,210 @@
+name: Mandatory premerge PR164 T029 closeout exact head
+
+on:
+  push:
+    branches:
+      - evidence/pr164-t029-closeout-mandatory-premerge-1f7e433
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  checks: read
+  statuses: read
+
+concurrency:
+  group: pr164-t029-closeout-mandatory-premerge-1f7e433
+  cancel-in-progress: false
+
+env:
+  PR_NUMBER: '164'
+  BASE_SHA: 29df1b4be142407fbd31e13dca00e525dd729365
+  HEAD_SHA: 1f7e43378fb398924f989038ce0005b379335eee
+  HEAD_TREE: 2d77fb94674d4a86e866a5c63ff107f511f12a70
+  TARGET_BRANCH: closeout/000-t029-canonical
+  QUALIFICATION_RUN: '33966595975'
+  QUALIFICATION_EVIDENCE_HEAD: b84c815c8357379af787f11884f16a01d388e016
+  REVIEW_RUN: '33967397356'
+  REVIEW_EVIDENCE_HEAD: 4e2081709b5d55ff64888fef0aa293220cd405ce
+  REVIEW_SUBMISSION_ID: '5121345599'
+
+jobs:
+  live_premerge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Verify exact PR, evidence, reviews, rules, statuses and checks
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          token = os.environ["GH_TOKEN"]
+          headers = {
+              "Authorization": f"Bearer {token}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+          root = "https://api.github.com/repos/TheHalfMoon/MSTR"
+
+          def get(path: str):
+              request = urllib.request.Request(f"{root}{path}", headers=headers)
+              with urllib.request.urlopen(request) as response:
+                  return json.load(response)
+
+          pr = get(f"/pulls/{os.environ['PR_NUMBER']}")
+          assert pr["state"] == "open" and pr["draft"] is False
+          assert pr["merged"] is False
+          assert pr["mergeable"] in (True, None)
+          assert pr["base"]["ref"] == "main" and pr["base"]["sha"] == os.environ["BASE_SHA"]
+          assert pr["head"]["ref"] == os.environ["TARGET_BRANCH"] and pr["head"]["sha"] == os.environ["HEAD_SHA"]
+          assert pr["commits"] == 1 and pr["changed_files"] == 3
+
+          expected_files = {
+              "docs/canonical/CURRENT_STATE.md",
+              "evidence/T029-q4-profiles.md",
+              "specs/000-universal-laptop-interaction-contract/tasks.md",
+          }
+          assert {item["filename"] for item in get(f"/pulls/{os.environ['PR_NUMBER']}/files?per_page=100")} == expected_files
+
+          expected_runs = {
+              os.environ["QUALIFICATION_RUN"]: os.environ["QUALIFICATION_EVIDENCE_HEAD"],
+              os.environ["REVIEW_RUN"]: os.environ["REVIEW_EVIDENCE_HEAD"],
+          }
+          for run_id, expected_head in expected_runs.items():
+              run = get(f"/actions/runs/{run_id}")
+              assert run["status"] == "completed" and run["conclusion"] == "success"
+              assert run["head_sha"] == expected_head
+
+          reviews = get(f"/pulls/{os.environ['PR_NUMBER']}/reviews?per_page=100")
+          review = next(item for item in reviews if str(item["id"]) == os.environ["REVIEW_SUBMISSION_ID"])
+          assert review["state"] == "COMMENTED"
+          assert review["commit_id"] == os.environ["HEAD_SHA"]
+          body = review.get("body") or ""
+          assert "Findings: NONE." in body
+          assert f"run `{os.environ['REVIEW_RUN']}`" in body
+          assert not any(item["state"] == "CHANGES_REQUESTED" and item["commit_id"] == os.environ["HEAD_SHA"] for item in reviews)
+
+          inline_comments = get(f"/pulls/{os.environ['PR_NUMBER']}/comments?per_page=100")
+          assert inline_comments == []
+
+          graphql_query = {
+              "query": "query { repository(owner: \"TheHalfMoon\", name: \"MSTR\") { pullRequest(number: 164) { reviewThreads(first: 100) { nodes { isResolved } } } } }"
+          }
+          request = urllib.request.Request(
+              "https://api.github.com/graphql",
+              data=json.dumps(graphql_query).encode(),
+              headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+              method="POST",
+          )
+          with urllib.request.urlopen(request) as response:
+              graphql = json.load(response)
+          assert "errors" not in graphql
+          threads = graphql["data"]["repository"]["pullRequest"]["reviewThreads"]["nodes"]
+          assert all(thread["isResolved"] for thread in threads)
+
+          rulesets = get("/rulesets")
+          assert rulesets == []
+          main_branch = get("/branches/main")
+          assert main_branch["commit"]["sha"] == os.environ["BASE_SHA"]
+          assert main_branch["protected"] is False
+
+          combined = get(f"/commits/{os.environ['HEAD_SHA']}/status")
+          assert combined["state"] == "success"
+          assert all(status["state"] == "success" for status in combined["statuses"])
+
+          check_runs = get(f"/commits/{os.environ['HEAD_SHA']}/check-runs?per_page=100")
+          for check in check_runs["check_runs"]:
+              assert check["status"] == "completed"
+              assert check["conclusion"] in {"success", "neutral", "skipped"}
+
+          authority_request = urllib.request.Request(
+              f"{root}/contents/artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json?ref={os.environ['BASE_SHA']}",
+              headers=headers,
+          )
+          try:
+              urllib.request.urlopen(authority_request)
+          except urllib.error.HTTPError as exc:
+              assert exc.code == 404
+          else:
+              raise AssertionError("B012 authority unexpectedly exists")
+          PY
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - name: Verify exact topology, bounded scope and closeout semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          git diff --check "$BASE_SHA" "$HEAD_SHA"
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort > /tmp/actual.txt
+          printf '%s\n' docs/canonical/CURRENT_STATE.md evidence/T029-q4-profiles.md specs/000-universal-laptop-interaction-contract/tasks.md | sort > /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+          test -z "$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- artifacts/authorities artifacts/manifests configs/task-gate src tests .github/workflows)"
+          grep -Fq -- '- [x] T029 [US1]' specs/000-universal-laptop-interaction-contract/tasks.md
+          grep -Fq -- '- [ ] T030 [US1]' specs/000-universal-laptop-interaction-contract/tasks.md
+          grep -Fq 'T000-T029 = COMPLETE_CANONICAL' docs/canonical/CURRENT_STATE.md
+          grep -Fq 'B012 / PENDING / BLOCKED_BY_EXACT_FOUNDER_AUTHORITY' docs/canonical/CURRENT_STATE.md
+          grep -Fq 'T029_COMPLETE_CANONICAL = YES_ON_CLOSEOUT_MERGE' evidence/T029-q4-profiles.md
+          grep -Fq 'T029_FUTURE_REGENERATION_EXECUTION_READY = NO' evidence/T029-q4-profiles.md
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("artifacts/manifests/quantization/T029-q4-profiles.json").read_text())
+          assert manifest["completion_state"] == "Q4_PROFILE_SET_READY_NOT_T029_COMPLETE_CANONICAL"
+          assert len(manifest["profiles"]) == 8 and manifest["pending"] == []
+          assert all(profile["result_classification"] == "Q4_PROFILE_READY" for profile in manifest["profiles"])
+          assert not Path("artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json").exists()
+          PY
+
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run mandatory frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_t029_quantization_manifest.py tests/unit/test_t029_quantize_runner.py
+          mstr-qualify validate
+          python -m pytest -q
+          ruff check .
+          mypy
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test -z "$(git status --porcelain)"
+
+  final_premerge:
+    needs: [live_premerge, quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Recheck exact live heads and authorize guarded merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          echo 'MANDATORY_PREMERGE=PASS'
+          echo "EXPECTED_HEAD_SHA=$HEAD_SHA"
+          echo 'MERGE_MODE=GUARDED_EXPECTED_HEAD_ONLY'
