@@ -1,0 +1,260 @@
+name: PR170 T031 authority mandatory premerge
+
+on:
+  push:
+    branches:
+      - evidence/pr170-t031-authority-mandatory-premerge-7e122ef
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+  checks: read
+  statuses: read
+
+env:
+  REPO: TheHalfMoon/MSTR
+  PR_NUMBER: "170"
+  BASE_SHA: 81639ff15e31d7f6a3b8aeaa7ceae4b80b009feb
+  TARGET_HEAD: 7e122ef13ab3ec8478bded2c15fffb693f37310d
+  TARGET_TREE: eb65a0b673aea94266c7d5ed43c69e9ea3b65bfc
+  QUALIFICATION_RUN: "33986311560"
+  QUALIFICATION_EVIDENCE_HEAD: afd72eeb392bff12e5ec88009309c016f0a69f50
+  REVIEW_RUN: "33986578025"
+  REVIEW_EVIDENCE_HEAD: bf41fa5c241a200239da65190786735a195fcd63
+  REVIEW_SUBMISSION_ID: "5122684087"
+
+jobs:
+  governance:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact authority candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify live PR, evidence chain, review state, and repository policy
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          git fetch origin main --quiet
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          test "$(git merge-base "$BASE_SHA" "$TARGET_HEAD")" = "$BASE_SHA"
+          test "$(git rev-list --count "$BASE_SHA..$TARGET_HEAD")" -eq 1
+          git diff --check "$BASE_SHA...$TARGET_HEAD"
+          changed="$(git diff --name-only "$BASE_SHA...$TARGET_HEAD" | sort)"
+          expected="$(printf '%s\n' artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json artifacts/manifests/T031-local-measurement-execution-envelope.json tests/contract/test_t031_authority.py | sort)"
+          test "$changed" = "$expected"
+
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          token = os.environ['GH_TOKEN']
+          repo = os.environ['REPO']
+          pr_number = os.environ['PR_NUMBER']
+          target = os.environ['TARGET_HEAD']
+          base = os.environ['BASE_SHA']
+
+          def get(url):
+              request = urllib.request.Request(url, headers={
+                  'Authorization': f'Bearer {token}',
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+              })
+              with urllib.request.urlopen(request) as response:
+                  return json.load(response)
+
+          pr = get(f'https://api.github.com/repos/{repo}/pulls/{pr_number}')
+          assert pr['state'] == 'open'
+          assert pr['draft'] is False
+          assert pr['head']['sha'] == target
+          assert pr['base']['sha'] == base
+          assert pr['changed_files'] == 3
+          assert pr['commits'] == 1
+          assert pr['mergeable'] is not False
+
+          for run_id, evidence_head in [
+              (os.environ['QUALIFICATION_RUN'], os.environ['QUALIFICATION_EVIDENCE_HEAD']),
+              (os.environ['REVIEW_RUN'], os.environ['REVIEW_EVIDENCE_HEAD']),
+          ]:
+              run = get(f'https://api.github.com/repos/{repo}/actions/runs/{run_id}')
+              assert run['status'] == 'completed'
+              assert run['conclusion'] == 'success'
+              assert run['head_sha'] == evidence_head
+
+          reviews = get(f'https://api.github.com/repos/{repo}/pulls/{pr_number}/reviews?per_page=100')
+          assert not any(review['state'] == 'CHANGES_REQUESTED' for review in reviews)
+          exact = [review for review in reviews if str(review['id']) == os.environ['REVIEW_SUBMISSION_ID']]
+          assert len(exact) == 1
+          assert exact[0]['state'] == 'COMMENTED'
+          assert exact[0]['commit_id'] == target
+          body = exact[0].get('body') or ''
+          assert 'Findings: NONE' in body
+          assert 'eight canonical T029 candidates/revisions' in body
+          assert 'dispatch and toolchain provisioning blocked' in body
+          assert 'No B010/B012 candidate' in body
+          assert 'T032, T033, T034' in body
+
+          inline = get(f'https://api.github.com/repos/{repo}/pulls/{pr_number}/comments?per_page=100')
+          assert inline == []
+
+          rulesets = get(f'https://api.github.com/repos/{repo}/rulesets')
+          assert rulesets == []
+          branch = get(f'https://api.github.com/repos/{repo}/branches/main')
+          assert branch['commit']['sha'] == base
+          assert branch['protected'] is False
+
+          status = get(f'https://api.github.com/repos/{repo}/commits/{target}/status')
+          assert status['state'] in {'success', 'pending'}
+          assert not any(item['state'] in {'failure', 'error'} for item in status.get('statuses', []))
+          checks = get(f'https://api.github.com/repos/{repo}/commits/{target}/check-runs?per_page=100')
+          bad = {'failure', 'cancelled', 'timed_out', 'action_required', 'startup_failure', 'stale'}
+          assert not any(check.get('conclusion') in bad for check in checks.get('check_runs', []))
+          PY
+
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          token = os.environ['GH_TOKEN']
+          query = '''query($owner:String!, $name:String!, $number:Int!) {
+            repository(owner:$owner, name:$name) {
+              pullRequest(number:$number) {
+                reviewThreads(first:100) { nodes { isResolved } }
+              }
+            }
+          }'''
+          payload = json.dumps({
+              'query': query,
+              'variables': {'owner': 'TheHalfMoon', 'name': 'MSTR', 'number': 170},
+          }).encode()
+          request = urllib.request.Request(
+              'https://api.github.com/graphql',
+              data=payload,
+              headers={
+                  'Authorization': f'Bearer {token}',
+                  'Content-Type': 'application/json',
+              },
+          )
+          with urllib.request.urlopen(request) as response:
+              data = json.load(response)
+          assert 'errors' not in data, data
+          threads = data['data']['repository']['pullRequest']['reviewThreads']['nodes']
+          assert all(thread['isResolved'] for thread in threads), threads
+          PY
+
+          git show "$QUALIFICATION_EVIDENCE_HEAD:.github/workflows/pr170-t031-authority-qualification-7e122ef.yml" | grep -F "TARGET_HEAD: $TARGET_HEAD"
+          git show "$REVIEW_EVIDENCE_HEAD:.github/workflows/pr170-t031-authority-independent-review-7e122ef.yml" | grep -F "TARGET_HEAD: $TARGET_HEAD"
+
+  semantics:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact authority candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify bounded T031 authority semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          def digest(path):
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+          authority_path = 'artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json'
+          envelope_path = 'artifacts/manifests/T031-local-measurement-execution-envelope.json'
+          authority = json.loads(Path(authority_path).read_text())
+          envelope = json.loads(Path(envelope_path).read_text())
+          scope = authority['scope']
+          ids = ['granite-4.1-3b','ministral-3-3b','qwen2.5-coder-1.5b','qwen3-4b','qwen3.5-2b','qwen3.5-4b','smollm3-3b','yi-coder-1.5b']
+
+          assert authority['authority_id'] == 'T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION'
+          assert authority['task_id'] == 'T031'
+          assert authority['status'] == 'AUTHORIZED_CANONICAL'
+          assert scope['decision'] == 'FOUNDER_T031_LOCAL_MEASUREMENT_DECISION=AUTHORIZE_EXACT_T029_CANDIDATES'
+          assert scope['decision_surface'] == {'issue': 167, 'comment_id': 5553875809}
+          assert scope['candidate_ids'] == ids
+          assert scope['bounded_execution_envelope']['sha256'] == digest(envelope_path)
+          assert envelope['candidate_ids'] == ids
+          assert envelope['canonical_entry_main'] == '81639ff15e31d7f6a3b8aeaa7ceae4b80b009feb'
+          assert envelope['dispatch_state'] == 'BLOCKED_PENDING_CANONICAL_EXECUTOR_TOOLCHAIN_BINDING'
+          assert envelope['toolchain_provisioning']['state'] == 'BLOCKED_PENDING_SEPARATELY_REVIEWED_EXECUTOR_BINDING'
+          assert envelope['resource_ceiling']['paid_cost_usd'] == 0.0
+          assert envelope['resource_ceiling']['paid_compute'] is False
+          assert envelope['resource_ceiling']['paid_model_api'] is False
+          assert envelope['resource_ceiling']['gpu_layers'] == 0
+          assert envelope['runner_envelope']['founder_machine_model_binaries'] == 0
+          assert envelope['runner_envelope']['git_model_binaries'] == 0
+          assert scope['b010_b012_candidates'] is False
+          assert scope['t032_execution'] is False
+          assert scope['t033_execution'] is False
+          assert scope['t034_admission_decision'] is False
+          assert scope['training'] is False
+          assert scope['weight_changing_training'] is False
+          assert 'mellum-4b' not in envelope['candidate_ids']
+          assert 'qwen3.5-0.8b-control' not in envelope['candidate_ids']
+          PY
+
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact authority candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run mandatory frozen repository quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_t031_authority.py tests/contract/test_b012_authority.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src/mstr_qualify
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test -z "$(git status --porcelain)"
+
+  final_premerge:
+    needs: [governance, semantics, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Final live expected-head authorization
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          main_sha="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/branches/main" | python -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])')"
+          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER")"
+          python - "$pr_json" <<'PY'
+          import json, os, sys
+          pr = json.loads(sys.argv[1])
+          assert pr['state'] == 'open'
+          assert pr['draft'] is False
+          assert pr['head']['sha'] == os.environ['TARGET_HEAD']
+          assert pr['base']['sha'] == os.environ['BASE_SHA']
+          PY
+          test "$main_sha" = "$BASE_SHA"
+          echo "MANDATORY_PREMERGE=PASS"
+          echo "EXPECTED_HEAD_SHA=$TARGET_HEAD"
+          echo "EXPECTED_BASE_SHA=$BASE_SHA"
+          echo "T031_EXECUTION_DISPATCH=BLOCKED_PENDING_CANONICAL_EXECUTOR_TOOLCHAIN_BINDING"
+          echo "B010_B012_T032_T033_T034_TRAINING_AUTHORITY=NOT_CREATED"
