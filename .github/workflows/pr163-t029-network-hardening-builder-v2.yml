@@ -83,16 +83,16 @@ jobs:
       - name: Mypy
         run: mypy
 
-      - name: Commit bounded hardening locally
+      - name: Commit non-workflow hardening locally
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "Abdulaziz M. Shehri"
           git config user.email "alshehriofficial@gmail.com"
-          git add .github/workflows/t029-quantize.yml colab/mstr_t029_quantize.py tests/unit/test_t029_quantize_runner.py
+          git add colab/mstr_t029_quantize.py tests/unit/test_t029_quantize_runner.py
           git commit -m "fix(mstr-000): enforce T029 artifact network allowlist"
 
-      - name: Guarded fast-forward push to target branch
+      - name: Guarded fast-forward push non-workflow hardening
         shell: bash
         run: |
           set -euo pipefail
