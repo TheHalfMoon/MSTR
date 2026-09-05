@@ -1,0 +1,937 @@
+{
+  "allowed_operations": [
+    "REACQUIRE_EXACT_T027_INPUTS_FOR_EIGHT_T029_CANDIDATES",
+    "VERIFY_EVERY_ACQUIRED_ARTIFACT",
+    "REGENERATE_EXACT_T029_F16_AND_Q4_IDENTITIES_OR_FAIL_CLOSED",
+    "EXECUTE_T030_PORTABLE_CPU_RUNTIME_FOR_T031_MEASUREMENTS",
+    "RETAIN_REVIEWED_JSONL_JSON_MARKDOWN_MANIFEST_RESULTS_ONLY"
+  ],
+  "authority_id": "T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION",
+  "candidate_ids": [
+    "granite-4.1-3b",
+    "ministral-3-3b",
+    "qwen2.5-coder-1.5b",
+    "qwen3-4b",
+    "qwen3.5-2b",
+    "qwen3.5-4b",
+    "smollm3-3b",
+    "yi-coder-1.5b"
+  ],
+  "canonical_entry_main": "81639ff15e31d7f6a3b8aeaa7ceae4b80b009feb",
+  "decision_surface": {
+    "comment_id": 5553875809,
+    "issue": 167
+  },
+  "dispatch_state": "BLOCKED_PENDING_CANONICAL_EXECUTOR_TOOLCHAIN_BINDING",
+  "durable_outputs_only": true,
+  "founder_decision": "FOUNDER_T031_LOCAL_MEASUREMENT_DECISION=AUTHORIZE_EXACT_T029_CANDIDATES",
+  "measurement_contract": {
+    "contexts": [
+      4096,
+      8192,
+      16384
+    ],
+    "durable_result_glob": "artifacts/results/local/T031/*.jsonl",
+    "evidence_path": "evidence/T031-local-memory-throughput.md",
+    "measurements": [
+      "artifact_bytes",
+      "load_behavior",
+      "memory_behavior",
+      "paging_behavior",
+      "prefill_behavior",
+      "decode_behavior"
+    ]
+  },
+  "model_artifact_network": {
+    "abort_on_authentication_requirement": true,
+    "abort_on_gated_terms": true,
+    "abort_on_payment": true,
+    "abort_on_unlisted_redirect": true,
+    "hosts": [
+      "huggingface.co",
+      "us.aws.cdn.hf.co"
+    ],
+    "https_get_only": true
+  },
+  "prohibited_operations": [
+    "B010_OR_B012_CANDIDATES",
+    "NEW_CANDIDATES",
+    "CANDIDATE_REVISION_OR_FILE_EXPANSION",
+    "T032_EXECUTION",
+    "T033_EXECUTION",
+    "T034_ADMISSION_DECISION",
+    "WEIGHT_CHANGING_TRAINING",
+    "TRAINING",
+    "LARGE_SCALE_RL",
+    "LARGE_OR_PRIVATE_DATASET_INGESTION",
+    "PAID_COMPUTE",
+    "PAID_MODEL_API",
+    "GATED_TERMS_ACCEPTANCE",
+    "ACCOUNT_REQUIRED_MODEL_ACCESS",
+    "PRODUCTION_RELEASE",
+    "GIT_MODEL_BINARIES",
+    "FOUNDER_MACHINE_MODEL_BINARIES"
+  ],
+  "q4_identity": {
+    "conversion_recipe": "convert_hf_to_gguf.py --outtype f16",
+    "llama_cpp_commit": "fc35562ba46fbbf8e30cac85edbb39642c37d248",
+    "required_arms": [
+      "Q4_K_M",
+      "Q4_K_S"
+    ],
+    "t029_profile_manifest": {
+      "path": "artifacts/manifests/quantization/T029-q4-profiles.json",
+      "sha256": "91a22531a354905b6093e4d50ad4fd6bb2f08f743166fb9e871771d355669f1f"
+    }
+  },
+  "resource_ceiling": {
+    "aggregate_required_source_download_bytes": 48742940294,
+    "gpu_layers": 0,
+    "paid_compute": false,
+    "paid_cost_usd": 0.0,
+    "paid_model_api": false
+  },
+  "runner_envelope": {
+    "founder_machine_model_binaries": 0,
+    "git_model_binaries": 0,
+    "max_job_minutes": 120,
+    "max_parallel_candidates": 1,
+    "provider": "GITHUB_ACTIONS",
+    "runner_class": "GITHUB_HOSTED_EPHEMERAL",
+    "runs_on": "ubuntu-24.04"
+  },
+  "runtime_identity": {
+    "device": "none",
+    "gpu_layers": 0,
+    "llama_cpp_commit": "3173a56471c1753650cd806694145ffd6dcace67",
+    "profile": {
+      "path": "configs/runtimes/llama-cpp-cpu.json",
+      "sha256": "fc51f2c584b89ad29f6d9088e538a2220bba86f8dc67c8f5709ca133b358f1f4"
+    },
+    "runtime_id": "llama.cpp-llama-bench-cpu"
+  },
+  "schema_version": "mstr.t031-local-measurement-execution-envelope.v1",
+  "source_identity": {
+    "candidate_sources": [
+      {
+        "account_required": false,
+        "authentication_required": false,
+        "candidate_id": "granite-4.1-3b",
+        "exact_model_id": "ibm-granite/granite-4.1-3b-base",
+        "exact_revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
+        "expected_file_integrity": [
+          {
+            "expected_size_bytes": 28221,
+            "file": "README.md",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 801,
+            "file": "config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 147,
+            "file": "generation_config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 916646,
+            "file": "merges.txt",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 4918153128,
+            "file": "model-00001-of-00002.safetensors",
+            "upstream_sha256": "6f689cdf8d8bcde2d8ea60eb1d767d56f8dcbdb243cecde92ff9f8836de2645f"
+          },
+          {
+            "expected_size_bytes": 1887561680,
+            "file": "model-00002-of-00002.safetensors",
+            "upstream_sha256": "f9e80cae16101f1c6dd83a746056334286d82cf260e5f0020601bd304ec73b7e"
+          },
+          {
+            "expected_size_bytes": 29834,
+            "file": "model.safetensors.index.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 579,
+            "file": "special_tokens_map.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 7153421,
+            "file": "tokenizer.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 17659,
+            "file": "tokenizer_config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 1612704,
+            "file": "vocab.json",
+            "upstream_sha256": null
+          }
+        ],
+        "expected_total_download_bytes": 6815474820,
+        "gated_access": false,
+        "license_identity": "Apache-2.0 (declared at pinned revision)",
+        "q4_profile": {
+          "actions_artifact_id": 9603875247,
+          "actions_run_id": 32959729068,
+          "candidate_id": "granite-4.1-3b",
+          "conversion_recipe": "convert_hf_to_gguf.py --outtype f16",
+          "f16_sha256": "b76f61cdf1a11375c734431f661fabe937b7214a54d6defda5f6683bd3473d4d",
+          "f16_size_bytes": 6809649856,
+          "llama_cpp_commit": "fc35562ba46fbbf8e30cac85edbb39642c37d248",
+          "model_repo": "ibm-granite/granite-4.1-3b-base",
+          "model_revision": "dacb9cb9157bec98e99b09f285c92a4d58405c96",
+          "quantization_arms": {
+            "Q4_K_M": {
+              "duration_s": 149.9,
+              "output_sha256": "7c7924255af3e923d5bd52ae19bdc5613851b78ff65144311698ad71993a6fd5",
+              "output_size_bytes": 2099495616
+            },
+            "Q4_K_S": {
+              "duration_s": 112.9,
+              "output_sha256": "b3909f2cf63252567ca58bdfa31ab9552c926e7596d6688da8b23656fe5f4154",
+              "output_size_bytes": 1998365376
+            }
+          },
+          "resource_cost": "USD 0.00",
+          "result_classification": "Q4_PROFILE_READY"
+        },
+        "required_artifact_files": [
+          "README.md",
+          "config.json",
+          "generation_config.json",
+          "merges.txt",
+          "model-00001-of-00002.safetensors",
+          "model-00002-of-00002.safetensors",
+          "model.safetensors.index.json",
+          "special_tokens_map.json",
+          "tokenizer.json",
+          "tokenizer_config.json",
+          "vocab.json"
+        ],
+        "terms_acceptance_required": false
+      },
+      {
+        "account_required": false,
+        "authentication_required": false,
+        "candidate_id": "ministral-3-3b",
+        "exact_model_id": "mistralai/Ministral-3-3B-Base-2512",
+        "exact_revision": "6f9c4b12a95b139af68670a6713616b757923735",
+        "expected_file_integrity": [
+          {
+            "expected_size_bytes": 11604,
+            "file": "README.md",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 1579,
+            "file": "config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 131,
+            "file": "generation_config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 4967581832,
+            "file": "model-00001-of-00002.safetensors",
+            "upstream_sha256": "0494c0a285767920a5e469af9710b499115667f84e17c225a956a5155459249f"
+          },
+          {
+            "expected_size_bytes": 2730659224,
+            "file": "model-00002-of-00002.safetensors",
+            "upstream_sha256": "3cd41d76f1d8e7b2fa64668d69177358dffdbd15231ccf6177798bca9de1a797"
+          },
+          {
+            "expected_size_bytes": 45577,
+            "file": "model.safetensors.index.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 1096,
+            "file": "params.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 976,
+            "file": "processor_config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 147085,
+            "file": "special_tokens_map.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 16753777,
+            "file": "tekken.json",
+            "upstream_sha256": "e29d19ea32eb7e26e6c0572d57cb7f9eca0f4420e0e0fe6ae1cf3be94da1c0d6"
+          },
+          {
+            "expected_size_bytes": 17078110,
+            "file": "tokenizer.json",
+            "upstream_sha256": "577575622324b2e099e2648be26bdeb5e5815ffe66d7004e9e3ddbf421db6bf1"
+          },
+          {
+            "expected_size_bytes": 198076,
+            "file": "tokenizer_config.json",
+            "upstream_sha256": null
+          }
+        ],
+        "expected_total_download_bytes": 7732479067,
+        "gated_access": false,
+        "license_identity": "Apache-2.0 (declared at pinned revision)",
+        "q4_profile": {
+          "actions_artifact_id": 9729481097,
+          "actions_run_id": 33263175072,
+          "candidate_id": "ministral-3-3b",
+          "conversion_recipe": "convert_hf_to_gguf.py --outtype f16",
+          "f16_sha256": "30b2f0f8cf5a0b0c5ac3599d3b3de777df74714d49375e43359bb4c1fddbc1de",
+          "f16_size_bytes": 6866212448,
+          "llama_cpp_commit": "fc35562ba46fbbf8e30cac85edbb39642c37d248",
+          "model_repo": "mistralai/Ministral-3-3B-Base-2512",
+          "model_revision": "6f9c4b12a95b139af68670a6713616b757923735",
+          "quantization_arms": {
+            "Q4_K_M": {
+              "duration_s": 111.9,
+              "output_sha256": "31a399bb99a851698948b0d0db5178ac64d20c55048b71a87d3fc25d0b9f0291",
+              "output_size_bytes": 2146489952
+            },
+            "Q4_K_S": {
+              "duration_s": 120.3,
+              "output_sha256": "81575340aac45340dc947bcab07c1d25b5f02c10ad5fa32c69e45a48803ce4aa",
+              "output_size_bytes": 2053248608
+            }
+          },
+          "resource_cost": "USD 0.00",
+          "result_classification": "Q4_PROFILE_READY"
+        },
+        "required_artifact_files": [
+          "README.md",
+          "config.json",
+          "generation_config.json",
+          "model-00001-of-00002.safetensors",
+          "model-00002-of-00002.safetensors",
+          "model.safetensors.index.json",
+          "params.json",
+          "processor_config.json",
+          "special_tokens_map.json",
+          "tekken.json",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "terms_acceptance_required": false
+      },
+      {
+        "account_required": false,
+        "authentication_required": false,
+        "candidate_id": "qwen2.5-coder-1.5b",
+        "exact_model_id": "Qwen/Qwen2.5-Coder-1.5B",
+        "exact_revision": "df3ce67c0e24480f20468b6ef2894622d69eb73b",
+        "expected_file_integrity": [
+          {
+            "expected_size_bytes": 11343,
+            "file": "LICENSE",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 4053,
+            "file": "README.md",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 660,
+            "file": "config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 117,
+            "file": "generation_config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 1671839,
+            "file": "merges.txt",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 3087467144,
+            "file": "model.safetensors",
+            "upstream_sha256": "535485b26038ac24f4e8a86e1a73ed417d8992e3192f6305b7fcc4fb92efa210"
+          },
+          {
+            "expected_size_bytes": 7031645,
+            "file": "tokenizer.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 7308,
+            "file": "tokenizer_config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 2776833,
+            "file": "vocab.json",
+            "upstream_sha256": null
+          }
+        ],
+        "expected_total_download_bytes": 3098970942,
+        "gated_access": false,
+        "license_identity": "Apache-2.0 (declared at pinned revision)",
+        "q4_profile": {
+          "actions_artifact_id": 9603602508,
+          "actions_run_id": 32959739245,
+          "candidate_id": "qwen2.5-coder-1.5b",
+          "conversion_recipe": "convert_hf_to_gguf.py --outtype f16",
+          "f16_sha256": "618fb3b7b25384f4eb3a32b629f035c883c2d05bf2169656549bb7ed374aeb3e",
+          "f16_size_bytes": 3093669408,
+          "llama_cpp_commit": "fc35562ba46fbbf8e30cac85edbb39642c37d248",
+          "model_repo": "Qwen/Qwen2.5-Coder-1.5B",
+          "model_revision": "df3ce67c0e24480f20468b6ef2894622d69eb73b",
+          "quantization_arms": {
+            "Q4_K_M": {
+              "duration_s": 46.5,
+              "output_sha256": "e743da8902302ad59ab1262f9d62f383c3024fe82cc9ef974f66729d9d875d04",
+              "output_size_bytes": 986048544
+            },
+            "Q4_K_S": {
+              "duration_s": 50.0,
+              "output_sha256": "c8833a229512753e0e2ee8b53aac96f2bd51551a54f2e64fd1565ba78846480c",
+              "output_size_bytes": 940312608
+            }
+          },
+          "resource_cost": "USD 0.00",
+          "result_classification": "Q4_PROFILE_READY"
+        },
+        "required_artifact_files": [
+          "LICENSE",
+          "README.md",
+          "config.json",
+          "generation_config.json",
+          "merges.txt",
+          "model.safetensors",
+          "tokenizer.json",
+          "tokenizer_config.json",
+          "vocab.json"
+        ],
+        "terms_acceptance_required": false
+      },
+      {
+        "account_required": false,
+        "authentication_required": false,
+        "candidate_id": "qwen3-4b",
+        "exact_model_id": "Qwen/Qwen3-4B-Base",
+        "exact_revision": "906bfd4b4dc7f14ee4320094d8b41684abff8539",
+        "expected_file_integrity": [
+          {
+            "expected_size_bytes": 11343,
+            "file": "LICENSE",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 2937,
+            "file": "README.md",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 727,
+            "file": "config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 138,
+            "file": "generation_config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 1671853,
+            "file": "merges.txt",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 3957900840,
+            "file": "model-00001-of-00003.safetensors",
+            "upstream_sha256": "4c807e2503d68ae373d508689d00a41f4b33f33c2536da97ab81a20caddc1241"
+          },
+          {
+            "expected_size_bytes": 3987450520,
+            "file": "model-00002-of-00003.safetensors",
+            "upstream_sha256": "f4707585548b2fc75a6b1d732e8465c62040a8699903c32850781beeb9b27826"
+          },
+          {
+            "expected_size_bytes": 99630640,
+            "file": "model-00003-of-00003.safetensors",
+            "upstream_sha256": "c7b1aa8fb672de2e00423c99876926022e50b18d4f0d140670788510a27f9965"
+          },
+          {
+            "expected_size_bytes": 32819,
+            "file": "model.safetensors.index.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 7031645,
+            "file": "tokenizer.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 9678,
+            "file": "tokenizer_config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 2776833,
+            "file": "vocab.json",
+            "upstream_sha256": null
+          }
+        ],
+        "expected_total_download_bytes": 8056519973,
+        "gated_access": false,
+        "license_identity": "Apache-2.0 (declared at pinned revision)",
+        "q4_profile": {
+          "actions_artifact_id": 9603722432,
+          "actions_run_id": 32959723760,
+          "candidate_id": "qwen3-4b",
+          "conversion_recipe": "convert_hf_to_gguf.py --outtype f16",
+          "f16_sha256": "9a361e6b76095b2ff9d5c6e505f65a603174b9cd3e6e7f832da73841a6e59f3c",
+          "f16_size_bytes": 8051284736,
+          "llama_cpp_commit": "fc35562ba46fbbf8e30cac85edbb39642c37d248",
+          "model_repo": "Qwen/Qwen3-4B-Base",
+          "model_revision": "906bfd4b4dc7f14ee4320094d8b41684abff8539",
+          "quantization_arms": {
+            "Q4_K_M": {
+              "duration_s": 137.9,
+              "output_sha256": "66d53dd919061c5e7dccd135cd49784ea379c1152909ece6a2c75b1120a797f1",
+              "output_size_bytes": 2497280256
+            },
+            "Q4_K_S": {
+              "duration_s": 140.1,
+              "output_sha256": "478fb1ac5091f8ac1df4ff26d82e77bed5ecf3963b9d8ef1b6fb99805ca8778f",
+              "output_size_bytes": 2383309056
+            }
+          },
+          "resource_cost": "USD 0.00",
+          "result_classification": "Q4_PROFILE_READY"
+        },
+        "required_artifact_files": [
+          "LICENSE",
+          "README.md",
+          "config.json",
+          "generation_config.json",
+          "merges.txt",
+          "model-00001-of-00003.safetensors",
+          "model-00002-of-00003.safetensors",
+          "model-00003-of-00003.safetensors",
+          "model.safetensors.index.json",
+          "tokenizer.json",
+          "tokenizer_config.json",
+          "vocab.json"
+        ],
+        "terms_acceptance_required": false
+      },
+      {
+        "account_required": false,
+        "authentication_required": false,
+        "candidate_id": "qwen3.5-2b",
+        "exact_model_id": "Qwen/Qwen3.5-2B-Base",
+        "exact_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+        "expected_file_integrity": [
+          {
+            "expected_size_bytes": 11343,
+            "file": "LICENSE",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 3721,
+            "file": "README.md",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 2908,
+            "file": "config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 3353259,
+            "file": "merges.txt",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 4548221488,
+            "file": "model.safetensors-00001-of-00001.safetensors",
+            "upstream_sha256": "928acbf11878c32185bbd863514d191769285065ab9ea14fbfe431303f5fdf2d"
+          },
+          {
+            "expected_size_bytes": 64460,
+            "file": "model.safetensors.index.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 12807196,
+            "file": "tokenizer.json",
+            "upstream_sha256": "fe000e3ed39ed12b8d2481d527d44f93c65d37e87645d2dcc80d1bf9d50d2927"
+          },
+          {
+            "expected_size_bytes": 16712,
+            "file": "tokenizer_config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 6722759,
+            "file": "vocab.json",
+            "upstream_sha256": null
+          }
+        ],
+        "expected_total_download_bytes": 4571203846,
+        "gated_access": false,
+        "license_identity": "Apache-2.0 (declared at pinned revision)",
+        "q4_profile": {
+          "actions_artifact_id": 9603552151,
+          "actions_run_id": 32959707029,
+          "candidate_id": "qwen3.5-2b",
+          "conversion_recipe": "convert_hf_to_gguf.py --outtype f16",
+          "f16_sha256": "ce30596c3da73caa12b6e630f3515137655d3f2293c2c2388a2e6bbf960e448c",
+          "f16_size_bytes": 3897387616,
+          "llama_cpp_commit": "fc35562ba46fbbf8e30cac85edbb39642c37d248",
+          "model_repo": "Qwen/Qwen3.5-2B-Base",
+          "model_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+          "quantization_arms": {
+            "Q4_K_M": {
+              "duration_s": 35.0,
+              "output_sha256": "ef3b6b42698ac3955488998f250cc0f1e42ef7dd0819fe7bd86a902f6f90be56",
+              "output_size_bytes": 1312164448
+            },
+            "Q4_K_S": {
+              "duration_s": 38.1,
+              "output_sha256": "a6fe3727940dde3382e2f2a353a51bc2e6970d4e660260428899c29c8e4583e9",
+              "output_size_bytes": 1246308960
+            }
+          },
+          "resource_cost": "USD 0.00",
+          "result_classification": "Q4_PROFILE_READY"
+        },
+        "required_artifact_files": [
+          "LICENSE",
+          "README.md",
+          "config.json",
+          "merges.txt",
+          "model.safetensors-00001-of-00001.safetensors",
+          "model.safetensors.index.json",
+          "tokenizer.json",
+          "tokenizer_config.json",
+          "vocab.json"
+        ],
+        "terms_acceptance_required": false
+      },
+      {
+        "account_required": false,
+        "authentication_required": false,
+        "candidate_id": "qwen3.5-4b",
+        "exact_model_id": "Qwen/Qwen3.5-4B-Base",
+        "exact_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+        "expected_file_integrity": [
+          {
+            "expected_size_bytes": 11343,
+            "file": "LICENSE",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 3722,
+            "file": "README.md",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 3161,
+            "file": "config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 3353259,
+            "file": "merges.txt",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 5329398712,
+            "file": "model.safetensors-00001-of-00002.safetensors",
+            "upstream_sha256": "df547074dce70532a0493e5433152bd17a65efb89088cfabc2e7e2371a93d712"
+          },
+          {
+            "expected_size_bytes": 3990429344,
+            "file": "model.safetensors-00002-of-00002.safetensors",
+            "upstream_sha256": "590fbaac095dd31db886c322d9d2f7df47777966391acf306ddddc3e4e3a15ef"
+          },
+          {
+            "expected_size_bytes": 76196,
+            "file": "model.safetensors.index.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 12807196,
+            "file": "tokenizer.json",
+            "upstream_sha256": "fe000e3ed39ed12b8d2481d527d44f93c65d37e87645d2dcc80d1bf9d50d2927"
+          },
+          {
+            "expected_size_bytes": 16713,
+            "file": "tokenizer_config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 6722759,
+            "file": "vocab.json",
+            "upstream_sha256": null
+          }
+        ],
+        "expected_total_download_bytes": 9342822405,
+        "gated_access": false,
+        "license_identity": "Apache-2.0 (declared at pinned revision)",
+        "q4_profile": {
+          "actions_artifact_id": 9603766969,
+          "actions_run_id": 32959712851,
+          "candidate_id": "qwen3.5-4b",
+          "conversion_recipe": "convert_hf_to_gguf.py --outtype f16",
+          "f16_sha256": "a114bc32ad73584d35c1f28db7395eab56ce2a90159d912442d2bab2614a4b41",
+          "f16_size_bytes": 8665619936,
+          "llama_cpp_commit": "fc35562ba46fbbf8e30cac85edbb39642c37d248",
+          "model_repo": "Qwen/Qwen3.5-4B-Base",
+          "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+          "quantization_arms": {
+            "Q4_K_M": {
+              "duration_s": 158.3,
+              "output_sha256": "6a9c6348176768eb6ec46e05bd0478e17a67d0ac5d6bf76edf12feb8a5803136",
+              "output_size_bytes": 2783446496
+            },
+            "Q4_K_S": {
+              "duration_s": 161.8,
+              "output_sha256": "1aaa6596681f33147bb29c318923cd96372d3bcb156f4391c5e5d8a6bfa712f3",
+              "output_size_bytes": 2631771616
+            }
+          },
+          "resource_cost": "USD 0.00",
+          "result_classification": "Q4_PROFILE_READY"
+        },
+        "required_artifact_files": [
+          "LICENSE",
+          "README.md",
+          "config.json",
+          "merges.txt",
+          "model.safetensors-00001-of-00002.safetensors",
+          "model.safetensors-00002-of-00002.safetensors",
+          "model.safetensors.index.json",
+          "tokenizer.json",
+          "tokenizer_config.json",
+          "vocab.json"
+        ],
+        "terms_acceptance_required": false
+      },
+      {
+        "account_required": false,
+        "authentication_required": false,
+        "candidate_id": "smollm3-3b",
+        "exact_model_id": "HuggingFaceTB/SmolLM3-3B-Base",
+        "exact_revision": "d78a42f79198603e614095753484a04c10c2b940",
+        "expected_file_integrity": [
+          {
+            "expected_size_bytes": 12340,
+            "file": "README.md",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 943,
+            "file": "config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 126,
+            "file": "generation_config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 4966315264,
+            "file": "model-00001-of-00002.safetensors",
+            "upstream_sha256": "7e270ac568ee1880ddbadad66ccdcd9906d52415e8904e2f300c75250b9c7d49"
+          },
+          {
+            "expected_size_bytes": 1183919744,
+            "file": "model-00002-of-00002.safetensors",
+            "upstream_sha256": "c6a6e7690a66dcc386a6a9b456686e7c308d45cba884d116c928dafa7fa987ae"
+          },
+          {
+            "expected_size_bytes": 26899,
+            "file": "model.safetensors.index.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 317457,
+            "file": "notebook.ipynb",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 151,
+            "file": "special_tokens_map.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 17208861,
+            "file": "tokenizer.json",
+            "upstream_sha256": "ab4da6b2aa68247e9c0fa9b97fc7fcc796505038d01f7e144522a65ce0dbd2e5"
+          },
+          {
+            "expected_size_bytes": 50405,
+            "file": "tokenizer_config.json",
+            "upstream_sha256": null
+          }
+        ],
+        "expected_total_download_bytes": 6167852190,
+        "gated_access": false,
+        "license_identity": "Apache-2.0 (declared at pinned revision)",
+        "q4_profile": {
+          "actions_artifact_id": 9603684909,
+          "actions_run_id": 32959733977,
+          "candidate_id": "smollm3-3b",
+          "conversion_recipe": "convert_hf_to_gguf.py --outtype f16",
+          "f16_sha256": "6f1fb5774e34ec9f585ce793b62ca34a15f9ad7629e8a72cb2b463a8b595c6d6",
+          "f16_size_bytes": 6158334048,
+          "llama_cpp_commit": "fc35562ba46fbbf8e30cac85edbb39642c37d248",
+          "model_repo": "HuggingFaceTB/SmolLM3-3B-Base",
+          "model_revision": "d78a42f79198603e614095753484a04c10c2b940",
+          "quantization_arms": {
+            "Q4_K_M": {
+              "duration_s": 109.5,
+              "output_sha256": "0fe7e7d286db7156b4f3223bc15cee74cb7e18ed2534bc251239d91ae514659b",
+              "output_size_bytes": 1915299936
+            },
+            "Q4_K_S": {
+              "duration_s": 119.8,
+              "output_sha256": "8cf12018c6d5f23221305a686aacbfc65c2a2796e356b0106396afb01c8c4e40",
+              "output_size_bytes": 1817610336
+            }
+          },
+          "resource_cost": "USD 0.00",
+          "result_classification": "Q4_PROFILE_READY"
+        },
+        "required_artifact_files": [
+          "README.md",
+          "config.json",
+          "generation_config.json",
+          "model-00001-of-00002.safetensors",
+          "model-00002-of-00002.safetensors",
+          "model.safetensors.index.json",
+          "notebook.ipynb",
+          "special_tokens_map.json",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "terms_acceptance_required": false
+      },
+      {
+        "account_required": false,
+        "authentication_required": false,
+        "candidate_id": "yi-coder-1.5b",
+        "exact_model_id": "01-ai/Yi-Coder-1.5B",
+        "exact_revision": "00e59e64f47d3c78e4cfbdd345888479797e8109",
+        "expected_file_integrity": [
+          {
+            "expected_size_bytes": 5096,
+            "file": "README.md",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 682,
+            "file": "config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 132,
+            "file": "generation_config.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 2953016024,
+            "file": "model.safetensors",
+            "upstream_sha256": "8739bb63ec22de1cad21ca59b6c16245d16cdbdeaa3a406d3c646ba77979970e"
+          },
+          {
+            "expected_size_bytes": 573,
+            "file": "special_tokens_map.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 3560486,
+            "file": "tokenizer.json",
+            "upstream_sha256": null
+          },
+          {
+            "expected_size_bytes": 1033105,
+            "file": "tokenizer.model",
+            "upstream_sha256": "386c49cf943d71aa110361135338c50e38beeff0a66593480421f37b319e1a39"
+          },
+          {
+            "expected_size_bytes": 953,
+            "file": "tokenizer_config.json",
+            "upstream_sha256": null
+          }
+        ],
+        "expected_total_download_bytes": 2957617051,
+        "gated_access": false,
+        "license_identity": "Apache-2.0 (declared at pinned revision)",
+        "q4_profile": {
+          "actions_artifact_id": 9603583604,
+          "actions_run_id": 32959744422,
+          "candidate_id": "yi-coder-1.5b",
+          "conversion_recipe": "convert_hf_to_gguf.py --outtype f16",
+          "f16_sha256": "107029590c2f477ccce9fcf7058fdc9a2124ece8a46b973a6486278f34d708b6",
+          "f16_size_bytes": 2954681856,
+          "llama_cpp_commit": "fc35562ba46fbbf8e30cac85edbb39642c37d248",
+          "model_repo": "01-ai/Yi-Coder-1.5B",
+          "model_revision": "00e59e64f47d3c78e4cfbdd345888479797e8109",
+          "quantization_arms": {
+            "Q4_K_M": {
+              "duration_s": 38.4,
+              "output_sha256": "4a7dc549d823bcf4e8aff00ea871db11c12747976dd00125a8ed3a7338ca8471",
+              "output_size_bytes": 963673600
+            },
+            "Q4_K_S": {
+              "duration_s": 38.5,
+              "output_sha256": "5181553e380e661143f1231c8ba062a41782c6bc994832d41b42124d1dc898f5",
+              "output_size_bytes": 904183296
+            }
+          },
+          "resource_cost": "USD 0.00",
+          "result_classification": "Q4_PROFILE_READY"
+        },
+        "required_artifact_files": [
+          "README.md",
+          "config.json",
+          "generation_config.json",
+          "model.safetensors",
+          "special_tokens_map.json",
+          "tokenizer.json",
+          "tokenizer.model",
+          "tokenizer_config.json"
+        ],
+        "terms_acceptance_required": false
+      }
+    ],
+    "t027_manifest": {
+      "path": "artifacts/manifests/T027-weight-access.json",
+      "sha256": "68f514ab8d1cea11c82f49c260dd7c9b9e1348a2cbbb561bbbb45439b3455e1e"
+    },
+    "t028_network_addendum": {
+      "path": "artifacts/manifests/T028-network-scope-addendum.json",
+      "sha256": "1054e79ec54be7ba13759c702e1de185d75fea08904079aa7dc0f31bca36726a"
+    }
+  },
+  "task_id": "T031",
+  "toolchain_provisioning": {
+    "reason": "Historical T029 regeneration provisioning is not silently reused. A bounded executor must pin toolchain acquisition hosts/revisions, thread ceilings, cleanup behavior, and fail-closed checks before dispatch.",
+    "state": "BLOCKED_PENDING_SEPARATELY_REVIEWED_EXECUTOR_BINDING"
+  }
+}
