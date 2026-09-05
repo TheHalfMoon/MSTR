@@ -1,0 +1,99 @@
+name: PR163 T029 network hardening builder
+
+on:
+  push:
+    branches:
+      - evidence/pr163-t029-network-hardening-builder-a647a02
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      EXPECTED_MAIN: 5cadbd754686ebff6f5327e9746f0b074b35e318
+      EXPECTED_TARGET: a647a02fae25ea1176264a14739e2bcf5efebfbd
+      TARGET_BRANCH: fix/000-t029-recovery-current-main
+      BUILDER_COMMIT: 89737e2cfce6fd7d4750e4647770d1ad29e77f5f
+    steps:
+      - name: Verify exact remote identities before repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN_SHA="$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)"
+          TARGET_SHA="$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)"
+          test "$MAIN_SHA" = "$EXPECTED_MAIN"
+          test "$TARGET_SHA" = "$EXPECTED_TARGET"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_TARGET }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Materialize bounded T029 network hardening
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$BUILDER_COMMIT"
+          git show "$BUILDER_COMMIT:.github/scripts/pr163_t029_network_hardening_builder.py" > /tmp/builder.py
+          python /tmp/builder.py
+
+      - name: Verify exact three-file scope and whitespace
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check "$EXPECTED_TARGET"
+          git diff --name-only "$EXPECTED_TARGET" | sort > /tmp/actual.txt
+          cat > /tmp/expected.txt <<'EOF'
+          .github/workflows/t029-quantize.yml
+          colab/mstr_t029_quantize.py
+          tests/unit/test_t029_quantize_runner.py
+          EOF
+          sed -i 's/^          //' /tmp/expected.txt
+          sort -o /tmp/expected.txt /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+
+      - name: Install repository development dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Focused T029 runner tests
+        run: python -m pytest -q tests/unit/test_t029_quantize_runner.py tests/contract/test_t029_quantization_manifest.py
+
+      - name: Repository validation
+        run: mstr-qualify validate
+
+      - name: Full pytest
+        run: python -m pytest -q
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: Mypy
+        run: mypy
+
+      - name: Commit bounded hardening locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add .github/workflows/t029-quantize.yml colab/mstr_t029_quantize.py tests/unit/test_t029_quantize_runner.py
+          git commit -m "fix(mstr-000): enforce T029 artifact network allowlist"
+
+      - name: Guarded fast-forward push to target branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN_SHA="$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)"
+          TARGET_SHA="$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)"
+          test "$MAIN_SHA" = "$EXPECTED_MAIN"
+          test "$TARGET_SHA" = "$EXPECTED_TARGET"
+          git merge-base --is-ancestor "$EXPECTED_TARGET" HEAD
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
