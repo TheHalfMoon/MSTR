@@ -1,0 +1,223 @@
+name: Independent review PR164 T029 closeout exact head
+
+on:
+  push:
+    branches:
+      - evidence/pr164-t029-closeout-independent-review-1f7e433
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: pr164-t029-closeout-independent-review-1f7e433
+  cancel-in-progress: false
+
+env:
+  BASE_SHA: 29df1b4be142407fbd31e13dca00e525dd729365
+  HEAD_SHA: 1f7e43378fb398924f989038ce0005b379335eee
+  HEAD_TREE: 2d77fb94674d4a86e866a5c63ff107f511f12a70
+  TARGET_BRANCH: closeout/000-t029-canonical
+  QUALIFICATION_RUN: '33966595975'
+  QUALIFICATION_EVIDENCE_HEAD: b84c815c8357379af787f11884f16a01d388e016
+  IMPLEMENTATION_QUALIFICATION_RUN: '33965047138'
+  IMPLEMENTATION_QUALIFICATION_HEAD: 43523ce4a4fc5e8af5c5974664c1cb02d4ba03ee
+  IMPLEMENTATION_REVIEW_RUN: '33965362614'
+  IMPLEMENTATION_REVIEW_HEAD: faa42705bd9143f4e17771ca59a40e491b00576a
+  IMPLEMENTATION_PREMERGE_RUN: '33965724065'
+  IMPLEMENTATION_PREMERGE_HEAD: 172fd9f956421d109fbed9336fb993ab90b3597d
+  IMPLEMENTATION_POSTMERGE_RUN: '33966014675'
+  IMPLEMENTATION_POSTMERGE_HEAD: a5524296012c5cc1c15f01fe3ec4796c8b436db2
+
+jobs:
+  governance_semantics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Verify live identity and prerequisite evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          headers = {
+              "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+          root = "https://api.github.com/repos/TheHalfMoon/MSTR"
+
+          def get(path: str):
+              req = urllib.request.Request(f"{root}{path}", headers=headers)
+              with urllib.request.urlopen(req) as response:
+                  return json.load(response)
+
+          pr = get("/pulls/164")
+          assert pr["state"] == "open"
+          assert pr["draft"] is False
+          assert pr["base"]["sha"] == os.environ["BASE_SHA"]
+          assert pr["head"]["sha"] == os.environ["HEAD_SHA"]
+          assert pr["commits"] == 1
+          assert pr["changed_files"] == 3
+          assert pr["mergeable"] in (True, None)
+
+          files = get("/pulls/164/files?per_page=100")
+          assert {item["filename"] for item in files} == {
+              "docs/canonical/CURRENT_STATE.md",
+              "evidence/T029-q4-profiles.md",
+              "specs/000-universal-laptop-interaction-contract/tasks.md",
+          }
+
+          expected_runs = [
+              (os.environ["QUALIFICATION_RUN"], os.environ["QUALIFICATION_EVIDENCE_HEAD"]),
+              (os.environ["IMPLEMENTATION_QUALIFICATION_RUN"], os.environ["IMPLEMENTATION_QUALIFICATION_HEAD"]),
+              (os.environ["IMPLEMENTATION_REVIEW_RUN"], os.environ["IMPLEMENTATION_REVIEW_HEAD"]),
+              (os.environ["IMPLEMENTATION_PREMERGE_RUN"], os.environ["IMPLEMENTATION_PREMERGE_HEAD"]),
+              (os.environ["IMPLEMENTATION_POSTMERGE_RUN"], os.environ["IMPLEMENTATION_POSTMERGE_HEAD"]),
+          ]
+          for run_id, expected_head in expected_runs:
+              run = get(f"/actions/runs/{run_id}")
+              assert run["status"] == "completed"
+              assert run["conclusion"] == "success"
+              assert run["head_sha"] == expected_head
+
+          merge = get(f"/commits/{os.environ['BASE_SHA']}")
+          assert merge["commit"]["tree"]["sha"] == "15fb0a0088e1be09d1071c960dbea1fd91df5cb5"
+          assert [p["sha"] for p in merge["parents"]] == [
+              "5cadbd754686ebff6f5327e9746f0b074b35e318",
+              "c0b9e977dedf38282872e469aa364dae8e5abf50",
+          ]
+          assert merge["commit"]["verification"]["verified"] is True
+
+          authority_url = f"{root}/contents/artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json?ref={os.environ['BASE_SHA']}"
+          req = urllib.request.Request(authority_url, headers=headers)
+          try:
+              urllib.request.urlopen(req)
+          except urllib.error.HTTPError as exc:
+              assert exc.code == 404
+          else:
+              raise AssertionError("B012 authority unexpectedly exists")
+          PY
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - name: Review exact closeout scope and semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          git diff --check "$BASE_SHA" "$HEAD_SHA"
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort > /tmp/actual.txt
+          printf '%s\n' \
+            docs/canonical/CURRENT_STATE.md \
+            evidence/T029-q4-profiles.md \
+            specs/000-universal-laptop-interaction-contract/tasks.md | sort > /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+          test -z "$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- artifacts/authorities artifacts/manifests configs/task-gate src tests .github/workflows)"
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          tasks = Path("specs/000-universal-laptop-interaction-contract/tasks.md").read_text()
+          assert tasks.count("- [x] T029 [US1]") == 1
+          assert "- [ ] T029 [US1]" not in tasks
+          assert tasks.count("- [ ] T030 [US1]") == 1
+
+          evidence = Path("evidence/T029-q4-profiles.md").read_text()
+          for token in (
+              "IMPLEMENTATION_PR = #163",
+              "EXACT_HEAD_QUALIFICATION = 33965047138 / SUCCESS",
+              "INDEPENDENT_SEMANTIC_SECURITY_REVIEW = 33965362614 / SUCCESS",
+              "MANDATORY_PREMERGE = 33965724065 / SUCCESS",
+              "MERGE = 29df1b4be142407fbd31e13dca00e525dd729365",
+              "POSTMERGE = 33966014675 / SUCCESS",
+              "T029_RECONCILIATION_LIFECYCLE = COMPLETE",
+              "T029_CLOSEOUT_STATE = COMPLETE_CANONICAL_ON_MERGE",
+              "T029_FUTURE_REGENERATION_EXECUTION_READY = NO",
+              "T029_COMPLETE_CANONICAL = YES_ON_CLOSEOUT_MERGE",
+          ):
+              assert token in evidence, token
+
+          state = Path("docs/canonical/CURRENT_STATE.md").read_text()
+          assert "T000-T029 = COMPLETE_CANONICAL" in state
+          assert "T030 = LEGACY_PR_#96_EXISTS / CURRENT_MAIN_RECONCILIATION_REQUIRED / NOT_COMPLETE_CANONICAL" in state
+          assert "CURRENT_ELIGIBLE_MSTR_000B_TASK = B012 / PENDING / BLOCKED_BY_EXACT_FOUNDER_AUTHORITY" in state
+
+          manifest_path = "artifacts/manifests/quantization/T029-q4-profiles.json"
+          manifest = json.loads(Path(manifest_path).read_text())
+          assert manifest["completion_state"] == "Q4_PROFILE_SET_READY_NOT_T029_COMPLETE_CANONICAL"
+          assert len(manifest["profiles"]) == 8
+          assert manifest["pending"] == []
+          assert all(p["result_classification"] == "Q4_PROFILE_READY" for p in manifest["profiles"])
+          base_blob = subprocess.check_output(["git", "rev-parse", f"{os.environ['BASE_SHA']}:{manifest_path}"], text=True).strip()
+          head_blob = subprocess.check_output(["git", "rev-parse", f"{os.environ['HEAD_SHA']}:{manifest_path}"], text=True).strip()
+          assert base_blob == head_blob
+          assert not Path("artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json").exists()
+          PY
+          ! git diff "$BASE_SHA" "$HEAD_SHA" -- . ':!evidence/**' | grep -F 'AUTHORIZED_CANONICAL'
+          ! git diff "$BASE_SHA" "$HEAD_SHA" -- . ':!evidence/**' | grep -F 'K2 Horizon'
+
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Independently rerun focused and frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_t029_quantization_manifest.py tests/unit/test_t029_quantize_runner.py
+          mstr-qualify validate
+          python -m pytest -q
+          ruff check .
+          mypy
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test -z "$(git status --porcelain)"
+
+  final_verdict:
+    needs: [governance_semantics, quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Recheck immutability and emit review verdict
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$HEAD_SHA"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          headers = {"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Accept": "application/vnd.github+json"}
+          req = urllib.request.Request("https://api.github.com/repos/TheHalfMoon/MSTR/pulls/164", headers=headers)
+          with urllib.request.urlopen(req) as response:
+              pr = json.load(response)
+          assert pr["state"] == "open"
+          assert pr["base"]["sha"] == os.environ["BASE_SHA"]
+          assert pr["head"]["sha"] == os.environ["HEAD_SHA"]
+          print("FINDINGS=NONE")
+          print("INDEPENDENT_SUBSTANTIVE_SEMANTIC_GOVERNANCE_REVIEW=PASS")
+          PY
