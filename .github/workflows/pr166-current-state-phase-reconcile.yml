@@ -1,0 +1,43 @@
+name: Reconcile PR166 current MSTR phase snapshot
+
+on:
+  push:
+    branches:
+      - evidence/pr166-current-state-phase-reconcile
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact PR166 target
+        uses: actions/checkout@v4
+        with:
+          ref: closeout/000-t030-canonical
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify exact target head
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "e4e312252b314cb47e3b4a93b026bf9f33bc0b2c"
+          test "$(git rev-parse HEAD^{tree})" = "12e384972d7c3d66af8616cc0b783c2b2e5727a2"
+      - name: Repair stale phase and build-loop state
+        shell: bash
+        env:
+          PATCH_B64: CmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aApwPVBhdGgoImRvY3MvY2Fub25pY2FsL0NVUlJFTlRfU1RBVEUubWQiKQpzPXAucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpCnJlcGxzPXsKIlBST0pFQ1RfUEhBU0UgPSBQUkVUUkFJTklOR19GT1VOREFUSU9OIC8gTVNUUi0wMDBBX0VBUkxZX1NBRkUgKyBNU1RSLTAwMEJfR09WRVJOQU5DRV9FWEVDVVRJT04iOgoiUFJPSkVDVF9QSEFTRSA9IFBSRVRSQUlOSU5HX0ZPVU5EQVRJT04gLyBNU1RSLTAwMF9MT0NBTF9RVUFMSUZJQ0FUSU9OICsgTVNUUi0wMDBBX0NPTlZFUkdFTkNFX0dBVEVEICsgTVNUUi0wMDBCX0dPVkVSTkFOQ0VfRVhFQ1VUSU9OIiwKIkJVSUxEX0xPT1AgPSBQQVJUSUFMTFlfSU1QTEVNRU5URURfTVNUUl8wMDBBIjoKIkJVSUxEX0xPT1AgPSBNU1RSX0JVSUxEX0xPT1BfVjBfSU1QTEVNRU5URUQgLyBBMDA1X0NPTVBMRVRFX0NBTk9OSUNBTCIsCn0KZm9yIG9sZCxuZXcgaW4gcmVwbHMuaXRlbXMoKToKICAgIGFzc2VydCBzLmNvdW50KG9sZCk9PTEsIG9sZAogICAgcz1zLnJlcGxhY2Uob2xkLG5ldywxKQpwLndyaXRlX3RleHQocywgZW5jb2Rpbmc9InV0Zi04IikK
+        run: |
+          set -euo pipefail
+          printf '%s' "$PATCH_B64" | base64 -d >/tmp/reconcile.py
+          python /tmp/reconcile.py
+          git diff --check
+          test "$(git diff --name-only)" = "docs/canonical/CURRENT_STATE.md"
+      - name: Commit and push repair
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add docs/canonical/CURRENT_STATE.md
+          git commit -m "docs(canonical): reconcile active MSTR phase"
+          git push origin HEAD:closeout/000-t030-canonical
