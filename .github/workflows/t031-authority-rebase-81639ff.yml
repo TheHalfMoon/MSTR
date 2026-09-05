@@ -1,0 +1,126 @@
+name: T031 authority exact-main rebase builder
+
+on:
+  push:
+    branches:
+      - builder/t031-authority-rebase-81639ff
+
+permissions:
+  contents: write
+
+env:
+  NEW_MAIN: 81639ff15e31d7f6a3b8aeaa7ceae4b80b009feb
+  OLD_T031_HEAD: 1509ac18f00e700b4d9ed3dba518f7b335466c9d
+  OLD_T031_BRANCH: governance/t031-founder-authority-exact-t029-candidates
+  TARGET_BRANCH: governance/t031-founder-authority-exact-t029-candidates-v2
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact new canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.NEW_MAIN }}
+          fetch-depth: 0
+      - name: Verify source and target identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$NEW_MAIN"
+          git fetch origin "$OLD_T031_BRANCH" --quiet
+          test "$(git rev-parse "origin/$OLD_T031_BRANCH")" = "$OLD_T031_HEAD"
+          test -z "$(git ls-remote --heads origin "refs/heads/$TARGET_BRANCH")"
+      - name: Re-materialize exact T031 authority on new main
+        shell: bash
+        run: |
+          set -euo pipefail
+          paths=(
+            artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json
+            artifacts/manifests/T031-local-measurement-execution-envelope.json
+            tests/contract/test_t031_authority.py
+          )
+          for path in "${paths[@]}"; do
+            mkdir -p "$(dirname "$path")"
+            git show "$OLD_T031_HEAD:$path" > "$path"
+          done
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          main = '81639ff15e31d7f6a3b8aeaa7ceae4b80b009feb'
+          envelope_path = Path('artifacts/manifests/T031-local-measurement-execution-envelope.json')
+          authority_path = Path('artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json')
+
+          envelope = json.loads(envelope_path.read_text())
+          assert envelope['canonical_entry_main'] == 'e5e47644fb7122cbb47b43cdf13d072f82ebfdf7'
+          envelope['canonical_entry_main'] = main
+          envelope_path.write_text(json.dumps(envelope, indent=2, sort_keys=True) + '\n')
+          envelope_sha = hashlib.sha256(envelope_path.read_bytes()).hexdigest()
+
+          authority = json.loads(authority_path.read_text())
+          binding = authority['scope']['bounded_execution_envelope']
+          assert binding['path'] == str(envelope_path)
+          binding['sha256'] = envelope_sha
+          authority_path.write_text(json.dumps(authority, indent=2, sort_keys=True) + '\n')
+          PY
+      - name: Verify exact bounded rebase scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          changed="$(git diff --name-only | sort)"
+          expected="$(printf '%s\n' artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json artifacts/manifests/T031-local-measurement-execution-envelope.json tests/contract/test_t031_authority.py | sort)"
+          test "$changed" = "$expected"
+          git diff --check
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          authority = json.loads(Path('artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json').read_text())
+          envelope_path = Path('artifacts/manifests/T031-local-measurement-execution-envelope.json')
+          envelope = json.loads(envelope_path.read_text())
+          ids = ['granite-4.1-3b','ministral-3-3b','qwen2.5-coder-1.5b','qwen3-4b','qwen3.5-2b','qwen3.5-4b','smollm3-3b','yi-coder-1.5b']
+          assert envelope['canonical_entry_main'] == '81639ff15e31d7f6a3b8aeaa7ceae4b80b009feb'
+          assert envelope['candidate_ids'] == ids
+          assert authority['scope']['candidate_ids'] == ids
+          assert authority['scope']['decision'] == 'FOUNDER_T031_LOCAL_MEASUREMENT_DECISION=AUTHORIZE_EXACT_T029_CANDIDATES'
+          assert authority['scope']['decision_surface'] == {'issue': 167, 'comment_id': 5553875809}
+          assert authority['scope']['bounded_execution_envelope']['sha256'] == hashlib.sha256(envelope_path.read_bytes()).hexdigest()
+          assert authority['scope']['b010_b012_candidates'] is False
+          assert authority['scope']['t032_execution'] is False
+          assert authority['scope']['t033_execution'] is False
+          assert authority['scope']['t034_admission_decision'] is False
+          assert authority['scope']['training'] is False
+          assert authority['scope']['weight_changing_training'] is False
+          assert envelope['dispatch_state'] == 'BLOCKED_PENDING_CANONICAL_EXECUTOR_TOOLCHAIN_BINDING'
+          assert envelope['toolchain_provisioning']['state'] == 'BLOCKED_PENDING_SEPARATELY_REVIEWED_EXECUTOR_BINDING'
+          PY
+      - name: Install repository quality dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Run focused T031 authority regression
+        run: python -m pytest -q tests/contract/test_t031_authority.py
+      - name: Run offline validation and full repository quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src/mstr_qualify
+      - name: Publish one-commit target candidate from exact new main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$NEW_MAIN"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json \
+            artifacts/manifests/T031-local-measurement-execution-envelope.json \
+            tests/contract/test_t031_authority.py
+          test "$(git diff --cached --name-only | wc -l)" -eq 3
+          git commit -m 'governance(t031): rebind exact T029 measurement authority'
+          test "$(git rev-parse HEAD^)" = "$NEW_MAIN"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
