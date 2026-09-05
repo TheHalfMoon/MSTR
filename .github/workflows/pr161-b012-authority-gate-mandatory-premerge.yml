@@ -108,6 +108,7 @@ jobs:
           from pathlib import Path
 
           base_sha = '5aaa64c2f93f7edbe991f62ce822ed134d9f1b59'
+          head_sha = '8f8736303e1eecd3921e95b5a83a24af3143dd88'
           authority_id = 'B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
           base = json.loads(subprocess.check_output(['git', 'show', f'{base_sha}:configs/task-gate/mstr-000b.json'], text=True))
           head = json.loads(Path('configs/task-gate/mstr-000b.json').read_text(encoding='utf-8'))
@@ -128,7 +129,7 @@ jobs:
           assert 'B011 authority never transfers' in tasks
           assert '- [ ] **B012 Run equivalent Q4/runtime/resource/raw-code qualification' in tasks
           assert '- [ ] **B013 Freeze stable product-aligned candidate pool' in tasks
-          assert 'AUTHORIZED_CANONICAL' not in subprocess.check_output(['git','diff',base_sha,HEAD_SHA], text=True)
+          assert 'AUTHORIZED_CANONICAL' not in subprocess.check_output(['git', 'diff', base_sha, head_sha], text=True)
           print('PR161_PREMERGE_SEMANTIC_ASSERTIONS=PASS')
           PY
 
