@@ -171,7 +171,7 @@ POSTMERGE_VERIFICATION = REQUIRED
 T030_COMPLETE_CANONICAL = NO_UNTIL_GOVERNED_CLOSEOUT
 ```
 
-No PASS is claimed in this file for the repaired head before those gates complete.
+Qualification v2 is currently bound externally to repaired head `776b5d4c1d8ba07f23ab7f78b27c067a1d132e07`; no PASS is claimed here until the run is terminal and successful.
 
 ## Authority Boundary
 
