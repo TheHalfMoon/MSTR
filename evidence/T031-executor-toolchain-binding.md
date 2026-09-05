@@ -149,15 +149,20 @@ claim, sustained T032 requirement, T033 quality-regression requirement, or T034 
 
 This binding PR itself performs no model access.
 
-After this exact binding becomes canonical, dispatch is permitted only through `workflow_dispatch`
-from canonical `main`, selecting one of the eight exact Founder-authorized candidates. The governed
-workflow has no push, branch-creation, wildcard-branch, or arbitrary-ref execution trigger.
+After this exact binding becomes canonical, connector dispatch is accepted only through canonical
+Issue #167. GitHub loads the `issue_comment` workflow from the default branch, so a
+contributor-controlled branch cannot supply the workflow definition used for model access. The
+comment must be created by repository owner `TheHalfMoon`, carry `author_association=OWNER`, and
+exactly match `T031_RUN <authorized-candidate>` for one of the eight bound candidates.
 
-The workflow verifies `refs/heads/main` before selecting the candidate, explicitly checks out live
-canonical `main` with persisted Git credentials disabled, and then invokes the exact bound executor.
-Global workflow concurrency is one candidate and `cancel-in-progress` is false. The executor
-rechecks live `main` again immediately before model access and again before reporting success. A
-main movement invalidates the run.
+The workflow verifies that the event resolves to `refs/heads/main`, then explicitly checks out live
+canonical `main` with persisted Git credentials disabled. Global workflow concurrency is one
+candidate and `cancel-in-progress` is false. The executor rechecks live `main` immediately before
+the first model-artifact byte is requested and again before reporting success. A main movement
+invalidates the run.
+
+There is no `workflow_dispatch`, push, branch-creation, wildcard-branch, pull-request, or arbitrary-
+ref model-execution trigger in the canonical T031 workflow.
 
 Only JSON/JSONL measurement evidence is uploaded. Any identity, authority, toolchain, network,
 artifact, runtime, or live-main mismatch fails closed; failed runs remain failure evidence and are
