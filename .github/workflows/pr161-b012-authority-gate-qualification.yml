@@ -1,0 +1,209 @@
+name: Qualify PR161 B012 authority gate
+
+on:
+  push:
+    branches:
+      - evidence/pr161-b012-authority-gate-qualification
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  REPO: TheHalfMoon/MSTR
+  PR_NUMBER: "161"
+  BASE_SHA: 5aaa64c2f93f7edbe991f62ce822ed134d9f1b59
+  HEAD_SHA: 8f8736303e1eecd3921e95b5a83a24af3143dd88
+  EXPECTED_TREE: 4002673583c9d05d6d226d8571bd01e9fb2df877
+  TARGET_BRANCH: governance/b012-external-effect-gate
+  AUTHORITY_ID: B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION
+  B011_AUTHORITY_ID: B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED
+
+jobs:
+  identity_scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact identity and bounded five-file scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git rev-list --count "$BASE_SHA..$HEAD_SHA")" -eq 1
+          test "$(git merge-base "$BASE_SHA" "$HEAD_SHA")" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$HEAD_SHA"
+
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER" > /tmp/pr.json
+          jq -e \
+            --arg base "$BASE_SHA" \
+            --arg head "$HEAD_SHA" \
+            '.state == "open" and .draft == false and .base.ref == "main" and .base.sha == $base and .head.ref == "governance/b012-external-effect-gate" and .head.sha == $head and .commits == 1 and .changed_files == 5' \
+            /tmp/pr.json >/dev/null
+
+          expected=/tmp/expected-files.txt
+          actual=/tmp/actual-files.txt
+          cat > "$expected" <<'EOF'
+          configs/task-gate/mstr-000b.json
+          specs/002-code-model-supremacy-foundation/tasks.md
+          tests/contract/test_convergence_external_bindings.py
+          tests/contract/test_task_gate.py
+          tests/integration/test_task_gate_cli.py
+          EOF
+          git diff --name-only "$BASE_SHA..$HEAD_SHA" | sort > "$actual"
+          sort -o "$expected" "$expected"
+          diff -u "$expected" "$actual"
+          test "$(wc -l < "$actual")" -eq 5
+          git diff --check "$BASE_SHA..$HEAD_SHA"
+          test -z "$(git diff --name-only "$BASE_SHA..$HEAD_SHA" -- src schemas artifacts/authorities artifacts/manifests docs/canonical/CURRENT_STATE.md .github/workflows)"
+
+          test ! -e "artifacts/authorities/$AUTHORITY_ID.json"
+          test "$(git cat-file -e "$BASE_SHA:artifacts/authorities/$AUTHORITY_ID.json" 2>/dev/null; echo $?)" != "0"
+
+          base_b011=$(git show "$BASE_SHA:artifacts/authorities/$B011_AUTHORITY_ID.json" | sha256sum | cut -d' ' -f1)
+          head_b011=$(sha256sum "artifacts/authorities/$B011_AUTHORITY_ID.json" | cut -d' ' -f1)
+          test "$base_b011" = "$head_b011"
+          jq -e \
+            --arg id "$B011_AUTHORITY_ID" \
+            '.authority_id == $id and .task_id == "B011" and .external_effect_class == "MODEL_WEIGHT_ACCESS" and .status == "AUTHORIZED_CANONICAL"' \
+            "artifacts/authorities/$B011_AUTHORITY_ID.json" >/dev/null
+
+          echo 'PR161_IDENTITY_SCOPE=PASS'
+
+  semantics:
+    needs: identity_scope
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify fail-closed B012 semantics and successor frontier
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          authority_id = "B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION"
+          catalog = json.loads(Path("configs/task-gate/mstr-000b.json").read_text())
+          b011 = catalog["tasks"]["B011"]
+          b012 = catalog["tasks"]["B012"]
+          b013 = catalog["tasks"]["B013"]
+
+          assert b011["canonical_state"] == "COMPLETE_CANONICAL"
+          assert b011["required_authority_id"] == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"
+          assert b012["canonical_state"] == "PENDING"
+          assert b012["external_effect_class"] == "MODEL_WEIGHT_ACCESS"
+          assert b012["required_authority_id"] == authority_id
+          assert b013["canonical_state"] == "BLOCKED"
+          assert "B012" in b013["prerequisites"]
+          assert not Path(f"artifacts/authorities/{authority_id}.json").exists()
+
+          tasks = Path("specs/002-code-model-supremacy-foundation/tasks.md").read_text()
+          assert "B011 authority never transfers" in tasks
+          assert authority_id in tasks
+          PY
+
+          git update-ref refs/heads/main "$HEAD_SHA"
+          git update-ref refs/remotes/origin/main "$HEAD_SHA"
+
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json >/dev/null
+
+          set +e
+          mstr-qualify task eligible B011 > /tmp/b011.json
+          b011_exit=$?
+          mstr-qualify task eligible B012 > /tmp/b012.json
+          b012_exit=$?
+          mstr-qualify task eligible B013 > /tmp/b013.json
+          b013_exit=$?
+          set -e
+
+          test "$b011_exit" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null' /tmp/b011.json >/dev/null
+
+          test "$b012_exit" -eq 1
+          jq -e \
+            --arg authority "$AUTHORITY_ID" \
+            '.eligible == false and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == true and .authority_result.authority_id == $authority and .authority_result.satisfied == false and (.reasons | index("authority.canonical_envelope_missing_or_invalid")) != null' \
+            /tmp/b012.json >/dev/null
+
+          test "$b013_exit" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and (.reasons | index("task.blocked")) != null and (.reasons | index("prerequisite.unsatisfied:B012")) != null' /tmp/b013.json >/dev/null
+
+          echo 'PR161_SEMANTICS=PASS'
+
+  quality:
+    needs: identity_scope
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run exact-head repository quality gates
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          python -m pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/contract/test_convergence_external_bindings.py
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          echo 'PR161_QUALITY=PASS'
+
+  complete:
+    needs: [identity_scope, semantics, quality]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Final exact live immutability proof
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/$REPO.git refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/$REPO.git "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$HEAD_SHA"
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER" > /tmp/pr-final.json
+          jq -e \
+            --arg base "$BASE_SHA" \
+            --arg head "$HEAD_SHA" \
+            '.state == "open" and .draft == false and .base.sha == $base and .head.sha == $head and .commits == 1 and .changed_files == 5' \
+            /tmp/pr-final.json >/dev/null
+          echo 'PR161_EXACT_HEAD_QUALIFICATION=PASS'
