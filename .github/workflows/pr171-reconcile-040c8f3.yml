@@ -1,0 +1,102 @@
+name: PR171 reconcile 040c8f3
+
+on:
+  push:
+    branches:
+      - builder/pr171-reconcile-040c8f3
+    paths:
+      - .github/workflows/pr171-reconcile-040c8f3.yml
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout builder helper
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: builder/pr171-reconcile-040c8f3
+          path: builder
+          persist-credentials: false
+
+      - name: Checkout exact PR branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: feat/t031-governed-measurement-executor
+          path: target
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Guard exact target and canonical main
+        shell: bash
+        working-directory: target
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "040c8f31cabbe7d59bee0e1016e029168a7b3133"
+          test "$(git ls-remote origin refs/heads/feat/t031-governed-measurement-executor | awk '{print $1}')" = "040c8f31cabbe7d59bee0e1016e029168a7b3133"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "891af2215a2244a6a0912d49d782f42bcc38b6ef"
+
+      - name: Setup Python 3.11.9
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.9'
+
+      - name: Apply and verify exact reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python builder/.github/scripts/pr171_reconcile_040c8f3.py target
+          python -m pip install -e 'target[dev]'
+          ruff format target/tests/contract/test_t031_executor_binding.py
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          root = Path('target')
+          binding_path = root / 'artifacts/manifests/T031-executor-toolchain-binding.json'
+          binding = json.loads(binding_path.read_text(encoding='utf-8'))
+          for key, relative in {
+              'toolchain_lock_sha256': 'artifacts/manifests/T031-executor-toolchain-lock.json',
+              'toolchain_helper_sha256': 'colab/mstr_executor_toolchain.py',
+              'governance_script_sha256': 'colab/mstr_t031_governance.py',
+              'source_script_sha256': 'colab/mstr_t031_source.py',
+              'artifact_script_sha256': 'colab/mstr_t031_artifacts.py',
+              'measurement_script_sha256': 'colab/mstr_t031_measure.py',
+              'executor_script_sha256': 'colab/mstr_t031_execute.py',
+              'workflow_sha256': '.github/workflows/t031-measure.yml',
+          }.items():
+              binding[key] = hashlib.sha256((root / relative).read_bytes()).hexdigest()
+          binding_path.write_text(json.dumps(binding, indent=2) + '\n', encoding='utf-8')
+          PY
+          cd target
+          git diff --check
+          ruff check tests/contract/test_t031_executor_binding.py colab/mstr_executor_toolchain.py colab/mstr_t031_execute.py
+          ruff format --check tests/contract/test_t031_executor_binding.py colab/mstr_executor_toolchain.py colab/mstr_t031_execute.py
+          pytest -q tests/contract/test_t031_executor_binding.py
+          python - <<'PY'
+          import subprocess
+          allowed = {
+              'artifacts/manifests/T031-executor-toolchain-binding.json',
+              'evidence/T031-executor-toolchain-binding.md',
+              'tests/contract/test_t031_executor_binding.py',
+          }
+          changed = {line for line in subprocess.check_output(['git','diff','--name-only'], text=True).splitlines() if line}
+          if changed != allowed:
+              raise SystemExit(f'unexpected reconciliation scope: {sorted(changed)}')
+          PY
+
+      - name: Commit forward-only reconciliation
+        shell: bash
+        working-directory: target
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/feat/t031-governed-measurement-executor | awk '{print $1}')" = "040c8f31cabbe7d59bee0e1016e029168a7b3133"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "891af2215a2244a6a0912d49d782f42bcc38b6ef"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add artifacts/manifests/T031-executor-toolchain-binding.json evidence/T031-executor-toolchain-binding.md tests/contract/test_t031_executor_binding.py
+          git commit -m 'fix(t031): reconcile canonical execution contract'
+          git push origin HEAD:refs/heads/feat/t031-governed-measurement-executor
