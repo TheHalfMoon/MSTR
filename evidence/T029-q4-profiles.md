@@ -73,13 +73,47 @@ Q4_K_S_SIZE_BYTES = 2053248608
 Canonical scientific interpretation of the recovered execution evidence is therefore:
 
 ```text
-T029_Q4_PROFILE_CELLS_READY = 8 / 8
+T029_Q4_PROFILE_CELLS_FULLY_VERIFIED = 7 / 8
+T029_QWEN35_2B_Q4_K_S = PENDING_INTEGRITY_REPAIR
 MINISTRAL_Q4_STATUS = Q4_PROFILE_READY
 MINISTRAL_Q4_UNSUPPORTED = NO
 MINISTRAL_Q4_INTEGRITY_FAILURE = NO
 ```
 
 This is execution evidence, not by itself task closeout.
+
+## Qwen 3.5 2B Primary-Artifact Integrity Defect
+
+Fresh reconciliation against the primary GitHub Actions artifact for historical run `32959707029` found a fail-closed evidence defect that historical PR #95 did not detect.
+
+```text
+RUN = 32959707029 / SUCCESS
+JOB = 98149126772 / quantize / SUCCESS
+ARTIFACT_ID = 9603552151
+ARTIFACT_NAME = t029-q4-qwen3.5-2b
+ARTIFACT_ARCHIVE_DIGEST = sha256:69a78e2185337b58940b2dc3ab993d182fa9be9f3eaad95fa43a5bf682f9e4a3
+REPORT_PATH = t029-qwen3.5-2b.json
+REPORT_SHA256 = aad35a2f4db1aff3f2a436a7b98d03a92def063067fc9f294d4a0fcabd8f5d61
+```
+
+The primary report itself records this Q4_K_S value:
+
+```text
+a6fe3727940dde3382e2ee8b53aac96f2e6970d4e660260428899c29c8e4583e9
+```
+
+It contains 65 hexadecimal characters. The exact historical runner records output hashes with `hashlib.sha256(...).hexdigest()`, which can only emit 64 hexadecimal characters. The historical `Q4_PROFILE_READY` classification therefore cannot satisfy T029's exact-hash requirement for this one cell.
+
+The reconciliation fails closed:
+
+```text
+qwen3.5-2b / Q4_K_M = VERIFIED_HISTORICAL_HASH
+qwen3.5-2b / Q4_K_S = PENDING_INTEGRITY_REPAIR
+HISTORICAL_65_HEX_VALUE = PRESERVED_AS_NEGATIVE_PROVENANCE
+INFERRED_OR_TRUNCATED_REPLACEMENT_HASH = NONE
+```
+
+A fresh governed T029 repair execution is required for this cell before the profile set may return to 8/8.
 
 ## Historical Qualification Boundary
 
@@ -116,7 +150,7 @@ PRODUCTION_RELEASE = NONE
 ## Completion Boundary
 
 ```text
-T029_EXECUTION_PROFILE_SET = READY_8_OF_8
+T029_EXECUTION_PROFILE_SET = 7_FULL_1_PARTIAL_QWEN35_2B_Q4_K_S_REPAIR_REQUIRED
 T029_CURRENT_RECONCILIATION_QUALIFICATION = PENDING
 T029_COMPLETE_CANONICAL = NO
 ```
