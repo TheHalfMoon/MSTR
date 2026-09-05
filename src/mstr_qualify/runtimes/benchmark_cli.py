@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import subprocess
 from collections.abc import Callable, Mapping
@@ -45,6 +46,7 @@ _FORBIDDEN_NETWORK_FLAGS = (
     "--rpc",
 )
 _DEVICE_FLAGS = frozenset({"-dev", "--device"})
+_BLOCKED_RUNTIME_ENV_PREFIXES = ("LLAMA_ARG_", "HF_")
 
 
 class BenchmarkCliError(AdapterError):
@@ -340,6 +342,16 @@ def load_benchmark_profile(path: Path) -> BenchmarkCliProfile:
     )
 
 
+def _sanitized_runtime_environment() -> dict[str, str]:
+    """Remove upstream option environment variables before runtime execution."""
+
+    return {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith(_BLOCKED_RUNTIME_ENV_PREFIXES)
+    }
+
+
 def _subprocess_runner(argv: tuple[str, ...], timeout_seconds: float) -> CommandResult:
     try:
         completed = subprocess.run(
@@ -350,6 +362,7 @@ def _subprocess_runner(argv: tuple[str, ...], timeout_seconds: float) -> Command
             errors="replace",
             check=False,
             timeout=timeout_seconds,
+            env=_sanitized_runtime_environment(),
         )
     except FileNotFoundError as exc:
         raise BenchmarkCliError(
