@@ -1,0 +1,202 @@
+name: PR171 T031 executor mandatory premerge
+
+on:
+  push:
+    branches:
+      - evidence/pr171-t031-executor-mandatory-premerge-0b25193
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+env:
+  REPO: TheHalfMoon/MSTR
+  PR_NUMBER: "171"
+  BASE_SHA: 891af2215a2244a6a0912d49d782f42bcc38b6ef
+  TARGET_HEAD: 0b25193c160a16750294977f225dca421bc5d211
+  TARGET_TREE: f3cd47b76a0e837c3f9357fa62d566d5b1e4a9cc
+  QUALIFICATION_RUN: "33996764161"
+  QUALIFICATION_HEAD: b28247ee9e81602a7a7f2e542f8d77525e3fe31d
+  QUALIFICATION_BRANCH: evidence/pr171-t031-executor-qualification6-0b25193
+  REVIEW_RUN: "33998516583"
+  REVIEW_HEAD: 11bd434135e1a222550d7d2b8a9d871e1aef481f
+  REVIEW_BRANCH: evidence/pr171-t031-executor-independent-review-0b25193
+  REVIEW_SUBMISSION: "5123375430"
+
+jobs:
+  evidence_and_live_state:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact refs scope qualification review and thread state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$BASE_SHA" "$TARGET_HEAD")" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/feat/t031-governed-measurement-executor | awk '{print $1}')" = "$TARGET_HEAD"
+          git diff --check "$BASE_SHA...$TARGET_HEAD"
+
+          cat > /tmp/expected <<'EOF'
+          .github/workflows/t031-measure.yml
+          artifacts/manifests/T031-executor-toolchain-binding.json
+          artifacts/manifests/T031-executor-toolchain-lock.json
+          colab/mstr_executor_toolchain.py
+          colab/mstr_t031_artifacts.py
+          colab/mstr_t031_execute.py
+          colab/mstr_t031_governance.py
+          colab/mstr_t031_measure.py
+          colab/mstr_t031_source.py
+          evidence/T031-executor-toolchain-binding.md
+          tests/contract/test_t031_executor_binding.py
+          EOF
+          sort /tmp/expected -o /tmp/expected
+          git diff --name-only "$BASE_SHA...$TARGET_HEAD" | sort > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+
+          python - <<'PY'
+          import json, os, urllib.request
+
+          token = os.environ['GH_TOKEN']
+          repo = os.environ['REPO']
+          headers = {'Authorization': f'Bearer {token}', 'Accept': 'application/vnd.github+json'}
+          def get(path):
+              req = urllib.request.Request(f'https://api.github.com/repos/{repo}/{path}', headers=headers)
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  return json.load(r)
+
+          q = get(f'actions/runs/{os.environ["QUALIFICATION_RUN"]}')
+          assert q['status'] == 'completed' and q['conclusion'] == 'success'
+          assert q['head_sha'] == os.environ['QUALIFICATION_HEAD']
+          assert q['head_branch'] == os.environ['QUALIFICATION_BRANCH']
+
+          r = get(f'actions/runs/{os.environ["REVIEW_RUN"]}')
+          assert r['status'] == 'completed' and r['conclusion'] == 'success'
+          assert r['head_sha'] == os.environ['REVIEW_HEAD']
+          assert r['head_branch'] == os.environ['REVIEW_BRANCH']
+
+          review = get(f'pulls/{os.environ["PR_NUMBER"]}/reviews/{os.environ["REVIEW_SUBMISSION"]}')
+          assert review['commit_id'] == os.environ['TARGET_HEAD']
+          assert review['state'] == 'COMMENTED'
+          body = review.get('body') or ''
+          assert 'Findings: NONE' in body
+          assert os.environ['QUALIFICATION_RUN'] in body
+          assert os.environ['REVIEW_RUN'] in body
+
+          reviews = get(f'pulls/{os.environ["PR_NUMBER"]}/reviews?per_page=100')
+          assert not any(x.get('state') == 'CHANGES_REQUESTED' for x in reviews)
+          PY
+
+          test "$(git ls-remote origin refs/heads/$QUALIFICATION_BRANCH | awk '{print $1}')" = "$QUALIFICATION_HEAD"
+          test "$(git ls-remote origin refs/heads/$REVIEW_BRANCH | awk '{print $1}')" = "$REVIEW_HEAD"
+
+          git fetch origin "$QUALIFICATION_BRANCH" "$REVIEW_BRANCH" --quiet
+          git show "$QUALIFICATION_HEAD:.github/workflows/pr171-t031-executor-qualification6-0b25193.yml" | grep -F "BASE=$BASE_SHA"
+          git show "$QUALIFICATION_HEAD:.github/workflows/pr171-t031-executor-qualification6-0b25193.yml" | grep -F "HEAD=$TARGET_HEAD"
+          git show "$QUALIFICATION_HEAD:.github/workflows/pr171-t031-executor-qualification6-0b25193.yml" | grep -F "TREE=$TARGET_TREE"
+          git show "$REVIEW_HEAD:.github/workflows/pr171-t031-executor-independent-review-0b25193.yml" | grep -F "BASE_SHA: $BASE_SHA"
+          git show "$REVIEW_HEAD:.github/workflows/pr171-t031-executor-independent-review-0b25193.yml" | grep -F "TARGET_HEAD: $TARGET_HEAD"
+          git show "$REVIEW_HEAD:.github/workflows/pr171-t031-executor-independent-review-0b25193.yml" | grep -F "TARGET_TREE: $TARGET_TREE"
+
+          query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}'
+          payload="$(python - "$query" <<'PY'
+          import json,sys
+          print(json.dumps({'query':sys.argv[1],'variables':{'owner':'TheHalfMoon','name':'MSTR','number':171}}))
+          PY
+          )"
+          threads="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Content-Type: application/json' https://api.github.com/graphql -d "$payload")"
+          python - "$threads" <<'PY'
+          import json,sys
+          data=json.loads(sys.argv[1])
+          assert not data.get('errors'), data.get('errors')
+          nodes=data['data']['repository']['pullRequest']['reviewThreads']['nodes']
+          assert nodes, 'expected existing review threads'
+          assert all(x['isResolved'] for x in nodes), nodes
+          PY
+
+          protection="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$REPO/branches/main")"
+          rulesets="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$REPO/rulesets")"
+          python - "$protection" "$rulesets" <<'PY'
+          import json,sys
+          branch=json.loads(sys.argv[1]); rules=json.loads(sys.argv[2])
+          assert branch['commit']['sha']=='891af2215a2244a6a0912d49d782f42bcc38b6ef'
+          assert branch['protected'] is False
+          assert rules == []
+          PY
+
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup Python 3.11.9
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.9"
+          check-latest: false
+      - name: Re-run canonical quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_t031_executor_binding.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m ruff format --check colab/mstr_executor_toolchain.py colab/mstr_t031_artifacts.py colab/mstr_t031_execute.py colab/mstr_t031_governance.py colab/mstr_t031_measure.py colab/mstr_t031_source.py tests/contract/test_t031_executor_binding.py
+          python -m mypy src/mstr_qualify
+          git diff --check "$BASE_SHA...$TARGET_HEAD"
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test -z "$(git status --porcelain)"
+
+  final_premerge:
+    needs: [evidence_and_live_state, quality]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Guard expected head immediately before merge authorization
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          main_sha="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$REPO/branches/main" | python -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])')"
+          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER")"
+          pr_head="$(python - "$pr_json" <<'PY'
+          import json,sys
+          print(json.loads(sys.argv[1])['head']['sha'])
+          PY
+          )"
+          pr_base="$(python - "$pr_json" <<'PY'
+          import json,sys
+          print(json.loads(sys.argv[1])['base']['sha'])
+          PY
+          )"
+          test "$main_sha" = "$BASE_SHA"
+          test "$pr_base" = "$BASE_SHA"
+          test "$pr_head" = "$TARGET_HEAD"
+          echo "PREMERGE_VERDICT=PASS"
+          echo "AUTHORIZED_EXPECTED_HEAD=$TARGET_HEAD"
+          echo "AUTHORIZED_EXPECTED_BASE=$BASE_SHA"
+          echo "QUALIFICATION_RUN=$QUALIFICATION_RUN"
+          echo "REVIEW_RUN=$REVIEW_RUN"
+          echo "REVIEW_SUBMISSION=$REVIEW_SUBMISSION"
+          echo "MODEL_ACCESS=NONE"
