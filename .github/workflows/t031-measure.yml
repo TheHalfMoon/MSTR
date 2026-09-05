@@ -1,21 +1,8 @@
 name: T031 governed local measurement
 
 on:
-  workflow_dispatch:
-    inputs:
-      candidate:
-        description: Exact Founder-authorized T029 candidate
-        required: true
-        type: choice
-        options:
-          - granite-4.1-3b
-          - ministral-3-3b
-          - qwen2.5-coder-1.5b
-          - qwen3-4b
-          - qwen3.5-2b
-          - qwen3.5-4b
-          - smollm3-3b
-          - yi-coder-1.5b
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
@@ -26,26 +13,38 @@ concurrency:
 
 jobs:
   measure:
+    if: ${{ github.event.issue.number == 167 && github.actor == 'TheHalfMoon' && github.event.comment.user.login == 'TheHalfMoon' && github.event.comment.author_association == 'OWNER' && startsWith(github.event.comment.body, 'T031_RUN ') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       PYTHONHASHSEED: "0"
       TOKENIZERS_PARALLELISM: "false"
     steps:
-      - name: Resolve exact candidate and trigger boundary
+      - name: Resolve exact candidate and canonical dispatch boundary
         id: boundary
         shell: bash
         env:
-          DISPATCH_CANDIDATE: ${{ inputs.candidate }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+          COMMENT_ASSOCIATION: ${{ github.event.comment.author_association }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
-          [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]
+          [[ "$GITHUB_EVENT_NAME" == "issue_comment" ]]
           [[ "$GITHUB_REF" == "refs/heads/main" ]]
-          candidate="$DISPATCH_CANDIDATE"
-          case "$candidate" in
-            granite-4.1-3b|ministral-3-3b|qwen2.5-coder-1.5b|qwen3-4b|\
-              qwen3.5-2b|qwen3.5-4b|smollm3-3b|yi-coder-1.5b) ;;
-            *) echo "Candidate outside exact T031 authority: $candidate" >&2; exit 1 ;;
+          [[ "$COMMENT_AUTHOR" == "TheHalfMoon" ]]
+          [[ "$COMMENT_ASSOCIATION" == "OWNER" ]]
+          [[ "$ISSUE_NUMBER" == "167" ]]
+          case "$COMMENT_BODY" in
+            "T031_RUN granite-4.1-3b") candidate="granite-4.1-3b" ;;
+            "T031_RUN ministral-3-3b") candidate="ministral-3-3b" ;;
+            "T031_RUN qwen2.5-coder-1.5b") candidate="qwen2.5-coder-1.5b" ;;
+            "T031_RUN qwen3-4b") candidate="qwen3-4b" ;;
+            "T031_RUN qwen3.5-2b") candidate="qwen3.5-2b" ;;
+            "T031_RUN qwen3.5-4b") candidate="qwen3.5-4b" ;;
+            "T031_RUN smollm3-3b") candidate="smollm3-3b" ;;
+            "T031_RUN yi-coder-1.5b") candidate="yi-coder-1.5b" ;;
+            *) echo "Comment is not an exact authorized T031 dispatch command" >&2; exit 1 ;;
           esac
           echo "candidate=$candidate" >> "$GITHUB_OUTPUT"
 
