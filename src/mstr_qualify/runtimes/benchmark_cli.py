@@ -518,6 +518,23 @@ class BenchmarkCliRuntimeAdapter:
             )
         return self._request
 
+    def _verify_loaded_artifact_identity(self) -> None:
+        request = self._request_ready()
+        if not self._artifact_path.is_file():
+            raise BenchmarkCliError(
+                "local model artifact disappeared after load",
+                code="runtime.artifact_missing_after_load",
+                details={"path": str(self._artifact_path)},
+            )
+        expected = validate_sha256(request.artifact_sha256)
+        actual = sha256_file(self._artifact_path)
+        if actual != expected:
+            raise BenchmarkCliError(
+                "local model artifact changed after load",
+                code="runtime.artifact_hash_changed_after_load",
+                details={"expected": expected, "actual": actual},
+            )
+
     def _command(self, *, prompt_tokens: int, generation_tokens: int) -> tuple[str, ...]:
         return (
             self._profile.executable,
@@ -543,6 +560,7 @@ class BenchmarkCliRuntimeAdapter:
         prompt_tokens: int,
         generation_tokens: int,
     ) -> BenchmarkObservation:
+        self._verify_loaded_artifact_identity()
         outcome = self._command_runner(
             self._command(
                 prompt_tokens=prompt_tokens,
