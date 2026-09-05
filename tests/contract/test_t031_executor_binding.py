@@ -156,15 +156,15 @@ def test_execution_boundary_does_not_transfer_later_authority() -> None:
     assert boundary["durable_outputs"] == ["JSON", "JSONL"]
 
 
-def test_workflow_dispatch_is_canonical_and_branch_creation_only() -> None:
+def test_workflow_dispatch_is_canonical_main_only() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     binding = _read_json(BINDING)
 
     assert "workflow_dispatch:" in workflow
-    assert '"execute/t031-*"' in workflow
+    assert "\n  push:" not in workflow
+    assert "execute/t031-" not in workflow
+    assert '[[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]' in workflow
     assert '[[ "$GITHUB_REF" == "refs/heads/main" ]]' in workflow
-    assert '[[ "$created" == "True" && "$deleted" != "True" ]]' in workflow
-    assert 'candidate="${GITHUB_REF_NAME#execute/t031-}"' in workflow
     assert "ref: main" in workflow
     assert "persist-credentials: false" in workflow
     assert "permissions:\n  contents: read" in workflow
@@ -176,7 +176,9 @@ def test_workflow_dispatch_is_canonical_and_branch_creation_only() -> None:
     dispatch = binding["dispatch_boundary"]
     assert isinstance(dispatch, dict)
     assert dispatch["canonicalization_required"] is True
-    assert dispatch["connector_dispatch_event"] == "BRANCH_CREATION_ONLY"
+    assert dispatch["manual_dispatch_branch"] == "main"
+    assert "connector_dispatch_branch_pattern" not in dispatch
+    assert "connector_dispatch_event" not in dispatch
     assert dispatch["checkout_ref"] == "main"
     assert dispatch["max_parallel_candidates"] == 1
     assert dispatch["max_job_minutes"] == 120
@@ -199,3 +201,7 @@ def test_executor_contains_fail_closed_network_and_runtime_boundaries() -> None:
     assert "estimated_load_and_process_startup_seconds" in measure
     assert "unquote(Path(urlparse(url).path).name)" in helper
     assert 'blocked_prefixes = ("LLAMA_ARG_", "HF_", "HUGGINGFACE_", "CUDA_", "NVIDIA_")' in helper
+    assert "timeout=timeout" in helper
+    assert "except subprocess.TimeoutExpired as exc:" in helper
+    assert "workdir.mkdir(parents=True)" in executor
+    assert executor.index("try:") < executor.index("workdir.mkdir(parents=True)")
