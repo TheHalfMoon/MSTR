@@ -8,7 +8,7 @@
 
 **Historical source head:** `b4adce223a9a5c833f2c2392d742cb93bdad0ba3`
 
-**State:** `CURRENT_MAIN_RECONCILIATION / FINAL_SECURITY_HARDENING_CANDIDATE / QUALIFICATION_PENDING / NOT_COMPLETE_CANONICAL`
+**State:** `IMPLEMENTATION_MERGED / POSTMERGE_VERIFIED / CLOSEOUT_CANDIDATE / COMPLETE_CANONICAL_ON_CLOSEOUT_MERGE`
 
 ## Entry Gate
 
@@ -342,3 +342,47 @@ T031_EXECUTION_AUTHORITY = NONE_INFERRED_BY_T030
 ```
 
 T030 implementation and qualification do not authorize T031 model/runtime measurements. Any later external execution remains separately governed by exact current authority and artifact/runtime/hardware identity.
+
+
+## Canonical Closeout Lifecycle
+
+The current-main T030 reconciliation completed the governed implementation lifecycle on one exact final hardened head. Historical PR #96 remains provenance only and was never merged into current main.
+
+```text
+IMPLEMENTATION_PR = #165
+IMPLEMENTATION_HEAD = 0462786550d24096272b7541ab286e838b4a1c2e
+IMPLEMENTATION_TREE = b016ab6a3899accc352d8f177a2ba76451259f66
+EXACT_HEAD_QUALIFICATION = 33971815139 / SUCCESS / evidence f48819767b1d571819736562aba22e84a84b3a85
+SECOND_EXACT_HEAD_QUALIFICATION = 33971878391 / SUCCESS / evidence b23bc1c7401262bfd41af33bfc1562295e7acc54
+INDEPENDENT_SEMANTIC_SECURITY_REVIEW = 33972061731 / SUCCESS / evidence 540d3346863f8be053e8ac199703a884a33998da
+REVIEW_SUBMISSION = 5121599106 / COMMENTED / FINDINGS_NONE
+MANDATORY_PREMERGE = 33972305104 / SUCCESS / evidence 62e7684531a788c22888eadcfc6e8d09b0c54e96
+MERGE = 8916fa7138ad56d18452b7a20db9c8cb982648ba
+MERGE_TREE = b016ab6a3899accc352d8f177a2ba76451259f66
+POSTMERGE = 33972551215 / SUCCESS / evidence c6ae1aeb25bed755e86515d6914fb871e1f5a164
+```
+
+The successful postmerge replay on exact canonical main recorded:
+
+```text
+T030_FOCUSED_TESTS = 45 PASSED
+MSTR_QUALIFY_VALIDATE = PASS / 30 VALID FIXTURES / 30 INVALID FIXTURES REJECTED
+FULL_PYTEST = 1354 PASSED
+RUFF = PASS
+MYPY = PASS / 45 SOURCE FILES
+FINAL_POSTMERGE_GUARD = PASS
+```
+
+This closeout is governance-only. It does not reacquire deleted model binaries, execute a model/runtime pair, regenerate Q4 artifacts, widen the T027/T028 candidate envelope, create B012 authority, authorize paid compute, or create T031 material execution authority.
+
+## Completion Boundary
+
+```text
+T030_IMPLEMENTATION_LIFECYCLE = COMPLETE
+T030_CLOSEOUT_STATE = COMPLETE_CANONICAL_ON_MERGE
+T030_COMPLETE_CANONICAL = YES_ON_CLOSEOUT_MERGE
+T031_EXECUTION_AUTHORITY = NOT_CREATED_BY_T030
+B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION = ABSENT
+```
+
+Upon merge of this bounded closeout, T030 is `COMPLETE_CANONICAL`. T031 remains a separate material measurement task and must bind exact current authority plus artifact/runtime/hardware identity before external execution.
