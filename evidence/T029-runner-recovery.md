@@ -1,8 +1,8 @@
 # T029 Runner Recovery Evidence
 
-**Task:** `T029`  
-**Scope:** subprocess-decoding repair and historical result reconciliation  
-**Current reconciliation base:** `5cadbd754686ebff6f5327e9746f0b074b35e318`  
+**Task:** `T029`
+**Scope:** subprocess-decoding repair and historical result reconciliation
+**Current reconciliation base:** `5cadbd754686ebff6f5327e9746f0b074b35e318`
 **State:** `RUNNER_RECOVERY_PROVEN / T029_GOVERNANCE_PENDING`
 
 ## Historical Defect
