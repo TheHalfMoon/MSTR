@@ -49,7 +49,7 @@ WINDOWS + LINUX + MACOS = REQUIRED_PLATFORM_FAMILIES
 FOUNDER_MAC_LARGE_ARTIFACTS = ZERO
 ```
 
-## Canonical History Through T030 + A004
+## Canonical History Through T030 + A018
 
 ```text
 T000-T030 = COMPLETE_CANONICAL
@@ -118,7 +118,15 @@ STATE = COMPLETE_CANONICAL
 
 ## MSTR-000A Next State
 
-A001-A004 are canonical. The next MSTR-000A early-safe task is A005, but B004 does not execute or authorize A005. A005-A018 remain individually gated by their exact prerequisites and the machine task validator where represented. Candidate-dependent A019-A024 remain convergence-gated and may not consume an incomplete or incomparable candidate pool.
+A001-A018 are `COMPLETE_CANONICAL`. The next MSTR-000A frontier is convergence, not another early-safe implementation task.
+
+```text
+A019 = PENDING / CONVERGENCE_GATED / REQUIRES_B013_STABLE_POOL
+A020 = PENDING / CONVERGENCE_GATED / REQUIRES_B013_STABLE_POOL_AND_B026_RESEARCH_LADDER
+A021-A024 = PENDING / DOWNSTREAM_OF_A019_A020_AND_CONVERGENCE_RECONCILIATION
+```
+
+B013 cannot freeze the stable product-aligned candidate pool until B012 reaches an allowed terminal state. B012 remains `PENDING` and requires exact Founder authority `B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION`. Therefore A019/A020 are not currently executable headline/final convergence work, and A021-A024 remain downstream. This is a dependency result, not authority created by T030 closeout.
 
 ## Governance Drift and Resolution
 
