@@ -78,8 +78,7 @@ jobs:
           new_task = "- [x] T029 [US1] Build/obtain quality-oriented and compatibility-oriented Q4 profiles where practical, with exact quantizer/recipe/hash"
           assert tasks.count(old_task) == 1
           assert new_task not in tasks
-          tasks = tasks.replace(old_task, new_task, 1)
-          tasks_path.write_text(tasks)
+          tasks_path.write_text(tasks.replace(old_task, new_task, 1))
 
           evidence_path = Path("evidence/T029-q4-profiles.md")
           evidence = evidence_path.read_text()
@@ -93,45 +92,48 @@ jobs:
 
           lifecycle_marker = "## Completion Boundary\n"
           assert evidence.count(lifecycle_marker) == 1
-          lifecycle = """## Canonical Closeout Lifecycle
-
-The current-main reconciliation completed the full governed lifecycle without new model execution or authority expansion:
-
-```text
-IMPLEMENTATION_PR = #163
-IMPLEMENTATION_HEAD = c0b9e977dedf38282872e469aa364dae8e5abf50
-IMPLEMENTATION_TREE = 15fb0a0088e1be09d1071c960dbea1fd91df5cb5
-EXACT_HEAD_QUALIFICATION = 33965047138 / SUCCESS / evidence 43523ce4a4fc5e8af5c5974664c1cb02d4ba03ee
-INDEPENDENT_SEMANTIC_SECURITY_REVIEW = 33965362614 / SUCCESS / evidence faa42705bd9143f4e17771ca59a40e491b00576a
-MANDATORY_PREMERGE = 33965724065 / SUCCESS / evidence 172fd9f956421d109fbed9336fb993ab90b3597d
-MERGE = 29df1b4be142407fbd31e13dca00e525dd729365
-POSTMERGE = 33966014675 / SUCCESS / evidence a5524296012c5cc1c15f01fe3ec4796c8b436db2
-```
-
-The earlier review run `33965245059` remains harness-only negative evidence: primary-artifact and authority checks passed, while a brittle textual assertion failed before the full-quality step. It is not treated as a semantic finding and does not replace the corrected successful independent review.
-
-This closeout is governance-only. It does not rerun quantization, acquire weights, widen T027/T028, create B012 authority, authorize K2 Horizon, or make the historical T029 workflow dispatch-ready for future regeneration.
-
-"""
+          lifecycle_lines = [
+              "## Canonical Closeout Lifecycle",
+              "",
+              "The current-main reconciliation completed the full governed lifecycle without new model execution or authority expansion:",
+              "",
+              "```text",
+              "IMPLEMENTATION_PR = #163",
+              "IMPLEMENTATION_HEAD = c0b9e977dedf38282872e469aa364dae8e5abf50",
+              "IMPLEMENTATION_TREE = 15fb0a0088e1be09d1071c960dbea1fd91df5cb5",
+              "EXACT_HEAD_QUALIFICATION = 33965047138 / SUCCESS / evidence 43523ce4a4fc5e8af5c5974664c1cb02d4ba03ee",
+              "INDEPENDENT_SEMANTIC_SECURITY_REVIEW = 33965362614 / SUCCESS / evidence faa42705bd9143f4e17771ca59a40e491b00576a",
+              "MANDATORY_PREMERGE = 33965724065 / SUCCESS / evidence 172fd9f956421d109fbed9336fb993ab90b3597d",
+              "MERGE = 29df1b4be142407fbd31e13dca00e525dd729365",
+              "POSTMERGE = 33966014675 / SUCCESS / evidence a5524296012c5cc1c15f01fe3ec4796c8b436db2",
+              "```",
+              "",
+              "The earlier review run `33965245059` remains harness-only negative evidence: primary-artifact and authority checks passed, while a brittle textual assertion failed before the full-quality step. It is not treated as a semantic finding and does not replace the corrected successful independent review.",
+              "",
+              "This closeout is governance-only. It does not rerun quantization, acquire weights, widen T027/T028, create B012 authority, authorize K2 Horizon, or make the historical T029 workflow dispatch-ready for future regeneration.",
+              "",
+          ]
+          lifecycle = "\n".join(lifecycle_lines) + "\n"
           evidence = evidence.replace(lifecycle_marker, lifecycle + lifecycle_marker, 1)
 
-          old_completion = """T029_EXECUTION_PROFILE_SET = 8_FULLY_VERIFIED
-T029_CURRENT_RECONCILIATION_QUALIFICATION = PENDING
-T029_COMPLETE_CANONICAL = NO
-"""
-          new_completion = """T029_EXECUTION_PROFILE_SET = 8_FULLY_VERIFIED
-T029_RECONCILIATION_LIFECYCLE = COMPLETE
-T029_CLOSEOUT_STATE = COMPLETE_CANONICAL_ON_MERGE
-T029_FUTURE_REGENERATION_EXECUTION_READY = NO
-T029_COMPLETE_CANONICAL = YES_ON_CLOSEOUT_MERGE
-"""
+          old_completion = "\n".join([
+              "T029_EXECUTION_PROFILE_SET = 8_FULLY_VERIFIED",
+              "T029_CURRENT_RECONCILIATION_QUALIFICATION = PENDING",
+              "T029_COMPLETE_CANONICAL = NO",
+          ]) + "\n"
+          new_completion = "\n".join([
+              "T029_EXECUTION_PROFILE_SET = 8_FULLY_VERIFIED",
+              "T029_RECONCILIATION_LIFECYCLE = COMPLETE",
+              "T029_CLOSEOUT_STATE = COMPLETE_CANONICAL_ON_MERGE",
+              "T029_FUTURE_REGENERATION_EXECUTION_READY = NO",
+              "T029_COMPLETE_CANONICAL = YES_ON_CLOSEOUT_MERGE",
+          ]) + "\n"
           assert evidence.count(old_completion) == 1
           evidence = evidence.replace(old_completion, new_completion, 1)
           old_tail = "T029 may become canonical only after this current-main reconciliation passes the complete governed lifecycle and a separate closeout proves the task/evidence state on exact canonical `main`."
           new_tail = "Upon merge of this bounded closeout, T029 is `COMPLETE_CANONICAL`. Future T029 regeneration remains separately fail-closed until exact toolchain/network authority is proven; canonical completion does not create execution authority."
           assert evidence.count(old_tail) == 1
-          evidence = evidence.replace(old_tail, new_tail, 1)
-          evidence_path.write_text(evidence)
+          evidence_path.write_text(evidence.replace(old_tail, new_tail, 1))
 
           state_path = Path("docs/canonical/CURRENT_STATE.md")
           state = state_path.read_text()
