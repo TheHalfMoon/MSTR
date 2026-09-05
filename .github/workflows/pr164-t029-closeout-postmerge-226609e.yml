@@ -1,0 +1,160 @@
+name: Postmerge verification PR164 T029 closeout exact main
+
+on:
+  push:
+    branches:
+      - evidence/pr164-t029-closeout-postmerge-226609e
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  PREVIOUS_MAIN: 29df1b4be142407fbd31e13dca00e525dd729365
+  PR_HEAD: 1f7e43378fb398924f989038ce0005b379335eee
+  PR_TREE: 2d77fb94674d4a86e866a5c63ff107f511f12a70
+  MERGE_SHA: 226609e3a29a5e5d038bbd0e9c744f3ff2877112
+  QUALIFICATION_RUN: '33966595975'
+  REVIEW_RUN: '33967397356'
+  PREMERGE_RUN: '33967644397'
+
+jobs:
+  exact_main:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Verify live main, merged PR, merge object and evidence chain
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          headers = {
+              "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+          root = "https://api.github.com/repos/TheHalfMoon/MSTR"
+
+          def get(path: str):
+              request = urllib.request.Request(f"{root}{path}", headers=headers)
+              with urllib.request.urlopen(request) as response:
+                  return json.load(response)
+
+          pr = get("/pulls/164")
+          assert pr["state"] == "closed" and pr["merged"] is True
+          assert pr["merge_commit_sha"] == os.environ["MERGE_SHA"]
+          assert pr["base"]["sha"] == os.environ["PREVIOUS_MAIN"]
+          assert pr["head"]["sha"] == os.environ["PR_HEAD"]
+
+          commit = get(f"/commits/{os.environ['MERGE_SHA']}")
+          assert commit["commit"]["tree"]["sha"] == os.environ["PR_TREE"]
+          assert [parent["sha"] for parent in commit["parents"]] == [os.environ["PREVIOUS_MAIN"], os.environ["PR_HEAD"]]
+          assert commit["commit"]["verification"]["verified"] is True
+          assert commit["commit"]["verification"]["reason"] == "valid"
+
+          expected_runs = {
+              os.environ["QUALIFICATION_RUN"]: "b84c815c8357379af787f11884f16a01d388e016",
+              os.environ["REVIEW_RUN"]: "4e2081709b5d55ff64888fef0aa293220cd405ce",
+              os.environ["PREMERGE_RUN"]: "b9f18715406c2e839324431e65696dfc4b33b588",
+          }
+          for run_id, evidence_head in expected_runs.items():
+              run = get(f"/actions/runs/{run_id}")
+              assert run["status"] == "completed" and run["conclusion"] == "success"
+              assert run["head_sha"] == evidence_head
+
+          authority = urllib.request.Request(
+              f"{root}/contents/artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json?ref={os.environ['MERGE_SHA']}",
+              headers=headers,
+          )
+          try:
+              urllib.request.urlopen(authority)
+          except urllib.error.HTTPError as exc:
+              assert exc.code == 404
+          else:
+              raise AssertionError("B012 authority unexpectedly exists after T029 closeout")
+          PY
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - name: Verify canonical post-closeout semantics and historical immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$PR_TREE"
+          test "$(git rev-parse HEAD^1)" = "$PREVIOUS_MAIN"
+          test "$(git rev-parse HEAD^2)" = "$PR_HEAD"
+          git diff --check "$PREVIOUS_MAIN" "$MERGE_SHA"
+          git diff --name-only "$PREVIOUS_MAIN" "$MERGE_SHA" | sort > /tmp/actual.txt
+          printf '%s\n' docs/canonical/CURRENT_STATE.md evidence/T029-q4-profiles.md specs/000-universal-laptop-interaction-contract/tasks.md | sort > /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+          grep -Fq -- '- [x] T029 [US1]' specs/000-universal-laptop-interaction-contract/tasks.md
+          grep -Fq -- '- [ ] T030 [US1]' specs/000-universal-laptop-interaction-contract/tasks.md
+          grep -Fq 'T000-T029 = COMPLETE_CANONICAL' docs/canonical/CURRENT_STATE.md
+          grep -Fq 'T030 = LEGACY_PR_#96_EXISTS / CURRENT_MAIN_RECONCILIATION_REQUIRED / NOT_COMPLETE_CANONICAL' docs/canonical/CURRENT_STATE.md
+          grep -Fq 'CURRENT_ELIGIBLE_MSTR_000B_TASK = B012 / PENDING / BLOCKED_BY_EXACT_FOUNDER_AUTHORITY' docs/canonical/CURRENT_STATE.md
+          grep -Fq 'T029_COMPLETE_CANONICAL = YES_ON_CLOSEOUT_MERGE' evidence/T029-q4-profiles.md
+          grep -Fq 'T029_FUTURE_REGENERATION_EXECUTION_READY = NO' evidence/T029-q4-profiles.md
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          manifest_path = "artifacts/manifests/quantization/T029-q4-profiles.json"
+          manifest = json.loads(Path(manifest_path).read_text())
+          assert manifest["completion_state"] == "Q4_PROFILE_SET_READY_NOT_T029_COMPLETE_CANONICAL"
+          assert len(manifest["profiles"]) == 8 and manifest["pending"] == []
+          old_blob = subprocess.check_output(["git", "rev-parse", f"{os.environ['PREVIOUS_MAIN']}:{manifest_path}"], text=True).strip()
+          new_blob = subprocess.check_output(["git", "rev-parse", f"{os.environ['MERGE_SHA']}:{manifest_path}"], text=True).strip()
+          assert old_blob == new_blob
+          assert not Path("artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json").exists()
+          PY
+
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run exact-main closeout quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_t029_quantization_manifest.py tests/unit/test_t029_quantize_runner.py
+          mstr-qualify validate
+          python -m pytest -q
+          ruff check .
+          mypy
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test -z "$(git status --porcelain)"
+
+  final_postmerge:
+    needs: [exact_main, quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Recheck exact live main and emit canonical closeout verdict
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          echo 'POSTMERGE=PASS'
+          echo 'T029_COMPLETE_CANONICAL=YES'
+          echo 'NEXT_CANONICAL_FRONTIER=T030_CURRENT_MAIN_RECONCILIATION'
+          echo 'B012_EXTERNAL_EXECUTION=FAIL_CLOSED_AUTHORITY_ABSENT'
