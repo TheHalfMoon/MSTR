@@ -1,0 +1,104 @@
+name: Verify PR161 B012 authority gate postmerge
+
+on:
+  push:
+    branches:
+      - evidence/pr161-b012-authority-gate-postmerge
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  PREVIOUS_MAIN: 5aaa64c2f93f7edbe991f62ce822ed134d9f1b59
+  PR_HEAD: 8f8736303e1eecd3921e95b5a83a24af3143dd88
+  MERGE_SHA: 5cadbd754686ebff6f5327e9746f0b074b35e318
+  EXPECTED_TREE: 4002673583c9d05d6d226d8571bd01e9fb2df877
+  AUTHORITY_ID: B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5cadbd754686ebff6f5327e9746f0b074b35e318
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify exact merge topology, lifecycle, bounded delta, and authority containment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          mapfile -t parents < <(git show -s --format='%P' "$MERGE_SHA" | tr ' ' '\n')
+          test "${#parents[@]}" -eq 2
+          test "${parents[0]}" = "$PREVIOUS_MAIN"
+          test "${parents[1]}" = "$PR_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+
+          gh api repos/${GITHUB_REPOSITORY}/pulls/161 > /tmp/pr.json
+          jq -e --arg merge "$MERGE_SHA" --arg head "$PR_HEAD" '.state == "closed" and .merged == true and .merge_commit_sha == $merge and .head.sha == $head' /tmp/pr.json >/dev/null
+
+          mapfile -t actual < <(git diff --name-only "$PREVIOUS_MAIN" "$MERGE_SHA" | sort)
+          expected=(
+            configs/task-gate/mstr-000b.json
+            specs/002-code-model-supremacy-foundation/tasks.md
+            tests/contract/test_convergence_external_bindings.py
+            tests/contract/test_task_gate.py
+            tests/integration/test_task_gate_cli.py
+          )
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${wanted[@]}") <(printf '%s\n' "${actual[@]}")
+          git diff --check "$PREVIOUS_MAIN" "$MERGE_SHA"
+          test -z "$(git diff --name-only "$PREVIOUS_MAIN" "$MERGE_SHA" -- src schemas .github/workflows docs/canonical/CURRENT_STATE.md artifacts/authorities artifacts/manifests evidence)"
+          test ! -e "artifacts/authorities/${AUTHORITY_ID}.json"
+          git diff --quiet "$PREVIOUS_MAIN" "$MERGE_SHA" -- artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json
+          echo 'PR161_POSTMERGE_TOPOLOGY_SCOPE=PASS'
+
+      - name: Verify exact-main fail-closed frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git update-ref refs/heads/main "$MERGE_SHA"
+          git update-ref refs/remotes/origin/main "$MERGE_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json >/dev/null
+          set +e
+          mstr-qualify task eligible B011 > /tmp/b011.json; b011_exit=$?
+          mstr-qualify task eligible B012 > /tmp/b012.json; b012_exit=$?
+          mstr-qualify task eligible B013 > /tmp/b013.json; b013_exit=$?
+          set -e
+          test "$b011_exit" -eq 1
+          test "$b012_exit" -eq 1
+          test "$b013_exit" -eq 1
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "COMPLETE_CANONICAL" and (.reasons | index("task.already_terminal")) != null and .authority_result.authority_id == "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED" and .authority_result.satisfied == true' /tmp/b011.json >/dev/null
+          jq -e --arg authority "$AUTHORITY_ID" '.eligible == false and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == true and .authority_result.satisfied == false and .authority_result.authority_id == $authority and (.reasons | index("authority.canonical_envelope_missing_or_invalid")) != null' /tmp/b012.json >/dev/null
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and (.reasons | index("prerequisite.unsatisfied:B012")) != null' /tmp/b013.json >/dev/null
+          echo 'PR161_POSTMERGE_FRONTIER=PASS'
+
+      - name: Re-run repository quality on exact merged main
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify validate
+          python -m pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/contract/test_convergence_external_bindings.py
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          echo 'PR161_POSTMERGE_QUALITY=PASS'
+
+      - name: Final main immutability proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE_SHA"
+          echo 'PR161_B012_AUTHORITY_GATE_POSTMERGE=PASS'
