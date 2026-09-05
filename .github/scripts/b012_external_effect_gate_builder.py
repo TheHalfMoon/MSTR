@@ -38,7 +38,7 @@ def main() -> None:
         "but has already-authorized/already-available artifacts MUST still receive equivalent qualification. "
         "B012 may close `NOT_REQUIRED_NO_NEW_CANDIDATES` only when B010 explicitly records "
         "`qualification_candidates=[]` / `NO_NEW_CANDIDATES_REQUIRING_QUALIFICATION`. Reuse canonical "
-        "T029-T034 protocols where compatible; if superseded, record migration.  "
+        "T029-T034 protocols where compatible; if superseded, record migration."
     )
     assert old in tasks
     tasks_path.write_text(tasks.replace(old, new, 1), encoding="utf-8")
