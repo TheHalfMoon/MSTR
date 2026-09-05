@@ -1,0 +1,88 @@
+name: Post-T030 execution frontier verification
+
+on:
+  push:
+    branches:
+      - evidence/frontier-after-t030-e5e4764
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  REPO: TheHalfMoon/MSTR
+  MAIN_SHA: e5e47644fb7122cbb47b43cdf13d072f82ebfdf7
+  MAIN_TREE: c94b97fcdf20a56e2de08db9eab4667ebe632644
+
+jobs:
+  frontier:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MAIN_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact post-T030 frontier without external effects
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MAIN_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MAIN_TREE"
+
+          live_main="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/branches/main" | python -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])')"
+          test "$live_main" = "$MAIN_SHA"
+
+          python -m pip install -e '.[dev]'
+          set +e
+          python -m mstr_qualify task eligible B012 > /tmp/b012.json
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path('/tmp/b012.json').read_text())
+          assert payload['task_id'] == 'B012'
+          assert payload['eligible'] is False
+          assert 'authority.canonical_envelope_missing_or_invalid' in payload['reasons']
+          authority = payload['authority']
+          assert authority['required'] is True
+          assert authority['authority_id'] == 'B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
+          assert authority['satisfied'] is False
+          print(json.dumps(payload, indent=2, sort_keys=True))
+          PY
+
+          test ! -e artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json
+          test -e artifacts/authorities/B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED.json
+
+          grep -F 'No binaries persist anywhere after evidence capture.' specs/000-universal-laptop-interaction-contract/evidence/T028-weight-acquisition.md
+          grep -F 'T029_FUTURE_REGENERATION_EXECUTION_READY = NO' evidence/T029-q4-profiles.md
+          grep -F 'TOOLCHAIN_NETWORK_AUTHORITY = MUST_BE_PROVEN_BEFORE_DISPATCH' evidence/T029-q4-profiles.md
+          grep -F 'T031_EXECUTION_AUTHORITY = NOT_CREATED_BY_T030' evidence/T030-runtime-adapters.md
+          grep -F 'T031 = NEXT / MATERIAL_EXECUTION_AUTHORITY_AND_EPHEMERAL_ARTIFACT_RECONCILIATION_REQUIRED / NOT_COMPLETE_CANONICAL' docs/canonical/CURRENT_STATE.md
+          grep -Fqx -- '- [ ] T031 [US1] Measure 4K/8K/16K artifact/load/memory/paging/prefill/decode behavior → `artifacts/results/local/T031/*.jsonl`, `evidence/T031-local-memory-throughput.md`.' specs/000-universal-laptop-interaction-contract/tasks.md
+
+          test ! -e evidence/T031-local-memory-throughput.md
+          if [ -d artifacts/results/local/T031 ]; then
+            test -z "$(find artifacts/results/local/T031 -type f -print -quit)"
+          fi
+
+          open_prs="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/pulls?state=open&per_page=100")"
+          python - "$open_prs" <<'PY'
+          import json, sys
+          prs = json.loads(sys.argv[1])
+          assert prs == [], prs
+          PY
+
+          echo 'T030_COMPLETE_CANONICAL=YES'
+          echo 'T031_TASK_STATE=PENDING'
+          echo 'T031_MATERIAL_EXECUTION_READY=NO'
+          echo 'T031_BLOCKER=T029_REGENERATION_TOOLCHAIN_NETWORK_AUTHORITY_PLUS_EPHEMERAL_ARTIFACT_REGENERATION_OR_REACQUISITION'
+          echo 'B012_ELIGIBLE=NO'
+          echo 'B012_BLOCKER=B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
+          echo 'OPEN_PULL_REQUESTS=0'
