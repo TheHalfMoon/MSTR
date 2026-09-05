@@ -1,0 +1,48 @@
+name: Reconcile current state before T030 closeout
+
+on:
+  push:
+    branches:
+      - evidence/t030-closeout-state-reconcile-240afb2
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact closeout candidate
+        uses: actions/checkout@v4
+        with:
+          ref: closeout/000-t030-canonical
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify exact target head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "240afb2c8ddc5c6a9f8f15786fe4de8e5e963005"
+          test "$(git rev-parse HEAD^)" = "8916fa7138ad56d18452b7a20db9c8cb982648ba"
+
+      - name: Reconcile canonical snapshot from task ledgers
+        shell: bash
+        env:
+          PATCH_B64: CmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAoKcCA9IFBhdGgoImRvY3MvY2Fub25pY2FsL0NVUlJFTlRfU1RBVEUubWQiKQpzID0gcC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKCnJlcGxhY2VtZW50cyA9IHsKICAgICJBQ1RJVkVfSU1QTEVNRU5UQVRJT05fVEFTSyA9IFQwMzFfQVVUSE9SSVRZX0FORF9FWEVDVVRJT05fUkVDT05DSUxJQVRJT04gLyBCMDEyX0VYQUNUX0FVVEhPUklUWV9HQVRFIjoKICAgICAgICAiQUNUSVZFX0lNUExFTUVOVEFUSU9OX1RBU0sgPSBUMDMxX0FVVEhPUklUWV9BTkRfRVhFQ1VUSU9OX1JFQ09OQ0lMSUFUSU9OIC8gQjAxMl9FWEFDVF9BVVRIT1JJVFlfR0FURSAvIEEwMTlfQTAyMF9DT05WRVJHRU5DRV9HQVRFUyIsCiAgICAiTEFTVF9DT01QTEVURV9NU1RSXzAwMEJfVEFTSyA9IEIwMTEgLyBDT01QTEVURV9DQU5PTklDQUwiOgogICAgICAgICJMQVNUX0NPTVBMRVRFX01TVFJfMDAwQl9UQVNLID0gQjAzMCAvIENPTVBMRVRFX0NBTk9OSUNBTCIsCiAgICAiQ1VSUkVOVF9FTElHSUJMRV9NU1RSXzAwMEJfVEFTSyA9IEIwMTIgLyBQRU5ESU5HIC8gQkxPQ0tFRF9CWV9FWEFDVF9GT1VOREVSX0FVVEhPUklUWSI6CiAgICAgICAgIkNVUlJFTlRfTVNUUl8wMDBCX0ZST05USUVSUyA9IEIwMTIgLyBQRU5ESU5HIC8gQkxPQ0tFRF9CWV9FWEFDVF9GT1VOREVSX0FVVEhPUklUWSB8IEIwMzEgLyBQRU5ESU5HIC8gVFJBTlNJVElWRUxZX0JMT0NLRURfQllfQTAxOV9BMDIwX0FORF9CMDEzIiwKICAgICJBMDA1LUEwMTggPSBQRU5ESU5HIC8gRUFSTFlfU0FGRV9PTkxZX1dIRU5fRVhBQ1RfUFJFUkVRVUlTSVRFU19QQVNTIjoKICAgICAgICAiQTAwNS1BMDE4ID0gQ09NUExFVEVfQ0FOT05JQ0FMIiwKICAgICJCMDAxID0gQ09NUExFVEVfQ0FOT05JQ0FMXG5CMDAyID0gQ09NUExFVEVfQ0FOT05JQ0FMXG5CMDAzID0gQ09NUExFVEVfQ0FOT05JQ0FMXG5CMDA0ID0gRU5UUllfR0FURV9QUk9WRU4gLyBJTVBMRU1FTlRBVElPTl9BQ1RJVkUiOgogICAgICAgICJCMDAxLUIwMTEgPSBDT01QTEVURV9DQU5PTklDQUxcbkIwMTIgPSBQRU5ESU5HIC8gQkxPQ0tFRF9CWV9FWEFDVF9GT1VOREVSX0FVVEhPUklUWVxuQjAxMyA9IEJMT0NLRURfQllfQjAxMlxuQjAxNC1CMDMwID0gQ09NUExFVEVfQ0FOT05JQ0FMXG5CMDMxLUIwMzQgPSBQRU5ESU5HIC8gQ09OVkVSR0VOQ0VfQU5EX0NMT1NFT1VUX0dBVEVEIiwKfQpmb3Igb2xkLCBuZXcgaW4gcmVwbGFjZW1lbnRzLml0ZW1zKCk6CiAgICBhc3NlcnQgcy5jb3VudChvbGQpID09IDEsIGYiQ1VSUkVOVF9TVEFURSByZWNvbmNpbGlhdGlvbiBzb3VyY2UgZHJpZnQ6IHtvbGR9IgogICAgcyA9IHMucmVwbGFjZShvbGQsIG5ldywgMSkKCm1hcmtlciA9ICJMaXZlIEdpdEh1YiB0cnV0aCBvdmVycmlkZXMgdGhpcyBzbmFwc2hvdC4iCmFzc2VydCBzLmNvdW50KG1hcmtlcikgPT0gMQpzID0gcy5yZXBsYWNlKG1hcmtlciwgbWFya2VyICsgIlxuXG5TdGF0ZSByZWNvbmNpbGlhdGlvbiBzb3VyY2VzIGZvciB0aGlzIGNoZWNrcG9pbnQ6IGBzcGVjcy8wMDEtYWdlbnQtaGFybmVzcy12ZXJpZmllZC1sb29wLWZvdW5kYXRpb24vdGFza3MubWRgLCBgc3BlY3MvMDAyLWNvZGUtbW9kZWwtc3VwcmVtYWN5LWZvdW5kYXRpb24vdGFza3MubWRgLCBhbmQgYGNvbmZpZ3MvdGFzay1nYXRlL21zdHItMDAwYi5qc29uYC4iLCAxKQpwLndyaXRlX3RleHQocywgZW5jb2Rpbmc9InV0Zi04IikK
+        run: |
+          set -euo pipefail
+          printf '%s' "$PATCH_B64" | base64 -d > /tmp/reconcile_state.py
+          python /tmp/reconcile_state.py
+          git diff --check
+          test "$(git diff --name-only)" = "docs/canonical/CURRENT_STATE.md"
+
+      - name: Commit and push state reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add docs/canonical/CURRENT_STATE.md
+          git commit -m "docs(canonical): reconcile live MSTR workstream state"
+          git push origin HEAD:closeout/000-t030-canonical
