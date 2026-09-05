@@ -18,9 +18,10 @@
   "historical_report_result_classification": "Q4_PROFILE_READY",
   "q4_k_m_sha256": "ef3b6b42698ac3955488998f250cc0f1e42ef7dd0819fe7bd86a902f6f90be56",
   "q4_k_m_size_bytes": 1312164448,
-  "q4_k_s_historical_reported_output_sha256": "a6fe3727940dde3382e2ee8b53aac96f2e6970d4e660260428899c29c8e4583e9",
-  "q4_k_s_historical_reported_output_sha256_length": 65,
   "q4_k_s_size_bytes": 1246308960,
-  "defect": "PRIMARY_ARTIFACT_Q4_K_S_HASH_IS_65_HEX_AND_CANNOT_BE_A_SHA256_DIGEST",
-  "interpretation": "The primary GitHub Actions artifact itself contains a 65-hex Q4_K_S value. The exact execution runner uses hashlib.sha256(...).hexdigest(), which can only emit 64 hex characters. The historical READY classification therefore cannot satisfy T029 exact-hash qualification for this cell. No character is guessed, truncated, or repaired from inference; the Q4_K_S cell remains pending until a governed repair execution produces a valid digest."
+  "interpretation": "Fresh exact-head qualification downloaded the primary GitHub Actions artifact and verified both its archive SHA-256 and report SHA-256. The primary report contains a valid 64-hex Q4_K_S SHA-256. The earlier 65-hex value was a transcription error in the reconciliation candidate, not a historical execution defect. Qualification run 33964325389 failed closed on that mismatch before merge. The canonical candidate now uses only the byte-verified primary artifact value; no inferred or truncated digest is used.",
+  "q4_k_s_sha256": "a6fe3727940dde3382e2f2a353a51bc2e6970d4e660260428899c29c8e4583e9",
+  "q4_k_s_sha256_length": 64,
+  "primary_artifact_verdict": "Q4_PROFILE_READY",
+  "reconciliation_negative_run": 33964325389
 }

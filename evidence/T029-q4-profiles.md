@@ -73,8 +73,8 @@ Q4_K_S_SIZE_BYTES = 2053248608
 Canonical scientific interpretation of the recovered execution evidence is therefore:
 
 ```text
-T029_Q4_PROFILE_CELLS_FULLY_VERIFIED = 7 / 8
-T029_QWEN35_2B_Q4_K_S = PENDING_INTEGRITY_REPAIR
+T029_Q4_PROFILE_CELLS_FULLY_VERIFIED = 8 / 8
+T029_QWEN35_2B_Q4_K_S = VERIFIED_PRIMARY_ARTIFACT_SHA256
 MINISTRAL_Q4_STATUS = Q4_PROFILE_READY
 MINISTRAL_Q4_UNSUPPORTED = NO
 MINISTRAL_Q4_INTEGRITY_FAILURE = NO
@@ -82,9 +82,9 @@ MINISTRAL_Q4_INTEGRITY_FAILURE = NO
 
 This is execution evidence, not by itself task closeout.
 
-## Qwen 3.5 2B Primary-Artifact Integrity Defect
+## Qwen 3.5 2B Primary-Artifact Verification
 
-Fresh reconciliation against the primary GitHub Actions artifact for historical run `32959707029` found a fail-closed evidence defect that historical PR #95 did not detect.
+Fresh exact-head qualification re-downloaded the primary GitHub Actions artifact for historical run `32959707029` and verified the archive and report byte identities before interpreting the Q4_K_S value.
 
 ```text
 RUN = 32959707029 / SUCCESS
@@ -94,36 +94,31 @@ ARTIFACT_NAME = t029-q4-qwen3.5-2b
 ARTIFACT_ARCHIVE_DIGEST = sha256:69a78e2185337b58940b2dc3ab993d182fa9be9f3eaad95fa43a5bf682f9e4a3
 REPORT_PATH = t029-qwen3.5-2b.json
 REPORT_SHA256 = aad35a2f4db1aff3f2a436a7b98d03a92def063067fc9f294d4a0fcabd8f5d61
+Q4_K_S_SHA256 = a6fe3727940dde3382e2f2a353a51bc2e6970d4e660260428899c29c8e4583e9
+Q4_K_S_SHA256_LENGTH = 64
+RESULT = Q4_PROFILE_READY
 ```
 
-The primary report itself records this Q4_K_S value:
+The primary artifact value is a valid 64-hex SHA-256. The earlier reconciliation candidate incorrectly transcribed a 65-hex value. Exact-head qualification run `33964325389` caught that mismatch fail-closed before merge. That run is preserved as negative reconciliation evidence; the incorrect transcription is not retained as scientific evidence and is not treated as a historical execution defect.
+
+The corrected reconciliation uses only the byte-verified primary artifact value:
 
 ```text
-a6fe3727940dde3382e2ee8b53aac96f2e6970d4e660260428899c29c8e4583e9
-```
-
-It contains 65 hexadecimal characters. The exact historical runner records output hashes with `hashlib.sha256(...).hexdigest()`, which can only emit 64 hexadecimal characters. The historical `Q4_PROFILE_READY` classification therefore cannot satisfy T029's exact-hash requirement for this one cell.
-
-The reconciliation fails closed:
-
-```text
-qwen3.5-2b / Q4_K_M = VERIFIED_HISTORICAL_HASH
-qwen3.5-2b / Q4_K_S = PENDING_INTEGRITY_REPAIR
-HISTORICAL_65_HEX_VALUE = PRESERVED_AS_NEGATIVE_PROVENANCE
+qwen3.5-2b / Q4_K_M = VERIFIED_PRIMARY_ARTIFACT_HASH
+qwen3.5-2b / Q4_K_S = VERIFIED_PRIMARY_ARTIFACT_HASH
 INFERRED_OR_TRUNCATED_REPLACEMENT_HASH = NONE
+T029_Q4_PROFILE_SET = 8_FULLY_VERIFIED
 ```
-
-A fresh governed T029 repair execution is required for this cell before the profile set may return to 8/8.
 
 ## Execution Readiness Boundary
 
 The current reconciliation also identifies a separate execution-readiness question in the historical T029 workflow. Model-artifact acquisition is now fail-closed on the exact T027 HTTPS host allowlist plus the byte-bound `T028-network-scope-addendum-us-aws-cdn` addendum. However, the workflow still provisions conversion/build tooling through package indexes and clones the pinned llama.cpp source from GitHub. Canonical T027 evidence lists package indexes and unrelated/git-protocol network surfaces as unauthorized, while the storage architecture requires external effects to remain within exact authority.
 
-Therefore this reconciliation does **not** treat the historical workflow as dispatch-ready merely because model-artifact redirect enforcement is hardened. Before any fresh Qwen repair execution, exact-head qualification and independent semantic/security review must either identify an already-canonical authority that covers the frozen toolchain acquisition surface or leave execution fail-closed pending a separate exact Founder decision/governance amendment. No package-index, llama.cpp source, model-weight, conversion, or quantization network action is authorized by this reconciliation.
+Therefore this reconciliation does **not** treat the historical workflow as dispatch-ready merely because model-artifact redirect enforcement is hardened. Before any future T029 regeneration or new execution, exact-head qualification and independent semantic/security review must either identify an already-canonical authority that covers the frozen toolchain acquisition surface or leave that future execution fail-closed pending a separate exact Founder decision/governance amendment. No package-index, llama.cpp source, model-weight, conversion, or quantization network action is authorized by this reconciliation.
 
 ```text
 T029_RECONCILIATION_MERGE_ELIGIBILITY = MAY_BE_QUALIFIED_WITHOUT_EXTERNAL_EXECUTION
-T029_QWEN_REPAIR_EXECUTION_READY = NO
+T029_FUTURE_REGENERATION_EXECUTION_READY = NO
 TOOLCHAIN_NETWORK_AUTHORITY = MUST_BE_PROVEN_BEFORE_DISPATCH
 MODEL_ARTIFACT_NETWORK = T027_ALLOWLIST_PLUS_BOUND_T028_ADDENDUM_ONLY
 ```
@@ -163,7 +158,7 @@ PRODUCTION_RELEASE = NONE
 ## Completion Boundary
 
 ```text
-T029_EXECUTION_PROFILE_SET = 7_FULL_1_PARTIAL_QWEN35_2B_Q4_K_S_REPAIR_REQUIRED
+T029_EXECUTION_PROFILE_SET = 8_FULLY_VERIFIED
 T029_CURRENT_RECONCILIATION_QUALIFICATION = PENDING
 T029_COMPLETE_CANONICAL = NO
 ```
