@@ -12,7 +12,7 @@
   "toolchain_lock_path": "artifacts/manifests/T031-executor-toolchain-lock.json",
   "toolchain_lock_sha256": "11d4c5fcaebbcdad2800f4c922339c25dfab0582478c5478cdbe7cd2236a0c3b",
   "toolchain_helper_path": "colab/mstr_executor_toolchain.py",
-  "toolchain_helper_sha256": "615ff76c5c91873820f0d3f0abd6f95ba9a65a7696ffec5aab6946f17b1ea4f6",
+  "toolchain_helper_sha256": "b7603336d8fcf38ab92ffa108f5e62c194e296f31e36d401a2cb8c901eaa0c77",
   "governance_script_path": "colab/mstr_t031_governance.py",
   "governance_script_sha256": "ff1fe702be38fb8eafbe6d490cf22e1ae34944f35c19e8cb114f426e5efcdaf4",
   "source_script_path": "colab/mstr_t031_source.py",
@@ -22,9 +22,9 @@
   "measurement_script_path": "colab/mstr_t031_measure.py",
   "measurement_script_sha256": "3a4f93217d46772fca2d55a0f5d146da9da4c0a9d116a5c79939d384269b224b",
   "executor_script_path": "colab/mstr_t031_execute.py",
-  "executor_script_sha256": "bce0fd70289cb6444930c3c7d89ac40992ca4b659d4a2b5b369223a912d542c8",
+  "executor_script_sha256": "4a0fa5fb0fb12e53c586ab80c5981b700717493c2cf21115c2de5ac5a8327bef",
   "workflow_path": ".github/workflows/t031-measure.yml",
-  "workflow_sha256": "c482b82e0dcf84b5d7a015cfbc69fa92f2ac5c2a12b7ec4b1525f8092379e8a3",
+  "workflow_sha256": "01ac116ec6678fbb2053a8bee947637c1771975e1443d5f7d3d9e816f4c222c3",
   "candidate_ids": [
     "granite-4.1-3b",
     "ministral-3-3b",
@@ -57,8 +57,6 @@
   "dispatch_boundary": {
     "canonicalization_required": true,
     "manual_dispatch_branch": "main",
-    "connector_dispatch_branch_pattern": "execute/t031-<authorized-candidate>",
-    "connector_dispatch_event": "BRANCH_CREATION_ONLY",
     "checkout_ref": "main",
     "max_parallel_candidates": 1,
     "max_job_minutes": 120
