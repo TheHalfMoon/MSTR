@@ -12,7 +12,7 @@
       "runtime_id": "llama.cpp-llama-bench-cpu",
       "upstream_repository": "https://github.com/ggml-org/llama.cpp",
       "upstream_revision": "3173a56471c1753650cd806694145ffd6dcace67",
-      "interface_evidence": "tools/llama-bench/README.md and tools/llama-bench/llama-bench.cpp at the pinned revision; reverified 2026-09-05",
+      "interface_evidence": "tools/llama-bench/README.md, tools/llama-bench/llama-bench.cpp, and common/arg.cpp at the pinned revision; reverified 2026-09-05",
       "interface": {
         "model": "-m",
         "prompt_tokens": "-p",
@@ -34,9 +34,9 @@
         "avg_ns",
         "avg_ts"
       ],
-      "cpu_only_policy": "Adapter always supplies -ngl 0 and --device none, then rejects any result that does not report n_gpu_layers=0 and devices=none.",
-      "network_policy": "Local artifact path only; provider acquisition flags and llama.cpp RPC flags are prohibited by profile validation.",
-      "adapter_state": "RECONCILED_IMPLEMENTATION_UNEXECUTED"
+      "cpu_only_policy": "Adapter always supplies -ngl 0 and --device none, strips inherited LLAMA_ARG_* and HF_* option environment variables before subprocess execution, then rejects any result that does not report n_gpu_layers=0 and devices=none.",
+      "network_policy": "Local artifact path only. Provider-acquisition and RPC CLI flags are prohibited by profile validation, and inherited LLAMA_ARG_* / HF_* environment option surfaces are removed before subprocess execution so upstream environment parsing cannot re-enable model URL, Docker, Hugging Face, RPC, device, or GPU-layer paths.",
+      "adapter_state": "RECONCILED_IMPLEMENTATION_UNEXECUTED_SECURITY_HARDENED"
     },
     {
       "runtime_id": "llamafile",
@@ -48,5 +48,5 @@
       "reason": "Release 0.10.5 remains the latest published release as reverified on 2026-09-05, and current repository code search exposes no llamafile-bench entry point. Historical benchmark-interface claims are not promoted to current T030 authority."
     }
   ],
-  "decision": "Reconcile the historical profile-driven portable CPU benchmark adapter onto exact current main using the proven llama-bench interface. Force device=none, prohibit provider/RPC network paths, and do not manufacture a llamafile adapter until a current stable interface is evidenced."
+  "decision": "Reconcile and security-harden the historical profile-driven portable CPU benchmark adapter onto exact current main using the proven llama-bench interface. Force device=none, remove inherited upstream option environment surfaces, prohibit provider/RPC network paths, and do not manufacture a llamafile adapter until a current stable interface is evidenced."
 }
