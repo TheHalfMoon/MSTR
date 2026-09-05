@@ -60,6 +60,10 @@ def test_profile_rejects_provider_acquisition_flags() -> None:
 @pytest.mark.parametrize(
     "network_flag",
     [
+        "--model-url=https://example.invalid/model.gguf",
+        "-mu=https://example.invalid/model.gguf",
+        "--docker-repo=example/model:latest",
+        "-dr=example/model:latest",
         "--hf-repo=owner/model",
         "--hf-file=model.gguf",
         "--hf-token=secret",
