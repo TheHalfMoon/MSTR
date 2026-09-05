@@ -46,6 +46,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git add -N artifacts/manifests/quantization/T029-qwen3.5-2b-historical-provenance.json
           git diff --check "$EXPECTED_MAIN"
           git diff --name-only "$EXPECTED_MAIN" | sort > /tmp/actual.txt
           cat > /tmp/expected.txt <<'EOF'
