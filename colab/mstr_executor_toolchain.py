@@ -14,6 +14,11 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 CHUNK = 1024 * 1024
+SYSTEM_PROBE_TIMEOUT_SECONDS = 30
+LOCAL_SETUP_TIMEOUT_SECONDS = 120
+INSTALL_TIMEOUT_SECONDS = 300
+GIT_NETWORK_TIMEOUT_SECONDS = 300
+BUILD_TIMEOUT_SECONDS = 1200
 
 
 class ToolchainError(RuntimeError):
@@ -108,16 +113,25 @@ def download_verified(
         raise
 
 
-def _run_checked(argv: list[str], *, env: dict[str, str] | None = None) -> str:
-    completed = subprocess.run(
-        argv,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-        env=env,
-    )
+def _run_checked(
+    argv: list[str],
+    *,
+    timeout: int,
+    env: dict[str, str] | None = None,
+) -> str:
+    try:
+        completed = subprocess.run(
+            argv,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            env=env,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ToolchainError(f"command timed out after {timeout}s: {argv!r}") from exc
     if completed.returncode != 0:
         diagnostic = (completed.stdout + "\n" + completed.stderr).strip()[-4000:]
         raise ToolchainError(f"command failed ({completed.returncode}): {argv!r}\n{diagnostic}")
@@ -145,7 +159,7 @@ def require_system_identity(lock: dict[str, object]) -> None:
     }
     for name, argv in probes.items():
         expected = tools.get(name)
-        output = _run_checked(argv)
+        output = _run_checked(argv, timeout=SYSTEM_PROBE_TIMEOUT_SECONDS)
         actual = output.splitlines()[0] if output else ""
         if actual != expected:
             raise ToolchainError(f"{name} identity mismatch: expected {expected!r}, got {actual!r}")
@@ -193,7 +207,10 @@ def install_verified_python_toolchain(lock_path: Path, root: Path) -> Path:
         downloads.append((destination, meta))
 
     venv = root / "venv"
-    _run_checked([sys.executable, "-m", "venv", str(venv)])
+    _run_checked(
+        [sys.executable, "-m", "venv", str(venv)],
+        timeout=LOCAL_SETUP_TIMEOUT_SECONDS,
+    )
     python_exe = venv / "bin" / "python"
     pip_wheel = downloads[0][0]
     _run_checked(
@@ -205,7 +222,8 @@ def install_verified_python_toolchain(lock_path: Path, root: Path) -> Path:
             "--no-index",
             "--no-deps",
             str(pip_wheel),
-        ]
+        ],
+        timeout=INSTALL_TIMEOUT_SECONDS,
     )
     package_wheels = [str(path) for path, _ in downloads[1:]]
     _run_checked(
@@ -217,7 +235,8 @@ def install_verified_python_toolchain(lock_path: Path, root: Path) -> Path:
             "--no-index",
             "--no-deps",
             *package_wheels,
-        ]
+        ],
+        timeout=INSTALL_TIMEOUT_SECONDS,
     )
     shutil.rmtree(wheel_dir, ignore_errors=True)
     return python_exe
@@ -251,19 +270,40 @@ def clone_exact_commit(
         shutil.rmtree(destination)
     destination.mkdir(parents=True)
     env = sanitized_runtime_environment()
-    _run_checked(["git", "-C", str(destination), "init"], env=env)
-    _run_checked(["git", "-C", str(destination), "remote", "add", "origin", repository], env=env)
+    _run_checked(
+        ["git", "-C", str(destination), "init"],
+        env=env,
+        timeout=LOCAL_SETUP_TIMEOUT_SECONDS,
+    )
+    _run_checked(
+        ["git", "-C", str(destination), "remote", "add", "origin", repository],
+        env=env,
+        timeout=LOCAL_SETUP_TIMEOUT_SECONDS,
+    )
     _run_checked(
         ["git", "-C", str(destination), "fetch", "--depth", "1", "origin", commit],
         env=env,
+        timeout=GIT_NETWORK_TIMEOUT_SECONDS,
     )
-    _run_checked(["git", "-C", str(destination), "checkout", "--detach", commit], env=env)
-    actual = _run_checked(["git", "-C", str(destination), "rev-parse", "HEAD"], env=env)
+    _run_checked(
+        ["git", "-C", str(destination), "checkout", "--detach", commit],
+        env=env,
+        timeout=LOCAL_SETUP_TIMEOUT_SECONDS,
+    )
+    actual = _run_checked(
+        ["git", "-C", str(destination), "rev-parse", "HEAD"],
+        env=env,
+        timeout=SYSTEM_PROBE_TIMEOUT_SECONDS,
+    )
     if actual != commit:
         raise ToolchainError(f"llama.cpp commit mismatch: expected {commit}, got {actual}")
 
     build_dir = destination / "build"
-    _run_checked(["cmake", "-S", str(destination), "-B", str(build_dir), *build_flags], env=env)
+    _run_checked(
+        ["cmake", "-S", str(destination), "-B", str(build_dir), *build_flags],
+        env=env,
+        timeout=BUILD_TIMEOUT_SECONDS,
+    )
     _run_checked(
         [
             "cmake",
@@ -275,6 +315,7 @@ def clone_exact_commit(
             str(min(os.cpu_count() or 2, 4)),
         ],
         env=env,
+        timeout=BUILD_TIMEOUT_SECONDS,
     )
     executable = build_dir / "bin" / target
     if not executable.is_file():
