@@ -36,7 +36,10 @@ def test_t029_manifest_records_eight_ready_primary_artifact_profiles() -> None:
     profiles = manifest["profiles"]
     assert isinstance(profiles, list)
     assert {profile["candidate_id"] for profile in profiles} == EXPECTED_CANDIDATES
-    assert manifest["completion_state"] == "Q4_PROFILE_SET_READY"
+    assert (
+        manifest["completion_state"]
+        == "Q4_PROFILE_SET_READY_NOT_T029_COMPLETE_CANONICAL"
+    )
     assert manifest["pending"] == []
     assert all(profile["result_classification"] == "Q4_PROFILE_READY" for profile in profiles)
     qwen = next(profile for profile in profiles if profile["candidate_id"] == "qwen3.5-2b")

@@ -82,10 +82,10 @@ PRODUCTION_RELEASE = NONE
 
 ## Current Boundary
 
-Seven T029 candidates retain fully usable historical Q4 profile evidence. The primary `qwen3.5-2b` artifact records an impossible 65-hex Q4_K_S SHA-256 field, so that single cell is now fail-closed pending governed repair execution. The Ministral runner-decoding recovery remains scientifically resolved. T029 remains open until the Qwen integrity defect is repaired and the current-main reconciliation passes fresh qualification, independent review, mandatory premerge, guarded merge, postmerge proof, and separate canonical task closeout.
+All eight T029 candidates retain byte-verified historical Q4 profile evidence. Fresh exact-head qualification re-downloaded the primary `qwen3.5-2b` artifact and proved that its Q4_K_S SHA-256 is the valid 64-hex value recorded in the corrected manifest; the earlier 65-hex value was a reconciliation transcription error caught before merge, not a historical execution defect. The Ministral runner-decoding recovery remains scientifically resolved. T029 remains open until the current-main reconciliation passes fresh qualification, independent review, mandatory premerge, guarded merge, postmerge proof, and separate canonical task closeout.
 
 ```text
 RUNNER_RECOVERY = PASS
-T029_Q4_PROFILE_SET = 7_FULL_1_PARTIAL_QWEN35_2B_Q4_K_S_REPAIR_REQUIRED
+T029_Q4_PROFILE_SET = 8_FULLY_VERIFIED
 T029_COMPLETE_CANONICAL = NO
 ```
