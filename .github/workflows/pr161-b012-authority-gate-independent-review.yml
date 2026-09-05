@@ -1,0 +1,211 @@
+name: Independent review PR161 B012 authority gate
+
+on:
+  push:
+    branches:
+      - evidence/pr161-b012-authority-gate-independent-review
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  REPO: TheHalfMoon/MSTR
+  PR_NUMBER: "161"
+  BASE_SHA: 5aaa64c2f93f7edbe991f62ce822ed134d9f1b59
+  HEAD_SHA: 8f8736303e1eecd3921e95b5a83a24af3143dd88
+  EXPECTED_TREE: 4002673583c9d05d6d226d8571bd01e9fb2df877
+  TARGET_BRANCH: governance/b012-external-effect-gate
+  AUTHORITY_ID: B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION
+  B011_AUTHORITY_ID: B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED
+  QUALIFICATION_RUN: "33958930009"
+  QUALIFICATION_EVIDENCE_HEAD: 0d24b144988996686420c5b26946f8c031abd583
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact reviewed head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bind review to exact successful qualification and live PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$HEAD_SHA"
+
+          qualification=$(curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/actions/runs/$QUALIFICATION_RUN")
+          test "$(jq -r .status <<<"$qualification")" = completed
+          test "$(jq -r .conclusion <<<"$qualification")" = success
+          test "$(jq -r .head_sha <<<"$qualification")" = "$QUALIFICATION_EVIDENCE_HEAD"
+
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER" > /tmp/pr.json
+          jq -e \
+            --arg base "$BASE_SHA" \
+            --arg head "$HEAD_SHA" \
+            '.state == "open" and .draft == false and .base.ref == "main" and .base.sha == $base and .head.ref == "governance/b012-external-effect-gate" and .head.sha == $head and .commits == 1 and .changed_files == 5' \
+            /tmp/pr.json >/dev/null
+          echo 'PR161_REVIEW_OBJECT=PASS'
+
+      - name: Independent substantive semantic review
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          git show "$BASE_SHA:configs/task-gate/mstr-000b.json" > /tmp/base-catalog.json
+
+          python - <<'PY'
+          import copy
+          import json
+          import subprocess
+          from pathlib import Path
+
+          base_sha = "5aaa64c2f93f7edbe991f62ce822ed134d9f1b59"
+          authority_id = "B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION"
+          b011_authority_id = "B011_FOUNDER_AUTHORITY_IF_ACCESS_REQUIRED"
+
+          base = json.loads(Path("/tmp/base-catalog.json").read_text(encoding="utf-8"))
+          head = json.loads(Path("configs/task-gate/mstr-000b.json").read_text(encoding="utf-8"))
+
+          expected = copy.deepcopy(base)
+          base_b012 = expected["tasks"]["B012"]
+          assert base_b012["canonical_state"] == "PENDING"
+          assert "external_effect_class" not in base_b012
+          assert "required_authority_id" not in base_b012
+          base_b012["external_effect_class"] = "MODEL_WEIGHT_ACCESS"
+          base_b012["required_authority_id"] = authority_id
+          assert head == expected
+
+          b011 = head["tasks"]["B011"]
+          b012 = head["tasks"]["B012"]
+          b013 = head["tasks"]["B013"]
+          assert b011["canonical_state"] == "COMPLETE_CANONICAL"
+          assert b011["external_effect_class"] == "MODEL_WEIGHT_ACCESS"
+          assert b011["required_authority_id"] == b011_authority_id
+          assert b012["canonical_state"] == "PENDING"
+          assert b012["external_effect_class"] == "MODEL_WEIGHT_ACCESS"
+          assert b012["required_authority_id"] == authority_id
+          assert b013["canonical_state"] == "BLOCKED"
+          assert "B012" in b013["prerequisites"]
+
+          changed = subprocess.check_output(
+              ["git", "diff", "--name-only", base_sha, "HEAD"], text=True
+          ).splitlines()
+          assert sorted(changed) == sorted([
+              "configs/task-gate/mstr-000b.json",
+              "specs/002-code-model-supremacy-foundation/tasks.md",
+              "tests/contract/test_convergence_external_bindings.py",
+              "tests/contract/test_task_gate.py",
+              "tests/integration/test_task_gate_cli.py",
+          ])
+
+          forbidden = subprocess.check_output([
+              "git", "diff", "--name-only", base_sha, "HEAD", "--",
+              "src", "schemas", ".github/workflows", "docs/canonical/CURRENT_STATE.md",
+              "artifacts/authorities", "artifacts/manifests",
+          ], text=True).strip()
+          assert forbidden == ""
+
+          assert not Path(f"artifacts/authorities/{authority_id}.json").exists()
+          base_b011_bytes = subprocess.check_output([
+              "git", "show", f"{base_sha}:artifacts/authorities/{b011_authority_id}.json"
+          ])
+          assert Path(f"artifacts/authorities/{b011_authority_id}.json").read_bytes() == base_b011_bytes
+
+          b011_authority = json.loads(
+              Path(f"artifacts/authorities/{b011_authority_id}.json").read_text(encoding="utf-8")
+          )
+          serialized = json.dumps(b011_authority, sort_keys=True)
+          assert b011_authority["task_id"] == "B011"
+          assert b011_authority["authority_id"] == b011_authority_id
+          assert authority_id not in serialized
+          assert "K2" not in serialized and "Horizon" not in serialized
+
+          tasks = Path("specs/002-code-model-supremacy-foundation/tasks.md").read_text(encoding="utf-8")
+          assert authority_id in tasks
+          assert "B011 authority never transfers" in tasks
+          assert "Before any B012 action that re-acquires model weights or executes conversion, quantization, runtime, or model workloads" in tasks
+          assert "- [ ] **B012 Run equivalent Q4/runtime/resource/raw-code qualification" in tasks
+          assert "- [ ] **B013 Freeze stable product-aligned candidate pool" in tasks
+
+          strategy = Path("docs/canonical/MSTR_FRONTIER_ACCELERATION_STRATEGY.md").read_text(encoding="utf-8")
+          assert "MODEL_WEIGHT_ACCESS = NOT_AUTHORIZED_BY_THIS_DOCUMENT" in strategy
+          assert "MODEL_EXECUTION = NOT_AUTHORIZED_BY_THIS_DOCUMENT" in strategy
+          assert "QUANTIZATION_EXECUTION = NOT_AUTHORIZED_BY_THIS_DOCUMENT" in strategy
+          assert "No K2 model is preselected, admitted, authorized for weight access, or qualified by this strategy." in strategy
+
+          pr_diff = subprocess.check_output(["git", "diff", base_sha, "HEAD"], text=True)
+          assert "AUTHORIZED_CANONICAL" not in pr_diff
+          assert "K2 Horizon" not in pr_diff
+
+          print("PR161_INDEPENDENT_SEMANTIC_ASSERTIONS=PASS")
+          print("FINDINGS=NONE")
+          PY
+
+          git update-ref refs/heads/main "$HEAD_SHA"
+          git update-ref refs/remotes/origin/main "$HEAD_SHA"
+          mstr-qualify task drift > /tmp/drift.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift.json >/dev/null
+
+          set +e
+          mstr-qualify task eligible B011 > /tmp/b011.json; b011_exit=$?
+          mstr-qualify task eligible B012 > /tmp/b012.json; b012_exit=$?
+          mstr-qualify task eligible B013 > /tmp/b013.json; b013_exit=$?
+          set -e
+          test "$b011_exit" -eq 1
+          test "$b012_exit" -eq 1
+          test "$b013_exit" -eq 1
+          jq -e '.eligible == false and (.reasons | index("task.already_terminal")) != null and .authority_result.required == true and .authority_result.satisfied == true' /tmp/b011.json >/dev/null
+          jq -e --arg authority "$AUTHORITY_ID" '.eligible == false and .state_consistency_result.observed_state == "PENDING" and .authority_result.required == true and .authority_result.authority_id == $authority and .authority_result.satisfied == false and (.reasons | index("authority.canonical_envelope_missing_or_invalid")) != null' /tmp/b012.json >/dev/null
+          jq -e '.eligible == false and .state_consistency_result.observed_state == "BLOCKED" and (.reasons | index("prerequisite.unsatisfied:B012")) != null' /tmp/b013.json >/dev/null
+          echo 'PR161_INDEPENDENT_SEMANTIC_REVIEW=PASS'
+          echo 'FINDINGS=NONE'
+
+      - name: Independent regression and quality rerun
+        run: |
+          set -euo pipefail
+          python -m pytest -q tests/contract/test_task_gate.py tests/integration/test_task_gate_cli.py tests/contract/test_convergence_external_bindings.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          mstr-qualify task drift > /tmp/drift-final.json
+          jq -e '.status == "clean" and (.findings | length) == 0 and .tasks_checked == 34' /tmp/drift-final.json >/dev/null
+          echo 'PR161_INDEPENDENT_QUALITY=PASS'
+
+      - name: Final reviewed-head immutability
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$HEAD_SHA"
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER" > /tmp/pr-final.json
+          jq -e --arg head "$HEAD_SHA" '.state == "open" and .draft == false and .head.sha == $head and .changed_files == 5' /tmp/pr-final.json >/dev/null
+          echo 'PR161_B012_AUTHORITY_GATE_INDEPENDENT_REVIEW=PASS'
+          echo 'FINDINGS=NONE'
