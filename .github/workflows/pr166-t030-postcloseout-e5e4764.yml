@@ -1,0 +1,142 @@
+name: PR166 T030 canonical post-closeout verification
+
+on:
+  push:
+    branches:
+      - evidence/pr166-t030-postcloseout-e5e4764
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+env:
+  REPO: TheHalfMoon/MSTR
+  PR_NUMBER: "166"
+  OLD_MAIN: 8916fa7138ad56d18452b7a20db9c8cb982648ba
+  CLOSEOUT_HEAD: f824fdd082457de0542eed703b8e4b7b4edf5002
+  MERGE_SHA: e5e47644fb7122cbb47b43cdf13d072f82ebfdf7
+  MERGE_TREE: c94b97fcdf20a56e2de08db9eab4667ebe632644
+  QUALIFICATION_RUN: "33975903756"
+  QUALIFICATION_EVIDENCE_HEAD: 06d7d585b533272e297ce6e50ed605977ebf9ab5
+  REVIEW_RUN: "33976132142"
+  REVIEW_EVIDENCE_HEAD: 33243bb0fa0b39ef7aa1ff209ea0d6468b95fdfe
+  REVIEW_SUBMISSION_ID: "5121927896"
+  PREMERGE_RUN: "33976318773"
+  PREMERGE_EVIDENCE_HEAD: f2d7cb53d3392e374c24d656a69f1ccdace1e276
+
+jobs:
+  canonical_identity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact canonical merge
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+
+      - name: Verify live main, merge provenance, lifecycle and authority boundary
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git rev-parse HEAD^1)" = "$OLD_MAIN"
+          test "$(git rev-parse HEAD^2)" = "$CLOSEOUT_HEAD"
+
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          token = os.environ['GH_TOKEN']
+          repo = os.environ['REPO']
+          def get(url):
+              req = urllib.request.Request(url, headers={
+                  'Authorization': f'Bearer {token}',
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+              })
+              with urllib.request.urlopen(req) as response:
+                  return json.load(response)
+
+          branch = get(f'https://api.github.com/repos/{repo}/branches/main')
+          assert branch['commit']['sha'] == os.environ['MERGE_SHA']
+          commit = get(f'https://api.github.com/repos/{repo}/commits/{os.environ["MERGE_SHA"]}')
+          assert commit['commit']['tree']['sha'] == os.environ['MERGE_TREE']
+          assert [p['sha'] for p in commit['parents']] == [os.environ['OLD_MAIN'], os.environ['CLOSEOUT_HEAD']]
+          assert commit['commit']['verification']['verified'] is True
+          assert commit['commit']['verification']['reason'] == 'valid'
+
+          pr = get(f'https://api.github.com/repos/{repo}/pulls/{os.environ["PR_NUMBER"]}')
+          assert pr['state'] == 'closed'
+          assert pr['merged_at'] is not None
+          assert pr['merge_commit_sha'] == os.environ['MERGE_SHA']
+          assert pr['head']['sha'] == os.environ['CLOSEOUT_HEAD']
+
+          for run_id, evidence_head in [
+              (os.environ['QUALIFICATION_RUN'], os.environ['QUALIFICATION_EVIDENCE_HEAD']),
+              (os.environ['REVIEW_RUN'], os.environ['REVIEW_EVIDENCE_HEAD']),
+              (os.environ['PREMERGE_RUN'], os.environ['PREMERGE_EVIDENCE_HEAD']),
+          ]:
+              run = get(f'https://api.github.com/repos/{repo}/actions/runs/{run_id}')
+              assert run['status'] == 'completed'
+              assert run['conclusion'] == 'success'
+              assert run['head_sha'] == evidence_head
+
+          reviews = get(f'https://api.github.com/repos/{repo}/pulls/{os.environ["PR_NUMBER"]}/reviews?per_page=100')
+          review = [r for r in reviews if str(r['id']) == os.environ['REVIEW_SUBMISSION_ID']]
+          assert len(review) == 1
+          assert review[0]['commit_id'] == os.environ['CLOSEOUT_HEAD']
+          assert review[0]['state'] == 'COMMENTED'
+          assert 'Findings: NONE' in (review[0].get('body') or '')
+          PY
+
+          grep -Fqx -- '- [x] T030 [US1] Implement/qualify portable CPU runtime adapters; acceleration is separate bonus data → `src/mstr_qualify/runtimes/<runtime>.py`, `configs/runtimes/*.json`, `tests/integration/test_runtime_adapters.py`, `evidence/T030-runtime-adapters.md`.' specs/000-universal-laptop-interaction-contract/tasks.md
+          grep -Fqx -- '- [ ] T031 [US1] Measure 4K/8K/16K artifact/load/memory/paging/prefill/decode behavior → `artifacts/results/local/T031/*.jsonl`, `evidence/T031-local-memory-throughput.md`.' specs/000-universal-laptop-interaction-contract/tasks.md
+          grep -F 'T000-T030 = COMPLETE_CANONICAL' docs/canonical/CURRENT_STATE.md
+          grep -F 'T030_COMPLETE_CANONICAL = YES_ON_CLOSEOUT_MERGE' evidence/T030-runtime-adapters.md
+          grep -F 'T031_EXECUTION_AUTHORITY = NOT_CREATED_BY_T030' evidence/T030-runtime-adapters.md
+          test ! -e artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact canonical merge
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 0
+
+      - name: Re-run frozen quality gates on canonical main merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          python -m pytest -q
+          ruff check .
+          mypy
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test -z "$(git status --porcelain)"
+
+  final_postcloseout:
+    needs: [canonical_identity, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Final exact-main canonical verdict
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          main_sha="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/branches/main" | python -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])')"
+          test "$main_sha" = "$MERGE_SHA"
+          echo "T030_COMPLETE_CANONICAL=YES"
+          echo "CANONICAL_MAIN=$MERGE_SHA"
+          echo "T031=NEXT_PENDING_AUTHORITY_AND_EXECUTION_RECONCILIATION"
+          echo "T031_EXECUTION_AUTHORITY=NOT_CREATED_BY_T030"
+          echo "B012_AUTHORITY=ABSENT"
