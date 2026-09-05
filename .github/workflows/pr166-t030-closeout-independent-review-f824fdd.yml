@@ -1,0 +1,142 @@
+name: PR166 T030 closeout independent semantic governance review
+
+on:
+  push:
+    branches:
+      - evidence/pr166-t030-closeout-independent-review-f824fdd
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  REPO: TheHalfMoon/MSTR
+  PR_NUMBER: "166"
+  BASE_SHA: 8916fa7138ad56d18452b7a20db9c8cb982648ba
+  TARGET_HEAD: f824fdd082457de0542eed703b8e4b7b4edf5002
+  TARGET_TREE: c94b97fcdf20a56e2de08db9eab4667ebe632644
+  QUALIFICATION_RUN: "33975903756"
+  QUALIFICATION_EVIDENCE_HEAD: 06d7d585b533272e297ce6e50ed605977ebf9ab5
+
+jobs:
+  semantics_governance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact reviewed head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+
+      - name: Perform independent substantive governance review
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          git fetch origin main --quiet
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          test "$(git merge-base "$BASE_SHA" "$TARGET_HEAD")" = "$BASE_SHA"
+          git diff --check "$BASE_SHA...$TARGET_HEAD"
+          changed="$(git diff --name-only "$BASE_SHA...$TARGET_HEAD" | sort)"
+          expected="$(printf '%s\n' docs/canonical/CURRENT_STATE.md evidence/T030-runtime-adapters.md specs/000-universal-laptop-interaction-contract/tasks.md | sort)"
+          test "$changed" = "$expected"
+
+          qual="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/actions/runs/$QUALIFICATION_RUN")"
+          python - "$qual" <<'PY'
+          import json, sys
+          run = json.loads(sys.argv[1])
+          assert run["status"] == "completed"
+          assert run["conclusion"] == "success"
+          assert run["head_sha"] == "06d7d585b533272e297ce6e50ed605977ebf9ab5"
+          PY
+          git show "$QUALIFICATION_EVIDENCE_HEAD:.github/workflows/pr166-t030-closeout-qualification-f824fdd.yml" | grep -F 'TARGET_HEAD: f824fdd082457de0542eed703b8e4b7b4edf5002'
+          git show "$QUALIFICATION_EVIDENCE_HEAD:.github/workflows/pr166-t030-closeout-qualification-f824fdd.yml" | grep -F 'TARGET_TREE: c94b97fcdf20a56e2de08db9eab4667ebe632644'
+
+          python - <<'PY'
+          import json, re
+          from pathlib import Path
+
+          a = Path('specs/001-agent-harness-verified-loop-foundation/tasks.md').read_text()
+          a_state = {m.group(2): m.group(1) for m in re.finditer(r'- \[([ x])\] \*\*A(\d{3})\b', a)}
+          for n in range(1, 19):
+              assert a_state[f'{n:03d}'] == 'x', (n, a_state.get(f'{n:03d}'))
+          for n in range(19, 25):
+              assert a_state[f'{n:03d}'] == ' ', (n, a_state.get(f'{n:03d}'))
+
+          b = Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text()
+          b_state = {m.group(2): m.group(1) for m in re.finditer(r'- \[([ x])\] \*\*B(\d{3})\b', b)}
+          for n in range(1, 12):
+              assert b_state[f'{n:03d}'] == 'x', (n, b_state.get(f'{n:03d}'))
+          assert b_state['012'] == ' '
+          assert b_state['013'] == ' '
+          for n in range(14, 31):
+              assert b_state[f'{n:03d}'] == 'x', (n, b_state.get(f'{n:03d}'))
+          for n in range(31, 35):
+              assert b_state[f'{n:03d}'] == ' ', (n, b_state.get(f'{n:03d}'))
+
+          gate = json.loads(Path('configs/task-gate/mstr-000b.json').read_text())
+          tasks = gate['tasks']
+          assert tasks['B012']['canonical_state'] == 'PENDING'
+          assert tasks['B012']['required_authority_id'] == 'B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
+          assert tasks['B013']['canonical_state'] == 'BLOCKED'
+          PY
+
+          grep -F 'A005-A018 = COMPLETE_CANONICAL' docs/canonical/CURRENT_STATE.md
+          grep -F 'A019-A024 = PENDING / CONVERGENCE_GATED' docs/canonical/CURRENT_STATE.md
+          grep -F 'B001-B011 = COMPLETE_CANONICAL' docs/canonical/CURRENT_STATE.md
+          grep -F 'B012 = PENDING / BLOCKED_BY_EXACT_FOUNDER_AUTHORITY' docs/canonical/CURRENT_STATE.md
+          grep -F 'B013 = BLOCKED_BY_B012' docs/canonical/CURRENT_STATE.md
+          grep -F 'B014-B030 = COMPLETE_CANONICAL' docs/canonical/CURRENT_STATE.md
+          grep -F 'B031-B034 = PENDING / CONVERGENCE_AND_CLOSEOUT_GATED' docs/canonical/CURRENT_STATE.md
+          grep -F 'T031_EXECUTION_AUTHORITY = NOT_CREATED_BY_T030' evidence/T030-runtime-adapters.md
+          grep -F 'B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION = ABSENT' evidence/T030-runtime-adapters.md
+          test ! -e artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json
+
+  independent_quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact reviewed head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+
+      - name: Re-run frozen independent quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          python -m pytest -q
+          ruff check .
+          mypy
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test -z "$(git status --porcelain)"
+
+  final_review:
+    needs: [semantics_governance, independent_quality]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recheck exact live identities and emit review verdict
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          main_sha="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/branches/main" | python -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])')"
+          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER")"
+          pr_head="$(python - "$pr_json" <<'PY'
+          import json, sys
+          print(json.loads(sys.argv[1])['head']['sha'])
+          PY
+          )"
+          test "$main_sha" = "$BASE_SHA"
+          test "$pr_head" = "$TARGET_HEAD"
+          echo "INDEPENDENT_REVIEW_VERDICT=PASS"
+          echo "FINDINGS=NONE"
+          echo "T031_EXECUTION_AUTHORITY=NOT_CREATED"
+          echo "B012_AUTHORITY=ABSENT"
