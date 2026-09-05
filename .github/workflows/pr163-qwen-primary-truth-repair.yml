@@ -1,0 +1,132 @@
+name: PR163 Qwen primary truth repair
+
+on:
+  push:
+    branches:
+      - evidence/pr163-qwen-primary-truth-repair-55544a4
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      EXPECTED_MAIN: 5cadbd754686ebff6f5327e9746f0b074b35e318
+      EXPECTED_TARGET: 55544a4d9a0cc7b062caa98fe0f730952f9d76e5
+      TARGET_BRANCH: fix/000-t029-recovery-current-main
+      BUILDER_COMMIT: 48a4d164bda066278b4e432f2f07d4c6b5837e33
+      QWEN_ARTIFACT_ID: '9603552151'
+      QWEN_ARCHIVE_SHA256: 69a78e2185337b58940b2dc3ab993d182fa9be9f3eaad95fa43a5bf682f9e4a3
+      QWEN_REPORT_SHA256: aad35a2f4db1aff3f2a436a7b98d03a92def063067fc9f294d4a0fcabd8f5d61
+      QWEN_Q4KS_SHA256: a6fe3727940dde3382e2f2a353a51bc2e6970d4e660260428899c29c8e4583e9
+    steps:
+      - name: Verify exact remote identities before repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_TARGET"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_TARGET }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Reverify primary Qwen artifact before materialization
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/qwen
+          curl -L --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/TheHalfMoon/MSTR/actions/artifacts/$QWEN_ARTIFACT_ID/zip" \
+            -o /tmp/qwen.zip
+          test "$(sha256sum /tmp/qwen.zip | cut -d' ' -f1)" = "$QWEN_ARCHIVE_SHA256"
+          unzip -q /tmp/qwen.zip -d /tmp/qwen
+          test "$(sha256sum /tmp/qwen/t029-qwen3.5-2b.json | cut -d' ' -f1)" = "$QWEN_REPORT_SHA256"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          report = json.loads(Path('/tmp/qwen/t029-qwen3.5-2b.json').read_text())
+          value = report['quantization_arms']['Q4_K_S']['output_sha256']
+          assert value == os.environ['QWEN_Q4KS_SHA256']
+          assert len(value) == 64
+          assert report['quantization_arms']['Q4_K_S']['status'] == 'OK'
+          assert report['quantization_arms']['Q4_K_S']['output_size_bytes'] == 1246308960
+          assert report['result_classification'] == 'Q4_PROFILE_READY'
+          print('PRIMARY_QWEN_ARTIFACT=VALID_64_HEX_Q4_PROFILE_READY')
+          PY
+
+      - name: Materialize primary-truth repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$BUILDER_COMMIT"
+          git show "$BUILDER_COMMIT:.github/scripts/pr163_qwen_primary_truth_repair.py" > /tmp/builder.py
+          python /tmp/builder.py
+
+      - name: Verify exact four-file repair scope and whitespace
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check "$EXPECTED_TARGET"
+          git diff --name-only "$EXPECTED_TARGET" | sort > /tmp/actual.txt
+          cat > /tmp/expected.txt <<'EOF'
+          artifacts/manifests/quantization/T029-q4-profiles.json
+          artifacts/manifests/quantization/T029-qwen3.5-2b-historical-provenance.json
+          evidence/T029-q4-profiles.md
+          tests/contract/test_t029_quantization_manifest.py
+          EOF
+          sed -i 's/^          //' /tmp/expected.txt
+          sort -o /tmp/expected.txt /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+
+      - name: Install repository development dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Focused T029 tests
+        run: python -m pytest -q tests/contract/test_t029_quantization_manifest.py tests/unit/test_t029_quantize_runner.py
+
+      - name: Repository validation
+        run: mstr-qualify validate
+
+      - name: Full pytest
+        run: python -m pytest -q
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: Mypy
+        run: mypy
+
+      - name: Commit bounded primary-truth repair locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add artifacts/manifests/quantization/T029-q4-profiles.json \
+            artifacts/manifests/quantization/T029-qwen3.5-2b-historical-provenance.json \
+            evidence/T029-q4-profiles.md \
+            tests/contract/test_t029_quantization_manifest.py
+          git commit -m "fix(mstr-000): restore Qwen T029 primary artifact truth"
+
+      - name: Guarded fast-forward push to target branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_TARGET"
+          git merge-base --is-ancestor "$EXPECTED_TARGET" HEAD
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
