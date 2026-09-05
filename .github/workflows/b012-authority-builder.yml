@@ -1,0 +1,331 @@
+name: b012-authority-builder
+
+on:
+  push:
+    branches:
+      - builder/b012-authority-capture-20260905
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      EXPECTED_MAIN: e5e47644fb7122cbb47b43cdf13d072f82ebfdf7
+      TARGET_BRANCH: governance/b012-founder-authority-exact-b010-candidates
+      AUTHORITY_COMMENT_ID: "5553875175"
+    steps:
+      - name: Checkout builder branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install repository quality dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Verify exact canonical entry and target absence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          if git ls-remote --exit-code --heads origin "refs/heads/$TARGET_BRANCH" >/dev/null 2>&1; then
+            echo "target branch already exists" >&2
+            exit 1
+          fi
+          git checkout --detach "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain)"
+
+      - name: Materialize exact B012 authority and bounded pre-dispatch envelope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import os
+          from copy import deepcopy
+          from pathlib import Path
+
+          root = Path.cwd()
+          base = os.environ["EXPECTED_MAIN"]
+          comment_id = int(os.environ["AUTHORITY_COMMENT_ID"])
+
+          def raw_sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          def load(path: str) -> dict[str, object]:
+              data = json.loads((root / path).read_text(encoding="utf-8"))
+              assert isinstance(data, dict)
+              return data
+
+          def write_json(path: str, payload: dict[str, object]) -> str:
+              target = root / path
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+              return raw_sha(target)
+
+          b010_path = "artifacts/manifests/B010-new-candidate-weight-access.json"
+          t029_path = "artifacts/manifests/quantization/T029-q4-profiles.json"
+          runtime_path = "configs/runtimes/llama-cpp-cpu.json"
+          b010 = load(b010_path)
+          t029 = load(t029_path)
+          runtime = load(runtime_path)
+
+          decision = b010["decision"]
+          assert isinstance(decision, dict)
+          candidate_ids = decision["qualification_candidates"]
+          assert candidate_ids == ["mellum-4b", "qwen3.5-0.8b-control"]
+          assert decision["new_weight_access_required_candidates"] == candidate_ids
+
+          source_rows = b010["candidate_access_envelopes"]
+          assert isinstance(source_rows, list)
+          by_id = {row["candidate_id"]: row for row in source_rows}
+          assert set(by_id) == set(candidate_ids)
+
+          candidate_scope: list[dict[str, object]] = []
+          model_hosts: set[str] = set()
+          total_download = 0
+          for candidate_id in candidate_ids:
+              row = deepcopy(by_id[candidate_id])
+              total_download += int(row["expected_required_download_bytes"])
+              model_hosts.update(str(host) for host in row["network_hosts"])
+              row["executor"] = (
+                  "B012_EPHEMERAL_GITHUB_RUNNER_ONLY_AFTER_CANONICAL_AUTHORITY_"
+                  "EXACT_MAIN_ELIGIBILITY_AND_REVIEWED_EXECUTOR_BINDING"
+              )
+              row["network_policy"] = (
+                  "HTTPS_GET_ONLY_UNDER_CANONICAL_B012_AUTHORITY; "
+                  "ABORT_ON_AUTH_GATING_PAYMENT_GATED_TERMS_OR_UNLISTED_REDIRECT"
+              )
+              row["retention"] = (
+                  "RETAIN_DURABLE_JSON_MARKDOWN_MANIFEST_RESULTS_ONLY; "
+                  "DELETE_MODEL_F16_Q4_PARTIAL_AND_OTHER_LARGE_BINARIES_BEFORE_JOB_END"
+              )
+              candidate_scope.append(row)
+
+          assert total_download == 9817996174
+          assert float(sum(float(row["expected_usd"]) for row in candidate_scope)) == 0.0
+
+          profiles = t029["profiles"]
+          assert isinstance(profiles, list) and profiles
+          quant_commits = {row["llama_cpp_commit"] for row in profiles}
+          recipes = {row["conversion_recipe"] for row in profiles}
+          assert quant_commits == {"fc35562ba46fbbf8e30cac85edbb39642c37d248"}
+          assert recipes == {"convert_hf_to_gguf.py --outtype f16"}
+          assert runtime["runtime_id"] == "llama.cpp-llama-bench-cpu"
+          assert runtime["upstream_revision"] == "3173a56471c1753650cd806694145ffd6dcace67"
+
+          envelope_path = "artifacts/manifests/B012-equivalent-qualification-execution-envelope.json"
+          envelope: dict[str, object] = {
+              "schema_version": "mstr.b012-equivalent-qualification-execution-envelope.v1",
+              "task_id": "B012",
+              "authority_id": "B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION",
+              "founder_decision": "FOUNDER_B012_EQUIVALENT_QUALIFICATION_DECISION=AUTHORIZE_EXACT_B010_CANDIDATES",
+              "decision_surface": {"issue": 162, "comment_id": comment_id},
+              "canonical_entry_main": base,
+              "candidate_ids": candidate_ids,
+              "candidate_source_manifest": {
+                  "path": b010_path,
+                  "sha256": raw_sha(root / b010_path),
+                  "schema_version": b010["schema_version"],
+              },
+              "model_artifact_network": {
+                  "hosts": sorted(model_hosts),
+                  "https_get_only": True,
+                  "abort_on_auth_gating": True,
+                  "abort_on_payment": True,
+                  "abort_on_gated_terms": True,
+                  "abort_on_unlisted_redirect": True,
+              },
+              "quantization_identity": {
+                  "source_manifest": {"path": t029_path, "sha256": raw_sha(root / t029_path)},
+                  "llama_cpp_commit": "fc35562ba46fbbf8e30cac85edbb39642c37d248",
+                  "conversion_recipe": "convert_hf_to_gguf.py --outtype f16",
+                  "arms": ["Q4_K_M", "Q4_K_S"],
+              },
+              "runtime_identity": {
+                  "profile": {"path": runtime_path, "sha256": raw_sha(root / runtime_path)},
+                  "runtime_id": runtime["runtime_id"],
+                  "llama_cpp_commit": runtime["upstream_revision"],
+                  "device": "none",
+                  "gpu_layers": 0,
+              },
+              "runner_envelope": {
+                  "provider": "GITHUB_ACTIONS",
+                  "runner_class": "GITHUB_HOSTED_EPHEMERAL",
+                  "runs_on": "ubuntu-24.04",
+                  "max_parallel_candidates": 1,
+                  "max_job_minutes": 120,
+                  "founder_machine_model_binaries": 0,
+                  "git_model_binaries": 0,
+              },
+              "resource_ceiling": {
+                  "paid_cost_usd": 0.0,
+                  "aggregate_required_source_download_bytes": total_download,
+                  "gpu_layers": 0,
+                  "paid_compute": False,
+                  "paid_model_api": False,
+              },
+              "allowed_operations": [
+                  "REACQUIRE_AND_VERIFY_EXACT_B010_FILES",
+                  "T029_EQUIVALENT_F16_CONVERSION",
+                  "T029_EQUIVALENT_Q4_K_M_AND_Q4_K_S_PROFILING",
+                  "T030_EQUIVALENT_PORTABLE_CPU_RUNTIME_QUALIFICATION",
+                  "RESOURCE_AND_RAW_CODE_QUALIFICATION_REQUIRED_BY_B012",
+              ],
+              "prohibited_operations": [
+                  "K2_OR_ANY_NEW_CANDIDATE",
+                  "CANDIDATE_REVISION_OR_FILE_EXPANSION",
+                  "WEIGHT_CHANGING_TRAINING",
+                  "TRAINING",
+                  "LARGE_SCALE_RL",
+                  "LARGE_OR_PRIVATE_DATASET_INGESTION",
+                  "PAID_COMPUTE",
+                  "PAID_MODEL_API",
+                  "GATED_TERMS_ACCEPTANCE",
+                  "ACCOUNT_REQUIRED_MODEL_ACCESS",
+                  "PRODUCTION_RELEASE",
+                  "GIT_MODEL_BINARIES",
+                  "FOUNDER_MACHINE_MODEL_BINARIES",
+              ],
+              "toolchain_provisioning": {
+                  "state": "BLOCKED_PENDING_SEPARATELY_REVIEWED_EXECUTOR_BINDING",
+                  "reason": (
+                      "Historical T029 package/toolchain network provisioning is not silently reused. "
+                      "A bounded executor must pin acquisition hosts, package/tool revisions, and "
+                      "fail-closed checks before dispatch."
+                  ),
+              },
+              "dispatch_state": "BLOCKED_PENDING_CANONICAL_EXECUTOR_TOOLCHAIN_BINDING",
+              "durable_outputs_only": True,
+          }
+          envelope_sha = write_json(envelope_path, envelope)
+
+          authority_path = "artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json"
+          authority: dict[str, object] = {
+              "authority_id": "B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION",
+              "cost_resource_ceiling": {
+                  "cost_model": "exact-b010-zero-usd-equivalent-qualification",
+                  "limits": [
+                      {"max": 0.0, "resource": "cost", "unit": "USD"},
+                      {
+                          "max": total_download,
+                          "resource": "required_source_download_bytes",
+                          "unit": "bytes",
+                      },
+                  ],
+              },
+              "external_effect_class": "MODEL_WEIGHT_ACCESS",
+              "scope": {
+                  "b010_manifest": {
+                      "path": b010_path,
+                      "schema_version": b010["schema_version"],
+                      "sha256": raw_sha(root / b010_path),
+                  },
+                  "candidate_ids": candidate_ids,
+                  "candidate_access_envelopes": candidate_scope,
+                  "decision": "FOUNDER_B012_EQUIVALENT_QUALIFICATION_DECISION=AUTHORIZE_EXACT_B010_CANDIDATES",
+                  "decision_surface": {"issue": 162, "comment_id": comment_id},
+                  "bounded_execution_envelope": {
+                      "path": envelope_path,
+                      "sha256": envelope_sha,
+                      "dispatch_state": envelope["dispatch_state"],
+                  },
+                  "equivalent_qualification_operations": envelope["allowed_operations"],
+                  "founder_machine_large_artifacts": 0,
+                  "git_model_binaries": False,
+                  "paid_compute": False,
+                  "paid_model_api": False,
+                  "gated_terms_acceptance": False,
+                  "large_dataset_ingestion": False,
+                  "production_release": False,
+                  "weight_changing_training": False,
+                  "training": False,
+                  "new_candidate_access": False,
+              },
+              "status": "AUTHORIZED_CANONICAL",
+              "task_id": "B012",
+          }
+          write_json(authority_path, authority)
+
+          task_gate = root / "tests/contract/test_task_gate.py"
+          text = task_gate.read_text(encoding="utf-8")
+          start = text.index(
+              "def test_b012_fails_closed_without_exact_equivalent_qualification_authority() -> None:\n"
+          )
+          end = text.index("\n\ndef test_b006_fails_closed_when_b005_discovery_manifest_is_missing", start)
+          replacement = '''def test_b012_is_eligible_with_exact_equivalent_qualification_authority() -> None:\n    result = evaluate_task_snapshot("B012", canonical_main=_CANONICAL_MAIN)\n\n    assert result["eligible"] is True\n    assert result["state_consistency_result"]["observed_state"] == "PENDING"\n    predecessor = next(row for row in result["prerequisite_results"] if row["task_id"] == "B011")\n    assert predecessor["satisfied"] is True\n    assert result["authority_result"] == {\n        "required": True,\n        "authority_id": "B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION",\n        "satisfied": True,\n        "reasons": [],\n    }\n    assert result["reasons"] == []\n    validate_instance("mstr-task-eligibility-v0", result)\n'''
+          task_gate.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
+
+          cli_test = root / "tests/integration/test_task_gate_cli.py"
+          text = cli_test.read_text(encoding="utf-8")
+          start = text.index("def test_task_eligible_b012_missing_authority_returns_one(\n")
+          end = text.index("\n\ndef test_task_eligible_configuration_error_returns_two", start)
+          replacement = '''def test_task_eligible_b012_authorized_returns_zero(\n    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]\n) -> None:\n    expected = evaluate_task_snapshot("B012", canonical_main=_CANONICAL_MAIN)\n\n    def fake_evaluate_task_eligibility(task_id: str) -> dict[str, object]:\n        assert task_id == "B012"\n        return expected\n\n    monkeypatch.setattr(\n        "mstr_qualify.cli.evaluate_task_eligibility", fake_evaluate_task_eligibility\n    )\n    exit_code = main(["task", "eligible", "B012"])\n    payload = _stdout_json(capsys)\n    assert exit_code == 0\n    assert payload == expected\n    assert payload["eligible"] is True\n    assert payload["authority_result"] == {\n        "required": True,\n        "authority_id": "B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION",\n        "satisfied": True,\n        "reasons": [],\n    }\n    assert payload["reasons"] == []\n    validate_instance("mstr-task-eligibility-v0", payload)\n'''
+          cli_test.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
+
+          contract = root / "tests/contract/test_b012_authority.py"
+          contract.write_text(
+              '''from __future__ import annotations\n\nimport hashlib\nimport json\nfrom pathlib import Path\n\nfrom mstr_qualify.task_gate import evaluate_task_snapshot\n\nROOT = Path(__file__).resolve().parents[2]\nAUTHORITY = ROOT / "artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json"\nENVELOPE = ROOT / "artifacts/manifests/B012-equivalent-qualification-execution-envelope.json"\nB010 = ROOT / "artifacts/manifests/B010-new-candidate-weight-access.json"\n_CANONICAL_MAIN = "a" * 40\n\n\ndef _load(path: Path) -> dict[str, object]:\n    payload = json.loads(path.read_text(encoding="utf-8"))\n    assert isinstance(payload, dict)\n    return payload\n\n\ndef _sha(path: Path) -> str:\n    return hashlib.sha256(path.read_bytes()).hexdigest()\n\n\ndef test_b012_authority_binds_exact_founder_decision_and_b010_candidates() -> None:\n    authority = _load(AUTHORITY)\n    b010 = _load(B010)\n    scope = authority["scope"]\n    assert isinstance(scope, dict)\n    assert authority["authority_id"] == "B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION"\n    assert authority["task_id"] == "B012"\n    assert authority["external_effect_class"] == "MODEL_WEIGHT_ACCESS"\n    assert authority["status"] == "AUTHORIZED_CANONICAL"\n    assert scope["decision"] == "FOUNDER_B012_EQUIVALENT_QUALIFICATION_DECISION=AUTHORIZE_EXACT_B010_CANDIDATES"\n    assert scope["decision_surface"] == {"issue": 162, "comment_id": 5553875175}\n    assert scope["candidate_ids"] == ["mellum-4b", "qwen3.5-0.8b-control"]\n    assert scope["candidate_ids"] == b010["decision"]["qualification_candidates"]  # type: ignore[index]\n    assert scope["b010_manifest"]["sha256"] == _sha(B010)  # type: ignore[index]\n    assert scope["training"] is False\n    assert scope["weight_changing_training"] is False\n    assert scope["new_candidate_access"] is False\n\n\ndef test_b012_envelope_is_exact_but_dispatch_remains_fail_closed_pending_executor_binding() -> None:\n    authority = _load(AUTHORITY)\n    envelope = _load(ENVELOPE)\n    scope = authority["scope"]\n    assert isinstance(scope, dict)\n    binding = scope["bounded_execution_envelope"]\n    assert isinstance(binding, dict)\n    assert binding["path"] == "artifacts/manifests/B012-equivalent-qualification-execution-envelope.json"\n    assert binding["sha256"] == _sha(ENVELOPE)\n    assert envelope["candidate_ids"] == ["mellum-4b", "qwen3.5-0.8b-control"]\n    assert envelope["runner_envelope"]["runs_on"] == "ubuntu-24.04"  # type: ignore[index]\n    assert envelope["quantization_identity"]["llama_cpp_commit"] == "fc35562ba46fbbf8e30cac85edbb39642c37d248"  # type: ignore[index]\n    assert envelope["runtime_identity"]["llama_cpp_commit"] == "3173a56471c1753650cd806694145ffd6dcace67"  # type: ignore[index]\n    assert envelope["resource_ceiling"]["paid_cost_usd"] == 0.0  # type: ignore[index]\n    assert envelope["dispatch_state"] == "BLOCKED_PENDING_CANONICAL_EXECUTOR_TOOLCHAIN_BINDING"\n    assert envelope["toolchain_provisioning"]["state"] == "BLOCKED_PENDING_SEPARATELY_REVIEWED_EXECUTOR_BINDING"  # type: ignore[index]\n\n\ndef test_b012_machine_gate_accepts_canonical_authority_without_broadening_successors() -> None:\n    result = evaluate_task_snapshot("B012", canonical_main=_CANONICAL_MAIN)\n    assert result["eligible"] is True\n    assert result["reasons"] == []\n    assert result["authority_result"]["satisfied"] is True\n    b013 = evaluate_task_snapshot("B013", canonical_main=_CANONICAL_MAIN)\n    assert b013["eligible"] is False\n    assert "prerequisite.unsatisfied:B012" in b013["reasons"]\n''',
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Verify exact candidate scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(cat <<'EOF'
+          artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json
+          artifacts/manifests/B012-equivalent-qualification-execution-envelope.json
+          tests/contract/test_b012_authority.py
+          tests/contract/test_task_gate.py
+          tests/integration/test_task_gate_cli.py
+          EOF
+          )
+          actual="$(git status --short | awk '{print $2}' | sort)"
+          test "$actual" = "$(printf '%s\n' "$expected" | sort)"
+          git diff --check
+
+      - name: Run focused B012 authority regression
+        run: |
+          python -m pytest -q \
+            tests/contract/test_b012_authority.py \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py \
+            tests/contract/test_convergence_external_bindings.py
+
+      - name: Run offline validation and full repository quality
+        run: |
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src/mstr_qualify
+
+      - name: Publish one-commit target candidate from exact main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add \
+            artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json \
+            artifacts/manifests/B012-equivalent-qualification-execution-envelope.json \
+            tests/contract/test_b012_authority.py \
+            tests/contract/test_task_gate.py \
+            tests/integration/test_task_gate_cli.py
+          git diff --cached --check
+          test "$(git diff --cached --name-only | wc -l)" -eq 5
+          git config user.name "TheHalfMoon"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "governance(b012): capture exact B010 qualification authority"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
