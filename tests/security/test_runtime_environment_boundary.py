@@ -4,7 +4,6 @@ import subprocess
 
 from mstr_qualify.runtimes import benchmark_cli
 
-
 _BLOCKED_ENV = {
     "LLAMA_ARG_MODEL_URL": "https://example.invalid/model.gguf",
     "LLAMA_ARG_DOCKER_REPO": "example/model:latest",
