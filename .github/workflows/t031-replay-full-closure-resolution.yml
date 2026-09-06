@@ -26,7 +26,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/t031-full-closure
+          mkdir -p /tmp/t031-full-closure/wheels
           cat > /tmp/t031-direct.txt <<'EOF'
           gguf==0.19.0
           numpy==2.4.6
@@ -43,14 +43,20 @@ jobs:
             --index-url https://pypi.org/simple/ \
             --extra-index-url https://download.pytorch.org/whl/cpu \
             -r /tmp/t031-direct.txt
+          python -m pip download \
+            --dest /tmp/t031-full-closure/wheels \
+            --index-url https://pypi.org/simple/ \
+            --extra-index-url https://download.pytorch.org/whl/cpu \
+            -r /tmp/t031-direct.txt
           python - <<'PY'
           from __future__ import annotations
           import hashlib, json, platform, subprocess, sys
           from pathlib import Path
-          from urllib.parse import urlparse
+          from urllib.parse import unquote, urlparse
 
           report_path=Path('/tmp/t031-full-closure/pip-report.json')
           report=json.loads(report_path.read_text(encoding='utf-8'))
+          wheel_dir=Path('/tmp/t031-full-closure/wheels')
           allowed={'files.pythonhosted.org','download.pytorch.org','download-r2.pytorch.org'}
           closure=[]
           seen=set()
@@ -60,21 +66,35 @@ jobs:
               version=str(md.get('version',''))
               di=item.get('download_info',{})
               url=di.get('url')
-              sha=di.get('archive_info',{}).get('hashes',{}).get('sha256')
-              if not name or not version or not isinstance(url,str) or not isinstance(sha,str):
-                  raise SystemExit(f'incomplete identity: {name!r} {version!r} {url!r} {sha!r}')
+              if not name or not version or not isinstance(url,str):
+                  raise SystemExit(f'incomplete resolver identity: {name!r} {version!r} {url!r}')
               host=(urlparse(url).hostname or '').lower()
               if host not in allowed:
                   raise SystemExit(f'host outside replay allowlist: {host} for {name}')
               if name in seen:
                   raise SystemExit(f'duplicate resolved package: {name}')
               seen.add(name)
-              closure.append({'name':name,'version':version,'url':url,'sha256':sha,'requested':bool(item.get('requested',False))})
+              filename=unquote(Path(urlparse(url).path).name)
+              wheel=wheel_dir/filename
+              if not wheel.is_file():
+                  candidates=[p for p in wheel_dir.iterdir() if p.name.lower()==filename.lower()]
+                  if len(candidates)!=1:
+                      raise SystemExit(f'downloaded wheel not found uniquely for {name}: {filename!r}')
+                  wheel=candidates[0]
+              sha=hashlib.sha256(wheel.read_bytes()).hexdigest()
+              reported_sha=di.get('archive_info',{}).get('hashes',{}).get('sha256')
+              if isinstance(reported_sha,str) and reported_sha and reported_sha!=sha:
+                  raise SystemExit(f'reported/downloaded SHA mismatch for {name}: {reported_sha} != {sha}')
+              closure.append({'name':name,'version':version,'url':url,'sha256':sha,'filename':wheel.name,'requested':bool(item.get('requested',False))})
           closure.sort(key=lambda x:x['name'])
           direct={'gguf':'0.19.0','numpy':'2.4.6','protobuf':'7.36.0','safetensors':'0.8.0','sentencepiece':'0.2.2','torch':'2.13.0+cpu','transformers':'5.15.1'}
           observed={x['name']:x['version'] for x in closure if x['name'] in direct}
           if observed != direct:
               raise SystemExit(f'direct resolution drift: {observed!r}')
+          downloaded={p.name for p in wheel_dir.iterdir() if p.is_file()}
+          expected={x['filename'] for x in closure}
+          if downloaded != expected:
+              raise SystemExit(f'download set/report drift: extra={sorted(downloaded-expected)} missing={sorted(expected-downloaded)}')
           payload={
               'schema_version':'mstr.t031-producer-replay-full-closure-resolution.v1',
               'purpose':'DEPENDENCY_CLOSURE_RESOLUTION_ONLY_NO_MODEL_ACCESS',
@@ -96,11 +116,12 @@ jobs:
           out.write_text(json.dumps(payload,indent=2,sort_keys=True)+'\n',encoding='utf-8')
           print(f'PACKAGE_COUNT={len(closure)}')
           for item in closure:
-              print(f"{item['name']}=={item['version']}")
+              print(f"{item['name']}=={item['version']} {item['sha256']}")
           print('MODEL_ACCESS=NONE')
           print('TRAINING=false')
           print('PAID_COST_USD=0.0')
           PY
+          rm -rf /tmp/t031-full-closure/wheels
       - name: Upload resolution evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
