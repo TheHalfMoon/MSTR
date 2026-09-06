@@ -5,10 +5,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-EVIDENCE = ROOT / (
-    "artifacts/results/equivalent/B012/failures/"
-    "B012-mellum-4b-run-34064172421.json"
-)
+EVIDENCE = ROOT / ("artifacts/results/equivalent/B012/failures/B012-mellum-4b-run-34064172421.json")
 BINDING = ROOT / "artifacts/manifests/B012-executor-toolchain-binding.json"
 
 
@@ -25,16 +22,12 @@ def _sha256(path: Path) -> str:
 def test_runner_shutdown_failure_is_preserved_without_quality_claim() -> None:
     evidence = _read_json(EVIDENCE)
 
-    assert _sha256(EVIDENCE) == (
-        "e5abc34f9d251951d4b38508fd0c6f67d8200282f564279a4c6fada65e354030"
-    )
+    assert _sha256(EVIDENCE) == ("e5abc34f9d251951d4b38508fd0c6f67d8200282f564279a4c6fada65e354030")
     assert evidence["task_id"] == "B012"
     assert evidence["candidate_id"] == "mellum-4b"
     assert evidence["run_id"] == 34064172421
     assert evidence["job_id"] == 101569918156
-    assert evidence["canonical_main_at_start"] == (
-        "f207ed9080fba1bb597a4091029dfd2a381eb346"
-    )
+    assert evidence["canonical_main_at_start"] == ("f207ed9080fba1bb597a4091029dfd2a381eb346")
     assert evidence["failure_classification"] == (
         "B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_NO_DURABLE_RESULT"
     )
