@@ -45,17 +45,17 @@
     "package_versions_recorded_by_t029": false
   },
   "reconstruction_basis": {
-    "method": "PRE_CUTOFF_PYPI_WHEEL_RESOLUTION_RECONSTRUCTED_FROM_THE_T029_EXECUTION_WINDOW",
-    "historical_transitive_identity_claim": true,
-    "claim_limit": "The 59-wheel set is the bounded pre-cutoff PyPI closure reconstructed for the exact T029 execution window. Exact T029 F16 and Q4 hashes remain the fail-closed artifact-equivalence proof.",
+    "method": "PRE_CUTOFF_PYPI_WHEEL_SET_RECONSTRUCTED_FOR_THE_T029_EXECUTION_WINDOW",
+    "historical_transitive_identity_claim": false,
+    "claim_limit": "The 59-wheel set is a hash-bound pre-cutoff reconstruction for the T029 execution window, not proof of the unrecorded historical transitive package identities. Exact T029 F16 and Q4 hashes remain the fail-closed artifact-equivalence proof.",
     "equivalence_gate": "EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH",
     "torch_distribution": {
-      "historical_distribution_version": "2.13.0",
+      "reconstructed_distribution_version": "2.13.0",
       "observed_import_version": "2.13.0+cu130",
       "acceptance_gate": "EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH"
     },
     "transformers_boundary": {
-      "selected_version": "5.15.1",
+      "selected_reconstruction_version": "5.15.1",
       "t029_execution_started_before_utc": "2026-08-26T10:44:00Z",
       "transformers_5_16_0_github_release_published_utc": "2026-08-26T12:35:15Z",
       "transformers_5_16_1_github_release_published_utc": "2026-08-26T14:50:01Z"
@@ -80,7 +80,7 @@
     "artifact_id": 9988881418,
     "artifact_zip_sha256": "545625ad24094ca232ef72b2d214d286a4659d25850b4e8b2aa410cfa033ac06",
     "evidence_head": "64a341da5d2537c36fbca79ce8eed289f3578411",
-    "classification": "SUPERSEDED_FOR_T031_EXECUTION_BY_HISTORICAL_59_WHEEL_REPLAY",
+    "classification": "SUPERSEDED_FOR_T031_EXECUTION_BY_HASH_BOUND_59_WHEEL_RECONSTRUCTION",
     "model_access": "NONE",
     "training": false,
     "paid_cost_usd": 0.0
