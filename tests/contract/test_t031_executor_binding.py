@@ -145,11 +145,7 @@ def test_toolchain_measurement_and_replay_surface_are_frozen() -> None:
     packages = overlay["packages"]
     assert isinstance(packages, list)
     assert len(packages) == 40
-    versions = {
-        item["name"]: item["version"]
-        for item in packages
-        if isinstance(item, dict)
-    }
+    versions = {item["name"]: item["version"] for item in packages if isinstance(item, dict)}
     for name, version in DIRECT_REPLAY_PACKAGES.items():
         assert versions[name] == version
     assert versions["huggingface-hub"] == "1.30.0"
