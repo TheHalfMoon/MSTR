@@ -44,6 +44,13 @@ jobs:
             --report /tmp/t031-resolution/pip-report.json \
             --index-url https://pypi.org/simple/ \
             -r /tmp/t031-direct-requirements.txt
+          python -m pip install \
+            --dry-run \
+            --ignore-installed \
+            --no-deps \
+            --report /tmp/t031-resolution/cpu-torch-report.json \
+            --index-url https://download.pytorch.org/whl/cpu/ \
+            'torch==2.13.0+cpu'
           python - <<'PY'
           from __future__ import annotations
 
@@ -55,7 +62,9 @@ jobs:
           from pathlib import Path
 
           report_path = Path('/tmp/t031-resolution/pip-report.json')
+          cpu_torch_report_path = Path('/tmp/t031-resolution/cpu-torch-report.json')
           report = json.loads(report_path.read_text(encoding='utf-8'))
+          cpu_torch_report = json.loads(cpu_torch_report_path.read_text(encoding='utf-8'))
           direct = {
               'numpy': '2.4.6',
               'torch': '2.13.0',
@@ -67,6 +76,7 @@ jobs:
           }
           resolved = []
           observed_direct = {}
+          direct_entries = {}
           for item in report.get('install', []):
               metadata = item.get('metadata', {})
               name = str(metadata.get('name', '')).lower().replace('_', '-')
@@ -78,20 +88,45 @@ jobs:
               url = download.get('url')
               if not name or not version or not isinstance(url, str) or not isinstance(sha256, str):
                   raise SystemExit(f'incomplete resolver identity for {name or "<unknown>"}')
-              resolved.append({
+              entry = {
                   'name': name,
                   'version': version,
                   'url': url,
                   'sha256': sha256,
                   'requested': bool(item.get('requested', False)),
-              })
+              }
+              resolved.append(entry)
               if name in direct:
                   observed_direct[name] = version
+                  direct_entries[name] = entry
           if observed_direct != direct:
               raise SystemExit(f'direct requirement resolution drift: {observed_direct!r}')
+
+          cpu_items = cpu_torch_report.get('install', [])
+          if len(cpu_items) != 1:
+              raise SystemExit(f'CPU torch resolution returned {len(cpu_items)} entries')
+          cpu_item = cpu_items[0]
+          cpu_meta = cpu_item.get('metadata', {})
+          cpu_download = cpu_item.get('download_info', {})
+          cpu_hashes = cpu_download.get('archive_info', {}).get('hashes', {})
+          cpu_entry = {
+              'name': str(cpu_meta.get('name', '')).lower().replace('_', '-'),
+              'version': str(cpu_meta.get('version', '')),
+              'url': cpu_download.get('url'),
+              'sha256': cpu_hashes.get('sha256'),
+              'requested': True,
+          }
+          if cpu_entry['name'] != 'torch' or cpu_entry['version'] != '2.13.0+cpu':
+              raise SystemExit(f'CPU torch identity drift: {cpu_entry!r}')
+          if not isinstance(cpu_entry['url'], str) or not isinstance(cpu_entry['sha256'], str):
+              raise SystemExit('CPU torch URL/hash is missing')
+
+          overlay = [direct_entries[name] for name in sorted(direct_entries) if name != 'torch']
+          overlay.append(cpu_entry)
+          overlay.sort(key=lambda entry: entry['name'])
           resolved.sort(key=lambda entry: (entry['name'], entry['version'], entry['url']))
           payload = {
-              'schema_version': 'mstr.t031-t029-producer-replay-resolution.v1',
+              'schema_version': 'mstr.t031-t029-producer-replay-resolution.v2',
               'purpose': 'DEPENDENCY_RESOLUTION_ONLY_NO_MODEL_ACCESS',
               'source_main': '119a9bcca1c97b9edbcacd6d8d457b31206bb162',
               'historical_t029_runner_python': '3.11.16',
@@ -100,16 +135,27 @@ jobs:
                   'pip install sentencepiece protobuf gguf safetensors transformers',
               ],
               'replay_direct_requirements': direct,
+              'cpu_equivalent_torch_distribution': {
+                  'historical_top_level_version': '2.13.0',
+                  'replay_distribution_version': '2.13.0+cpu',
+                  'reason': (
+                      'T031 is a CPU-only qualification path; the CPU wheel removes unrelated '
+                      'CUDA dependency drift while preserving the 2.13.0 torch code line. Exact '
+                      'T029 F16 and Q4 hashes remain mandatory acceptance gates.'
+                  ),
+              },
               'resolution_note': (
                   'Direct versions are reconstructed from package availability at the '
                   '2026-08-26 T029 execution boundary; transitive versions are resolver '
-                  'outputs from this evidence run and are not claimed as historical until '
-                  'separately justified or proven by exact artifact reproduction.'
+                  'outputs from this evidence run and are not claimed as historical. The '
+                  'seven-entry overlay is the proposed deterministic replay surface.'
               ),
               'python': platform.python_version(),
               'pip': subprocess.check_output([sys.executable, '-m', 'pip', '--version'], text=True).strip(),
-              'resolved_packages': resolved,
+              'proposed_overlay_packages': overlay,
+              'full_current_transitive_resolution': resolved,
               'pip_report_sha256': hashlib.sha256(report_path.read_bytes()).hexdigest(),
+              'cpu_torch_report_sha256': hashlib.sha256(cpu_torch_report_path.read_bytes()).hexdigest(),
               'model_access': 'NONE',
               'training': False,
               'paid_cost_usd': 0.0,
@@ -117,6 +163,7 @@ jobs:
           out = Path('/tmp/t031-resolution/t031-t029-producer-replay-resolution.json')
           out.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
           print(f'RESOLVED_PACKAGE_COUNT={len(resolved)}')
+          print(f'OVERLAY_PACKAGE_COUNT={len(overlay)}')
           print('MODEL_ACCESS=NONE')
           print('PAID_COST_USD=0.0')
           PY
