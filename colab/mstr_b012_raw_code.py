@@ -12,7 +12,9 @@ from mstr_b012_governance import ExecutionError
 from mstr_executor_toolchain import sanitized_runtime_environment
 
 
-def run_raw_code_proxy(*, executable: Path, model: Path, manifest: dict[str, object]) -> dict[str, object]:
+def run_raw_code_proxy(
+    *, executable: Path, model: Path, manifest: dict[str, object]
+) -> dict[str, object]:
     execution = manifest.get("execution")
     tasks = manifest.get("tasks")
     if not isinstance(execution, dict) or not isinstance(tasks, list) or not tasks:
@@ -22,7 +24,12 @@ def run_raw_code_proxy(*, executable: Path, model: Path, manifest: dict[str, obj
     threads = execution.get("threads")
     seed = execution.get("seed")
     temperature = execution.get("temperature")
-    if not isinstance(context, int) or not isinstance(generated, int) or not isinstance(threads, int) or not isinstance(seed, int):
+    if (
+        not isinstance(context, int)
+        or not isinstance(generated, int)
+        or not isinstance(threads, int)
+        or not isinstance(seed, int)
+    ):
         raise ExecutionError("B012 raw-code execution integers are invalid")
     if not isinstance(temperature, (int, float)):
         raise ExecutionError("B012 raw-code temperature is invalid")
@@ -34,13 +41,32 @@ def run_raw_code_proxy(*, executable: Path, model: Path, manifest: dict[str, obj
         task_id = task.get("id")
         prompt = task.get("prompt")
         required = task.get("required_substrings")
-        if not isinstance(task_id, str) or not isinstance(prompt, str) or not isinstance(required, list):
+        if (
+            not isinstance(task_id, str)
+            or not isinstance(prompt, str)
+            or not isinstance(required, list)
+        ):
             raise ExecutionError("B012 raw-code task identity is invalid")
         argv = [
-            str(executable), "-m", str(model), "-p", prompt,
-            "-n", str(generated), "-c", str(context), "-t", str(threads),
-            "-ngl", "0", "--temp", str(float(temperature)), "--seed", str(seed),
-            "--no-display-prompt", "--simple-io",
+            str(executable),
+            "-m",
+            str(model),
+            "-p",
+            prompt,
+            "-n",
+            str(generated),
+            "-c",
+            str(context),
+            "-t",
+            str(threads),
+            "-ngl",
+            "0",
+            "--temp",
+            str(float(temperature)),
+            "--seed",
+            str(seed),
+            "--no-display-prompt",
+            "--simple-io",
         ]
         started = time.monotonic()
         try:
@@ -68,14 +94,16 @@ def run_raw_code_proxy(*, executable: Path, model: Path, manifest: dict[str, obj
             syntax_valid = False
             syntax_error = f"{exc.msg}@{exc.lineno}:{exc.offset}"
         required_results = {str(value): str(value) in completion for value in required}
-        rows.append({
-            "task_id": task_id,
-            "completion": completion,
-            "syntax_valid": syntax_valid,
-            "syntax_error": syntax_error,
-            "required_substrings": required_results,
-            "wall_seconds": time.monotonic() - started,
-        })
+        rows.append(
+            {
+                "task_id": task_id,
+                "completion": completion,
+                "syntax_valid": syntax_valid,
+                "syntax_error": syntax_error,
+                "required_substrings": required_results,
+                "wall_seconds": time.monotonic() - started,
+            }
+        )
     syntax_passes = sum(1 for row in rows if row["syntax_valid"] is True)
     return {
         "task_count": len(rows),
