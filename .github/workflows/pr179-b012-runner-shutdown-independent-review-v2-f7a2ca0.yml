@@ -1,0 +1,219 @@
+name: PR179 B012 runner shutdown independent review v2
+
+on:
+  push:
+    branches:
+      - evidence/pr179-b012-runner-shutdown-independent-review-v2-f7a2ca0
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  BASE_SHA: 610bf7dacc5ee921d99a4fa2eb9023553021e84c
+  SUBJECT_SHA: f7a2ca07d9b48f71644e87cc41cd0f45e52cab27
+  SUBJECT_BRANCH: fix/b012-runner-shutdown-evidence-34064172421
+  QUALIFICATION_RUN_ID: '34067038144'
+  INCIDENT_RUN_ID: '34064172421'
+  INCIDENT_JOB_ID: '101569918156'
+  INCIDENT_EVIDENCE_SHA256: e5abc34f9d251951d4b38508fd0c6f67d8200282f564279a4c6fada65e354030
+  HF_HUB_OFFLINE: '1'
+  TRANSFORMERS_OFFLINE: '1'
+
+jobs:
+  independent_review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.16'
+          check-latest: false
+
+      - name: Verify topology, scope, incident REST facts, and shutdown log
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          test "$(git merge-base "$BASE_SHA" "$SUBJECT_SHA")" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$SUBJECT_BRANCH | awk '{print $1}')" = "$SUBJECT_SHA"
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import urllib.request
+
+          expected = {
+              "artifacts/manifests/B012-executor-toolchain-binding.json",
+              "artifacts/results/equivalent/B012/failures/B012-mellum-4b-run-34064172421.json",
+              "evidence/mstr-000b/B012-runner-shutdown-34064172421.md",
+              "tests/contract/test_b012_runner_shutdown_evidence.py",
+          }
+          actual = set(subprocess.check_output([
+              "git", "diff", "--name-only",
+              "610bf7dacc5ee921d99a4fa2eb9023553021e84c..f7a2ca07d9b48f71644e87cc41cd0f45e52cab27",
+          ], text=True).splitlines())
+          assert actual == expected, (actual, expected)
+
+          token = os.environ["GH_TOKEN"]
+          headers = {
+              "Authorization": f"Bearer {token}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+              "User-Agent": "mstr-independent-review",
+          }
+          def get_json(url: str):
+              with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30) as r:
+                  return json.load(r)
+
+          root = "https://api.github.com/repos/TheHalfMoon/MSTR"
+          run = get_json(f"{root}/actions/runs/34064172421")
+          assert run["event"] == "issue_comment"
+          assert run["head_sha"] == "f207ed9080fba1bb597a4091029dfd2a381eb346"
+          assert run["status"] == "completed"
+          assert run["conclusion"] == "failure"
+          jobs = get_json(f"{root}/actions/runs/34064172421/jobs?per_page=100")
+          job = next(j for j in jobs["jobs"] if j["id"] == 101569918156)
+          assert job["name"] == "qualify"
+          assert job["status"] == "completed"
+          assert job["conclusion"] == "failure"
+          steps = {s["name"]: s["conclusion"] for s in job["steps"]}
+          assert steps["Execute governed B012 qualification"] == "cancelled"
+          assert steps["Upload durable JSON evidence only"] == "skipped"
+          artifacts = get_json(f"{root}/actions/runs/34064172421/artifacts")
+          assert artifacts["total_count"] == 0
+          PY
+          headers_file="$RUNNER_TEMP/log-headers.txt"
+          curl -fsS -D "$headers_file" -o /dev/null \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/TheHalfMoon/MSTR/actions/jobs/$INCIDENT_JOB_ID/logs"
+          log_url="$(tr -d '\r' < "$headers_file" | awk 'tolower($1)=="location:" {print $2}' | tail -n 1)"
+          test -n "$log_url"
+          curl -fsSL "$log_url" -o "$RUNNER_TEMP/incident.log"
+          grep -F 'The runner has received a shutdown signal' "$RUNNER_TEMP/incident.log"
+          grep -F 'The operation was canceled' "$RUNNER_TEMP/incident.log"
+
+      - name: Review evidence semantics and authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum artifacts/results/equivalent/B012/failures/B012-mellum-4b-run-34064172421.json | awk '{print $1}')" = "$INCIDENT_EVIDENCE_SHA256"
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          evidence = json.loads(Path("artifacts/results/equivalent/B012/failures/B012-mellum-4b-run-34064172421.json").read_text())
+          assert evidence["schema_version"] == "mstr.b012-infrastructure-cancellation.v1"
+          assert evidence["task_id"] == "B012"
+          assert evidence["candidate_id"] == "mellum-4b"
+          assert evidence["run_id"] == 34064172421
+          assert evidence["job_id"] == 101569918156
+          assert evidence["failure_classification"] == "B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_NO_DURABLE_RESULT"
+          assert evidence["executor_authored_failure_json"] is False
+          assert evidence["model_quality_verdict"] == "NONE"
+          assert evidence["model_access_before_shutdown"] == "UNKNOWN_UNRECORDED"
+          assert evidence["candidate_execution_completion"] == "NOT_PROVEN"
+          assert evidence["retry_authority_created"] is False
+          assert evidence["same_action_retry_performed_by_this_evidence"] is False
+          assert evidence["training"] is False
+          assert evidence["paid_model_api"] is False
+          assert evidence["candidate_expansion"] is False
+
+          current = json.loads(Path("artifacts/manifests/B012-executor-toolchain-binding.json").read_text())
+          base = json.loads(subprocess.check_output([
+              "git", "show",
+              "610bf7dacc5ee921d99a4fa2eb9023553021e84c:artifacts/manifests/B012-executor-toolchain-binding.json",
+          ], text=True))
+          recovery = current.pop("runner_shutdown_recovery")
+          assert current == base
+          assert recovery["run_id"] == 34064172421
+          assert recovery["job_id"] == 101569918156
+          assert recovery["candidate_id"] == "mellum-4b"
+          assert recovery["failure_classification"] == evidence["failure_classification"]
+          assert recovery["model_quality_verdict"] == "NONE"
+          assert recovery["model_access_before_shutdown"] == "UNKNOWN_UNRECORDED"
+          assert recovery["candidate_execution_completion"] == "NOT_PROVEN"
+          assert recovery["retry_authority_created"] is False
+
+          text = Path("evidence/mstr-000b/B012-runner-shutdown-34064172421.md").read_text()
+          for required in (
+              "B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_NO_DURABLE_RESULT",
+              "model-quality verdict: `NONE`",
+              "model access before shutdown: `UNKNOWN_UNRECORDED`",
+              "candidate execution completion: `NOT_PROVEN`",
+              "does not create retry authority",
+              "does not itself perform or authorize that later attempt",
+          ):
+              assert required in text
+          PY
+
+      - name: Verify exact qualification identity and repository quality
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          token = os.environ["GH_TOKEN"]
+          req = urllib.request.Request(
+              "https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/34067038144",
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+                  "User-Agent": "mstr-independent-review",
+              },
+          )
+          with urllib.request.urlopen(req, timeout=30) as r:
+              run = json.load(r)
+          assert run["status"] == "completed"
+          assert run["conclusion"] == "success"
+          assert run["head_branch"] == "evidence/b012-runner-shutdown-qualification-v2-f7a2ca0"
+          PY
+          python -m pip install -e '.[dev]'
+          python -m pytest -q \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_authority.py \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_timeout_binding.py \
+            tests/contract/test_b012_timeout_budget.py \
+            tests/contract/test_t031_executor_binding.py \
+            tests/contract/test_t031_replay_version_equivalence.py
+          python -m pytest -q
+          python -m ruff check .
+          python -m ruff format --check tests/contract/test_b012_runner_shutdown_evidence.py
+          python -m mypy src
+          python -m mstr_qualify validate
+          test -z "$(git status --porcelain)"
+
+      - name: Final immutable guard and verdict
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$SUBJECT_BRANCH | awk '{print $1}')" = "$SUBJECT_SHA"
+          echo 'PR179_INDEPENDENT_SUBSTANTIVE_REVIEW=PASS'
+          echo 'FINDINGS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
