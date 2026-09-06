@@ -94,6 +94,33 @@ The postmerge verifier explicitly materialized a local `main` ref at the exact c
 
 A later diagnostic verifier, run `34046087930`, failed at `mstr_qualify task eligible B012` only because it invoked the task gate from detached HEAD without first materializing local `refs/heads/main`. That diagnostic does not contradict run `34045909273`; its topology and merge-race assertions had already passed, and it is retained as negative verifier-invocation evidence.
 
+## Drift-Window B012 Execution Evidence
+
+After PR #174 merged but before this reconciliation became canonical, an owner issue-comment dispatch started run `34046125440` for `mellum-4b` on canonical `main=a2b2788dd5a8a8d5f301359586f6b2019615b4a9`.
+
+The run is historical drift-window evidence. It is not promoted to canonical B012 qualification evidence and it does not establish any model-quality verdict.
+
+```text
+RUN_ID = 34046125440
+CANDIDATE = mellum-4b
+WORKFLOW_CONCLUSION = failure
+RESULT_CLASSIFICATION = B012_EXECUTION_FAILED_CLOSED
+ERROR_TYPE = ExecutionError
+ERROR = llama-bench timed out after 900s
+STARTED_UTC = 2026-09-06T16:39:04Z
+FAILED_UTC = 2026-09-06T17:14:10Z
+CANONICAL_MAIN_AT_START = a2b2788dd5a8a8d5f301359586f6b2019615b4a9
+ARTIFACT_ID = 9993670738
+ARTIFACT_NAME = b012-mellum-4b-34046125440
+ARTIFACT_ARCHIVE_SHA256 = d86c27d3d59d2903c3def289a21dedc2ac5625fe1db39542e27ea89be4f96999
+MODEL_QUALITY_VERDICT = NONE
+CANONICAL_B012_RESULT = false
+TRAINING = false
+PAID_COST_USD = 0.0
+```
+
+The durable failure artifact proves a bounded runtime timeout, not candidate quality. No score, promotion, admission, or rejection inference may be drawn from this run. A canonical retry is permitted only after this reconciliation becomes canonical, exact current-main B012 eligibility is re-established, and the existing Founder dispatch authority still binds the exact candidate/revision/file envelope.
+
 ## Governance Disposition
 
 The safe forward-only disposition is:
@@ -102,9 +129,10 @@ The safe forward-only disposition is:
 2. Preserve PR #174 and merge `a2b2788...` as the immutable historical merge.
 3. Bind the merged content to the successful exact-head qualification and independent review that preceded the merge.
 4. Bind canonical postmerge correctness and current B012 eligibility to run `34045909273`.
-5. Canonicalize this reconciliation through a new independently qualified and reviewed PR before any new B012 external-effect dispatch.
-6. After this reconciliation is canonical, re-run `mstr_qualify task eligible B012` on exact current `main` immediately before each authorized B012 dispatch.
-7. Do not transfer B012 authority to T031, B013, training, paid compute/model APIs, production release, new candidates, new revisions, or expanded files.
+5. Preserve drift-window Mellum run `34046125440` as `B012_EXECUTION_FAILED_CLOSED` timeout evidence and prohibit its use as canonical model-quality evidence.
+6. Canonicalize this reconciliation through a new independently qualified and reviewed PR before any new B012 external-effect dispatch.
+7. After this reconciliation is canonical, re-run `mstr_qualify task eligible B012` on exact current `main` immediately before each authorized B012 dispatch.
+8. Do not transfer B012 authority to T031, B013, training, paid compute/model APIs, production release, new candidates, new revisions, or expanded files.
 
 ## Authority Boundary
 
