@@ -1,0 +1,126 @@
+name: PR174 B012 repair independent review 6290127
+
+on:
+  push:
+    branches:
+      - evidence/pr174-b012-repair-independent-review-6290127
+
+permissions:
+  contents: read
+
+jobs:
+  semantic_security_governance_review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      PYTHONPATH: colab
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 6290127080459879aa494efdb91aa44bc629a9fc
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Verify exact immutable review subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=4d9e423f7fa2aa6d4f706d5c9ad61dafb24b2513
+          HEAD=6290127080459879aa494efdb91aa44bc629a9fc
+          TREE=2013b367c3163ab37170b28f611999b54e2dad1f
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TREE"
+          test "$(git merge-base "$BASE" "$HEAD")" = "$BASE"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE"
+          test "$(git ls-remote origin refs/heads/fix/b012-b010-source-envelope | awk '{print $1}')" = "$HEAD"
+          git diff --check "$BASE".."$HEAD"
+          test "$(git diff --name-only "$BASE".."$HEAD" | wc -l)" = 3
+          test "$(git diff --name-only "$BASE".."$HEAD" | sort | tr '\n' ' ')" = 'artifacts/manifests/B012-executor-toolchain-binding.json colab/mstr_b012_source.py tests/contract/test_b012_source_envelope.py '
+      - name: Independent semantic security and governance assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          def load(path):
+              return json.loads(Path(path).read_text(encoding='utf-8'))
+
+          source = Path('colab/mstr_b012_source.py').read_text(encoding='utf-8')
+          binding = load('artifacts/manifests/B012-executor-toolchain-binding.json')
+          b010 = load('artifacts/manifests/B010-new-candidate-weight-access.json')
+          authority = load('artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json')
+          envelope = load('artifacts/manifests/B012-equivalent-qualification-execution-envelope.json')
+
+          candidates = ['mellum-4b', 'qwen3.5-0.8b-control']
+          assert authority['status'] == 'AUTHORIZED_CANONICAL'
+          assert authority['scope']['candidate_ids'] == candidates
+          assert binding['candidate_ids'] == candidates
+          assert envelope['candidate_ids'] == candidates
+          assert [item['candidate_id'] for item in b010['candidate_access_envelopes']] == candidates
+
+          assert 'B010_PATH' in source
+          assert 'b010 = read_json(repo_root / B010_PATH)' in source
+          assert 'items = b010.get("candidate_access_envelopes")' in source
+          assert 'candidate = _candidate_envelope(repo_root, candidate_id)' in source
+          assert 'items = envelope.get("candidate_access_envelopes")' not in source
+          assert 'https://huggingface.co/{upstream}/resolve/{revision}/{filename}' in source
+          assert 'expected_sha256=sha' in source
+          assert 'allowed_hosts=allowed_hosts' in source
+          assert 'B010/B011 exact required-file set mismatch' in source
+          assert 'B012 candidate download-byte ceiling drift detected' in source
+
+          by_id = {item['candidate_id']: item for item in b010['candidate_access_envelopes']}
+          assert by_id['mellum-4b']['exact_revision'] == '83cce2605fbdf6a3868627e9b0a5924e0072b94d'
+          assert by_id['mellum-4b']['expected_required_download_bytes'] == 8048099065
+          assert by_id['qwen3.5-0.8b-control']['exact_revision'] == 'dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68'
+          assert by_id['qwen3.5-0.8b-control']['expected_required_download_bytes'] == 1769897109
+
+          digest = hashlib.sha256(Path('colab/mstr_b012_source.py').read_bytes()).hexdigest()
+          assert digest == '890c9d1536ae4046a827789530c186dd02afca80bae8930ef22c2cb6e9ddcf26'
+          assert binding['source_script_sha256'] == digest
+          repair = binding['repair_evidence']
+          assert repair['failed_execution']['run_id'] == 34044413778
+          assert repair['failed_execution']['classification'] == 'B012_EXECUTION_FAILED_CLOSED'
+          assert repair['failed_execution']['model_access_before_failure'] == 'NONE'
+          assert repair['source_envelope_repair_qualification']['run_id'] == 34045088693
+          assert repair['source_envelope_repair_qualification']['full_pytest_passed'] == 1374
+
+          boundary = binding['execution_boundary']
+          for key in ('authority_transfer','candidate_revision_or_file_expansion','new_candidates','training','weight_changing_training','paid_compute','paid_model_api','production_release'):
+              assert boundary[key] is False, key
+          assert boundary['paid_cost_usd'] == 0.0
+          assert boundary['git_model_binaries'] == 0
+          assert boundary['founder_machine_model_binaries'] == 0
+          assert binding['dependency_reuse']['authority_transfer'] is False
+          assert binding['dependency_reuse']['package_count'] == 40
+          assert envelope['resource_ceiling']['paid_cost_usd'] == 0.0
+
+          print('PR174_SUBSTANTIVE_REVIEW=PASS')
+          print('FINDINGS=NONE')
+          print('MODEL_ACCESS=NONE')
+          print('TRAINING=false')
+          print('PAID_COST_USD=0.0')
+          PY
+      - name: Focused adversarial regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_b012_source_envelope.py tests/contract/test_b012_executor_binding.py
+          python -m ruff check colab/mstr_b012_source.py tests/contract/test_b012_source_envelope.py
+          python -m ruff format --check colab/mstr_b012_source.py tests/contract/test_b012_source_envelope.py
+      - name: Final immutable review-subject check
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | awk '{print $1}')" = '4d9e423f7fa2aa6d4f706d5c9ad61dafb24b2513'
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/fix/b012-b010-source-envelope | awk '{print $1}')" = '6290127080459879aa494efdb91aa44bc629a9fc'
+          echo 'PR174_INDEPENDENT_REVIEW_FINAL=PASS'
