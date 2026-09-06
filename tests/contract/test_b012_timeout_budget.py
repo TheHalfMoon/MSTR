@@ -225,3 +225,42 @@ def test_remaining_budget_caps_effective_timeout(monkeypatch: pytest.MonkeyPatch
     assert context["configured_per_invocation_timeout_seconds"] == 900
     assert context["benchmark_remaining_before_seconds"] == pytest.approx(0.25)
     assert context["effective_invocation_timeout_seconds"] == pytest.approx(0.25)
+
+
+def test_completed_invocation_crossing_wall_budget_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observations = iter([4799.5, 4800.1])
+
+    def fake_bench_once(**kwargs: object) -> dict[str, object]:
+        timeout = kwargs["timeout"]
+        assert timeout == pytest.approx(0.5)
+        return _sample()
+
+    monkeypatch.setattr(measure, "_bench_once", fake_bench_once)
+    with pytest.raises(
+        measure.B012BenchmarkError,
+        match="wall budget exceeded by completed invocation",
+    ) as captured:
+        measure._run_one(
+            arm="isolated_decode_128",
+            phase="measured",
+            repetition_index=2,
+            executable=Path("llama-bench"),
+            model=Path("model.gguf"),
+            prompt_tokens=0,
+            generated_tokens=128,
+            threads=2,
+            runtime_commit="3173a56471c1753650cd806694145ffd6dcace67",
+            configured_timeout_seconds=900,
+            budget_seconds=4800.0,
+            benchmark_started_monotonic=0.0,
+            monotonic=lambda: next(observations),
+        )
+    context = captured.value.context
+    assert context["benchmark_arm"] == "isolated_decode_128"
+    assert context["benchmark_phase"] == "measured"
+    assert context["repetition_index"] == 2
+    assert context["benchmark_remaining_before_seconds"] == pytest.approx(0.5)
+    assert context["benchmark_elapsed_after_seconds"] == pytest.approx(4800.1)
+    assert context["benchmark_remaining_after_seconds"] == 0.0
