@@ -1,0 +1,93 @@
+name: PR175 final mandatory premerge live guard
+
+on:
+  push:
+    branches:
+      - evidence/pr175-final-premerge-guard-d688f59
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: pr175-final-premerge-live-guard-d688f59
+  cancel-in-progress: false
+
+env:
+  PR_NUMBER: '175'
+  BASE_SHA: a2b2788dd5a8a8d5f301359586f6b2019615b4a9
+  HEAD_SHA: d688f5922a427a25dd48f27c607603edc4e74de1
+  TARGET_BRANCH: governance/pr174-b012-merge-race-reconciliation
+  QUALIFICATION_RUN: '34052869726'
+  REVIEW_RUN: '34053158407'
+  PREMERGE_RUN: '34055044901'
+
+jobs:
+  final_live_guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Reverify exact completed gates and live refs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          headers = {
+              'Authorization': f"Bearer {os.environ['GH_TOKEN']}",
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+          }
+          root = 'https://api.github.com/repos/TheHalfMoon/MSTR'
+
+          def get(path):
+              req = urllib.request.Request(root + path, headers=headers)
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  return json.load(response)
+
+          pr = get(f"/pulls/{os.environ['PR_NUMBER']}")
+          assert pr['state'] == 'open'
+          assert pr['draft'] is False
+          assert pr['merged'] is False
+          assert pr['mergeable'] is True
+          assert pr['base']['ref'] == 'main'
+          assert pr['base']['sha'] == os.environ['BASE_SHA']
+          assert pr['head']['ref'] == os.environ['TARGET_BRANCH']
+          assert pr['head']['sha'] == os.environ['HEAD_SHA']
+
+          for run_id in (os.environ['QUALIFICATION_RUN'], os.environ['REVIEW_RUN']):
+              run = get(f'/actions/runs/{run_id}')
+              assert run['status'] == 'completed' and run['conclusion'] == 'success'
+
+          jobs = get(f"/actions/runs/{os.environ['PREMERGE_RUN']}/jobs?per_page=100")['jobs']
+          by = {job['name']: (job['status'], job['conclusion']) for job in jobs}
+          for name in ('governance', 'quality', 'canonical_eligibility'):
+              assert by.get(name) == ('completed', 'success')
+
+          reviews = get(f"/pulls/{os.environ['PR_NUMBER']}/reviews?per_page=100")
+          assert not any(item['state'] == 'CHANGES_REQUESTED' for item in reviews)
+
+          assert get('/branches/main')['commit']['sha'] == os.environ['BASE_SHA']
+          print('QUALIFICATION=PASS')
+          print('INDEPENDENT_REVIEW=PASS')
+          print('PREMERGE_GOVERNANCE=PASS')
+          print('PREMERGE_QUALITY=PASS')
+          print('PREMERGE_CANONICAL_ELIGIBILITY=PASS')
+          PY
+
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | awk '{print $1}')" = "$HEAD_SHA"
+          echo 'MANDATORY_PREMERGE=PASS'
+          echo "EXPECTED_BASE_SHA=$BASE_SHA"
+          echo "EXPECTED_HEAD_SHA=$HEAD_SHA"
+          echo 'MERGE_AUTHORIZED=YES_FOR_EXACT_HEAD_ONLY'
+          echo 'RETRY_AUTHORITY_CREATED=false'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
