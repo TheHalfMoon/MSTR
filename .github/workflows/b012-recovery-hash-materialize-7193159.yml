@@ -1,0 +1,36 @@
+name: B012 recovery hash materialization 7193159
+
+on:
+  push:
+    branches:
+      - evidence/b012-recovery-hash-materialize-7193159
+
+permissions:
+  contents: read
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact recovery subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 71931593556dc1741bcadd26e97c3f3102d4b41d
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Materialize execution SHA-256 identities
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "71931593556dc1741bcadd26e97c3f3102d4b41d"
+          for path in \
+            artifacts/manifests/B012-executor-toolchain-lock.json \
+            colab/mstr_b012_measure.py \
+            colab/mstr_b012_governance.py \
+            colab/mstr_b012_execute.py \
+            tests/contract/test_b012_timeout_budget.py; do
+            printf '%s ' "$path"
+            sha256sum "$path" | awk '{print $1}'
+          done
+          echo "MODEL_ACCESS=NONE"
+          echo "TRAINING=false"
+          echo "PAID_COST_USD=0.0"
