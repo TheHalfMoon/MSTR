@@ -1,0 +1,67 @@
+name: B012 Ruff formatting evidence
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout evidence head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+
+      - name: Install repository quality toolchain
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          ruff --version
+
+      - name: Materialize exact Ruff fixes and formatting
+        run: |
+          set -euo pipefail
+          files=(
+            colab/mstr_b012_artifacts.py
+            colab/mstr_b012_execute.py
+            colab/mstr_b012_governance.py
+            colab/mstr_b012_raw_code.py
+            colab/mstr_b012_source.py
+          )
+          ruff check --fix "${files[@]}"
+          ruff format "${files[@]}"
+          ruff check "${files[@]}"
+          ruff format --check "${files[@]}"
+          python -m py_compile "${files[@]}"
+          git diff --check
+          git diff -- "${files[@]}" > "$RUNNER_TEMP/b012-ruff-format.patch"
+          mkdir -p "$RUNNER_TEMP/formatted/colab"
+          cp "${files[@]}" "$RUNNER_TEMP/formatted/colab/"
+          {
+            echo "SOURCE_PRODUCT_HEAD=3f453b656e5872694fe0b5b7dfbeee22667f3106"
+            echo "EVIDENCE_HEAD=$(git rev-parse HEAD)"
+            echo "MODEL_ACCESS=NONE"
+            echo "TRAINING=false"
+            echo "PAID_COST_USD=0.0"
+            sha256sum "${files[@]}"
+          } > "$RUNNER_TEMP/formatted/FORMAT_EVIDENCE.txt"
+
+      - name: Upload formatted B012 files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: b012-ruff-formatted-files
+          path: |
+            ${{ runner.temp }}/formatted
+            ${{ runner.temp }}/b012-ruff-format.patch
+          if-no-files-found: error
+          retention-days: 7
