@@ -194,6 +194,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          BASE=603a6865fdbf5a5434565e870d73054c5b574f2a
+          test "$(git rev-parse refs/remotes/origin/main)" = "$BASE"
+          git branch -f main refs/remotes/origin/main
+          test "$(git rev-parse refs/heads/main)" = "$BASE"
           python -m pip install -e '.[dev]'
           python -m mstr_qualify task eligible B012
           python -m pytest -q tests/contract/test_b012_executor_binding.py
