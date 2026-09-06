@@ -76,6 +76,7 @@ jobs:
 
           test "$(git diff --name-only)" = $'artifacts/manifests/B012-executor-toolchain-binding.json\ntests/contract/test_b012_executor_binding.py'
           python -m pip install -e '.[dev]'
+          ruff format tests/contract/test_b012_executor_binding.py
           pytest -q tests/contract/test_b012_executor_binding.py
           ruff check tests/contract/test_b012_executor_binding.py
           ruff format --check tests/contract/test_b012_executor_binding.py
