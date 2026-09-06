@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mstr_b012_governance import B011_PATH, ExecutionError, MELLUM_ARTIFACT_PATH, QWEN_ARTIFACT_PATH
+from mstr_b012_governance import B011_PATH, MELLUM_ARTIFACT_PATH, QWEN_ARTIFACT_PATH, ExecutionError
 from mstr_executor_toolchain import download_verified, read_json
 
 
@@ -37,7 +37,9 @@ def _b011_candidate(repo_root: Path, candidate_id: str) -> dict[str, object]:
     raise ExecutionError(f"B011 source evidence missing: {candidate_id}")
 
 
-def download_candidate(*, repo_root: Path, envelope: dict[str, object], candidate_id: str, destination: Path) -> list[dict[str, object]]:
+def download_candidate(
+    *, repo_root: Path, envelope: dict[str, object], candidate_id: str, destination: Path
+) -> list[dict[str, object]]:
     candidate = _candidate_envelope(envelope, candidate_id)
     b011 = _b011_candidate(repo_root, candidate_id)
     manifest = _artifact_manifest(repo_root, candidate_id)
@@ -72,12 +74,16 @@ def download_candidate(*, repo_root: Path, envelope: dict[str, object], candidat
         stored_path = entry.get("path")
         sha = entry.get("sha256")
         size = entry.get("size_bytes")
-        if not isinstance(stored_path, str) or not isinstance(sha, str) or not isinstance(size, int):
+        if (
+            not isinstance(stored_path, str)
+            or not isinstance(sha, str)
+            or not isinstance(size, int)
+        ):
             raise ExecutionError("B011 artifact identity is incomplete")
         prefix = f"{candidate_id}/"
         if not stored_path.startswith(prefix):
             raise ExecutionError("B011 artifact path is outside candidate directory")
-        filename = stored_path[len(prefix):]
+        filename = stored_path[len(prefix) :]
         expected = required_by_name.get(filename)
         if not isinstance(expected, dict) or expected.get("size_bytes") != size:
             raise ExecutionError(f"B010/B011 file-scope drift detected: {filename}")
@@ -92,7 +98,9 @@ def download_candidate(*, repo_root: Path, envelope: dict[str, object], candidat
         if meta.get("size_bytes") != size:
             raise ExecutionError(f"downloaded size mismatch: {filename}")
         total += size
-        records.append({"file": filename, "expected_sha256": sha, "expected_size_bytes": size, **meta})
+        records.append(
+            {"file": filename, "expected_sha256": sha, "expected_size_bytes": size, **meta}
+        )
 
     expected_names = set(required_by_name)
     observed_names = {str(item["file"]) for item in records}

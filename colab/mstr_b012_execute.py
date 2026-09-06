@@ -12,7 +12,6 @@ from pathlib import Path
 
 from mstr_b012_artifacts import convert_quantize, prepare_tools
 from mstr_b012_governance import (
-    LOCK_PATH,
     RAW_CODE_PATH,
     T031_LOCK_PATH,
     T031_REPLAY_OVERLAY_PATH,
@@ -55,7 +54,9 @@ def execute(args: argparse.Namespace) -> int:
             overlay_path=repo_root / T031_REPLAY_OVERLAY_PATH,
             root=workdir / "python",
         )
-        conversion_dir, quantizer, bench, cli, tool_identity = prepare_tools(lock=lock, workdir=workdir)
+        conversion_dir, quantizer, bench, cli, tool_identity = prepare_tools(
+            lock=lock, workdir=workdir
+        )
         _require_live_main(repo_root)
         source_dir = workdir / "source" / args.candidate
         source_records = download_candidate(
@@ -86,7 +87,10 @@ def execute(args: argparse.Namespace) -> int:
         threads = runtime_cfg.get("threads")
         prompt_tokens = runtime_cfg.get("prompt_tokens")
         decode_tokens = runtime_cfg.get("decode_tokens")
-        if not all(isinstance(value, int) for value in (warmups, measured, threads, prompt_tokens, decode_tokens)):
+        if not all(
+            isinstance(value, int)
+            for value in (warmups, measured, threads, prompt_tokens, decode_tokens)
+        ):
             raise ExecutionError("B012 runtime benchmark integers are invalid")
         runtime_commit = str(tool_identity["runtime_commit"])
         prefill = _measure_set(
@@ -152,21 +156,32 @@ def execute(args: argparse.Namespace) -> int:
         _write(output_dir / f"B012-{args.candidate}-qualification.json", result)
         failure_path.unlink(missing_ok=True)
         return 0
-    except (ExecutionError, ToolchainError, RuntimeError, OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
-        _write(failure_path, {
-            "schema_version": "mstr.b012-equivalent-qualification-failure.v1",
-            "task_id": "B012",
-            "candidate_id": args.candidate,
-            "result_classification": "B012_EXECUTION_FAILED_CLOSED",
-            "canonical_main_at_start": head,
-            "started_utc": started_utc,
-            "failed_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "producer_replay": replay_identity,
-            "error_type": type(exc).__name__,
-            "error": str(exc),
-            "paid_cost_usd": 0.0,
-            "training": False,
-        })
+    except (
+        ExecutionError,
+        ToolchainError,
+        RuntimeError,
+        OSError,
+        ValueError,
+        KeyError,
+        json.JSONDecodeError,
+    ) as exc:
+        _write(
+            failure_path,
+            {
+                "schema_version": "mstr.b012-equivalent-qualification-failure.v1",
+                "task_id": "B012",
+                "candidate_id": args.candidate,
+                "result_classification": "B012_EXECUTION_FAILED_CLOSED",
+                "canonical_main_at_start": head,
+                "started_utc": started_utc,
+                "failed_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "producer_replay": replay_identity,
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+                "paid_cost_usd": 0.0,
+                "training": False,
+            },
+        )
         return 1
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
@@ -176,7 +191,9 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--candidate", required=True, choices=["mellum-4b", "qwen3.5-0.8b-control"])
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--workdir", type=Path, default=Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "mstr-b012")
+    parser.add_argument(
+        "--workdir", type=Path, default=Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "mstr-b012"
+    )
     return execute(parser.parse_args())
 
 

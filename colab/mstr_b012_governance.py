@@ -8,7 +8,9 @@ from pathlib import Path
 
 from mstr_executor_toolchain import read_json, require_file_sha256, sanitized_runtime_environment
 
-AUTHORITY_PATH = Path("artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json")
+AUTHORITY_PATH = Path(
+    "artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json"
+)
 ENVELOPE_PATH = Path("artifacts/manifests/B012-equivalent-qualification-execution-envelope.json")
 B010_PATH = Path("artifacts/manifests/B010-new-candidate-weight-access.json")
 B011_PATH = Path("artifacts/manifests/B011-acquired-candidates.json")
@@ -35,7 +37,9 @@ class ExecutionError(RuntimeError):
     """Raised when a B012 execution condition fails closed."""
 
 
-def _run(argv: list[str], *, timeout: float, env: dict[str, str] | None = None, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+def _run(
+    argv: list[str], *, timeout: float, env: dict[str, str] | None = None, cwd: Path | None = None
+) -> subprocess.CompletedProcess[str]:
     try:
         completed = subprocess.run(
             argv,
@@ -69,18 +73,21 @@ def _live_main_sha() -> str:
 
 
 def _require_live_main(repo_root: Path) -> str:
-    head = _run(["git", "rev-parse", "HEAD"], timeout=30, env=sanitized_runtime_environment(), cwd=repo_root).stdout.strip()
+    head = _run(
+        ["git", "rev-parse", "HEAD"], timeout=30, env=sanitized_runtime_environment(), cwd=repo_root
+    ).stdout.strip()
     live = _live_main_sha()
     if head != live:
         raise ExecutionError(f"live-main guard failed: checked-out HEAD={head}, remote main={live}")
     return head
 
 
-def _require_binding(repo_root: Path) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
+def _require_binding(
+    repo_root: Path,
+) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
     binding = read_json(repo_root / BINDING_PATH)
     authority = read_json(repo_root / AUTHORITY_PATH)
     envelope = read_json(repo_root / ENVELOPE_PATH)
-    b010 = read_json(repo_root / B010_PATH)
     b011 = read_json(repo_root / B011_PATH)
     lock = read_json(repo_root / LOCK_PATH)
 
@@ -139,15 +146,24 @@ def _require_binding(repo_root: Path) -> tuple[dict[str, object], dict[str, obje
         raise ExecutionError("pinned dependency reuse identity drift detected")
     if reuse.get("base_lock_sha256") != binding.get("reused_t031_lock_sha256"):
         raise ExecutionError("reused T031 lock binding drift detected")
-    if reuse.get("producer_replay_overlay_sha256") != binding.get("reused_t031_replay_overlay_sha256"):
+    if reuse.get("producer_replay_overlay_sha256") != binding.get(
+        "reused_t031_replay_overlay_sha256"
+    ):
         raise ExecutionError("reused replay overlay binding drift detected")
 
-    if b011.get("resource_cost_usd") != 0.0 or b011.get("observed_total_download_bytes") != 9817996174:
+    if (
+        b011.get("resource_cost_usd") != 0.0
+        or b011.get("observed_total_download_bytes") != 9817996174
+    ):
         raise ExecutionError("B011 acquired-source evidence drift detected")
     b011_candidates = b011.get("candidates")
     if not isinstance(b011_candidates, list):
         raise ExecutionError("B011 acquired candidate list is missing")
-    observed = {item.get("candidate_id"): item.get("status") for item in b011_candidates if isinstance(item, dict)}
+    observed = {
+        item.get("candidate_id"): item.get("status")
+        for item in b011_candidates
+        if isinstance(item, dict)
+    }
     if observed != {"mellum-4b": "ACQUIRED_VERIFIED", "qwen3.5-0.8b-control": "ACQUIRED_VERIFIED"}:
         raise ExecutionError("B011 acquired candidate status drift detected")
 
@@ -166,7 +182,10 @@ def _require_binding(repo_root: Path) -> tuple[dict[str, object], dict[str, obje
     }
     if not required_prohibitions.issubset({item for item in prohibited if isinstance(item, str)}):
         raise ExecutionError("candidate scope expansion prohibition drift detected")
-    if scope.get("git_model_binaries") is not False or scope.get("founder_machine_large_artifacts") != 0:
+    if (
+        scope.get("git_model_binaries") is not False
+        or scope.get("founder_machine_large_artifacts") != 0
+    ):
         raise ExecutionError("model binary retention boundary drift detected")
 
     return binding, envelope, lock

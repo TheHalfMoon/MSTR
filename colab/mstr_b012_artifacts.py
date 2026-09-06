@@ -49,7 +49,9 @@ def _contains_bytes(path: Path, needle: bytes) -> bool:
     return False
 
 
-def prepare_tools(*, lock: dict[str, object], workdir: Path) -> tuple[Path, Path, Path, Path, dict[str, object]]:
+def prepare_tools(
+    *, lock: dict[str, object], workdir: Path
+) -> tuple[Path, Path, Path, Path, dict[str, object]]:
     llama = lock.get("llama_cpp")
     if not isinstance(llama, dict):
         raise ExecutionError("B012 llama.cpp lock is missing")
@@ -57,7 +59,11 @@ def prepare_tools(*, lock: dict[str, object], workdir: Path) -> tuple[Path, Path
     conversion_commit = llama.get("conversion_quantization_commit")
     runtime_commit = llama.get("runtime_commit")
     build_flags = llama.get("build_flags")
-    if not isinstance(repository, str) or not isinstance(conversion_commit, str) or not isinstance(runtime_commit, str):
+    if (
+        not isinstance(repository, str)
+        or not isinstance(conversion_commit, str)
+        or not isinstance(runtime_commit, str)
+    ):
         raise ExecutionError("B012 llama.cpp identity is invalid")
     if not isinstance(build_flags, list) or not all(isinstance(item, str) for item in build_flags):
         raise ExecutionError("B012 llama.cpp build flags are invalid")
@@ -98,15 +104,29 @@ def prepare_tools(*, lock: dict[str, object], workdir: Path) -> tuple[Path, Path
     shutil.copy2(bench, bench_copy)
     shutil.copy2(cli, cli_copy)
     shutil.rmtree(runtime_dir, ignore_errors=True)
-    return conversion_dir, quantizer_copy, bench_copy, cli_copy, {
-        "repository": repository,
-        "conversion_quantization_commit": conversion_commit,
-        "runtime_commit": runtime_commit,
-        "build_flags": build_flags,
-    }
+    return (
+        conversion_dir,
+        quantizer_copy,
+        bench_copy,
+        cli_copy,
+        {
+            "repository": repository,
+            "conversion_quantization_commit": conversion_commit,
+            "runtime_commit": runtime_commit,
+            "build_flags": build_flags,
+        },
+    )
 
 
-def convert_quantize(*, python_exe: Path, conversion_dir: Path, quantize_bin: Path, source_dir: Path, candidate_id: str, workdir: Path) -> tuple[Path, dict[str, object]]:
+def convert_quantize(
+    *,
+    python_exe: Path,
+    conversion_dir: Path,
+    quantize_bin: Path,
+    source_dir: Path,
+    candidate_id: str,
+    workdir: Path,
+) -> tuple[Path, dict[str, object]]:
     tokenizer = source_dir / "tokenizer.json"
     if not tokenizer.is_file():
         raise ExecutionError("source tokenizer.json is missing")
@@ -114,7 +134,15 @@ def convert_quantize(*, python_exe: Path, conversion_dir: Path, quantize_bin: Pa
     f16 = workdir / f"{candidate_id}-f16.gguf"
     started = time.monotonic()
     _run(
-        [str(python_exe), str(conversion_dir / "convert_hf_to_gguf.py"), str(source_dir), "--outfile", str(f16), "--outtype", "f16"],
+        [
+            str(python_exe),
+            str(conversion_dir / "convert_hf_to_gguf.py"),
+            str(source_dir),
+            "--outfile",
+            str(f16),
+            "--outtype",
+            "f16",
+        ],
         timeout=3600,
         env=sanitized_runtime_environment(),
     )
@@ -130,7 +158,11 @@ def convert_quantize(*, python_exe: Path, conversion_dir: Path, quantize_bin: Pa
     for arm in ("Q4_K_M", "Q4_K_S"):
         output = workdir / f"{candidate_id}-{arm.lower()}.gguf"
         started = time.monotonic()
-        _run([str(quantize_bin), str(f16), str(output), arm], timeout=2400, env=sanitized_runtime_environment())
+        _run(
+            [str(quantize_bin), str(f16), str(output), arm],
+            timeout=2400,
+            env=sanitized_runtime_environment(),
+        )
         if not output.is_file() or output.stat().st_size <= 0:
             raise ExecutionError(f"B012 {arm} quantization produced no artifact")
         record = {
