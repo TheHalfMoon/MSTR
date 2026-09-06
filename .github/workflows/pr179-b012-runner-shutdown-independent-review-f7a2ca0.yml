@@ -108,7 +108,7 @@ jobs:
           job = next(item for item in jobs["jobs"] if item["id"] == job_id)
           assert job["name"] == "qualify"
           assert job["status"] == "completed"
-          assert job["conclusion"] == "cancelled"
+          assert job["conclusion"] == "failure"
           step_map = {step["name"]: step for step in job["steps"]}
           assert step_map["Execute governed B012 qualification"]["conclusion"] == "cancelled"
           assert step_map["Upload durable JSON evidence only"]["conclusion"] == "skipped"
