@@ -1,0 +1,43 @@
+name: PR177 B012 format rebind 6af9863
+
+on:
+  push:
+    branches:
+      - evidence/pr177-b012-format-rebind-6af9863
+
+permissions:
+  contents: read
+
+env:
+  SUBJECT_SHA: 6af986333c917c7309d5e6a0bc8698f8d985037e
+  HF_HUB_OFFLINE: "1"
+  TRANSFORMERS_OFFLINE: "1"
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact formatted subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 6af986333c917c7309d5e6a0bc8698f8d985037e
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+      - name: Verify format repair and materialize exact hashes
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_b012_timeout_budget.py
+          python -m ruff check colab/mstr_b012_execute.py colab/mstr_b012_measure.py tests/contract/test_b012_timeout_budget.py
+          python -m ruff format --check colab/mstr_b012_execute.py colab/mstr_b012_measure.py
+          python -m py_compile colab/mstr_b012_execute.py colab/mstr_b012_measure.py
+          echo "MEASURE_HELPER_SHA256=$(sha256sum colab/mstr_b012_measure.py | awk '{print $1}')"
+          echo "EXECUTOR_SHA256=$(sha256sum colab/mstr_b012_execute.py | awk '{print $1}')"
+          echo 'MODEL_EXECUTION_PERFORMED=false'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
