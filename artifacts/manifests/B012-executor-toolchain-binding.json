@@ -9,10 +9,10 @@
     "qwen3.5-0.8b-control"
   ],
   "resolution_evidence": {
-    "run_id": 34035697302,
-    "evidence_head": "c248a144e52703547cd2cdb98bebc64d9629602a",
-    "artifact_id": 9990089955,
-    "artifact_zip_sha256": "9b6f1735b8ce4387f065e90c3eed131c57448aaa97f5548cb9f5be54e6e268b1",
+    "run_id": 34037510185,
+    "evidence_head": "c705528fb8a2790233b17cdd1721ad45b28f6316",
+    "artifact_id": 9990642177,
+    "artifact_zip_sha256": "12b88955e202d56ba2c4c2b2597433a269b6025c9b28560bd0feaf95b134d34a",
     "model_access": "NONE",
     "training": false,
     "paid_cost_usd": 0.0
@@ -31,7 +31,7 @@
   "toolchain_helper_sha256": "b7603336d8fcf38ab92ffa108f5e62c194e296f31e36d401a2cb8c901eaa0c77",
   "replay_helper_sha256": "d6f646ec35d27288c20cb7ad35984c98310e806609a7f4fde0172dfae207dfa4",
   "reused_measurement_helper_sha256": "3a4f93217d46772fca2d55a0f5d146da9da4c0a9d116a5c79939d384269b224b",
-  "governance_script_sha256": "499b11b8744eb44b5e8d9b6d47723e241e5853434939283fa8ab564a333d212f",
+  "governance_script_sha256": "813e8597a4946e23fc00df07155d173a8b45370186c8365fa51d57b1af982d48",
   "source_script_sha256": "39488fa380ef312ee851d36c15120a19a96ba8264d037648a60f2891ef243bf5",
   "artifact_script_sha256": "03027c2baaeba469e358b7aee3527d1061740aa6cbf2baadd835ccf33fd9eb2c",
   "raw_code_script_sha256": "2193fda3de715181720f982f5092c3dcc336e2c600d92effc4f59efec98eeeb2",
