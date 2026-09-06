@@ -13,7 +13,6 @@ from pathlib import Path
 
 from mstr_executor_toolchain import (
     ToolchainError,
-    install_verified_python_toolchain,
     read_json,
     require_file_sha256,
     sha256_file,
@@ -21,12 +20,14 @@ from mstr_executor_toolchain import (
 from mstr_t031_artifacts import _prepare_llama_cpp, _quantize
 from mstr_t031_governance import (
     LOCK_PATH,
+    REPLAY_OVERLAY_PATH,
     RUNTIME_PROFILE_PATH,
     ExecutionError,
     _require_binding,
     _require_live_main,
 )
 from mstr_t031_measure import _measure_set
+from mstr_t031_replay import install_replay_toolchain
 from mstr_t031_source import _candidate_source, _download_candidate
 
 
@@ -44,6 +45,7 @@ def execute(args: argparse.Namespace) -> int:
 
     started_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     head = "UNKNOWN"
+    replay_identity: dict[str, object] | None = None
     try:
         if workdir.exists():
             shutil.rmtree(workdir)
@@ -86,7 +88,11 @@ def execute(args: argparse.Namespace) -> int:
                 raise ExecutionError("canonical manifest SHA-256 is missing")
             require_file_sha256(path, expected)
 
-        python_exe = install_verified_python_toolchain(repo_root / LOCK_PATH, workdir / "python")
+        python_exe, replay_identity = install_replay_toolchain(
+            base_lock_path=repo_root / LOCK_PATH,
+            overlay_path=repo_root / REPLAY_OVERLAY_PATH,
+            root=workdir / "python",
+        )
         conversion_dir, quantize_bin, runtime_bin, tool_identity = _prepare_llama_cpp(
             lock=lock, workdir=workdir
         )
@@ -155,6 +161,7 @@ def execute(args: argparse.Namespace) -> int:
                         "sha256": q4_k_m_sha,
                         "size_bytes": q4_k_m.stat().st_size,
                     },
+                    "producer_replay": replay_identity,
                     "runtime": {
                         **tool_identity,
                         "threads": threads,
@@ -187,6 +194,7 @@ def execute(args: argparse.Namespace) -> int:
             "paid_cost_usd": 0.0,
             "training": False,
             "source_verification": source_records,
+            "producer_replay": replay_identity,
             "regeneration": regeneration,
             "q4_k_m_sha256": q4_k_m_sha,
             "q4_k_m_size_bytes": q4_k_m.stat().st_size,
@@ -209,6 +217,7 @@ def execute(args: argparse.Namespace) -> int:
                 "canonical_main_at_start": head,
                 "started_utc": started_utc,
                 "failed_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "producer_replay": replay_identity,
                 "error_type": type(exc).__name__,
                 "error": str(exc),
                 "paid_cost_usd": 0.0,
