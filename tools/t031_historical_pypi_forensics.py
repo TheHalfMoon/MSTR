@@ -9,9 +9,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import subprocess
-import sys
+import urllib.parse
 import urllib.request
 import venv
 import zipfile
