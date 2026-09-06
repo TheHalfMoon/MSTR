@@ -110,8 +110,8 @@ jobs:
           assert job["status"] == "completed"
           assert job["conclusion"] == "cancelled"
           step_map = {step["name"]: step for step in job["steps"]}
-          assert step_map["Execute equivalent candidate qualification"]["conclusion"] == "cancelled"
-          assert step_map["Upload durable evidence even on failure"]["conclusion"] == "skipped"
+          assert step_map["Execute governed B012 qualification"]["conclusion"] == "cancelled"
+          assert step_map["Upload durable JSON evidence only"]["conclusion"] == "skipped"
 
           artifacts = get_json(f"https://api.github.com/repos/{owner_repo}/actions/runs/{run_id}/artifacts")
           assert artifacts["total_count"] == 0
