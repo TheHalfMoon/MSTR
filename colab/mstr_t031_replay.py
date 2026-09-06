@@ -227,9 +227,12 @@ def install_replay_toolchain(
     expected = {entry["name"]: entry["version"] for entry in overlay_entries}
     verification_script = (
         "import importlib.metadata,json,sys;"
+        "from packaging.version import Version;"
         "expected=json.loads(sys.argv[1]);"
         "actual={name:importlib.metadata.version(name) for name in expected};"
-        "assert actual==expected,(actual,expected);"
+        "assert set(actual)==set(expected),(actual,expected);"
+        "assert all(Version(actual[name])==Version(expected[name]) for name in expected),"
+        "(actual,expected);"
         "print(json.dumps(actual,sort_keys=True))"
     )
     verified_json = _run_checked(
