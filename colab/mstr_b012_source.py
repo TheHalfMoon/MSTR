@@ -5,14 +5,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mstr_b012_governance import B011_PATH, MELLUM_ARTIFACT_PATH, QWEN_ARTIFACT_PATH, ExecutionError
+from mstr_b012_governance import (
+    B010_PATH,
+    B011_PATH,
+    MELLUM_ARTIFACT_PATH,
+    QWEN_ARTIFACT_PATH,
+    ExecutionError,
+)
 from mstr_executor_toolchain import download_verified, read_json
 
 
-def _candidate_envelope(envelope: dict[str, object], candidate_id: str) -> dict[str, object]:
-    items = envelope.get("candidate_access_envelopes")
+def _candidate_envelope(repo_root: Path, candidate_id: str) -> dict[str, object]:
+    b010 = read_json(repo_root / B010_PATH)
+    items = b010.get("candidate_access_envelopes")
     if not isinstance(items, list):
-        raise ExecutionError("B012 candidate access envelopes are missing")
+        raise ExecutionError("B010 candidate access envelopes are missing")
     for item in items:
         if isinstance(item, dict) and item.get("candidate_id") == candidate_id:
             return item
@@ -40,7 +47,7 @@ def _b011_candidate(repo_root: Path, candidate_id: str) -> dict[str, object]:
 def download_candidate(
     *, repo_root: Path, envelope: dict[str, object], candidate_id: str, destination: Path
 ) -> list[dict[str, object]]:
-    candidate = _candidate_envelope(envelope, candidate_id)
+    candidate = _candidate_envelope(repo_root, candidate_id)
     b011 = _b011_candidate(repo_root, candidate_id)
     manifest = _artifact_manifest(repo_root, candidate_id)
     upstream = candidate.get("upstream_id")
