@@ -17,10 +17,12 @@ AUTHORITY_PATH = Path(
 )
 ENVELOPE_PATH = Path("artifacts/manifests/T031-local-measurement-execution-envelope.json")
 LOCK_PATH = Path("artifacts/manifests/T031-executor-toolchain-lock.json")
+REPLAY_OVERLAY_PATH = Path("artifacts/manifests/T031-t029-producer-replay-overlay.json")
 BINDING_PATH = Path("artifacts/manifests/T031-executor-toolchain-binding.json")
 RUNTIME_PROFILE_PATH = Path("configs/runtimes/llama-cpp-cpu.json")
 WORKFLOW_PATH = Path(".github/workflows/t031-measure.yml")
 HELPER_PATH = Path("colab/mstr_executor_toolchain.py")
+REPLAY_HELPER_PATH = Path("colab/mstr_t031_replay.py")
 GOVERNANCE_PATH = Path("colab/mstr_t031_governance.py")
 SOURCE_PATH = Path("colab/mstr_t031_source.py")
 ARTIFACT_PATH = Path("colab/mstr_t031_artifacts.py")
@@ -96,12 +98,15 @@ def _require_binding(repo_root: Path) -> tuple[dict[str, object], dict[str, obje
     authority = read_json(repo_root / AUTHORITY_PATH)
     envelope = read_json(repo_root / ENVELOPE_PATH)
     lock = read_json(repo_root / LOCK_PATH)
+    replay_overlay = read_json(repo_root / REPLAY_OVERLAY_PATH)
 
     scalar_bindings = {
         repo_root / AUTHORITY_PATH: binding.get("authority_sha256"),
         repo_root / ENVELOPE_PATH: binding.get("envelope_sha256"),
         repo_root / LOCK_PATH: binding.get("toolchain_lock_sha256"),
+        repo_root / REPLAY_OVERLAY_PATH: binding.get("producer_replay_overlay_sha256"),
         repo_root / HELPER_PATH: binding.get("toolchain_helper_sha256"),
+        repo_root / REPLAY_HELPER_PATH: binding.get("producer_replay_helper_sha256"),
         repo_root / GOVERNANCE_PATH: binding.get("governance_script_sha256"),
         repo_root / SOURCE_PATH: binding.get("source_script_sha256"),
         repo_root / ARTIFACT_PATH: binding.get("artifact_script_sha256"),
@@ -124,6 +129,31 @@ def _require_binding(repo_root: Path) -> tuple[dict[str, object], dict[str, obje
         raise ExecutionError("T031 bounded execution envelope binding is missing")
     if bounded.get("sha256") != binding.get("envelope_sha256"):
         raise ExecutionError("authority/envelope binding drift detected")
+
+    if replay_overlay.get("status") != "EVIDENCE_BOUNDED_REPLAY":
+        raise ExecutionError("T031 producer replay overlay status drift detected")
+    if replay_overlay.get("task_id") != "T031":
+        raise ExecutionError("T031 producer replay overlay task binding drift detected")
+    replay_boundary = replay_overlay.get("execution_boundary")
+    if not isinstance(replay_boundary, dict):
+        raise ExecutionError("T031 producer replay execution boundary is missing")
+    for key in (
+        "model_access_authority_expansion",
+        "candidate_revision_or_file_expansion",
+        "b012_execution",
+        "t032_execution",
+        "t033_execution",
+        "t034_admission_decision",
+        "training",
+    ):
+        if replay_boundary.get(key) is not False:
+            raise ExecutionError(f"producer replay authority expansion drift detected: {key}")
+    if replay_boundary.get("paid_cost_usd") != 0.0:
+        raise ExecutionError("producer replay paid-cost boundary drift detected")
+    if replay_boundary.get("git_model_binaries") != 0:
+        raise ExecutionError("producer replay Git model-binary boundary drift detected")
+    if replay_boundary.get("founder_machine_model_binaries") != 0:
+        raise ExecutionError("producer replay founder-machine binary boundary drift detected")
 
     candidate_ids = binding.get("candidate_ids")
     envelope_candidates = envelope.get("candidate_ids")
