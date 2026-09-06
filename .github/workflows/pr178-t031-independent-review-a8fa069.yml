@@ -67,6 +67,10 @@ jobs:
           print('REVIEW_SUBJECT_IDENTITY=PASS')
           print('QUALIFICATION_IDENTITY=PASS')
           PY
+      - name: Install review dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
       - name: Independent correctness security and governance assertions
         env:
           PYTHONPATH: colab
@@ -115,7 +119,6 @@ jobs:
           PYTHONPATH: colab
         run: |
           set -euo pipefail
-          python -m pip install -e '.[dev]'
           python -m pytest -q tests/contract/test_t031_replay_version_equivalence.py tests/contract/test_t031_executor_binding.py tests/contract/test_b012_executor_binding.py
           python -m mstr_qualify validate
           python -m pytest -q
