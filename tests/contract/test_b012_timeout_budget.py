@@ -7,6 +7,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 COLAB = ROOT / "colab"
+EXECUTOR = COLAB / "mstr_b012_execute.py"
 if str(COLAB) not in sys.path:
     sys.path.insert(0, str(COLAB))
 
@@ -59,6 +60,14 @@ def test_setup_elapsed_time_reduces_benchmark_budget_to_preserve_reserve() -> No
     )
     assert effective == 3600.0
     assert 1200.0 + effective + 2400.0 == 7200.0
+
+
+def test_executor_does_not_reset_budget_clock_after_setup() -> None:
+    source = EXECUTOR.read_text(encoding="utf-8")
+    assert "benchmark_started = time.monotonic()" not in source
+    assert (
+        "benchmark_started = execution_started_monotonic + pre_benchmark_elapsed_seconds" in source
+    )
 
 
 def test_setup_exhausting_pre_reserve_capacity_fails_before_benchmark() -> None:
