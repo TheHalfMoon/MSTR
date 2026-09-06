@@ -1,0 +1,88 @@
+name: T031 59-wheel loader f8bb0c8
+
+on:
+  push:
+    branches:
+      - evidence/t031-59wheel-loader-f8bb0c8
+
+permissions:
+  contents: read
+
+jobs:
+  loader:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: colab
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: f8bb0c886313fa3aa87e163277889c382e48129c
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Verify exact repair identity and historical shards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'f8bb0c886313fa3aa87e163277889c382e48129c'
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = '4d9e423f7fa2aa6d4f706d5c9ad61dafb24b2513'
+          test "$(git ls-remote origin refs/heads/fix/t031-historical-59wheel-replay | awk '{print $1}')" = 'f8bb0c886313fa3aa87e163277889c382e48129c'
+          sha256sum artifacts/manifests/T031-t029-historical-pypi-packages-*.json
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          from mstr_t031_replay import _historical_package_entries
+
+          paths = [
+              'artifacts/manifests/T031-t029-historical-pypi-packages-01.json',
+              'artifacts/manifests/T031-t029-historical-pypi-packages-02.json',
+              'artifacts/manifests/T031-t029-historical-pypi-packages-03.json',
+          ]
+          bindings = []
+          for path in paths:
+              bindings.append({'path': path, 'sha256': hashlib.sha256(Path(path).read_bytes()).hexdigest()})
+          overlay = {
+              'historical_package_shards': bindings,
+              'historical_cutoff_utc': '2026-08-26T10:44:06Z',
+          }
+          overlay_path = Path('artifacts/manifests/T031-t029-producer-replay-overlay.json')
+          entries = _historical_package_entries(
+              overlay=overlay,
+              overlay_path=overlay_path,
+              allowed_hosts=frozenset({'files.pythonhosted.org'}),
+          )
+          assert len(entries) == 59, len(entries)
+          versions = {str(item['name']): str(item['version']) for item in entries}
+          assert versions['numpy'] == '2.4.6'
+          assert versions['torch'] == '2.13.0'
+          assert versions['sentencepiece'] == '0.2.2'
+          assert versions['protobuf'] == '7.36.0'
+          assert versions['gguf'] == '0.19.0'
+          assert versions['safetensors'] == '0.8.0'
+          assert versions['transformers'] == '5.15.1'
+          assert any(name.startswith('nvidia-') for name in versions)
+          assert 'cuda-bindings' in versions
+          print('T031_HISTORICAL_SHARD_LOADER=PASS')
+          print('PACKAGE_COUNT=59')
+          print('MODEL_ACCESS=NONE')
+          print('TRAINING=false')
+          print('PAID_COST_USD=0.0')
+          PY
+      - name: Run focused and repository quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_t031_executor_binding.py tests/contract/test_b012_executor_binding.py
+          python -m ruff check colab/mstr_t031_replay.py tests/contract/test_t031_executor_binding.py
+          python -m ruff format --check colab/mstr_t031_replay.py tests/contract/test_t031_executor_binding.py
+          python -m mstr_qualify validate
+          git diff --exit-code
+          git diff --cached --exit-code
