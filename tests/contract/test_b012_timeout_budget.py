@@ -38,15 +38,37 @@ def _sample() -> dict[str, object]:
     }
 
 
-def test_budget_matches_authorized_job_ceiling() -> None:
-    runtime_cfg: dict[str, object] = {
+def _budget() -> dict[str, int]:
+    return {
         "per_invocation_timeout_seconds": 900,
         "benchmark_wall_budget_seconds": 4800,
         "reserved_non_benchmark_seconds": 2400,
         "authorized_job_ceiling_seconds": 7200,
     }
+
+
+def test_budget_matches_authorized_job_ceiling() -> None:
+    runtime_cfg: dict[str, object] = _budget()
     observed = measure.validate_benchmark_budget(runtime_cfg=runtime_cfg, max_job_minutes=120)
     assert observed == runtime_cfg
+
+
+def test_setup_elapsed_time_reduces_benchmark_budget_to_preserve_reserve() -> None:
+    effective = measure.effective_benchmark_wall_budget(
+        budget=_budget(), pre_benchmark_elapsed_seconds=1200.0
+    )
+    assert effective == 3600.0
+    assert 1200.0 + effective + 2400.0 == 7200.0
+
+
+def test_setup_exhausting_pre_reserve_capacity_fails_before_benchmark() -> None:
+    with pytest.raises(
+        measure.ExecutionError,
+        match="non-benchmark reserve cannot be preserved before benchmark launch",
+    ):
+        measure.effective_benchmark_wall_budget(
+            budget=_budget(), pre_benchmark_elapsed_seconds=4800.0
+        )
 
 
 def test_budget_rejects_aggregate_overrun() -> None:
