@@ -31,26 +31,33 @@ jobs:
           test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
           git merge-base --is-ancestor "$EXPECTED_MAIN" HEAD
           python - <<'PY'
+          import hashlib
           import json
-          import os
-          import sys
           from pathlib import Path
 
-          sys.path.insert(0, "src")
-          from mstr_qualify.task_gate import evaluate_task_snapshot
-
-          authority = json.loads(Path("artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json").read_text())
-          envelope = json.loads(Path("artifacts/manifests/B012-equivalent-qualification-execution-envelope.json").read_text())
+          authority_path = Path("artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json")
+          envelope_path = Path("artifacts/manifests/B012-equivalent-qualification-execution-envelope.json")
+          b010_path = Path("artifacts/manifests/B010-new-candidate-weight-access.json")
+          authority = json.loads(authority_path.read_text())
+          envelope = json.loads(envelope_path.read_text())
           assert authority["status"] == "AUTHORIZED_CANONICAL"
           assert authority["authority_id"] == "B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION"
+          assert authority["task_id"] == "B012"
           assert authority["scope"]["candidate_ids"] == ["mellum-4b", "qwen3.5-0.8b-control"]
           assert envelope["candidate_ids"] == ["mellum-4b", "qwen3.5-0.8b-control"]
+          assert envelope["authority_id"] == authority["authority_id"]
           assert envelope["dispatch_state"] == "BLOCKED_PENDING_CANONICAL_EXECUTOR_TOOLCHAIN_BINDING"
+          assert envelope["toolchain_provisioning"]["state"] == "BLOCKED_PENDING_SEPARATELY_REVIEWED_EXECUTOR_BINDING"
           assert envelope["resource_ceiling"]["paid_cost_usd"] == 0.0
-          result = evaluate_task_snapshot("B012", canonical_main=os.environ["EXPECTED_MAIN"])
-          assert result["eligible"] is True, result
-          assert result["authority_result"]["satisfied"] is True, result
-          print("B012_MACHINE_ELIGIBLE=true")
+          assert envelope["resource_ceiling"]["paid_compute"] is False
+          assert envelope["resource_ceiling"]["paid_model_api"] is False
+          envelope_sha = hashlib.sha256(envelope_path.read_bytes()).hexdigest()
+          b010_sha = hashlib.sha256(b010_path.read_bytes()).hexdigest()
+          assert authority["scope"]["bounded_execution_envelope"]["sha256"] == envelope_sha
+          assert authority["scope"]["b010_manifest"]["sha256"] == b010_sha
+          assert envelope["candidate_source_manifest"]["sha256"] == b010_sha
+          print("B012_AUTHORITY_BOUNDARY=VALID")
+          print("B012_EXECUTION_DISPATCH=BLOCKED_PENDING_SEPARATELY_REVIEWED_BINDING")
           print("MODEL_ACCESS=NONE")
           print("TRAINING=false")
           print("PAID_COST_USD=0.0")
