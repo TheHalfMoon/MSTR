@@ -63,20 +63,85 @@ jobs:
           print("PAID_COST_USD=0.0")
           PY
 
+      - name: Validate B012 executor candidate without model access
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            colab/mstr_b012_governance.py \
+            colab/mstr_b012_source.py \
+            colab/mstr_b012_artifacts.py \
+            colab/mstr_b012_raw_code.py \
+            colab/mstr_b012_execute.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          candidates = ["mellum-4b", "qwen3.5-0.8b-control"]
+          lock = json.loads(Path("artifacts/manifests/B012-executor-toolchain-lock.json").read_text())
+          raw = json.loads(Path("benchmarks/manifests/B012-raw-code-proxy.json").read_text())
+          acquired = json.loads(Path("artifacts/manifests/B011-acquired-candidates.json").read_text())
+          envelope = json.loads(Path("artifacts/manifests/B012-equivalent-qualification-execution-envelope.json").read_text())
+          assert lock["task_id"] == "B012"
+          assert lock["task_binding"]["candidate_ids"] == candidates
+          assert lock["runner"]["python_version"] == "3.11.16"
+          assert lock["runner"]["max_parallel_candidates"] == 1
+          assert lock["resource_ceiling"]["paid_cost_usd"] == 0.0
+          assert lock["resource_ceiling"]["paid_compute"] is False
+          assert lock["resource_ceiling"]["paid_model_api"] is False
+          assert lock["explicit_dependency_reuse"]["authority_transfer"] is False
+          assert lock["explicit_dependency_reuse"]["source_task"] == "T031"
+          assert lock["explicit_dependency_reuse"]["package_count"] == 40
+          assert raw["task_id"] == "B012"
+          assert raw["execution"]["network_model_calls"] == 0
+          assert raw["verification"]["score_is_observation_not_admission_gate"] is True
+          assert len(raw["tasks"]) == 3
+          assert envelope["candidate_ids"] == candidates
+          observed = {
+              item["candidate_id"]: (item["model_repo"], item["revision"], item["status"])
+              for item in acquired["candidates"]
+          }
+          assert observed == {
+              "mellum-4b": ("JetBrains/Mellum-4b-base", "83cce2605fbdf6a3868627e9b0a5924e0072b94d", "ACQUIRED_VERIFIED"),
+              "qwen3.5-0.8b-control": ("Qwen/Qwen3.5-0.8B-Base", "dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68", "ACQUIRED_VERIFIED"),
+          }
+          workflow = Path(".github/workflows/b012-qualify.yml").read_text()
+          assert "github.event.issue.number == 162" in workflow
+          assert "github.event.comment.user.login == 'TheHalfMoon'" in workflow
+          assert "github.event.comment.author_association == 'OWNER'" in workflow
+          assert "B012_RUN mellum-4b" in workflow
+          assert "B012_RUN qwen3.5-0.8b-control" in workflow
+          assert "workflow_dispatch" not in workflow
+          print("B012_EXECUTOR_STATIC_VALIDATION=PASS")
+          print("MODEL_ACCESS=NONE")
+          PY
+
       - name: Record exact reusable component identities
         run: |
           set -euo pipefail
           report="$RUNNER_TEMP/b012-binding-resolution.txt"
           {
             echo "CANONICAL_BASE=603a6865fdbf5a5434565e870d73054c5b574f2a"
+            echo "EVIDENCE_HEAD=$(git rev-parse HEAD)"
             sha256sum artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json
             sha256sum artifacts/manifests/B012-equivalent-qualification-execution-envelope.json
             sha256sum artifacts/manifests/B010-new-candidate-weight-access.json
+            sha256sum artifacts/manifests/B011-acquired-candidates.json
+            sha256sum artifacts/manifests/B011-artifact-mellum-4b.json
+            sha256sum artifacts/manifests/B011-artifact-qwen3.5-0.8b-control.json
+            sha256sum artifacts/manifests/B012-executor-toolchain-lock.json
+            sha256sum benchmarks/manifests/B012-raw-code-proxy.json
             sha256sum artifacts/manifests/T031-executor-toolchain-lock.json
             sha256sum artifacts/manifests/T031-t029-producer-replay-overlay.json
             sha256sum colab/mstr_executor_toolchain.py
             sha256sum colab/mstr_t031_replay.py
+            sha256sum colab/mstr_t031_measure.py
+            sha256sum colab/mstr_b012_governance.py
+            sha256sum colab/mstr_b012_source.py
+            sha256sum colab/mstr_b012_artifacts.py
+            sha256sum colab/mstr_b012_raw_code.py
+            sha256sum colab/mstr_b012_execute.py
             sha256sum configs/runtimes/llama-cpp-cpu.json
+            sha256sum .github/workflows/b012-qualify.yml
             python --version
             cmake --version | head -1
             gcc --version | head -1
