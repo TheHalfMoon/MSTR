@@ -44,15 +44,32 @@ pip install sentencepiece protobuf gguf safetensors transformers --quiet
 
 The durable T029 Granite report records Python `3.11.16`. It does not record installed Python package versions.
 
-The first canonical T031 binding instead used Python `3.11.9` and a dependency lock derived from the later pinned `llama.cpp` requirement surface (`torch==2.11.0`, `transformers==4.57.6`, `numpy~=1.26.4`, and bounded transitive wheels). That lock is deterministic, but the failed exact-artifact comparison proves that it is not sufficient to reproduce the historical Granite F16 identity.
+The first canonical T031 binding instead used Python `3.11.9` and a later deterministic dependency lock. The failed exact-artifact comparison proves that environment is insufficient to reproduce the historical Granite F16 identity. This evidence does not claim that any one package difference is the proven root cause.
 
-This evidence does **not** claim that any one package difference is the proven root cause. The exact cause is unresolved until a bounded replay environment reproduces the frozen T029 F16 and Q4 identities.
+## First replay attempt and fail-closed qualification result
 
-## Evidence-bounded replay reconstruction
+The first replay repair preserved the existing transitive dependency lock and overlaid seven reconstructed direct packages. Exact-head qualification run `34031723964` rejected that design before model access because `pip check` proved the mixed environment was inconsistent:
 
-No-model dependency resolution run `34030381077` used Python `3.11.16` and reconstructed the direct package versions observable from the 2026-08-26 T029 execution boundary. In particular, the T029 run began before the 2026-08-26 publication times of `transformers` 5.16.0 and 5.16.1, so the replay selects the preceding 5.15.1 release.
+```text
+transformers 5.15.1 requires typer, which is not installed.
+transformers 5.15.1 has requirement huggingface-hub<2.0,>=1.5.0, but you have huggingface-hub 0.36.2.
+```
 
-The proposed deterministic overlay is frozen at `artifacts/manifests/T031-t029-producer-replay-overlay.json` and contains exact HTTPS wheel URLs and SHA-256 identities for:
+Qualification status for that head is therefore `FAILED` and unusable. No review, premerge, merge, or model retry may inherit from it.
+
+```text
+QUALIFICATION_RUN=34031723964
+REPLAY_INSTALL_SMOKE=FAILURE
+MODEL_ACCESS=NONE
+TRAINING=false
+PAID_COST_USD=0.0
+```
+
+## Complete replay dependency closure
+
+A second no-model resolver run rebuilt the complete compatible dependency closure for the replay direct requirements under Python `3.11.16` and CPU-only `torch==2.13.0+cpu`. The resolver selected 40 packages in total. Every selected wheel was downloaded during the evidence run and its SHA-256 was computed from the downloaded bytes; the resulting URLs and hashes are frozen in `artifacts/manifests/T031-t029-producer-replay-overlay.json`.
+
+Direct replay requirements remain:
 
 ```text
 gguf==0.19.0
@@ -64,31 +81,35 @@ torch==2.13.0+cpu
 transformers==5.15.1
 ```
 
-`torch==2.13.0+cpu` is intentionally a CPU-only distribution from the same 2.13.0 code line. This avoids unrelated current CUDA dependency drift on a CPU-only T031 lane. It is not asserted to be byte-identical to the historical PyPI distribution. The only permitted equivalence proof remains reproduction of the exact frozen T029 F16 and Q4 SHA-256 identities.
+The complete closure additionally includes all resolver-required dependencies, including `huggingface-hub==1.30.0`, `typer==0.27.2`, `tokenizers==0.22.2`, and their exact transitive requirements.
 
-Dependency-resolution evidence:
+Complete-closure evidence:
 
 ```text
-RUN_ID=34030381077
-ARTIFACT_ID=9988393963
-ARTIFACT_ZIP_SHA256=ef446704d9194693187adb0f96d8dcb8d3e734e1308b04c8c785f09fd04fea2d
-RESOLUTION_REPORT_SHA256=46c80945038240ef7eff4ebc20bb476361d24640fd386aae0be7270f523762ab
-PIP_REPORT_SHA256=a929a2b1f704be75bd9413dc61d1ade8ddbd755d83ae44502c595cb802e918b8
-CPU_TORCH_REPORT_SHA256=aaf1b38d0939c10e5c32e2cb293652d8917a09d781b986924b3dcb8c7d664df2
+RUN_ID=34031883766
+EVIDENCE_HEAD=64a341da5d2537c36fbca79ce8eed289f3578411
+ARTIFACT_ID=9988881418
+ARTIFACT_ZIP_SHA256=545625ad24094ca232ef72b2d214d286a4659d25850b4e8b2aa410cfa033ac06
+RESOLUTION_REPORT_SHA256=680b6d6258c25edeb8ee53cc06e8c1b47922dd1ad7263bb4a3642a44ceaa65c6
+PIP_REPORT_SHA256=58a431fa0386d4a97d04da53fea9d535115f27cbac3c0f082e0b5889ead7b912
+PACKAGE_COUNT=40
 MODEL_ACCESS=NONE
 TRAINING=false
 PAID_COST_USD=0.0
 ```
 
+`torch==2.13.0+cpu` is a CPU-only distribution from the same 2.13.0 code line. It is not asserted to be byte-identical to the historical PyPI distribution. The complete replay closure is likewise not asserted to prove unknown historical transitive package identities. The only permitted equivalence proof remains reproduction of the exact frozen T029 F16, Q4_K_M, and Q4_K_S SHA-256 identities.
+
 ## Repair boundary
 
-The repair may only:
+The repaired installer may only:
 
-- switch the T031 execution Python identity to the evidence-observed T029 Python `3.11.16`;
-- install the exact hash-pinned producer-replay overlay before conversion;
+- require Python `3.11.16` and the existing frozen system build-tool identities;
+- install the existing hash-pinned pip identity plus the complete 40-package replay closure using verified HTTPS wheels, `--no-index`, and `--no-deps`;
+- verify every installed replay package version and require `pip check` to pass before model access;
 - keep the existing source, candidate, revision, file, llama.cpp, runtime, measurement, dispatch, concurrency, cost, and retention boundaries unchanged;
 - require the exact canonical T029 F16, Q4_K_M, and Q4_K_S identities before any T031 measurement is accepted.
 
 The repair does not authorize B012, T032, T033, T034, training, weight changes, paid compute/API use, new candidates, new revisions, Git model binaries, or founder-machine model binaries.
 
-A repaired Granite retry is prohibited until the repair is canonical after fresh exact-head qualification, independent substantive semantic/security/governance review, mandatory premerge verification, guarded merge, and exact-main postmerge verification.
+A repaired Granite retry is prohibited until the final repair head is canonical after fresh exact-head qualification, independent substantive semantic/security/governance review, mandatory premerge verification, guarded merge, and exact-main postmerge verification.
