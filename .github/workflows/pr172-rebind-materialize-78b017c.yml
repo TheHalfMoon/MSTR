@@ -1,0 +1,68 @@
+name: PR172 replay rebind materialization 78b017c
+
+on:
+  push:
+    branches:
+      - evidence/pr172-rebind-78b017c
+
+permissions:
+  contents: read
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 78b017cbc57716e8cccc18f5c9e6281a4c0db5f4
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Materialize exact repaired binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          head='78b017cbc57716e8cccc18f5c9e6281a4c0db5f4'
+          binding_path=Path('artifacts/manifests/T031-executor-toolchain-binding.json')
+          overlay_path=Path('artifacts/manifests/T031-t029-producer-replay-overlay.json')
+          helper_path=Path('colab/mstr_t031_replay.py')
+          b=json.loads(binding_path.read_text())
+          o=json.loads(overlay_path.read_text())
+          assert o['package_count']==40
+          assert o['overlay_id']=='T031_T029_PRODUCER_REPLAY_FULL_CLOSURE_2026_09_06'
+          b['producer_replay_overlay_sha256']=hashlib.sha256(overlay_path.read_bytes()).hexdigest()
+          b['producer_replay_helper_sha256']=hashlib.sha256(helper_path.read_bytes()).hexdigest()
+          b['producer_replay']={
+              'acceptance_gate':'EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH',
+              'base_lock_semantics':'PINNED_PIP_PLUS_COMPLETE_HASH_PINNED_REPLAY_DEPENDENCY_CLOSURE',
+              'historical_transitive_identity_claim':False,
+              'package_count':40,
+              'python_version':'3.11.16',
+              'status':'EVIDENCE_BOUNDED_REPLAY',
+          }
+          b['repair_evidence']['complete_closure_binding']={
+              'source_head':head,
+              'package_count':40,
+              'model_access':'NONE',
+              'paid_cost_usd':0.0,
+              'training':False,
+          }
+          out=Path('/tmp/T031-executor-toolchain-binding.json')
+          out.write_text(json.dumps(b,indent=2,sort_keys=True)+'\n')
+          print('OVERLAY_SHA256='+b['producer_replay_overlay_sha256'])
+          print('REPLAY_HELPER_SHA256='+b['producer_replay_helper_sha256'])
+          print('PACKAGE_COUNT=40')
+          print('MODEL_ACCESS=NONE')
+          print('TRAINING=false')
+          print('PAID_COST_USD=0.0')
+          PY
+      - name: Upload materialized binding
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pr172-rebound-binding-78b017c
+          path: /tmp/T031-executor-toolchain-binding.json
+          if-no-files-found: error
+          retention-days: 14
