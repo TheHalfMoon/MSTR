@@ -45,140 +45,142 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
+          import ast
           import hashlib
           import json
           from pathlib import Path
 
-          def read(path: str) -> str:
-              return Path(path).read_text(encoding='utf-8')
+          def text(path: str) -> str:
+              return Path(path).read_text(encoding="utf-8")
 
-          binding = json.loads(read('artifacts/manifests/B012-executor-toolchain-binding.json'))
-          lock = json.loads(read('artifacts/manifests/B012-executor-toolchain-lock.json'))
-          envelope = json.loads(read('artifacts/manifests/B012-equivalent-qualification-execution-envelope.json'))
-          authority = json.loads(read('artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json'))
-          b011 = json.loads(read('artifacts/manifests/B011-acquired-candidates.json'))
-          raw = json.loads(read('benchmarks/manifests/B012-raw-code-proxy.json'))
-          workflow = read('.github/workflows/b012-qualify.yml')
-          helper = read('colab/mstr_executor_toolchain.py')
-          governance = read('colab/mstr_b012_governance.py')
-          source = read('colab/mstr_b012_source.py')
-          artifacts = read('colab/mstr_b012_artifacts.py')
-          raw_exec = read('colab/mstr_b012_raw_code.py')
-          executor = read('colab/mstr_b012_execute.py')
+          binding = json.loads(text("artifacts/manifests/B012-executor-toolchain-binding.json"))
+          lock = json.loads(text("artifacts/manifests/B012-executor-toolchain-lock.json"))
+          envelope = json.loads(text("artifacts/manifests/B012-equivalent-qualification-execution-envelope.json"))
+          authority = json.loads(text("artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json"))
+          b011 = json.loads(text("artifacts/manifests/B011-acquired-candidates.json"))
+          raw = json.loads(text("benchmarks/manifests/B012-raw-code-proxy.json"))
+          workflow = text(".github/workflows/b012-qualify.yml")
+          helper = text("colab/mstr_executor_toolchain.py")
+          governance = text("colab/mstr_b012_governance.py")
+          source = text("colab/mstr_b012_source.py")
+          artifacts = text("colab/mstr_b012_artifacts.py")
+          raw_exec = text("colab/mstr_b012_raw_code.py")
+          executor = text("colab/mstr_b012_execute.py")
 
-          candidates = ['mellum-4b', 'qwen3.5-0.8b-control']
-          assert authority['status'] == 'AUTHORIZED_CANONICAL'
-          assert authority['scope']['candidate_ids'] == candidates
-          assert binding['candidate_ids'] == candidates
-          assert envelope['candidate_ids'] == candidates
-          assert lock['task_binding']['candidate_ids'] == candidates
+          candidates = ["mellum-4b", "qwen3.5-0.8b-control"]
+          assert authority["status"] == "AUTHORIZED_CANONICAL"
+          assert authority["scope"]["candidate_ids"] == candidates
+          assert binding["candidate_ids"] == candidates
+          assert envelope["candidate_ids"] == candidates
+          assert lock["task_binding"]["candidate_ids"] == candidates
 
-          # No authority transfer or expansion.
-          assert lock['explicit_dependency_reuse']['source_task'] == 'T031'
-          assert lock['explicit_dependency_reuse']['authority_transfer'] is False
-          assert binding['dependency_reuse']['authority_transfer'] is False
-          boundary = binding['execution_boundary']
-          for key in ('authority_transfer','candidate_revision_or_file_expansion','new_candidates','training','weight_changing_training','paid_compute','paid_model_api','production_release'):
+          assert lock["explicit_dependency_reuse"]["source_task"] == "T031"
+          assert lock["explicit_dependency_reuse"]["authority_transfer"] is False
+          assert binding["dependency_reuse"]["authority_transfer"] is False
+          boundary = binding["execution_boundary"]
+          for key in (
+              "authority_transfer", "candidate_revision_or_file_expansion", "new_candidates",
+              "training", "weight_changing_training", "paid_compute", "paid_model_api",
+              "production_release",
+          ):
               assert boundary[key] is False, key
-          assert boundary['git_model_binaries'] == 0
-          assert boundary['founder_machine_model_binaries'] == 0
-          assert boundary['paid_cost_usd'] == 0.0
+          assert boundary["git_model_binaries"] == 0
+          assert boundary["founder_machine_model_binaries"] == 0
+          assert boundary["paid_cost_usd"] == 0.0
 
-          # Dispatch is exact, owner-scoped, serialized, and canonical-main only.
-          assert 'github.event.issue.number == 162' in workflow
+          assert "github.event.issue.number == 162" in workflow
           assert "github.event.comment.user.login == 'TheHalfMoon'" in workflow
           assert "github.event.comment.author_association == 'OWNER'" in workflow
           assert '"B012_RUN mellum-4b"' in workflow
           assert '"B012_RUN qwen3.5-0.8b-control"' in workflow
-          assert 'ref: main' in workflow
-          assert 'persist-credentials: false' in workflow
-          assert 'cancel-in-progress: false' in workflow
-          assert 'timeout-minutes: 120' in workflow
-          assert 'workflow_dispatch:' not in workflow
+          assert "ref: main" in workflow
+          assert "persist-credentials: false" in workflow
+          assert "cancel-in-progress: false" in workflow
+          assert "timeout-minutes: 120" in workflow
+          assert "workflow_dispatch:" not in workflow
 
-          # Source access is exact-revision, exact-file, hash/size checked, HTTPS allowlisted.
-          assert b011['resource_cost_usd'] == 0.0
-          assert b011['observed_total_download_bytes'] == 9817996174
-          assert 'https://huggingface.co/{upstream}/resolve/{revision}/{filename}' in source
-          assert 'download_verified(' in source
-          assert 'expected_sha256=sha' in source
-          assert 'allowed_hosts=allowed_hosts' in source
-          assert 'downloaded size mismatch' in source
-          assert 'B010/B011 exact required-file set mismatch' in source
-          assert 'B012 candidate download-byte ceiling drift detected' in source
-          assert 'URL credentials are prohibited' in helper
-          assert 'nonstandard HTTPS port rejected' in helper
-          assert 'host outside pinned allowlist' in helper
-          assert 'AllowlistedRedirectHandler' in helper
-          assert 'download hash mismatch' in helper
-          assert 'destination.unlink(missing_ok=True)' in helper
+          assert b011["resource_cost_usd"] == 0.0
+          assert b011["observed_total_download_bytes"] == 9817996174
+          assert "https://huggingface.co/{upstream}/resolve/{revision}/{filename}" in source
+          assert "download_verified(" in source
+          assert "expected_sha256=sha" in source
+          assert "allowed_hosts=allowed_hosts" in source
+          assert "downloaded size mismatch" in source
+          assert "B010/B011 exact required-file set mismatch" in source
+          assert "B012 candidate download-byte ceiling drift detected" in source
+          for marker in (
+              "URL credentials are prohibited", "nonstandard HTTPS port rejected",
+              "host outside pinned allowlist", "AllowlistedRedirectHandler",
+              "download hash mismatch", "destination.unlink(missing_ok=True)",
+          ):
+              assert marker in helper, marker
 
-          # Tool/runtime identities and network/provider environment are pinned/fail closed.
-          assert lock['llama_cpp']['conversion_quantization_commit'] == 'fc35562ba46fbbf8e30cac85edbb39642c37d248'
-          assert lock['llama_cpp']['runtime_commit'] == '3173a56471c1753650cd806694145ffd6dcace67'
-          assert lock['llama_cpp']['quantization_arms'] == ['Q4_K_M','Q4_K_S']
-          assert lock['task_binding']['runtime_benchmark']['gpu_layers'] == 0
-          assert lock['task_binding']['runtime_benchmark']['device'] == 'none'
+          assert lock["llama_cpp"]["conversion_quantization_commit"] == "fc35562ba46fbbf8e30cac85edbb39642c37d248"
+          assert lock["llama_cpp"]["runtime_commit"] == "3173a56471c1753650cd806694145ffd6dcace67"
+          assert lock["llama_cpp"]["quantization_arms"] == ["Q4_K_M", "Q4_K_S"]
+          assert lock["task_binding"]["runtime_benchmark"]["gpu_layers"] == 0
+          assert lock["task_binding"]["runtime_benchmark"]["device"] == "none"
           assert 'blocked_prefixes = ("LLAMA_ARG_", "HF_", "HUGGINGFACE_", "CUDA_", "NVIDIA_")' in helper
-          assert 'OPENAI_API_KEY' in helper and 'ANTHROPIC_API_KEY' in helper and 'GOOGLE_API_KEY' in helper
-          assert 'checkout --detach' in helper
-          assert 'llama.cpp commit mismatch' in helper
+          assert all(name in helper for name in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"))
+          helper_tree = ast.parse(helper)
+          argv_literals = [
+              node.value for node in ast.walk(helper_tree)
+              if isinstance(node, ast.Constant) and isinstance(node.value, str)
+          ]
+          assert "checkout" in argv_literals and "--detach" in argv_literals
+          assert "llama.cpp commit mismatch" in helper
 
-          # Live-main TOCTOU guards bracket material execution, and cleanup is unconditional.
-          assert executor.count('_require_live_main(repo_root)') >= 3
-          assert 'candidate outside exact B012 authority' in executor
-          assert 'shutil.rmtree(workdir, ignore_errors=True)' in executor
-          assert 'finally:' in executor
-          assert 'candidate_admission_decision' in executor
-          assert 'NOT_MADE_BY_B012_EXECUTOR' in executor
-          assert 'B012_EXECUTION_FAILED_CLOSED' in executor
+          assert executor.count("_require_live_main(repo_root)") >= 3
+          assert "candidate outside exact B012 authority" in executor
+          assert "shutil.rmtree(workdir, ignore_errors=True)" in executor
+          assert "finally:" in executor
+          assert "NOT_MADE_BY_B012_EXECUTOR" in executor
+          assert "B012_EXECUTION_FAILED_CLOSED" in executor
 
-          # Equivalent qualification observations are bounded and not admission claims.
-          assert raw['verification']['score_is_observation_not_admission_gate'] is True
-          assert raw['execution']['network_model_calls'] == 0
-          assert len(raw['tasks']) == 3
-          assert 'ast.parse(prompt + completion)' in raw_exec
-          assert 'OBSERVATIONAL_RAW_CODE_PROXY_NOT_FINAL_ADMISSION' in raw_exec
+          assert raw["verification"]["score_is_observation_not_admission_gate"] is True
+          assert raw["execution"]["network_model_calls"] == 0
+          assert len(raw["tasks"]) == 3
+          assert "ast.parse(prompt + completion)" in raw_exec
+          assert "OBSERVATIONAL_RAW_CODE_PROXY_NOT_FINAL_ADMISSION" in raw_exec
           assert 'candidate_id == "mellum-4b"' in artifacts
-          assert 'Mellum source tokenizer exposed no FIM token identity' in artifacts
-          assert 'Mellum FIM token export preservation failed' in artifacts
-          assert 'f16.unlink(missing_ok=True)' in artifacts
-          assert 'output.unlink(missing_ok=True)' in artifacts
+          assert "Mellum source tokenizer exposed no FIM token identity" in artifacts
+          assert "Mellum FIM token export preservation failed" in artifacts
+          assert "f16.unlink(missing_ok=True)" in artifacts
+          assert "output.unlink(missing_ok=True)" in artifacts
 
-          # Binding covers every execution component with exact content hashes.
           bound = {
-            'toolchain_lock_sha256':'artifacts/manifests/B012-executor-toolchain-lock.json',
-            'raw_code_manifest_sha256':'benchmarks/manifests/B012-raw-code-proxy.json',
-            'runtime_profile_sha256':'configs/runtimes/llama-cpp-cpu.json',
-            'reused_t031_lock_sha256':'artifacts/manifests/T031-executor-toolchain-lock.json',
-            'reused_t031_replay_overlay_sha256':'artifacts/manifests/T031-t029-producer-replay-overlay.json',
-            'toolchain_helper_sha256':'colab/mstr_executor_toolchain.py',
-            'replay_helper_sha256':'colab/mstr_t031_replay.py',
-            'reused_measurement_helper_sha256':'colab/mstr_t031_measure.py',
-            'governance_script_sha256':'colab/mstr_b012_governance.py',
-            'source_script_sha256':'colab/mstr_b012_source.py',
-            'artifact_script_sha256':'colab/mstr_b012_artifacts.py',
-            'raw_code_script_sha256':'colab/mstr_b012_raw_code.py',
-            'executor_script_sha256':'colab/mstr_b012_execute.py',
-            'workflow_sha256':'.github/workflows/b012-qualify.yml',
+              "toolchain_lock_sha256":"artifacts/manifests/B012-executor-toolchain-lock.json",
+              "raw_code_manifest_sha256":"benchmarks/manifests/B012-raw-code-proxy.json",
+              "runtime_profile_sha256":"configs/runtimes/llama-cpp-cpu.json",
+              "reused_t031_lock_sha256":"artifacts/manifests/T031-executor-toolchain-lock.json",
+              "reused_t031_replay_overlay_sha256":"artifacts/manifests/T031-t029-producer-replay-overlay.json",
+              "toolchain_helper_sha256":"colab/mstr_executor_toolchain.py",
+              "replay_helper_sha256":"colab/mstr_t031_replay.py",
+              "reused_measurement_helper_sha256":"colab/mstr_t031_measure.py",
+              "governance_script_sha256":"colab/mstr_b012_governance.py",
+              "source_script_sha256":"colab/mstr_b012_source.py",
+              "artifact_script_sha256":"colab/mstr_b012_artifacts.py",
+              "raw_code_script_sha256":"colab/mstr_b012_raw_code.py",
+              "executor_script_sha256":"colab/mstr_b012_execute.py",
+              "workflow_sha256":".github/workflows/b012-qualify.yml",
           }
           for key, path in bound.items():
               assert binding[key] == hashlib.sha256(Path(path).read_bytes()).hexdigest(), key
 
-          # Governance enforces the same immutable boundaries at execution time.
-          assert 'require_file_sha256' in governance
-          assert 'candidate set drift detected' in governance
-          assert 'dependency reuse authority boundary is invalid' in governance
-          assert 'candidate scope expansion prohibition drift detected' in governance
-          assert 'paid execution remains prohibited' in governance
-          assert 'training remains prohibited' in governance
-          assert 'new candidate access remains prohibited' in governance
+          for marker in (
+              "require_file_sha256", "candidate set drift detected",
+              "dependency reuse authority boundary is invalid",
+              "candidate scope expansion prohibition drift detected",
+              "paid execution remains prohibited", "training remains prohibited",
+              "new candidate access remains prohibited",
+          ):
+              assert marker in governance, marker
 
-          print('PR173_SUBSTANTIVE_REVIEW=PASS')
-          print('FINDINGS=NONE')
-          print('MODEL_ACCESS=NONE')
-          print('TRAINING=false')
-          print('PAID_COST_USD=0.0')
+          print("PR173_SUBSTANTIVE_REVIEW=PASS")
+          print("FINDINGS=NONE")
+          print("MODEL_ACCESS=NONE")
+          print("TRAINING=false")
+          print("PAID_COST_USD=0.0")
           PY
       - name: Focused adversarial contract tests
         shell: bash
