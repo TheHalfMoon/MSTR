@@ -12,8 +12,9 @@ MEASURE = ROOT / "colab/mstr_b012_measure.py"
 def test_timeout_recovery_binding_is_exact_and_non_authorizing() -> None:
     binding = json.loads(BINDING.read_text(encoding="utf-8"))
     recovery = binding["timeout_budget_recovery"]
+    helper_sha = hashlib.sha256(MEASURE.read_bytes()).hexdigest()
 
-    assert binding["b012_measurement_helper_sha256"] == hashlib.sha256(MEASURE.read_bytes()).hexdigest()
+    assert binding["b012_measurement_helper_sha256"] == helper_sha
     assert recovery["prior_failed_run_id"] == 34046125440
     assert recovery["prior_failure_classification"] == "B012_EXECUTION_FAILED_CLOSED"
     assert recovery["prior_failure_reason"] == "llama-bench timed out after 900s"
