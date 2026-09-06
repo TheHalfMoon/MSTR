@@ -19,7 +19,6 @@ from mstr_executor_toolchain import (
     read_json,
 )
 
-
 DIRECT_REPLAY_PACKAGES = frozenset(
     {"gguf", "numpy", "protobuf", "safetensors", "sentencepiece", "torch", "transformers"}
 )
@@ -63,9 +62,7 @@ def _require_replay_system_identity(
         output = _run_checked(argv, timeout=SYSTEM_PROBE_TIMEOUT_SECONDS)
         actual = output.splitlines()[0] if output else ""
         if actual != expected:
-            raise ToolchainError(
-                f"{name} identity mismatch: expected {expected!r}, got {actual!r}"
-            )
+            raise ToolchainError(f"{name} identity mismatch: expected {expected!r}, got {actual!r}")
     return actual_python
 
 
@@ -93,13 +90,13 @@ def _validated_package_entries(
         parsed = urlparse(url)
         host = (parsed.hostname or "").lower()
         if parsed.scheme.lower() != "https" or host not in allowed_hosts:
-            raise ToolchainError(f"{label} package URL is outside its exact HTTPS allowlist: {name}")
+            raise ToolchainError(
+                f"{label} package URL is outside its exact HTTPS allowlist: {name}"
+            )
         if name in seen:
             raise ToolchainError(f"duplicate {label} package identity: {name}")
         seen.add(name)
-        result.append(
-            {"name": name, "version": version, "url": url, "sha256": sha256}
-        )
+        result.append({"name": name, "version": version, "url": url, "sha256": sha256})
     return result
 
 
