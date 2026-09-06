@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exact historical T029 replay adapter for governed T031 execution."""
+"""Hash-bound pre-cutoff T029 replay reconstruction adapter for governed T031 execution."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def _normalized_name(value: object) -> str:
 def _load_historical_packages(
     *, overlay: dict[str, object], overlay_path: Path
 ) -> tuple[list[dict[str, object]], list[dict[str, str]]]:
-    """Load and verify the exact hash-bound historical PyPI wheel manifests."""
+    """Load and verify the hash-bound pre-cutoff PyPI wheel reconstruction manifests."""
 
     if overlay.get("historical_cutoff_utc") != HISTORICAL_CUTOFF_UTC:
         raise ToolchainError("historical replay cutoff drift detected")
@@ -148,7 +148,7 @@ def _load_historical_packages(
 def install_historical_replay_toolchain(
     *, base_lock_path: Path, overlay_path: Path, root: Path
 ) -> tuple[Path, dict[str, object]]:
-    """Install the exact 59-wheel historical T029 environment via the frozen shared installer."""
+    """Install the hash-bound 59-wheel pre-cutoff reconstruction via the frozen installer."""
 
     overlay = read_json(overlay_path)
     if overlay.get("status") != "EVIDENCE_BOUNDED_REPLAY" or overlay.get("task_id") != "T031":
@@ -185,12 +185,12 @@ def install_historical_replay_toolchain(
     )
     identity.update(
         {
-            "historical_transitive_identity_claim": True,
+            "historical_transitive_identity_claim": False,
             "historical_cutoff_utc": HISTORICAL_CUTOFF_UTC,
             "historical_package_shards": shard_identity,
             "package_count": 59,
             "reconstruction_semantics": (
-                "EXACT_PRE_CUTOFF_PYPI_WHEEL_SET_RECONSTRUCTED_FROM_T029_RESOLUTION"
+                "PRE_CUTOFF_PYPI_WHEEL_SET_RECONSTRUCTED_FOR_T029_EXECUTION_WINDOW"
             ),
             "equivalence_gate": "EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH",
         }
