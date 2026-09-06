@@ -1,0 +1,121 @@
+{
+  "execution_boundary": {
+    "b012_execution": false,
+    "candidate_revision_or_file_expansion": false,
+    "candidate_scope": "UNCHANGED_EXACT_T031_T029_CANDIDATES",
+    "founder_machine_model_binaries": 0,
+    "git_model_binaries": 0,
+    "model_access_authority_expansion": false,
+    "paid_cost_usd": 0.0,
+    "t032_execution": false,
+    "t033_execution": false,
+    "t034_admission_decision": false,
+    "training": false
+  },
+  "historical_t029_observation": {
+    "dependency_commands": [
+      "pip install numpy torch --index-url https://pypi.org/simple/ --quiet 2>/dev/null || pip install numpy --quiet",
+      "pip install sentencepiece protobuf gguf safetensors transformers --quiet"
+    ],
+    "package_versions_recorded_by_t029": false,
+    "runner_python": "3.11.16",
+    "workflow_ref": "406de41d132fa6d24d55814f3f6dd4fced5f12bd"
+  },
+  "hosts": [
+    "files.pythonhosted.org",
+    "download.pytorch.org",
+    "download-r2.pytorch.org"
+  ],
+  "overlay_id": "T031_T029_PRODUCER_REPLAY_OVERLAY_2026_09_06",
+  "packages": [
+    {
+      "name": "gguf",
+      "requested": true,
+      "sha256": "70bcd10edfe697fb2dad6e40af2234b9d8ece9a41a99761405121ebda1c3c1cd",
+      "url": "https://files.pythonhosted.org/packages/b3/bb/d71d6da82763528c2c2ed6b59a9d6142c6595545a4c448e2085d155e88c2/gguf-0.19.0-py3-none-any.whl",
+      "version": "0.19.0"
+    },
+    {
+      "name": "numpy",
+      "requested": true,
+      "sha256": "89cd468399cfd2504718f0ba50e410dca55a170b61a02ad92bb18c8a65186e93",
+      "url": "https://files.pythonhosted.org/packages/02/03/74fe2a4cb3817d94d86402f2506554130a2f01414e299b5a843e5a8a957f/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "2.4.6"
+    },
+    {
+      "name": "protobuf",
+      "requested": true,
+      "sha256": "70f5ec8eb0da81a44360c0dc0beac99a0d78071d21956a7076bae8bd2051841b",
+      "url": "https://files.pythonhosted.org/packages/c7/f8/bd5804695ba400e423c33fd4d9f58c28d86633d5ba1945c36ff3967d98cb/protobuf-7.36.0-cp310-abi3-manylinux2014_x86_64.whl",
+      "version": "7.36.0"
+    },
+    {
+      "name": "safetensors",
+      "requested": true,
+      "sha256": "fd6f3f93c9a0a7cc2788ee63fb763353d4bd2e89b0751bc78fcf7dda00bea774",
+      "url": "https://files.pythonhosted.org/packages/28/50/f203ff3a3ddfe19308efc83c5a3a29ed02bf786732ec35e68bf9162f3365/safetensors-0.8.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "0.8.0"
+    },
+    {
+      "name": "sentencepiece",
+      "requested": true,
+      "sha256": "1416b92f2f010333786fe6306ed2631121d5ea492219b0841e967b6765e64107",
+      "url": "https://files.pythonhosted.org/packages/06/5f/9117bf854aef817ad0d0ee9310eed0308a7e529e7eaf2e80ad9cd281ef82/sentencepiece-0.2.2-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "0.2.2"
+    },
+    {
+      "name": "torch",
+      "requested": true,
+      "sha256": "6746dbcbeb526eb61330b76b41ff1b4eb848951103a892eeb080dfa2b264667b",
+      "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl",
+      "version": "2.13.0+cpu"
+    },
+    {
+      "name": "transformers",
+      "requested": true,
+      "sha256": "b7cdf238ff583e3a58dbc7fa34da1aaf091ce063141f65a30538160bd5afe93f",
+      "url": "https://files.pythonhosted.org/packages/41/c4/a12e1d9b387fb0c40a57116db82b457e8c771cb419163cda29204d74a595/transformers-5.15.1-py3-none-any.whl",
+      "version": "5.15.1"
+    }
+  ],
+  "python_version": "3.11.16",
+  "reconstruction_basis": {
+    "claim_limit": "This overlay reconstructs the observable T029 producer surface. It does not claim unknown historical transitive package identities. Exact T029 artifact hashes remain the fail-closed equivalence proof.",
+    "direct_versions": {
+      "gguf": "0.19.0",
+      "numpy": "2.4.6",
+      "protobuf": "7.36.0",
+      "safetensors": "0.8.0",
+      "sentencepiece": "0.2.2",
+      "torch": "2.13.0",
+      "transformers": "5.15.1"
+    },
+    "torch_distribution": {
+      "acceptance_gate": "EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH",
+      "equivalence_scope": "CPU_ONLY_T031_ARTIFACT_REGENERATION",
+      "historical_top_level_version": "2.13.0",
+      "replay_distribution_version": "2.13.0+cpu"
+    },
+    "transformers_boundary": {
+      "selected_version": "5.15.1",
+      "t029_execution_started_before_utc": "2026-08-26T10:44:00Z",
+      "transformers_5_16_0_github_release_published_utc": "2026-08-26T12:35:15Z",
+      "transformers_5_16_1_github_release_published_utc": "2026-08-26T14:50:01Z"
+    }
+  },
+  "resolution_evidence": {
+    "artifact_id": 9988393963,
+    "artifact_zip_sha256": "ef446704d9194693187adb0f96d8dcb8d3e734e1308b04c8c785f09fd04fea2d",
+    "cpu_torch_report_sha256": "aaf1b38d0939c10e5c32e2cb293652d8917a09d781b986924b3dcb8c7d664df2",
+    "model_access": "NONE",
+    "paid_cost_usd": 0.0,
+    "pip_report_sha256": "a929a2b1f704be75bd9413dc61d1ade8ddbd755d83ae44502c595cb802e918b8",
+    "resolution_report_sha256": "46c80945038240ef7eff4ebc20bb476361d24640fd386aae0be7270f523762ab",
+    "run_id": 34030381077,
+    "training": false
+  },
+  "schema_version": "mstr.t031-t029-producer-replay-overlay.v1",
+  "source_main": "119a9bcca1c97b9edbcacd6d8d457b31206bb162",
+  "status": "EVIDENCE_BOUNDED_REPLAY",
+  "task_id": "T031"
+}
