@@ -25,12 +25,19 @@ T031_REPLAY_OVERLAY_PATH = Path("artifacts/manifests/T031-t029-producer-replay-o
 TOOLCHAIN_HELPER_PATH = Path("colab/mstr_executor_toolchain.py")
 REPLAY_HELPER_PATH = Path("colab/mstr_t031_replay.py")
 T031_MEASURE_PATH = Path("colab/mstr_t031_measure.py")
+B012_MEASURE_PATH = Path("colab/mstr_b012_measure.py")
 GOVERNANCE_PATH = Path("colab/mstr_b012_governance.py")
 SOURCE_PATH = Path("colab/mstr_b012_source.py")
 ARTIFACT_PATH = Path("colab/mstr_b012_artifacts.py")
 RAW_EXEC_PATH = Path("colab/mstr_b012_raw_code.py")
 RUNNER_PATH = Path("colab/mstr_b012_execute.py")
 WORKFLOW_PATH = Path(".github/workflows/b012-qualify.yml")
+
+EXPECTED_PER_INVOCATION_TIMEOUT_SECONDS = 900
+EXPECTED_BENCHMARK_WALL_BUDGET_SECONDS = 4800
+EXPECTED_RESERVED_NON_BENCHMARK_SECONDS = 2400
+EXPECTED_AUTHORIZED_JOB_CEILING_SECONDS = 7200
+EXPECTED_MAX_JOB_MINUTES = 120
 
 
 class ExecutionError(RuntimeError):
@@ -82,6 +89,35 @@ def _require_live_main(repo_root: Path) -> str:
     return head
 
 
+def _require_benchmark_budget(lock: dict[str, object]) -> None:
+    runner = lock.get("runner")
+    task_binding = lock.get("task_binding")
+    if not isinstance(runner, dict) or not isinstance(task_binding, dict):
+        raise ExecutionError("B012 runner/task binding is missing")
+    runtime = task_binding.get("runtime_benchmark")
+    if not isinstance(runtime, dict):
+        raise ExecutionError("B012 runtime benchmark binding is missing")
+
+    expected = {
+        "per_invocation_timeout_seconds": EXPECTED_PER_INVOCATION_TIMEOUT_SECONDS,
+        "benchmark_wall_budget_seconds": EXPECTED_BENCHMARK_WALL_BUDGET_SECONDS,
+        "reserved_non_benchmark_seconds": EXPECTED_RESERVED_NON_BENCHMARK_SECONDS,
+        "authorized_job_ceiling_seconds": EXPECTED_AUTHORIZED_JOB_CEILING_SECONDS,
+    }
+    for key, value in expected.items():
+        if runtime.get(key) != value:
+            raise ExecutionError(f"B012 benchmark budget drift detected: {key}")
+    if runner.get("max_job_minutes") != EXPECTED_MAX_JOB_MINUTES:
+        raise ExecutionError("B012 runner timeout drift detected")
+    if EXPECTED_AUTHORIZED_JOB_CEILING_SECONDS != EXPECTED_MAX_JOB_MINUTES * 60:
+        raise ExecutionError("B012 governed job ceiling is internally inconsistent")
+    if (
+        EXPECTED_BENCHMARK_WALL_BUDGET_SECONDS + EXPECTED_RESERVED_NON_BENCHMARK_SECONDS
+        > EXPECTED_AUTHORIZED_JOB_CEILING_SECONDS
+    ):
+        raise ExecutionError("B012 governed benchmark budget exceeds job ceiling")
+
+
 def _require_binding(
     repo_root: Path,
 ) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
@@ -106,6 +142,7 @@ def _require_binding(
         TOOLCHAIN_HELPER_PATH: "toolchain_helper_sha256",
         REPLAY_HELPER_PATH: "replay_helper_sha256",
         T031_MEASURE_PATH: "reused_measurement_helper_sha256",
+        B012_MEASURE_PATH: "b012_measurement_helper_sha256",
         GOVERNANCE_PATH: "governance_script_sha256",
         SOURCE_PATH: "source_script_sha256",
         ARTIFACT_PATH: "artifact_script_sha256",
@@ -138,6 +175,26 @@ def _require_binding(
         raise ExecutionError("unexpected B012 envelope dispatch-state drift")
     if binding.get("status") != "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL":
         raise ExecutionError("B012 executor binding status is not executable when canonical")
+
+    _require_benchmark_budget(lock)
+
+    recovery = binding.get("timeout_budget_recovery")
+    if not isinstance(recovery, dict):
+        raise ExecutionError("B012 timeout-budget recovery binding is missing")
+    expected_recovery = {
+        "prior_failed_run_id": 34046125440,
+        "prior_failure_classification": "B012_EXECUTION_FAILED_CLOSED",
+        "prior_failure_reason": "llama-bench timed out after 900s",
+        "model_quality_verdict": "NONE",
+        "diagnostic_run_id": 34057608647,
+        "model_access": "NONE",
+        "training": False,
+        "paid_cost_usd": 0.0,
+        "retry_authority_created": False,
+    }
+    for key, value in expected_recovery.items():
+        if recovery.get(key) != value:
+            raise ExecutionError(f"B012 timeout-budget recovery evidence drift detected: {key}")
 
     reuse = lock.get("explicit_dependency_reuse")
     if not isinstance(reuse, dict) or reuse.get("authority_transfer") is not False:
