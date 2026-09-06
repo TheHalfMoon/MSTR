@@ -1,0 +1,110 @@
+name: T031 complete producer replay dependency closure
+
+on:
+  push:
+    branches:
+      - evidence/t031-replay-full-closure-resolution
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 3a278b1e9fb4eee9347e68c475f2b2c0f027527b
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Resolve full compatible replay closure without model access
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/t031-full-closure
+          cat > /tmp/t031-direct.txt <<'EOF'
+          gguf==0.19.0
+          numpy==2.4.6
+          protobuf==7.36.0
+          safetensors==0.8.0
+          sentencepiece==0.2.2
+          torch==2.13.0+cpu
+          transformers==5.15.1
+          EOF
+          python -m pip install \
+            --dry-run \
+            --ignore-installed \
+            --report /tmp/t031-full-closure/pip-report.json \
+            --index-url https://pypi.org/simple/ \
+            --extra-index-url https://download.pytorch.org/whl/cpu \
+            -r /tmp/t031-direct.txt
+          python - <<'PY'
+          from __future__ import annotations
+          import hashlib, json, platform, subprocess, sys
+          from pathlib import Path
+          from urllib.parse import urlparse
+
+          report_path=Path('/tmp/t031-full-closure/pip-report.json')
+          report=json.loads(report_path.read_text(encoding='utf-8'))
+          allowed={'files.pythonhosted.org','download.pytorch.org','download-r2.pytorch.org'}
+          closure=[]
+          seen=set()
+          for item in report.get('install',[]):
+              md=item.get('metadata',{})
+              name=str(md.get('name','')).lower().replace('_','-')
+              version=str(md.get('version',''))
+              di=item.get('download_info',{})
+              url=di.get('url')
+              sha=di.get('archive_info',{}).get('hashes',{}).get('sha256')
+              if not name or not version or not isinstance(url,str) or not isinstance(sha,str):
+                  raise SystemExit(f'incomplete identity: {name!r} {version!r} {url!r} {sha!r}')
+              host=(urlparse(url).hostname or '').lower()
+              if host not in allowed:
+                  raise SystemExit(f'host outside replay allowlist: {host} for {name}')
+              if name in seen:
+                  raise SystemExit(f'duplicate resolved package: {name}')
+              seen.add(name)
+              closure.append({'name':name,'version':version,'url':url,'sha256':sha,'requested':bool(item.get('requested',False))})
+          closure.sort(key=lambda x:x['name'])
+          direct={'gguf':'0.19.0','numpy':'2.4.6','protobuf':'7.36.0','safetensors':'0.8.0','sentencepiece':'0.2.2','torch':'2.13.0+cpu','transformers':'5.15.1'}
+          observed={x['name']:x['version'] for x in closure if x['name'] in direct}
+          if observed != direct:
+              raise SystemExit(f'direct resolution drift: {observed!r}')
+          payload={
+              'schema_version':'mstr.t031-producer-replay-full-closure-resolution.v1',
+              'purpose':'DEPENDENCY_CLOSURE_RESOLUTION_ONLY_NO_MODEL_ACCESS',
+              'source_head':'3a278b1e9fb4eee9347e68c475f2b2c0f027527b',
+              'python_version':platform.python_version(),
+              'direct_requirements':direct,
+              'allowed_hosts':sorted(allowed),
+              'packages':closure,
+              'package_count':len(closure),
+              'pip_report_sha256':hashlib.sha256(report_path.read_bytes()).hexdigest(),
+              'pip_identity':subprocess.check_output([sys.executable,'-m','pip','--version'],text=True).strip(),
+              'model_access':'NONE',
+              'training':False,
+              'paid_cost_usd':0.0,
+              'historical_transitive_identity_claim':False,
+              'equivalence_gate':'EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH',
+          }
+          out=Path('/tmp/t031-full-closure/t031-replay-full-closure.json')
+          out.write_text(json.dumps(payload,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          print(f'PACKAGE_COUNT={len(closure)}')
+          for item in closure:
+              print(f"{item['name']}=={item['version']}")
+          print('MODEL_ACCESS=NONE')
+          print('TRAINING=false')
+          print('PAID_COST_USD=0.0')
+          PY
+      - name: Upload resolution evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: t031-replay-full-closure
+          path: /tmp/t031-full-closure/*.json
+          if-no-files-found: error
+          retention-days: 14
