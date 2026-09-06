@@ -83,20 +83,21 @@ jobs:
           helper=root/'colab/mstr_t031_replay.py'
           digest=hashlib.sha256(helper.read_bytes()).hexdigest()
           assert digest=='749eaf1f72a27a47a2a3d993d36a8147f71057428e24cee3271abd8a088e93fb'
-          assert t031['replay_helper_sha256']==digest
+          assert t031['producer_replay_helper_sha256']==digest
           assert b012['replay_helper_sha256']==digest
           assert Version('13.0.3')==Version('13.0.3.0')
           assert Version('13.0.3')!=Version('13.0.4')
           text=helper.read_text()
-          assert 'Version(actual) != Version(expected)' in text
+          assert 'Version(actual[name])==Version(expected[name])' in text
+          assert '--no-index' in text and '--no-deps' in text
           assert authority['status']=='AUTHORIZED_CANONICAL'
           expected=['granite-4.1-3b','ministral-3-3b','qwen2.5-coder-1.5b','qwen3-4b','qwen3.5-2b','qwen3.5-4b','smollm3-3b','yi-coder-1.5b']
           assert authority['scope']['candidate_ids']==expected
           for key in ('b010_b012_candidates','candidate_revision_or_file_expansion','new_candidates','paid_compute','paid_model_api','production_release','t032_execution','t033_execution','t034_admission_decision','training','weight_changing_training'):
               assert authority['scope'][key] is False, key
           failure=json.loads((root/'artifacts/results/local/T031/failures/T031-granite-4.1-3b-run-34065259852.json').read_text())
-          assert failure['run_id']==34065259852
-          assert failure['model_access']=='NONE'
+          assert failure['candidate_id']=='granite-4.1-3b'
+          assert failure['result_classification']=='T031_EXECUTION_FAILED_CLOSED'
           assert failure['training'] is False
           assert failure['paid_cost_usd']==0.0
           print('PR178_CORRECTNESS_REVIEW=PASS')
