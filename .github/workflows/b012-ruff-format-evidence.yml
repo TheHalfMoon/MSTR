@@ -38,7 +38,7 @@ jobs:
             colab/mstr_b012_raw_code.py
             colab/mstr_b012_source.py
           )
-          ruff check --fix "${files[@]}"
+          ruff check --fix "${files[@]}" || true
           ruff format "${files[@]}"
           ruff check "${files[@]}"
           ruff format --check "${files[@]}"
