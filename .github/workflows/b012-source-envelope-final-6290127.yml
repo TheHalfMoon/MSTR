@@ -1,0 +1,68 @@
+name: B012 source-envelope final 6290127
+
+on:
+  push:
+    branches:
+      - evidence/b012-source-envelope-final-6290127
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      PYTHONPATH: colab
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 6290127080459879aa494efdb91aa44bc629a9fc
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Verify exact final repair identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '6290127080459879aa494efdb91aa44bc629a9fc'
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = '4d9e423f7fa2aa6d4f706d5c9ad61dafb24b2513'
+          test "$(git ls-remote origin refs/heads/fix/b012-b010-source-envelope | awk '{print $1}')" = '6290127080459879aa494efdb91aa44bc629a9fc'
+          test "$(sha256sum colab/mstr_b012_source.py | awk '{print $1}')" = '890c9d1536ae4046a827789530c186dd02afca80bae8930ef22c2cb6e9ddcf26'
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          binding = json.loads(Path('artifacts/manifests/B012-executor-toolchain-binding.json').read_text(encoding='utf-8'))
+          assert binding['source_script_sha256'] == '890c9d1536ae4046a827789530c186dd02afca80bae8930ef22c2cb6e9ddcf26'
+          assert binding['repair_evidence']['failed_execution']['run_id'] == 34044413778
+          assert binding['repair_evidence']['source_envelope_repair_qualification']['run_id'] == 34045088693
+          PY
+      - name: Run exact-head frozen qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_b012_source_envelope.py tests/contract/test_b012_executor_binding.py
+          python -m ruff check colab/mstr_b012_source.py tests/contract/test_b012_source_envelope.py
+          python -m ruff format --check colab/mstr_b012_source.py tests/contract/test_b012_source_envelope.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src/mstr_qualify
+          git diff --exit-code
+          git diff --cached --exit-code
+      - name: Final live guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | awk '{print $1}')" = '4d9e423f7fa2aa6d4f706d5c9ad61dafb24b2513'
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/fix/b012-b010-source-envelope | awk '{print $1}')" = '6290127080459879aa494efdb91aa44bc629a9fc'
+          echo 'B012_SOURCE_ENVELOPE_FINAL_QUALIFICATION=PASS'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
