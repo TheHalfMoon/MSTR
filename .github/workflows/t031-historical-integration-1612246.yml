@@ -1,0 +1,80 @@
+name: T031 historical integration 1612246
+
+on:
+  push:
+    branches:
+      - evidence/t031-historical-integration-1612246
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: colab
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 16122460b3a775308a2128f5b14725963e2c047e
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Verify topology and emit exact SHA-256 identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '16122460b3a775308a2128f5b14725963e2c047e'
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = 'a2b2788dd5a8a8d5f301359586f6b2019615b4a9'
+          test "$(git ls-remote origin refs/heads/fix/t031-historical-59wheel-replay-v2 | awk '{print $1}')" = '16122460b3a775308a2128f5b14725963e2c047e'
+          sha256sum \
+            artifacts/manifests/T031-t029-historical-producer-replay-overlay.json \
+            colab/mstr_t031_historical_replay.py \
+            colab/mstr_t031_replay.py \
+            colab/mstr_t031_governance.py \
+            colab/mstr_t031_execute.py \
+            artifacts/manifests/T031-t029-historical-pypi-packages-01.json \
+            artifacts/manifests/T031-t029-historical-pypi-packages-02.json \
+            artifacts/manifests/T031-t029-historical-pypi-packages-03.json
+      - name: Validate historical overlay and helper semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          from mstr_t031_historical_replay import _load_historical_packages
+          from mstr_executor_toolchain import read_json
+          path = Path('artifacts/manifests/T031-t029-historical-producer-replay-overlay.json')
+          overlay = read_json(path)
+          packages, shards = _load_historical_packages(overlay=overlay, overlay_path=path)
+          assert len(packages) == 59
+          assert len(shards) == 3
+          versions = {str(p['name']): str(p['version']) for p in packages}
+          assert versions['numpy'] == '2.4.6'
+          assert versions['torch'] == '2.13.0'
+          assert versions['protobuf'] == '7.36.0'
+          assert versions['transformers'] == '5.15.1'
+          assert overlay['historical_smoke_evidence']['run_id'] == 34042093348
+          assert overlay['historical_smoke_evidence']['artifact_id'] == 9991993338
+          print('T031_HISTORICAL_INTEGRATION_SEMANTICS=PASS')
+          print('PACKAGE_COUNT=59')
+          print('MODEL_ACCESS=NONE')
+          print('TRAINING=false')
+          print('PAID_COST_USD=0.0')
+          PY
+      - name: Run static quality on modified execution surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m ruff check colab/mstr_t031_historical_replay.py colab/mstr_t031_governance.py colab/mstr_t031_execute.py
+          python -m ruff format --check colab/mstr_t031_historical_replay.py colab/mstr_t031_governance.py colab/mstr_t031_execute.py
+          python -m py_compile colab/mstr_t031_historical_replay.py colab/mstr_t031_governance.py colab/mstr_t031_execute.py
+          git diff --exit-code
+          git diff --cached --exit-code
