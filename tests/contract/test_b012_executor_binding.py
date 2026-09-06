@@ -196,7 +196,7 @@ def test_source_and_executor_keep_exact_candidate_and_failure_boundaries() -> No
     assert "B011/B012 upstream identity drift detected" in source
     assert "B010/B011 exact required-file set mismatch" in source
     assert "B012 candidate download-byte ceiling drift detected" in source
-    assert 'https://huggingface.co/{upstream}/resolve/{revision}/{filename}' in source
+    assert "https://huggingface.co/{upstream}/resolve/{revision}/{filename}" in source
     assert "allowed_hosts=allowed_hosts" in source
 
     assert 'choices=["mellum-4b", "qwen3.5-0.8b-control"]' in executor
@@ -224,11 +224,11 @@ def test_resolution_evidence_is_no_model_and_non_authorizing() -> None:
     reuse = binding["dependency_reuse"]
     assert isinstance(evidence, dict)
     assert isinstance(reuse, dict)
-    assert evidence["run_id"] == 34037510185
-    assert evidence["evidence_head"] == "c705528fb8a2790233b17cdd1721ad45b28f6316"
-    assert evidence["artifact_id"] == 9990642177
+    assert evidence["run_id"] == 34041852683
+    assert evidence["evidence_head"] == "65fb0e205198066367af43aecc449622d97e24b8"
+    assert evidence["artifact_id"] == 9991912802
     assert evidence["artifact_zip_sha256"] == (
-        "12b88955e202d56ba2c4c2b2597433a269b6025c9b28560bd0feaf95b134d34a"
+        "c6b4f409363c643b5d83db85cc450bf21a7e0c76cc113a2f7abce651828aef5d"
     )
     assert evidence["model_access"] == "NONE"
     assert evidence["training"] is False
