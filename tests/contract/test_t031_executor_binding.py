@@ -32,6 +32,15 @@ CANDIDATES = [
     "smollm3-3b",
     "yi-coder-1.5b",
 ]
+DIRECT_REPLAY_PACKAGES = {
+    "gguf": "0.19.0",
+    "numpy": "2.4.6",
+    "protobuf": "7.36.0",
+    "safetensors": "0.8.0",
+    "sentencepiece": "0.2.2",
+    "torch": "2.13.0+cpu",
+    "transformers": "5.15.1",
+}
 
 
 def _read_json(path: Path) -> dict[str, object]:
@@ -123,8 +132,11 @@ def test_toolchain_measurement_and_replay_surface_are_frozen() -> None:
         "download-r2.pytorch.org",
     }
 
+    assert overlay["schema_version"] == "mstr.t031-t029-producer-replay-overlay.v2"
     assert overlay["status"] == "EVIDENCE_BOUNDED_REPLAY"
     assert overlay["python_version"] == "3.11.16"
+    assert overlay["package_count"] == 40
+    assert set(overlay["direct_package_names"]) == set(DIRECT_REPLAY_PACKAGES)
     assert set(overlay["hosts"]) == {
         "files.pythonhosted.org",
         "download.pytorch.org",
@@ -132,20 +144,30 @@ def test_toolchain_measurement_and_replay_surface_are_frozen() -> None:
     }
     packages = overlay["packages"]
     assert isinstance(packages, list)
+    assert len(packages) == 40
     versions = {
         item["name"]: item["version"]
         for item in packages
         if isinstance(item, dict)
     }
-    assert versions == {
-        "gguf": "0.19.0",
-        "numpy": "2.4.6",
-        "protobuf": "7.36.0",
-        "safetensors": "0.8.0",
-        "sentencepiece": "0.2.2",
-        "torch": "2.13.0+cpu",
-        "transformers": "5.15.1",
-    }
+    for name, version in DIRECT_REPLAY_PACKAGES.items():
+        assert versions[name] == version
+    assert versions["huggingface-hub"] == "1.30.0"
+    assert versions["typer"] == "0.27.2"
+    assert versions["tokenizers"] == "0.22.2"
+    assert versions["requests"] == "2.34.2"
+    assert versions["jinja2"] == "3.1.6"
+    resolution = overlay["resolution_evidence"]
+    assert isinstance(resolution, dict)
+    assert resolution["run_id"] == 34031883766
+    assert resolution["artifact_id"] == 9988881418
+    assert resolution["model_access"] == "NONE"
+    assert resolution["training"] is False
+    assert resolution["paid_cost_usd"] == 0.0
+    reconstruction = overlay["reconstruction_basis"]
+    assert isinstance(reconstruction, dict)
+    assert reconstruction["historical_transitive_identity_claim"] is False
+    assert reconstruction["equivalence_gate"] == "EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH"
     for item in packages:
         assert isinstance(item, dict)
         assert isinstance(item["url"], str) and item["url"].startswith("https://")
@@ -267,6 +289,7 @@ def test_executor_contains_fail_closed_network_runtime_and_replay_boundaries() -
     assert '"--no-deps"' in replay
     assert '"pip", "check"' in replay
     assert "producer replay direct package set drift detected" in replay
+    assert "producer replay package-count binding drift detected" in replay
     assert "EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH" in replay
 
 
