@@ -1,0 +1,13 @@
+{
+  "candidate_id": "granite-4.1-3b",
+  "canonical_main_at_start": "119a9bcca1c97b9edbcacd6d8d457b31206bb162",
+  "error": "SHA-256 mismatch for /home/runner/work/_temp/t031-work/model-f16.gguf: expected b76f61cdf1a11375c734431f661fabe937b7214a54d6defda5f6683bd3473d4d, got b86ef357954d1b1e5b982cc76a830e8305cc86049ca1bc4e9fcc22c7ab91a5d7",
+  "error_type": "ToolchainError",
+  "failed_utc": "2026-09-06T00:06:44Z",
+  "paid_cost_usd": 0.0,
+  "result_classification": "T031_EXECUTION_FAILED_CLOSED",
+  "schema_version": "mstr.t031-local-measurement-failure.v1",
+  "started_utc": "2026-09-05T23:39:01Z",
+  "task_id": "T031",
+  "training": false
+}
