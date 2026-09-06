@@ -1,0 +1,91 @@
+{
+  "schema_version": "mstr.b012-executor-binding.v1",
+  "binding_id": "B012_CANONICAL_EXECUTOR_TOOLCHAIN_BINDING_2026_09_06",
+  "task_id": "B012",
+  "status": "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL",
+  "source_main": "603a6865fdbf5a5434565e870d73054c5b574f2a",
+  "candidate_ids": [
+    "mellum-4b",
+    "qwen3.5-0.8b-control"
+  ],
+  "resolution_evidence": {
+    "run_id": 34035697302,
+    "evidence_head": "c248a144e52703547cd2cdb98bebc64d9629602a",
+    "artifact_id": 9990089955,
+    "artifact_zip_sha256": "9b6f1735b8ce4387f065e90c3eed131c57448aaa97f5548cb9f5be54e6e268b1",
+    "model_access": "NONE",
+    "training": false,
+    "paid_cost_usd": 0.0
+  },
+  "authority_sha256": "ded6ce0015e89b331c1a4fbd6934d64df0eff7d324a836be307d3130c036d8c8",
+  "envelope_sha256": "650f3bb8620b57fb3bf526cde7d11d8f9805f86f91c5916a738f3dafdce49373",
+  "b010_sha256": "4c2fd1469cdcf728063ab8f5b6a603191ffdc9e1a4d4c2d794abd2a24950c3ef",
+  "b011_sha256": "d302d500dc5ef16cc323343e001818ff67ff5b53a870947d6e6d1f2171eed8da",
+  "mellum_b011_artifact_sha256": "b90babb00ab46ba2cec89657e8c09abd71ca57f63d267cfbe0acaa11530402c7",
+  "qwen_b011_artifact_sha256": "5426b79a752f5eceaf106abfa6029b4939b1d7a2557c4fa5857bda039b9d8ce8",
+  "toolchain_lock_sha256": "b6c7e7c1919f4d55baa25a31e72959fd00aba5c929e556235a0d70f39e8682c2",
+  "raw_code_manifest_sha256": "038586bb8156add6bb2de8573a9d15d0f1201909c36820a6cc608a2b5d393349",
+  "runtime_profile_sha256": "fc51f2c584b89ad29f6d9088e538a2220bba86f8dc67c8f5709ca133b358f1f4",
+  "reused_t031_lock_sha256": "11d4c5fcaebbcdad2800f4c922339c25dfab0582478c5478cdbe7cd2236a0c3b",
+  "reused_t031_replay_overlay_sha256": "e813906408f90e9c095553bba0d68f88167e55acd2d1b3ab86ab5eae5ee677f4",
+  "toolchain_helper_sha256": "b7603336d8fcf38ab92ffa108f5e62c194e296f31e36d401a2cb8c901eaa0c77",
+  "replay_helper_sha256": "d6f646ec35d27288c20cb7ad35984c98310e806609a7f4fde0172dfae207dfa4",
+  "reused_measurement_helper_sha256": "3a4f93217d46772fca2d55a0f5d146da9da4c0a9d116a5c79939d384269b224b",
+  "governance_script_sha256": "499b11b8744eb44b5e8d9b6d47723e241e5853434939283fa8ab564a333d212f",
+  "source_script_sha256": "39488fa380ef312ee851d36c15120a19a96ba8264d037648a60f2891ef243bf5",
+  "artifact_script_sha256": "03027c2baaeba469e358b7aee3527d1061740aa6cbf2baadd835ccf33fd9eb2c",
+  "raw_code_script_sha256": "2193fda3de715181720f982f5092c3dcc336e2c600d92effc4f59efec98eeeb2",
+  "executor_script_sha256": "e7534471bd2c8a280124ab899148838af2cda66cdf738dd9fc0280ff71ae91a7",
+  "workflow_sha256": "6f767c900f806ceeb45d419b4f345b36727211722590687cee753c7fbd2d67ac",
+  "dispatch_boundary": {
+    "surface": "ISSUE_COMMENT_CANONICAL_MAIN",
+    "issue": 162,
+    "command": "B012_RUN <authorized-candidate>",
+    "checkout_ref": "main",
+    "owner": "TheHalfMoon",
+    "owner_association": "OWNER",
+    "max_parallel_candidates": 1,
+    "max_job_minutes": 120,
+    "canonicalization_required": true
+  },
+  "execution_boundary": {
+    "authority_transfer": false,
+    "candidate_revision_or_file_expansion": false,
+    "new_candidates": false,
+    "training": false,
+    "weight_changing_training": false,
+    "paid_compute": false,
+    "paid_model_api": false,
+    "production_release": false,
+    "git_model_binaries": 0,
+    "founder_machine_model_binaries": 0,
+    "durable_outputs": [
+      "JSON"
+    ],
+    "paid_cost_usd": 0.0
+  },
+  "source_integrity": {
+    "source_manifest": "B011_FULL_PER_FILE_SHA256_MANIFESTS",
+    "mellum_manifest": "artifacts/manifests/B011-artifact-mellum-4b.json",
+    "qwen_manifest": "artifacts/manifests/B011-artifact-qwen3.5-0.8b-control.json",
+    "aggregate_required_source_download_bytes": 9817996174
+  },
+  "qualification_scope": {
+    "q4_arms": [
+      "Q4_K_M",
+      "Q4_K_S"
+    ],
+    "runtime_resource": true,
+    "raw_code_proxy": true,
+    "mellum_fim_token_preservation": true,
+    "score_is_observation_not_admission_gate": true
+  },
+  "dependency_reuse": {
+    "source_task": "T031",
+    "package_identity_only": true,
+    "authority_transfer": false,
+    "package_count": 40,
+    "semantics": "EXPLICIT_PINNED_DEPENDENCY_REUSE_ONLY"
+  },
+  "satisfies_pending_condition": "SEPARATELY_REVIEWED_CANONICAL_EXECUTOR_TOOLCHAIN_BINDING; DOES_NOT_EXPAND_B012_FOUNDER_AUTHORITY"
+}
