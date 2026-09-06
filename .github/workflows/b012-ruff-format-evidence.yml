@@ -39,6 +39,16 @@ jobs:
             colab/mstr_b012_source.py
           )
           ruff check --fix "${files[@]}" || true
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("colab/mstr_b012_governance.py")
+          text = path.read_text(encoding="utf-8")
+          target = "    b010 = read_json(repo_root / B010_PATH)\n"
+          if text.count(target) != 1:
+              raise SystemExit("expected exactly one confirmed unused B010 read")
+          path.write_text(text.replace(target, ""), encoding="utf-8")
+          PY
           ruff format "${files[@]}"
           ruff check "${files[@]}"
           ruff format --check "${files[@]}"
