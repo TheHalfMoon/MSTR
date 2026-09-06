@@ -1,0 +1,125 @@
+name: PR176 T031 canonical postmerge verification 1fd324c
+
+on:
+  push:
+    branches:
+      - evidence/pr176-t031-postmerge-1fd324c
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  MERGE_SHA: 1fd324cddf3c2f852810e72a4c195199d7b884c4
+  MERGE_TREE: 27ab4f780234a969435daa873007bcb934933d1a
+  PR_NUMBER: "176"
+  PR_HEAD_SHA: 08697e7f8bb95aabc8f25677074ebeee18771169
+  HF_HUB_OFFLINE: "1"
+  TRANSFORMERS_OFFLINE: "1"
+
+jobs:
+  postmerge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Verify merged PR identity before checkout
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          headers = {
+              'Authorization': f'Bearer {os.environ["GH_TOKEN"]}',
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+          }
+          root = 'https://api.github.com/repos/TheHalfMoon/MSTR'
+          def get(path):
+              req = urllib.request.Request(root + path, headers=headers)
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  return json.load(response)
+
+          pr = get(f'/pulls/{os.environ["PR_NUMBER"]}')
+          assert pr['state'] == 'closed' and pr['merged'] is True
+          assert pr['head']['sha'] == os.environ['PR_HEAD_SHA']
+          assert pr['merge_commit_sha'] == os.environ['MERGE_SHA']
+          assert get('/branches/main')['commit']['sha'] == os.environ['MERGE_SHA']
+          print('MERGED_PR_IDENTITY=PASS')
+          PY
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Verify canonical T031 repair and frozen quality
+        shell: bash
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          test "$(git symbolic-ref --short HEAD)" = main
+          test "$(git rev-parse HEAD)" = "$MERGE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$MERGE_TREE"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$MERGE_SHA"
+          grep -Fq 'ACTIVE_IMPLEMENTATION_TASK = T031_AUTHORITY_AND_EXECUTION_RECONCILIATION / B012_EXACT_AUTHORITY_GATE / A019_A020_CONVERGENCE_GATES' docs/canonical/CURRENT_STATE.md
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_t031_authority.py tests/contract/test_t031_executor_binding.py
+          python -m mstr_qualify validate
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          from mstr_t031_historical_replay import _load_historical_packages
+
+          root = Path('.')
+          authority = json.loads((root / 'artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json').read_text())
+          binding = json.loads((root / 'artifacts/manifests/T031-executor-toolchain-binding.json').read_text())
+          overlay_path = root / binding['producer_replay_overlay_path']
+          overlay = json.loads(overlay_path.read_text())
+          assert authority['status'] == 'AUTHORIZED_CANONICAL'
+          assert authority['task_id'] == 'T031'
+          assert binding['status'] == 'SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL'
+          assert binding['candidate_ids'] == authority['scope']['candidate_ids']
+          assert binding['producer_replay']['package_count'] == 59
+          assert binding['producer_replay']['historical_transitive_identity_claim'] is False
+          assert binding['producer_replay']['acceptance_gate'] == 'EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH'
+          assert overlay['reconstruction_basis']['historical_transitive_identity_claim'] is False
+          assert overlay['reconstruction_basis']['equivalence_gate'] == 'EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH'
+          packages, shards = _load_historical_packages(overlay=overlay, overlay_path=overlay_path)
+          assert len(packages) == 59 and len(shards) == 3
+          pairs = {
+              'historical_replay_helper_sha256': 'colab/mstr_t031_historical_replay.py',
+              'governance_script_sha256': 'colab/mstr_t031_governance.py',
+              'executor_script_sha256': 'colab/mstr_t031_execute.py',
+              'producer_replay_overlay_sha256': binding['producer_replay_overlay_path'],
+          }
+          for key, path in pairs.items():
+              assert binding[key] == hashlib.sha256((root / path).read_bytes()).hexdigest(), key
+          scope = authority['scope']
+          for key in (
+              'b010_b012_candidates', 'candidate_revision_or_file_expansion', 'new_candidates',
+              'paid_compute', 'paid_model_api', 'production_release', 't032_execution',
+              't033_execution', 't034_admission_decision', 'training', 'weight_changing_training',
+          ):
+              assert scope[key] is False, key
+          print('T031_CANONICAL_BINDING=PASS')
+          print('T031_LEGACY_FRONTIER=PASS')
+          PY
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src/mstr_qualify
+          test -z "$(git status --porcelain)"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$MERGE_SHA"
+          echo 'POSTMERGE_VERIFICATION=PASS'
+          echo 'MODEL_EXECUTION_PERFORMED=false'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
