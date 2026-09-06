@@ -1,0 +1,178 @@
+{
+  "packages": [
+    {
+      "name": "protobuf",
+      "requested": true,
+      "sha256": "70f5ec8eb0da81a44360c0dc0beac99a0d78071d21956a7076bae8bd2051841b",
+      "size_bytes": 340439,
+      "upload_time_iso_8601": "2026-08-20T16:33:56.992574Z",
+      "url": "https://files.pythonhosted.org/packages/c7/f8/bd5804695ba400e423c33fd4d9f58c28d86633d5ba1945c36ff3967d98cb/protobuf-7.36.0-cp310-abi3-manylinux2014_x86_64.whl",
+      "version": "7.36.0"
+    },
+    {
+      "name": "pygments",
+      "requested": false,
+      "sha256": "2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9",
+      "size_bytes": 1250147,
+      "upload_time_iso_8601": "2026-08-17T08:02:44.912148Z",
+      "url": "https://files.pythonhosted.org/packages/71/46/17f022dd3e953bf20a04a028a21ec746d942f8d2af30fa0f124fa0e6a684/pygments-2.21.0-py3-none-any.whl",
+      "version": "2.21.0"
+    },
+    {
+      "name": "pyyaml",
+      "requested": false,
+      "sha256": "b8bb0864c5a28024fac8a632c443c87c5aa6f215c0b126c449ae1a150412f31d",
+      "size_bytes": 806638,
+      "upload_time_iso_8601": "2025-09-25T21:32:04.553491Z",
+      "url": "https://files.pythonhosted.org/packages/71/60/917329f640924b18ff085ab889a11c763e0b573da888e8404ff486657602/pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "6.0.3"
+    },
+    {
+      "name": "regex",
+      "requested": false,
+      "sha256": "09f3e5287f94f17b709dc9a9e70865855feee835c861613be144218ce4ca82cc",
+      "size_bytes": 801407,
+      "upload_time_iso_8601": "2026-07-19T00:16:49.430662Z",
+      "url": "https://files.pythonhosted.org/packages/45/6c/e7098d8b846ccdbf431d8c081b61e496526a27a28094ed09e0dce21b3f54/regex-2026.7.19-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "2026.7.19"
+    },
+    {
+      "name": "requests",
+      "requested": false,
+      "sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0",
+      "size_bytes": 73075,
+      "upload_time_iso_8601": "2026-05-14T19:25:26.443000Z",
+      "url": "https://files.pythonhosted.org/packages/a0/f4/c67b0b3f1b9245e8d266f0f112c500d50e5b4e83cb6f3b71b6528104182a/requests-2.34.2-py3-none-any.whl",
+      "version": "2.34.2"
+    },
+    {
+      "name": "rich",
+      "requested": false,
+      "sha256": "33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb",
+      "size_bytes": 310654,
+      "upload_time_iso_8601": "2026-04-12T08:24:02.830783Z",
+      "url": "https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl",
+      "version": "15.0.0"
+    },
+    {
+      "name": "safetensors",
+      "requested": true,
+      "sha256": "fd6f3f93c9a0a7cc2788ee63fb763353d4bd2e89b0751bc78fcf7dda00bea774",
+      "size_bytes": 516040,
+      "upload_time_iso_8601": "2026-06-09T07:52:16.290212Z",
+      "url": "https://files.pythonhosted.org/packages/28/50/f203ff3a3ddfe19308efc83c5a3a29ed02bf786732ec35e68bf9162f3365/safetensors-0.8.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "0.8.0"
+    },
+    {
+      "name": "sentencepiece",
+      "requested": true,
+      "sha256": "1416b92f2f010333786fe6306ed2631121d5ea492219b0841e967b6765e64107",
+      "size_bytes": 1394242,
+      "upload_time_iso_8601": "2026-07-12T08:38:22.976171Z",
+      "url": "https://files.pythonhosted.org/packages/06/5f/9117bf854aef817ad0d0ee9310eed0308a7e529e7eaf2e80ad9cd281ef82/sentencepiece-0.2.2-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "0.2.2"
+    },
+    {
+      "name": "setuptools",
+      "requested": false,
+      "sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670",
+      "size_bytes": 818216,
+      "upload_time_iso_8601": "2026-08-08T18:27:56.719708Z",
+      "url": "https://files.pythonhosted.org/packages/95/9c/c510029fc6ef33a6275cd2c5d3cecd6613dfd6aa401d57c54f1c18852ccf/setuptools-84.0.0-py3-none-any.whl",
+      "version": "84.0.0"
+    },
+    {
+      "name": "shellingham",
+      "requested": false,
+      "sha256": "7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686",
+      "size_bytes": 9755,
+      "upload_time_iso_8601": "2023-10-24T04:13:38.866125Z",
+      "url": "https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl",
+      "version": "1.5.4"
+    },
+    {
+      "name": "sympy",
+      "requested": false,
+      "sha256": "e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5",
+      "size_bytes": 6299353,
+      "upload_time_iso_8601": "2025-04-27T18:04:59.103806Z",
+      "url": "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl",
+      "version": "1.14.0"
+    },
+    {
+      "name": "tokenizers",
+      "requested": false,
+      "sha256": "369cc9fc8cc10cb24143873a0d95438bb8ee257bb80c71989e3ee290e8d72c67",
+      "size_bytes": 3274982,
+      "upload_time_iso_8601": "2026-01-05T10:40:58.331328Z",
+      "url": "https://files.pythonhosted.org/packages/2e/76/932be4b50ef6ccedf9d3c6639b056a967a86258c6d9200643f01269211ca/tokenizers-0.22.2-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "0.22.2"
+    },
+    {
+      "name": "torch",
+      "requested": true,
+      "sha256": "60fcdcb2f3876e21146cb4524ef06397d727ca9ad5f020818547e25075fe3cb7",
+      "size_bytes": 526574961,
+      "upload_time_iso_8601": "2026-07-08T16:04:07.075940Z",
+      "url": "https://files.pythonhosted.org/packages/01/79/1f2d34ad7034ee1c7ffc1cf8bf0f8213af2a81df6ecdb3997ecec107c09d/torch-2.13.0-cp311-cp311-manylinux_2_28_x86_64.whl",
+      "version": "2.13.0"
+    },
+    {
+      "name": "tqdm",
+      "requested": false,
+      "sha256": "7f585706bfddbdebf89daac705b2dfcc16890130727d3197ca62c732b4310953",
+      "size_bytes": 80184,
+      "upload_time_iso_8601": "2026-07-27T11:33:13.167874Z",
+      "url": "https://files.pythonhosted.org/packages/f9/1c/01bfd571a64e7f270e6bab5e33777debe0edc56759233ce84f27dec92d14/tqdm-4.70.0-py3-none-any.whl",
+      "version": "4.70.0"
+    },
+    {
+      "name": "transformers",
+      "requested": true,
+      "sha256": "b7cdf238ff583e3a58dbc7fa34da1aaf091ce063141f65a30538160bd5afe93f",
+      "size_bytes": 11749582,
+      "upload_time_iso_8601": "2026-08-19T11:28:16.726698Z",
+      "url": "https://files.pythonhosted.org/packages/41/c4/a12e1d9b387fb0c40a57116db82b457e8c771cb419163cda29204d74a595/transformers-5.15.1-py3-none-any.whl",
+      "version": "5.15.1"
+    },
+    {
+      "name": "triton",
+      "requested": false,
+      "sha256": "6744957e9fd610a29680ec2346057d0c86948ed3812468670719f391e94b44a5",
+      "size_bytes": 197701306,
+      "upload_time_iso_8601": "2026-06-17T19:53:13.673271Z",
+      "url": "https://files.pythonhosted.org/packages/cd/5e/fce69606f7f240297f163e25539906732b199530d486ce67ae319877e821/triton-3.7.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "3.7.1"
+    },
+    {
+      "name": "typer",
+      "requested": false,
+      "sha256": "53150287edd11baeb4e4722c8e394fcdf8181c0ae89485cba8d25c778d5edd56",
+      "size_bytes": 122874,
+      "upload_time_iso_8601": "2026-08-03T14:41:04.391012Z",
+      "url": "https://files.pythonhosted.org/packages/43/89/9518bc0c3929bee36b3a4a8e3daddd6e03f92f9961c66d4983b837160543/typer-0.27.1-py3-none-any.whl",
+      "version": "0.27.1"
+    },
+    {
+      "name": "typing-extensions",
+      "requested": false,
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "size_bytes": 45571,
+      "upload_time_iso_8601": "2026-07-02T08:40:04.659120Z",
+      "url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+      "version": "4.16.0"
+    },
+    {
+      "name": "urllib3",
+      "requested": false,
+      "sha256": "9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897",
+      "size_bytes": 131087,
+      "upload_time_iso_8601": "2026-05-07T16:13:17.151740Z",
+      "url": "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl",
+      "version": "2.7.0"
+    }
+  ],
+  "schema_version": "mstr.t031-historical-package-shard.v1",
+  "shard_index": 3,
+  "task_id": "T031"
+}
