@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import math
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -56,6 +57,27 @@ def validate_benchmark_budget(
     return values
 
 
+def effective_benchmark_wall_budget(
+    *, budget: dict[str, int], pre_benchmark_elapsed_seconds: float
+) -> float:
+    """Clamp benchmark time so the full locked non-benchmark reserve remains after setup."""
+    if not math.isfinite(pre_benchmark_elapsed_seconds) or pre_benchmark_elapsed_seconds < 0:
+        raise ExecutionError("B012 pre-benchmark elapsed time is invalid")
+    available_after_setup_and_reserve = (
+        float(budget["authorized_job_ceiling_seconds"])
+        - float(budget["reserved_non_benchmark_seconds"])
+        - pre_benchmark_elapsed_seconds
+    )
+    effective = min(
+        float(budget["benchmark_wall_budget_seconds"]), available_after_setup_and_reserve
+    )
+    if effective <= 0:
+        raise ExecutionError(
+            "B012 non-benchmark reserve cannot be preserved before benchmark launch"
+        )
+    return effective
+
+
 def _context(
     *,
     arm: str,
@@ -63,7 +85,7 @@ def _context(
     repetition_index: int,
     configured_timeout_seconds: int,
     effective_timeout_seconds: float,
-    budget_seconds: int,
+    budget_seconds: float,
     elapsed_before_seconds: float,
     remaining_before_seconds: float,
     elapsed_after_seconds: float | None = None,
@@ -98,7 +120,7 @@ def _run_one(
     threads: int,
     runtime_commit: str,
     configured_timeout_seconds: int,
-    budget_seconds: int,
+    budget_seconds: float,
     benchmark_started_monotonic: float,
     monotonic: Callable[[], float],
 ) -> dict[str, object]:
@@ -180,7 +202,7 @@ def measure_set_bounded(
     warmups: int,
     measured: int,
     configured_timeout_seconds: int,
-    budget_seconds: int,
+    budget_seconds: float,
     benchmark_started_monotonic: float,
     monotonic: Callable[[], float] = time.monotonic,
 ) -> dict[str, object]:
