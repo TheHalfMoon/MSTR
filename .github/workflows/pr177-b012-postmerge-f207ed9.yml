@@ -19,10 +19,10 @@ jobs:
   canonical_eligibility_and_binding:
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout exact merged canonical main
+      - name: Checkout live canonical main
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: f207ed9080fba1bb597a4091029dfd2a381eb346
+          ref: main
           fetch-depth: 0
           persist-credentials: false
 
@@ -36,6 +36,7 @@ jobs:
           PYTHONPATH: colab
         run: |
           set -euo pipefail
+          test "$(git symbolic-ref --short HEAD)" = "main"
           test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN_SHA"
           test "$(git rev-parse HEAD^{tree})" = "$CANONICAL_TREE"
           test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$CANONICAL_MAIN_SHA"
@@ -102,10 +103,11 @@ jobs:
   canonical_quality:
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout exact merged canonical main
+      - name: Checkout live canonical main
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: f207ed9080fba1bb597a4091029dfd2a381eb346
+          ref: main
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up pinned Python
@@ -116,14 +118,17 @@ jobs:
       - name: Re-run canonical quality gates postmerge
         run: |
           set -euo pipefail
+          test "$(git symbolic-ref --short HEAD)" = "main"
           test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN_SHA"
           test "$(git rev-parse HEAD^{tree})" = "$CANONICAL_TREE"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$CANONICAL_MAIN_SHA"
           python -m pip install -e '.[dev]'
           python -m pytest -q
           python -m ruff check .
           python -m mypy src
           python -m mstr_qualify validate
           test -z "$(git status --porcelain)"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$CANONICAL_MAIN_SHA"
 
   final_postmerge:
     needs: [canonical_eligibility_and_binding, canonical_quality]
