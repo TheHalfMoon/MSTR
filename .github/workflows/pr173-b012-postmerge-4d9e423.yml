@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  postmerge:
+  exact_merge_gates:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -56,12 +56,37 @@ jobs:
           python -m mypy src/mstr_qualify
           git diff --exit-code
           git diff --cached --exit-code
-      - name: Revalidate B012 canonical eligibility
+
+  canonical_eligibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Revalidate B012 canonical eligibility on real local main ref
         shell: bash
         run: |
           set -euo pipefail
+          MAIN=4d9e423f7fa2aa6d4f706d5c9ad61dafb24b2513
+          test "$(git rev-parse HEAD)" = "$MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$MAIN"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$MAIN"
+          python -m pip install -e '.[dev]'
           python -m mstr_qualify task eligible B012
           echo 'B012_POSTMERGE_CANONICAL_ELIGIBILITY=PASS'
+
+  final_postmerge:
+    needs: [exact_merge_gates, canonical_eligibility]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
       - name: Final live main guard
         shell: bash
         run: |
