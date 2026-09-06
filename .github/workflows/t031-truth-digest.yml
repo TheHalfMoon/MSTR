@@ -1,0 +1,42 @@
+name: T031 truth-repair digest evidence
+
+on:
+  push:
+    branches:
+      - evidence/t031-truth-digest-5352d9a
+
+permissions:
+  contents: read
+
+jobs:
+  digest:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 5352d9ae204a78cde1076020e4d394331cff1d7a
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify immutable repair head and emit bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '5352d9ae204a78cde1076020e4d394331cff1d7a'
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = 'a2b2788dd5a8a8d5f301359586f6b2019615b4a9'
+          sha256sum \
+            artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json \
+            artifacts/manifests/T031-local-measurement-execution-envelope.json \
+            artifacts/manifests/T031-executor-toolchain-lock.json \
+            artifacts/manifests/T031-t029-historical-producer-replay-overlay.json \
+            colab/mstr_executor_toolchain.py \
+            colab/mstr_t031_replay.py \
+            colab/mstr_t031_historical_replay.py \
+            colab/mstr_t031_governance.py \
+            colab/mstr_t031_source.py \
+            colab/mstr_t031_artifacts.py \
+            colab/mstr_t031_measure.py \
+            colab/mstr_t031_execute.py \
+            .github/workflows/t031-measure.yml
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
