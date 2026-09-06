@@ -1,0 +1,91 @@
+{
+  "schema_version": "mstr.b012-executor-toolchain-lock.v1",
+  "lock_id": "B012_EXECUTOR_TOOLCHAIN_LOCK_2026_09_06",
+  "task_id": "B012",
+  "resolution_main": "603a6865fdbf5a5434565e870d73054c5b574f2a",
+  "resolution_evidence": {
+    "run_id": 34035098700,
+    "evidence_head": "770dcc8dd1f34e7b0dcbb8cd3db9cf06d80d7810",
+    "artifact_id": 9989906453,
+    "artifact_zip_sha256": "2a4bf4a2541bb2d6fdec7774ad26420ac3893f3425bbba4d726d0500eccb4ec4",
+    "model_access": "NONE",
+    "training": false,
+    "paid_cost_usd": 0.0
+  },
+  "runner": {
+    "runs_on": "ubuntu-24.04",
+    "python_version": "3.11.16",
+    "max_job_minutes": 120,
+    "max_parallel_candidates": 1,
+    "system_build_tools": {
+      "cmake": "cmake version 3.31.6",
+      "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "g++": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+    },
+    "actions": {
+      "checkout": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+      "setup_python": "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+      "upload_artifact": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
+    }
+  },
+  "explicit_dependency_reuse": {
+    "authority_transfer": false,
+    "source_task": "T031",
+    "base_lock_path": "artifacts/manifests/T031-executor-toolchain-lock.json",
+    "base_lock_sha256": "11d4c5fcaebbcdad2800f4c922339c25dfab0582478c5478cdbe7cd2236a0c3b",
+    "producer_replay_overlay_path": "artifacts/manifests/T031-t029-producer-replay-overlay.json",
+    "producer_replay_overlay_sha256": "e813906408f90e9c095553bba0d68f88167e55acd2d1b3ab86ab5eae5ee677f4",
+    "producer_replay_helper_path": "colab/mstr_t031_replay.py",
+    "producer_replay_helper_sha256": "d6f646ec35d27288c20cb7ad35984c98310e806609a7f4fde0172dfae207dfa4",
+    "python_version": "3.11.16",
+    "package_count": 40,
+    "semantics": "PINNED_PACKAGE_IDENTITY_REUSE_ONLY; T031 AUTHORITY DOES NOT TRANSFER TO B012"
+  },
+  "llama_cpp": {
+    "repository": "https://github.com/ggml-org/llama.cpp.git",
+    "source_host": "github.com",
+    "conversion_quantization_commit": "fc35562ba46fbbf8e30cac85edbb39642c37d248",
+    "runtime_commit": "3173a56471c1753650cd806694145ffd6dcace67",
+    "conversion_recipe": "convert_hf_to_gguf.py --outtype f16",
+    "quantization_arms": ["Q4_K_M", "Q4_K_S"],
+    "build_flags": [
+      "-DGGML_NATIVE=ON",
+      "-DGGML_CUDA=OFF",
+      "-DLLAMA_CURL=OFF",
+      "-DBUILD_SHARED_LIBS=OFF",
+      "-DCMAKE_BUILD_TYPE=Release"
+    ]
+  },
+  "task_binding": {
+    "candidate_ids": ["mellum-4b", "qwen3.5-0.8b-control"],
+    "source_identity": "B011_FULL_PER_FILE_SHA256_MANIFESTS",
+    "runtime_benchmark": {
+      "prompt_tokens": 8192,
+      "decode_tokens": 128,
+      "threads": 2,
+      "warmups_excluded": 1,
+      "measured_repetitions": 3,
+      "gpu_layers": 0,
+      "device": "none"
+    },
+    "raw_code_manifest": "benchmarks/manifests/B012-raw-code-proxy.json",
+    "durable_outputs": ["JSON"]
+  },
+  "resource_ceiling": {
+    "aggregate_required_source_download_bytes": 9817996174,
+    "paid_cost_usd": 0.0,
+    "paid_compute": false,
+    "paid_model_api": false,
+    "founder_machine_model_binaries": 0,
+    "git_model_binaries": 0
+  },
+  "prohibited_authority_transfer": [
+    "T031",
+    "T032",
+    "T033",
+    "T034",
+    "B013",
+    "TRAINING",
+    "NEW_CANDIDATES"
+  ]
+}

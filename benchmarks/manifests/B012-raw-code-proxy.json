@@ -1,0 +1,41 @@
+{
+  "schema_version": "mstr.b012-raw-code-proxy.v1",
+  "task_id": "B012",
+  "purpose": "Equivalent bounded raw-code operational qualification; not final candidate admission or headline quality ranking.",
+  "execution": {
+    "runtime": "llama.cpp-llama-cli-cpu",
+    "context_tokens": 2048,
+    "generated_tokens": 96,
+    "threads": 2,
+    "gpu_layers": 0,
+    "temperature": 0.0,
+    "seed": 42,
+    "network_model_calls": 0
+  },
+  "verification": {
+    "language": "python",
+    "method": "ast.parse(prompt + completion)",
+    "score_is_observation_not_admission_gate": true,
+    "fim_export_requirement": {
+      "mellum-4b": "SOURCE_FIM_TOKENS_MUST_BE_PRESENT_IN_GENERATED_Q4_GGUF",
+      "qwen3.5-0.8b-control": "NOT_REQUIRED_CONTROL"
+    }
+  },
+  "tasks": [
+    {
+      "id": "python-clamp",
+      "prompt": "def clamp(value: int, low: int, high: int) -> int:\n    \"\"\"Return value limited to the inclusive [low, high] range.\"\"\"\n",
+      "required_substrings": ["return"]
+    },
+    {
+      "id": "python-dedupe",
+      "prompt": "def dedupe_preserve_order(items: list[str]) -> list[str]:\n    \"\"\"Return unique strings while preserving first-seen order.\"\"\"\n",
+      "required_substrings": ["return"]
+    },
+    {
+      "id": "python-safe-divide",
+      "prompt": "def safe_divide(numerator: float, denominator: float) -> float | None:\n    \"\"\"Return None when denominator is zero; otherwise return the quotient.\"\"\"\n",
+      "required_substrings": ["return"]
+    }
+  ]
+}
