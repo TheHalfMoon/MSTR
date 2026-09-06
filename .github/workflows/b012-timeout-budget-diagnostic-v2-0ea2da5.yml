@@ -1,0 +1,43 @@
+name: B012 timeout budget repair diagnostic v2 0ea2da5
+
+on:
+  push:
+    branches:
+      - evidence/b012-timeout-budget-diagnostic-v2-0ea2da5
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      PYTHONPATH: colab
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 0ea2da5976ed95109efc49cbc632a57b55360a14
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Verify bounded recovery code without model access
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 0ea2da5976ed95109efc49cbc632a57b55360a14
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_b012_timeout_budget.py
+          python -m ruff check colab/mstr_b012_measure.py colab/mstr_b012_execute.py tests/contract/test_b012_timeout_budget.py
+          python -m py_compile colab/mstr_b012_measure.py colab/mstr_b012_execute.py
+          echo "LOCK_SHA256=$(sha256sum artifacts/manifests/B012-executor-toolchain-lock.json | awk '{print $1}')"
+          echo "MEASURE_HELPER_SHA256=$(sha256sum colab/mstr_b012_measure.py | awk '{print $1}')"
+          echo "EXECUTOR_SHA256=$(sha256sum colab/mstr_b012_execute.py | awk '{print $1}')"
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
