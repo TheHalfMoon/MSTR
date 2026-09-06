@@ -181,6 +181,23 @@ def _run_one(
         ) from exc
 
     elapsed_after = max(0.0, monotonic() - benchmark_started_monotonic)
+    if elapsed_after > budget_seconds:
+        context = _context(
+            arm=arm,
+            phase=phase,
+            repetition_index=repetition_index,
+            configured_timeout_seconds=configured_timeout_seconds,
+            effective_timeout_seconds=effective_timeout,
+            budget_seconds=budget_seconds,
+            elapsed_before_seconds=elapsed_before,
+            remaining_before_seconds=remaining_before,
+            elapsed_after_seconds=elapsed_after,
+        )
+        raise B012BenchmarkError(
+            "B012 benchmark wall budget exceeded by completed invocation",
+            context=context,
+        )
+
     result = dict(result)
     result["b012_invocation_context"] = {
         **invocation_context,
