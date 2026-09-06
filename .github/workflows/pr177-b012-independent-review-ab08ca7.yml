@@ -1,0 +1,225 @@
+name: PR177 B012 independent semantic review ab08ca7
+
+on:
+  push:
+    branches:
+      - evidence/pr177-b012-independent-review-ab08ca7
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+env:
+  BASE_SHA: 1fd324cddf3c2f852810e72a4c195199d7b884c4
+  TARGET_HEAD: ab08ca7b3551b8160062a21bd79a45bd7b52e3ed
+  TARGET_TREE: e42a0d8795fd19ffd6ed2e18504ce270a51bb20d
+  TARGET_BRANCH: fix/b012-timeout-budget-recovery-current-main
+  QUALIFICATION_RUN: "34059930221"
+  HF_HUB_OFFLINE: "1"
+  TRANSFORMERS_OFFLINE: "1"
+
+jobs:
+  independent_review:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact reviewed subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ab08ca7b3551b8160062a21bd79a45bd7b52e3ed
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+
+      - name: Verify independent evidence inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git show -s --format=%T HEAD)" = "$TARGET_TREE"
+          test "$(git merge-base HEAD refs/remotes/origin/main)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | awk '{print $1}')" = "$TARGET_HEAD"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          token = os.environ["GH_TOKEN"]
+          headers = {
+              "Authorization": f"Bearer {token}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+
+          def fetch(url: str):
+              req = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(req) as response:
+                  return json.load(response)
+
+          run = fetch(
+              f"https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/{os.environ['QUALIFICATION_RUN']}"
+          )
+          assert run["status"] == "completed"
+          assert run["conclusion"] == "success"
+          jobs = fetch(run["jobs_url"])["jobs"]
+          conclusions = {job["name"]: job["conclusion"] for job in jobs}
+          assert conclusions["focused"] == "success"
+          assert conclusions["canonical_quality"] == "success"
+          assert conclusions["final_qualification"] == "success"
+
+          pr = fetch("https://api.github.com/repos/TheHalfMoon/MSTR/pulls/177")
+          assert pr["state"] == "open"
+          assert pr["draft"] is False
+          assert pr["head"]["sha"] == os.environ["TARGET_HEAD"]
+          assert pr["base"]["sha"] == os.environ["BASE_SHA"]
+          assert pr["changed_files"] == 7
+          print("EXTERNAL_EXACT_HEAD_EVIDENCE=PASS")
+          PY
+
+      - name: Review semantic authority and timeout containment
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import sys
+          from pathlib import Path
+
+          root = Path.cwd()
+          sys.path.insert(0, str(root / "colab"))
+          import mstr_b012_measure as measure
+
+          authority = json.loads(
+              (root / "artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json").read_text()
+          )
+          binding = json.loads(
+              (root / "artifacts/manifests/B012-executor-toolchain-binding.json").read_text()
+          )
+          lock = json.loads(
+              (root / "artifacts/manifests/B012-executor-toolchain-lock.json").read_text()
+          )
+          raw_manifest = json.loads(
+              (root / "benchmarks/manifests/B012-raw-code-proxy.json").read_text()
+          )
+          executor = (root / "colab/mstr_b012_execute.py").read_text()
+          raw_helper = (root / "colab/mstr_b012_raw_code.py").read_text()
+
+          expected_candidates = ["mellum-4b", "qwen3.5-0.8b-control"]
+          assert authority["status"] == "AUTHORIZED_CANONICAL"
+          assert authority["task_id"] == "B012"
+          assert authority["scope"]["candidate_ids"] == expected_candidates
+          assert authority["scope"]["new_candidate_access"] is False
+          assert authority["scope"]["paid_compute"] is False
+          assert authority["scope"]["paid_model_api"] is False
+          assert authority["scope"]["production_release"] is False
+          assert authority["scope"]["training"] is False
+          assert authority["scope"]["weight_changing_training"] is False
+          assert authority["scope"]["git_model_binaries"] is False
+          assert authority["scope"]["founder_machine_large_artifacts"] == 0
+          assert binding["candidate_ids"] == expected_candidates
+          assert binding["execution_boundary"]["authority_transfer"] is False
+          assert binding["execution_boundary"]["candidate_revision_or_file_expansion"] is False
+          assert binding["execution_boundary"]["new_candidates"] is False
+          assert binding["execution_boundary"]["training"] is False
+          assert binding["execution_boundary"]["weight_changing_training"] is False
+          assert binding["execution_boundary"]["paid_compute"] is False
+          assert binding["execution_boundary"]["paid_model_api"] is False
+          assert binding["execution_boundary"]["production_release"] is False
+          assert binding["timeout_budget_recovery"]["retry_authority_created"] is False
+          assert binding["timeout_budget_recovery"]["model_quality_verdict"] == "NONE"
+
+          helper_sha = hashlib.sha256((root / "colab/mstr_b012_measure.py").read_bytes()).hexdigest()
+          executor_sha = hashlib.sha256((root / "colab/mstr_b012_execute.py").read_bytes()).hexdigest()
+          assert binding["b012_measurement_helper_sha256"] == helper_sha
+          assert binding["executor_script_sha256"] == executor_sha
+
+          runtime = lock["task_binding"]["runtime_benchmark"]
+          assert runtime["per_invocation_timeout_seconds"] == 900
+          assert runtime["benchmark_wall_budget_seconds"] == 4800
+          assert runtime["reserved_non_benchmark_seconds"] == 2400
+          assert runtime["authorized_job_ceiling_seconds"] == 7200
+          assert lock["runner"]["max_job_minutes"] == 120
+          assert lock["runner"]["max_parallel_candidates"] == 1
+          assert lock["resource_ceiling"]["paid_cost_usd"] == 0.0
+          assert lock["resource_ceiling"]["paid_compute"] is False
+          assert lock["resource_ceiling"]["paid_model_api"] is False
+
+          budget = measure.validate_benchmark_budget(runtime_cfg=runtime, max_job_minutes=120)
+          assert measure.effective_benchmark_wall_budget(
+              budget=budget, pre_benchmark_elapsed_seconds=1200.0
+          ) == 3600.0
+          try:
+              measure.effective_benchmark_wall_budget(
+                  budget=budget, pre_benchmark_elapsed_seconds=4800.0
+              )
+          except measure.ExecutionError:
+              pass
+          else:
+              raise AssertionError("setup exhaustion did not fail closed")
+
+          assert "execution_started_monotonic = time.monotonic()" in executor
+          assert "pre_benchmark_elapsed_seconds" in executor
+          assert "effective_benchmark_wall_budget(" in executor
+          assert "budget_seconds=effective_benchmark_budget_seconds" in executor
+          assert len(raw_manifest["tasks"]) == 3
+          assert "timeout=600" in raw_helper
+          assert len(raw_manifest["tasks"]) * 600 <= runtime["reserved_non_benchmark_seconds"]
+          assert runtime["reserved_non_benchmark_seconds"] - len(raw_manifest["tasks"]) * 600 >= 600
+
+          print("SEMANTIC_AUTHORITY_BOUNDARY=PASS")
+          print("SETUP_AWARE_TIMEOUT_CONTAINMENT=PASS")
+          print("RAW_CODE_RESERVE_CONTAINMENT=PASS")
+          print("FINDINGS=NONE")
+          PY
+
+      - name: Verify exact seven-file containment
+        run: |
+          set -euo pipefail
+          cat > /tmp/expected-files <<'EOF'
+          artifacts/manifests/B012-executor-toolchain-binding.json
+          artifacts/manifests/B012-executor-toolchain-lock.json
+          colab/mstr_b012_execute.py
+          colab/mstr_b012_governance.py
+          colab/mstr_b012_measure.py
+          tests/contract/test_b012_timeout_binding.py
+          tests/contract/test_b012_timeout_budget.py
+          EOF
+          git diff --name-only "$BASE_SHA" "$TARGET_HEAD" | sort > /tmp/actual-files
+          sort /tmp/expected-files -o /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          echo 'SEVEN_FILE_CONTAINMENT=PASS'
+
+      - name: Independent regression verification
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q \
+            tests/contract/test_b012_authority.py \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_timeout_binding.py \
+            tests/contract/test_b012_timeout_budget.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src/mstr_qualify
+          test -z "$(git status --porcelain)"
+          echo 'INDEPENDENT_REGRESSION=PASS'
+          echo 'MODEL_EXECUTION_PERFORMED=false'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
+
+      - name: Final live remote guard
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git show -s --format=%T HEAD)" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | awk '{print $1}')" = "$TARGET_HEAD"
+          echo 'PR177_B012_INDEPENDENT_REVIEW=PASS'
+          echo 'FINDINGS=NONE'
