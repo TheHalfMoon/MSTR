@@ -72,7 +72,7 @@
   "source_script_sha256": "890c9d1536ae4046a827789530c186dd02afca80bae8930ef22c2cb6e9ddcf26",
   "artifact_script_sha256": "7141e7c8399c43aa74ef86a036d87de392d574dad15718980d9f8bee316eca54",
   "raw_code_script_sha256": "bd6d34afd8af60497a4971bb7245fc359c4132bad3772be212b6848aa73060d8",
-  "executor_script_sha256": "3f2489dbd6c42aac3088a3254a6afb6412f95aad27627f6ca3ef79236de7ba97",
+  "executor_script_sha256": "b9acd66460a9e54f9ba71c885b8d25f21ce31cc8fa075d7599855da5005fee53",
   "workflow_sha256": "6f767c900f806ceeb45d419b4f345b36727211722590687cee753c7fbd2d67ac",
   "dispatch_boundary": {
     "surface": "ISSUE_COMMENT_CANONICAL_MAIN",
