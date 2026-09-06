@@ -1,0 +1,223 @@
+name: PR172 T031 replay independent semantic security governance review
+
+on:
+  push:
+    branches:
+      - evidence/pr172-t031-replay-independent-review-f512c16
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+env:
+  REPO: TheHalfMoon/MSTR
+  PR_NUMBER: "172"
+  BASE_SHA: 119a9bcca1c97b9edbcacd6d8d457b31206bb162
+  TARGET_HEAD: f512c166f9dd7ed04dc88bdf097eaa59f3754d2c
+  TARGET_TREE: 28e985a23668ec40098a8f9436b8db5172dfb1c6
+  QUALIFICATION_RUN: "34033216978"
+  QUALIFICATION_HEAD: 9ff2c3a275313256163eab714b34d84e8f1aebf6
+  QUALIFICATION_BRANCH: evidence/pr172-t031-replay-qualification-f512c16
+
+jobs:
+  evidence_scope_review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact reviewed PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Independently verify exact identity scope and prior qualification
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$BASE_SHA" "$TARGET_HEAD")" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/fix/t031-t029-producer-replay | awk '{print $1}')" = "$TARGET_HEAD"
+          git diff --check "$BASE_SHA...$TARGET_HEAD"
+          cat > /tmp/expected <<'EOF'
+          .github/workflows/t031-measure.yml
+          artifacts/manifests/T031-executor-toolchain-binding.json
+          artifacts/manifests/T031-t029-producer-replay-overlay.json
+          artifacts/results/local/T031/failures/T031-granite-4.1-3b-run-33999224131.json
+          colab/mstr_t031_execute.py
+          colab/mstr_t031_governance.py
+          colab/mstr_t031_replay.py
+          evidence/T031-first-execution-failure-and-replay-repair.md
+          tests/contract/test_t031_executor_binding.py
+          EOF
+          sort /tmp/expected -o /tmp/expected
+          git diff --name-only "$BASE_SHA...$TARGET_HEAD" | sort > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          python - <<'PY'
+          import json, os, urllib.request
+          token=os.environ['GH_TOKEN']; repo=os.environ['REPO']
+          req=urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/actions/runs/{os.environ['QUALIFICATION_RUN']}",
+              headers={'Authorization':f'Bearer {token}','Accept':'application/vnd.github+json'},
+          )
+          with urllib.request.urlopen(req,timeout=30) as r: q=json.load(r)
+          assert q['status']=='completed' and q['conclusion']=='success',q
+          assert q['head_sha']==os.environ['QUALIFICATION_HEAD'],q['head_sha']
+          assert q['head_branch']==os.environ['QUALIFICATION_BRANCH'],q['head_branch']
+          PY
+          test "$(git ls-remote origin refs/heads/$QUALIFICATION_BRANCH | awk '{print $1}')" = "$QUALIFICATION_HEAD"
+
+  semantic_security_governance_review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact reviewed PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Review repair semantics supply chain and authority boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import ast, hashlib, json
+          from pathlib import Path
+          root=Path('.')
+          def readj(p): return json.loads((root/p).read_text())
+          def sha(p): return hashlib.sha256((root/p).read_bytes()).hexdigest()
+          binding=readj('artifacts/manifests/T031-executor-toolchain-binding.json')
+          overlay=readj('artifacts/manifests/T031-t029-producer-replay-overlay.json')
+          authority=readj('artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json')
+          envelope=readj('artifacts/manifests/T031-local-measurement-execution-envelope.json')
+          failure=readj('artifacts/results/local/T031/failures/T031-granite-4.1-3b-run-33999224131.json')
+          candidates=['granite-4.1-3b','ministral-3-3b','qwen2.5-coder-1.5b','qwen3-4b','qwen3.5-2b','qwen3.5-4b','smollm3-3b','yi-coder-1.5b']
+          assert authority['status']=='AUTHORIZED_CANONICAL'
+          assert binding['candidate_ids']==candidates==envelope['candidate_ids']
+          assert binding['source_main']=='119a9bcca1c97b9edbcacd6d8d457b31206bb162'
+          assert binding['status']=='SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL'
+          assert binding['authority_sha256']==sha('artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json')
+          assert binding['envelope_sha256']==sha('artifacts/manifests/T031-local-measurement-execution-envelope.json')
+          bound={
+            'toolchain_lock_sha256':'artifacts/manifests/T031-executor-toolchain-lock.json',
+            'producer_replay_overlay_sha256':'artifacts/manifests/T031-t029-producer-replay-overlay.json',
+            'toolchain_helper_sha256':'colab/mstr_executor_toolchain.py',
+            'producer_replay_helper_sha256':'colab/mstr_t031_replay.py',
+            'governance_script_sha256':'colab/mstr_t031_governance.py',
+            'source_script_sha256':'colab/mstr_t031_source.py',
+            'artifact_script_sha256':'colab/mstr_t031_artifacts.py',
+            'measurement_script_sha256':'colab/mstr_t031_measure.py',
+            'executor_script_sha256':'colab/mstr_t031_execute.py',
+            'workflow_sha256':'.github/workflows/t031-measure.yml',
+          }
+          for k,p in bound.items(): assert binding[k]==sha(p),(k,binding[k],sha(p))
+          assert overlay['schema_version']=='mstr.t031-t029-producer-replay-overlay.v2'
+          assert overlay['status']=='EVIDENCE_BOUNDED_REPLAY'
+          assert overlay['python_version']=='3.11.16'
+          assert overlay['package_count']==40==len(overlay['packages'])
+          assert overlay['resolution_evidence']['run_id']==34031883766
+          assert overlay['resolution_evidence']['artifact_id']==9988881418
+          assert overlay['resolution_evidence']['model_access']=='NONE'
+          assert overlay['resolution_evidence']['training'] is False
+          assert overlay['resolution_evidence']['paid_cost_usd']==0.0
+          assert overlay['reconstruction_basis']['historical_transitive_identity_claim'] is False
+          assert overlay['reconstruction_basis']['equivalence_gate']=='EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH'
+          names={x['name']:x['version'] for x in overlay['packages']}
+          assert names['transformers']=='5.15.1' and names['huggingface-hub']=='1.30.0'
+          assert names['typer']=='0.27.2' and names['torch']=='2.13.0+cpu'
+          assert set(overlay['hosts'])=={'files.pythonhosted.org','download.pytorch.org','download-r2.pytorch.org'}
+          assert len({x['name'] for x in overlay['packages']})==40
+          for x in overlay['packages']:
+              assert x['url'].startswith('https://')
+              assert len(x['sha256'])==64 and all(c in '0123456789abcdef' for c in x['sha256'])
+          replay=(root/'colab/mstr_t031_replay.py').read_text()
+          executor=(root/'colab/mstr_t031_execute.py').read_text()
+          governance=(root/'colab/mstr_t031_governance.py').read_text()
+          workflow=(root/'.github/workflows/t031-measure.yml').read_text()
+          assert '"--no-index"' in replay and '"--no-deps"' in replay and '"pip", "check"' in replay
+          assert 'producer replay package-count binding drift detected' in replay
+          assert 'producer replay direct package set drift detected' in replay
+          assert 'producer replay package host allowlist drift detected' in replay
+          assert 'install_replay_toolchain(' in executor
+          assert 'producer_replay' in executor
+          assert 'EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH' in replay
+          assert 'python-version: "3.11.16"' in workflow
+          assert 'workflow_dispatch:' not in workflow and '\n  push:' not in workflow
+          assert 'github.event.issue.number == 167' in workflow
+          assert "github.event.comment.author_association == 'OWNER'" in workflow
+          assert 'group: t031-governed-model-execution' in workflow and 'cancel-in-progress: false' in workflow
+          assert '_require_live_main' in executor and '_require_live_main' in governance
+          boundary=binding['execution_boundary']
+          for k in ['authority_transfer','b012_execution','t032_execution','t033_execution','t034_admission_decision','training']:
+              assert boundary[k] is False,k
+          assert boundary['paid_cost_usd']==0.0 and boundary['git_model_binaries']==0 and boundary['founder_machine_model_binaries']==0
+          rb=overlay['execution_boundary']
+          for k in ['model_access_authority_expansion','candidate_revision_or_file_expansion','b012_execution','t032_execution','t033_execution','t034_admission_decision','training']:
+              assert rb[k] is False,k
+          assert failure['result_classification']=='T031_EXECUTION_FAILED_CLOSED'
+          assert failure['canonical_main_at_start']=='119a9bcca1c97b9edbcacd6d8d457b31206bb162'
+          assert 'b76f61cdf1a11375c734431f661fabe937b7214a54d6defda5f6683bd3473d4d' in failure['error']
+          assert 'b86ef357954d1b1e5b982cc76a830e8305cc86049ca1bc4e9fcc22c7ab91a5d7' in failure['error']
+          tree=ast.parse(replay)
+          calls=[n for n in ast.walk(tree) if isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and n.func.id=='_run_checked']
+          assert calls and all(any(k.arg=='timeout' for k in n.keywords) for n in calls)
+          print('SEMANTIC_SECURITY_GOVERNANCE_REVIEW=PASS')
+          print('Findings: NONE')
+          print('MODEL_ACCESS=NONE')
+          print('TRAINING=false')
+          print('PAID_COST_USD=0.0')
+          PY
+
+  independent_quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact reviewed PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Re-run full repository quality independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_t031_executor_binding.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m ruff format --check colab/mstr_t031_replay.py colab/mstr_t031_execute.py colab/mstr_t031_governance.py tests/contract/test_t031_executor_binding.py
+          python -m mypy src/mstr_qualify
+          git diff --check "$BASE_SHA...$TARGET_HEAD"
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test -z "$(git status --porcelain)"
+
+  final_review:
+    needs: [evidence_scope_review, semantic_security_governance_review, independent_quality]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Reverify live refs and issue independent verdict
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/fix/t031-t029-producer-replay | awk '{print $1}')" = "$TARGET_HEAD"
+          echo 'INDEPENDENT_REVIEW_VERDICT=PASS'
+          echo 'Findings: NONE'
+          echo "TARGET_HEAD=$TARGET_HEAD"
+          echo "QUALIFICATION_RUN=$QUALIFICATION_RUN"
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
