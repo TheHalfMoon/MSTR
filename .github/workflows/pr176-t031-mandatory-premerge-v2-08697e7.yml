@@ -1,0 +1,173 @@
+name: PR176 T031 mandatory premerge recovery v2 08697e7
+
+on:
+  push:
+    branches:
+      - evidence/pr176-t031-mandatory-premerge-v2-08697e7
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+env:
+  BASE_SHA: 90fb88734006de8296825034345ba89ed6614794
+  TARGET_HEAD: 08697e7f8bb95aabc8f25677074ebeee18771169
+  TARGET_TREE: 27ab4f780234a969435daa873007bcb934933d1a
+  TARGET_BRANCH: fix/t031-historical-59wheel-binding-truth
+  QUALIFICATION_RUN: "34057263503"
+  REVIEW_RUN: "34057502017"
+  PRIOR_PREMERGE_RUN: "34057824960"
+  REVIEW_ID: "5126516028"
+  HF_HUB_OFFLINE: "1"
+  TRANSFORMERS_OFFLINE: "1"
+
+jobs:
+  legacy_canonical_gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Verify canonical legacy T031 frontier and explain prior verifier failure
+        shell: bash
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          test "$(git symbolic-ref --short HEAD)" = main
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          grep -Fq 'ACTIVE_IMPLEMENTATION_TASK = T031_AUTHORITY_AND_EXECUTION_RECONCILIATION / B012_EXACT_AUTHORITY_GATE / A019_A020_CONVERGENCE_GATES' docs/canonical/CURRENT_STATE.md
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          python -m pytest -q tests/contract/test_t031_authority.py tests/contract/test_t031_executor_binding.py
+          set +e
+          python -m mstr_qualify task eligible T031 > /tmp/t031-machine-task.json 2>&1
+          status=$?
+          set -e
+          test "$status" = 2
+          grep -Fq '"code": "task_gate.task_unknown"' /tmp/t031-machine-task.json
+          grep -Fq '"task_id": "T031"' /tmp/t031-machine-task.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          authority = json.loads(Path('artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json').read_text())
+          envelope = json.loads(Path('artifacts/manifests/T031-local-measurement-execution-envelope.json').read_text())
+          binding = json.loads(Path('artifacts/manifests/T031-executor-toolchain-binding.json').read_text())
+          assert authority['status'] == 'AUTHORIZED_CANONICAL'
+          assert authority['task_id'] == 'T031'
+          assert envelope['task_id'] == 'T031'
+          assert binding['task_id'] == 'T031'
+          assert binding['status'] == 'SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL'
+          scope = authority['scope']
+          for key in (
+              'b010_b012_candidates', 'candidate_revision_or_file_expansion', 'new_candidates',
+              'paid_compute', 'paid_model_api', 'production_release', 't032_execution',
+              't033_execution', 't034_admission_decision', 'training', 'weight_changing_training',
+          ):
+              assert scope[key] is False, key
+          assert scope['git_model_binaries'] is False
+          assert scope['founder_machine_large_artifacts'] == 0
+          print('T031_LEGACY_CANONICAL_FRONTIER=PASS')
+          print('T031_MACHINE_GATE_APPLICABILITY=NOT_APPLICABLE')
+          print('PRIOR_MACHINE_GATE_FAILURE_CLASSIFICATION=VERIFIER_MISUSE')
+          PY
+          test -z "$(git status --porcelain)"
+
+  prerequisite_evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Verify exact qualification review and successful prior premerge jobs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          headers = {
+              'Authorization': f'Bearer {os.environ["GH_TOKEN"]}',
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+          }
+          root = 'https://api.github.com/repos/TheHalfMoon/MSTR'
+          def get(path):
+              req = urllib.request.Request(root + path, headers=headers)
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  return json.load(response)
+
+          for run_id in (os.environ['QUALIFICATION_RUN'], os.environ['REVIEW_RUN']):
+              run = get(f'/actions/runs/{run_id}')
+              assert run['conclusion'] == 'success', (run_id, run['conclusion'])
+
+          jobs = get(f'/actions/runs/{os.environ["PRIOR_PREMERGE_RUN"]}/jobs?per_page=100')['jobs']
+          conclusions = {job['name']: job['conclusion'] for job in jobs}
+          assert conclusions['evidence_and_subject'] == 'success'
+          assert conclusions['exact_head_quality'] == 'success'
+          assert conclusions['canonical_main_eligibility'] == 'failure'
+          assert conclusions['final_merge_authorization'] == 'skipped'
+
+          reviews = get('/pulls/176/reviews?per_page=100')
+          matching = [r for r in reviews if str(r['id']) == os.environ['REVIEW_ID']]
+          assert len(matching) == 1
+          review = matching[0]
+          assert review['commit_id'] == os.environ['TARGET_HEAD']
+          assert review['state'] == 'COMMENTED'
+          assert 'Review findings: none.' in (review.get('body') or '')
+          print('PR176_PREREQUISITE_EVIDENCE=PASS')
+          print('PR176_PRIOR_EXACT_HEAD_QUALITY=PASS')
+          PY
+
+  final_merge_authorization:
+    needs: [legacy_canonical_gate, prerequisite_evidence]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Final exact subject live-ref and PR guard
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | awk '{print $1}')" = "$TARGET_HEAD"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          headers = {
+              'Authorization': f'Bearer {os.environ["GH_TOKEN"]}',
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+          }
+          req = urllib.request.Request('https://api.github.com/repos/TheHalfMoon/MSTR/pulls/176', headers=headers)
+          with urllib.request.urlopen(req, timeout=30) as response:
+              pr = json.load(response)
+          assert pr['state'] == 'open'
+          assert pr['draft'] is False
+          assert pr['head']['sha'] == os.environ['TARGET_HEAD']
+          assert pr['base']['sha'] == os.environ['BASE_SHA']
+          assert pr['changed_files'] == 9
+          assert pr['mergeable'] is not False
+          print('PR176_FINAL_PR_STATE=PASS')
+          PY
+          echo 'PR176_MANDATORY_PREMERGE=PASS'
+          echo 'PR176_MERGE_AUTHORIZATION=PASS'
+          echo "EXPECTED_HEAD_SHA=$TARGET_HEAD"
+          echo "EXPECTED_BASE_SHA=$BASE_SHA"
+          echo 'MODEL_EXECUTION_AUTHORIZED_BY_PREMERGE=false'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
