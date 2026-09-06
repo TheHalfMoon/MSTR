@@ -20,6 +20,7 @@ T031_REPLAY_OVERLAY = ROOT / "artifacts/manifests/T031-t029-producer-replay-over
 TOOLCHAIN_HELPER = ROOT / "colab/mstr_executor_toolchain.py"
 REPLAY_HELPER = ROOT / "colab/mstr_t031_replay.py"
 T031_MEASURE = ROOT / "colab/mstr_t031_measure.py"
+B012_MEASURE = ROOT / "colab/mstr_b012_measure.py"
 GOVERNANCE = ROOT / "colab/mstr_b012_governance.py"
 SOURCE = ROOT / "colab/mstr_b012_source.py"
 ARTIFACTS = ROOT / "colab/mstr_b012_artifacts.py"
@@ -97,6 +98,7 @@ def test_binding_hashes_every_execution_component() -> None:
         TOOLCHAIN_HELPER: binding["toolchain_helper_sha256"],
         REPLAY_HELPER: binding["replay_helper_sha256"],
         T031_MEASURE: binding["reused_measurement_helper_sha256"],
+        B012_MEASURE: binding["b012_measurement_helper_sha256"],
         GOVERNANCE: binding["governance_script_sha256"],
         SOURCE: binding["source_script_sha256"],
         ARTIFACTS: binding["artifact_script_sha256"],
@@ -117,9 +119,11 @@ def test_lock_and_binding_preserve_zero_cost_no_transfer_boundary() -> None:
     task = lock["task_binding"]
     reuse = lock["explicit_dependency_reuse"]
     ceiling = lock["resource_ceiling"]
+    runner = lock["runner"]
     assert isinstance(task, dict)
     assert isinstance(reuse, dict)
     assert isinstance(ceiling, dict)
+    assert isinstance(runner, dict)
     assert task["candidate_ids"] == CANDIDATES
     assert reuse["source_task"] == "T031"
     assert reuse["authority_transfer"] is False
@@ -129,6 +133,17 @@ def test_lock_and_binding_preserve_zero_cost_no_transfer_boundary() -> None:
     assert ceiling["paid_model_api"] is False
     assert ceiling["founder_machine_model_binaries"] == 0
     assert ceiling["git_model_binaries"] == 0
+
+    runtime = task["runtime_benchmark"]
+    assert isinstance(runtime, dict)
+    assert runtime["warmups_excluded"] == 1
+    assert runtime["measured_repetitions"] == 3
+    assert runtime["per_invocation_timeout_seconds"] == 900
+    assert runtime["benchmark_wall_budget_seconds"] == 4800
+    assert runtime["reserved_non_benchmark_seconds"] == 2400
+    assert runtime["authorized_job_ceiling_seconds"] == 7200
+    assert runner["max_job_minutes"] == 120
+    assert runtime["benchmark_wall_budget_seconds"] + runtime["reserved_non_benchmark_seconds"] <= 7200
 
     boundary = binding["execution_boundary"]
     assert isinstance(boundary, dict)
@@ -154,6 +169,24 @@ def test_lock_and_binding_preserve_zero_cost_no_transfer_boundary() -> None:
     assert resource["paid_compute"] is False
     assert resource["paid_model_api"] is False
     assert resource["aggregate_required_source_download_bytes"] == 9817996174
+
+
+def test_timeout_budget_recovery_is_evidence_bound_and_non_authorizing() -> None:
+    binding = _read_json(BINDING)
+    recovery = binding["timeout_budget_recovery"]
+    assert isinstance(recovery, dict)
+    assert recovery["prior_failed_run_id"] == 34046125440
+    assert recovery["prior_failure_classification"] == "B012_EXECUTION_FAILED_CLOSED"
+    assert recovery["prior_failure_reason"] == "llama-bench timed out after 900s"
+    assert recovery["model_quality_verdict"] == "NONE"
+    assert recovery["diagnostic_run_id"] == 34057608647
+    assert recovery["diagnostic_head"] == "0ea2da5976ed95109efc49cbc632a57b55360a14"
+    assert recovery["focused_tests_passed"] == 5
+    assert recovery["model_access"] == "NONE"
+    assert recovery["training"] is False
+    assert recovery["paid_cost_usd"] == 0.0
+    assert recovery["retry_authority_created"] is False
+    assert recovery["shared_t031_measurement_helper_modified"] is False
 
 
 def test_issue_comment_dispatch_is_canonical_owner_scoped() -> None:
@@ -203,6 +236,11 @@ def test_source_and_executor_keep_exact_candidate_and_failure_boundaries() -> No
     assert "candidate outside exact B012 authority" in executor
     assert '"candidate_admission_decision": "NOT_MADE_BY_B012_EXECUTOR"' in executor
     assert '"result_classification": "B012_EXECUTION_FAILED_CLOSED"' in executor
+    assert '"execution_stage": execution_stage' in executor
+    assert 'failure["benchmark_context"] = benchmark_context' in executor
+    assert '"runtime_benchmark_budget": budget' in executor
+    assert 'arm="prefill_8k"' in executor
+    assert 'arm="isolated_decode_128"' in executor
     assert '"paid_cost_usd": 0.0' in executor
     assert '"training": False' in executor
     assert "shutil.rmtree(workdir, ignore_errors=True)" in executor
