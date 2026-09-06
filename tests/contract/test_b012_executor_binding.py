@@ -143,7 +143,10 @@ def test_lock_and_binding_preserve_zero_cost_no_transfer_boundary() -> None:
     assert runtime["reserved_non_benchmark_seconds"] == 2400
     assert runtime["authorized_job_ceiling_seconds"] == 7200
     assert runner["max_job_minutes"] == 120
-    assert runtime["benchmark_wall_budget_seconds"] + runtime["reserved_non_benchmark_seconds"] <= 7200
+    assert (
+        runtime["benchmark_wall_budget_seconds"] + runtime["reserved_non_benchmark_seconds"]
+        <= 7200
+    )
 
     boundary = binding["execution_boundary"]
     assert isinstance(boundary, dict)
