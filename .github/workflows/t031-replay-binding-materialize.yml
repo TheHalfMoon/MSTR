@@ -1,0 +1,123 @@
+name: T031 replay repair binding materialization
+
+on:
+  push:
+    branches:
+      - evidence/t031-replay-binding-materialize
+
+permissions:
+  contents: read
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 38a840e8dbac990700cec28bc5b8efc75b9cef64
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Materialize exact repaired binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/t031-binding
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          from pathlib import Path
+
+          def sha(path: str) -> str:
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+          binding_path = Path('artifacts/manifests/T031-executor-toolchain-binding.json')
+          binding = json.loads(binding_path.read_text(encoding='utf-8'))
+          binding['binding_id'] = 'T031_CANONICAL_EXECUTOR_TOOLCHAIN_BINDING_REPLAY_REPAIR_2026_09_06'
+          binding['source_main'] = '119a9bcca1c97b9edbcacd6d8d457b31206bb162'
+          binding['producer_replay_overlay_path'] = (
+              'artifacts/manifests/T031-t029-producer-replay-overlay.json'
+          )
+          binding['producer_replay_overlay_sha256'] = sha(
+              'artifacts/manifests/T031-t029-producer-replay-overlay.json'
+          )
+          binding['producer_replay_helper_path'] = 'colab/mstr_t031_replay.py'
+          binding['producer_replay_helper_sha256'] = sha('colab/mstr_t031_replay.py')
+          binding['toolchain_lock_sha256'] = sha(
+              'artifacts/manifests/T031-executor-toolchain-lock.json'
+          )
+          binding['toolchain_helper_sha256'] = sha('colab/mstr_executor_toolchain.py')
+          binding['governance_script_sha256'] = sha('colab/mstr_t031_governance.py')
+          binding['source_script_sha256'] = sha('colab/mstr_t031_source.py')
+          binding['artifact_script_sha256'] = sha('colab/mstr_t031_artifacts.py')
+          binding['measurement_script_sha256'] = sha('colab/mstr_t031_measure.py')
+          binding['executor_script_sha256'] = sha('colab/mstr_t031_execute.py')
+          binding['workflow_sha256'] = sha('.github/workflows/t031-measure.yml')
+          binding['producer_replay'] = {
+              'status': 'EVIDENCE_BOUNDED_REPLAY',
+              'python_version': '3.11.16',
+              'base_lock_semantics': 'TRANSITIVE_DEPENDENCY_LOCK_WITH_DIRECT_REPLAY_OVERLAY',
+              'acceptance_gate': 'EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH',
+              'historical_transitive_identity_claim': False,
+          }
+          binding['repair_evidence'] = {
+              'first_execution': {
+                  'run_id': 33999224131,
+                  'artifact_id': 9979311948,
+                  'artifact_zip_sha256': (
+                      '48c7b071b3ae6dfcb3b36e7ddcbc890ee8206687f5c9570026d8f927d2ad935a'
+                  ),
+                  'failure_json_sha256': (
+                      'b39b51ef17a2628854baa61991be0f1d074785b912a889a4b6c91365061d1f36'
+                  ),
+                  'classification': 'T031_EXECUTION_FAILED_CLOSED',
+                  'expected_f16_sha256': (
+                      'b76f61cdf1a11375c734431f661fabe937b7214a54d6defda5f6683bd3473d4d'
+                  ),
+                  'observed_f16_sha256': (
+                      'b86ef357954d1b1e5b982cc76a830e8305cc86049ca1bc4e9fcc22c7ab91a5d7'
+                  ),
+              },
+              'producer_replay_resolution': {
+                  'run_id': 34030381077,
+                  'artifact_id': 9988393963,
+                  'artifact_zip_sha256': (
+                      'ef446704d9194693187adb0f96d8dcb8d3e734e1308b04c8c785f09fd04fea2d'
+                  ),
+                  'resolution_report_sha256': (
+                      '46c80945038240ef7eff4ebc20bb476361d24640fd386aae0be7270f523762ab'
+                  ),
+                  'model_access': 'NONE',
+                  'paid_cost_usd': 0.0,
+              },
+          }
+          binding['execution_boundary']['authority_transfer'] = False
+          binding['execution_boundary']['b012_execution'] = False
+          binding['execution_boundary']['t032_execution'] = False
+          binding['execution_boundary']['t033_execution'] = False
+          binding['execution_boundary']['t034_admission_decision'] = False
+          binding['execution_boundary']['training'] = False
+          binding['execution_boundary']['paid_cost_usd'] = 0.0
+          binding['execution_boundary']['git_model_binaries'] = 0
+          binding['execution_boundary']['founder_machine_model_binaries'] = 0
+          binding['satisfies_pending_condition'] = (
+              'CANONICAL_EXECUTOR_TOOLCHAIN_BINDING_WITH_EVIDENCE_BOUNDED_T029_PRODUCER_REPLAY; '
+              'DOES_NOT_EXPAND_T031_FOUNDER_AUTHORITY'
+          )
+          out = Path('/tmp/t031-binding/T031-executor-toolchain-binding.json')
+          out.write_text(json.dumps(binding, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(f'BINDING_SHA256={hashlib.sha256(out.read_bytes()).hexdigest()}')
+          print('MODEL_ACCESS=NONE')
+          print('PAID_COST_USD=0.0')
+          PY
+
+      - name: Upload materialized binding
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: t031-replay-repair-binding
+          path: /tmp/t031-binding/T031-executor-toolchain-binding.json
+          if-no-files-found: error
+          retention-days: 14
