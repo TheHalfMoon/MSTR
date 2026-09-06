@@ -47,8 +47,7 @@ def validate_benchmark_budget(
     if values["authorized_job_ceiling_seconds"] != authorized_job_seconds:
         raise ExecutionError("B012 authorized job ceiling does not match runner timeout")
     if (
-        values["benchmark_wall_budget_seconds"]
-        + values["reserved_non_benchmark_seconds"]
+        values["benchmark_wall_budget_seconds"] + values["reserved_non_benchmark_seconds"]
         > values["authorized_job_ceiling_seconds"]
     ):
         raise ExecutionError("B012 benchmark and reserve budgets exceed the authorized job ceiling")
