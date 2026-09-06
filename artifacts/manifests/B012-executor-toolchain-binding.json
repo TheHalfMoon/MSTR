@@ -65,7 +65,7 @@
   "reused_t031_lock_sha256": "11d4c5fcaebbcdad2800f4c922339c25dfab0582478c5478cdbe7cd2236a0c3b",
   "reused_t031_replay_overlay_sha256": "e813906408f90e9c095553bba0d68f88167e55acd2d1b3ab86ab5eae5ee677f4",
   "toolchain_helper_sha256": "b7603336d8fcf38ab92ffa108f5e62c194e296f31e36d401a2cb8c901eaa0c77",
-  "replay_helper_sha256": "d6f646ec35d27288c20cb7ad35984c98310e806609a7f4fde0172dfae207dfa4",
+  "replay_helper_sha256": "749eaf1f72a27a47a2a3d993d36a8147f71057428e24cee3271abd8a088e93fb",
   "reused_measurement_helper_sha256": "3a4f93217d46772fca2d55a0f5d146da9da4c0a9d116a5c79939d384269b224b",
   "b012_measurement_helper_sha256": "767b65ba6d1073418c5e1afcc447060cf2c3fec77d39391acaafb826c290cf1c",
   "governance_script_sha256": "70963292107acc51b2291652a2f631b407488565bf6247d64158d24f99c435f8",
