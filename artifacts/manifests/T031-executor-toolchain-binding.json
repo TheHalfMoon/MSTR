@@ -70,7 +70,7 @@
     "status": "EVIDENCE_BOUNDED_REPLAY"
   },
   "producer_replay_helper_path": "colab/mstr_t031_replay.py",
-  "producer_replay_helper_sha256": "615e70e28c022a5864dbab7b2be48aacf7b3e6b837e44c9514fef158f0ab04f5",
+  "producer_replay_helper_sha256": "d6f646ec35d27288c20cb7ad35984c98310e806609a7f4fde0172dfae207dfa4",
   "producer_replay_overlay_path": "artifacts/manifests/T031-t029-producer-replay-overlay.json",
   "producer_replay_overlay_sha256": "e813906408f90e9c095553bba0d68f88167e55acd2d1b3ab86ab5eae5ee677f4",
   "repair_evidence": {
