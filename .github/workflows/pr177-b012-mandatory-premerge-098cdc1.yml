@@ -1,0 +1,171 @@
+name: PR177 B012 mandatory premerge 098cdc1
+
+on:
+  push:
+    branches:
+      - evidence/pr177-b012-mandatory-premerge-098cdc1
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+env:
+  BASE_SHA: 1fd324cddf3c2f852810e72a4c195199d7b884c4
+  TARGET_HEAD: 098cdc1a58c5abb16bba44ec958e94f99fa0a642
+  TARGET_TREE: 9966d965a87b8ec7d4fe72370f70ee0819228db0
+  TARGET_BRANCH: fix/b012-timeout-budget-recovery-current-main
+  QUALIFICATION_RUN: "34063033077"
+  REVIEW_RUN: "34063247889"
+  REVIEW_ID: "5126784533"
+  HF_HUB_OFFLINE: "1"
+  TRANSFORMERS_OFFLINE: "1"
+
+jobs:
+  canonical_eligibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact canonical main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Revalidate B012 eligibility on canonical main
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B012
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          echo 'B012_PREMERGE_CANONICAL_ELIGIBILITY=PASS'
+          echo 'MODEL_EXECUTION_PERFORMED=false'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
+
+  exact_head_gates:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact reviewed subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 098cdc1a58c5abb16bba44ec958e94f99fa0a642
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Verify exact topology
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$BASE_SHA" "$TARGET_HEAD")" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | awk '{print $1}')" = "$TARGET_HEAD"
+          test "$(git diff --name-only "$BASE_SHA".."$TARGET_HEAD" | wc -l)" = 7
+          git diff --check "$BASE_SHA".."$TARGET_HEAD"
+          echo 'PR177_TOPOLOGY=PASS'
+      - name: Verify qualification, review run, and anchored PR review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          headers = {
+              "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+
+          def fetch(url: str):
+              request = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)
+
+          for run_id, expected_names in (
+              (os.environ["QUALIFICATION_RUN"], {"focused", "canonical_quality", "final_qualification"}),
+              (os.environ["REVIEW_RUN"], {"independent_review"}),
+          ):
+              run = fetch(f"https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/{run_id}")
+              assert run["status"] == "completed"
+              assert run["conclusion"] == "success"
+              jobs = fetch(run["jobs_url"])["jobs"]
+              assert {job["name"] for job in jobs} == expected_names
+              assert all(job["status"] == "completed" and job["conclusion"] == "success" for job in jobs)
+
+          review = fetch(
+              f"https://api.github.com/repos/TheHalfMoon/MSTR/pulls/177/reviews/{os.environ['REVIEW_ID']}"
+          )
+          assert review["state"] == "COMMENTED"
+          assert review["commit_id"] == os.environ["TARGET_HEAD"]
+          body = review.get("body") or ""
+          assert "Findings: NONE." in body
+          assert os.environ["QUALIFICATION_RUN"] in body
+          assert os.environ["REVIEW_RUN"] in body
+
+          pr = fetch("https://api.github.com/repos/TheHalfMoon/MSTR/pulls/177")
+          assert pr["state"] == "open"
+          assert pr["draft"] is False
+          assert pr["head"]["sha"] == os.environ["TARGET_HEAD"]
+          assert pr["base"]["sha"] == os.environ["BASE_SHA"]
+          assert pr["changed_files"] == 7
+          assert os.environ["QUALIFICATION_RUN"] in (pr.get("body") or "")
+          assert os.environ["REVIEW_RUN"] in (pr.get("body") or "")
+          assert os.environ["REVIEW_ID"] in (pr.get("body") or "")
+          print("PR177_EVIDENCE_BINDINGS=PASS")
+          PY
+      - name: Re-run canonical exact-head quality gates
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q \
+            tests/contract/test_b012_authority.py \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_timeout_binding.py \
+            tests/contract/test_b012_timeout_budget.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src/mstr_qualify
+          test -z "$(git status --porcelain)"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | awk '{print $1}')" = "$TARGET_HEAD"
+          echo 'PR177_EXACT_HEAD_GATES=PASS'
+          echo 'MODEL_EXECUTION_PERFORMED=false'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
+
+  final_premerge:
+    needs: [canonical_eligibility, exact_head_gates]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Guard live refs immediately before merge eligibility
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | awk '{print $1}')" = "$TARGET_HEAD"
+          echo 'PR177_B012_MANDATORY_PREMERGE=PASS'
+          echo "EXPECTED_BASE=$BASE_SHA"
+          echo "EXPECTED_HEAD=$TARGET_HEAD"
+          echo "QUALIFICATION_RUN=$QUALIFICATION_RUN"
+          echo "REVIEW_RUN=$REVIEW_RUN"
+          echo "REVIEW_ID=$REVIEW_ID"
+          echo 'MODEL_EXECUTION_PERFORMED=false'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
