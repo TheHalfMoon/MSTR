@@ -119,7 +119,7 @@ TRAINING = false
 PAID_COST_USD = 0.0
 ```
 
-The durable failure artifact proves a bounded runtime timeout, not candidate quality. No score, promotion, admission, or rejection inference may be drawn from this run. A canonical retry is permitted only after this reconciliation becomes canonical, exact current-main B012 eligibility is re-established, and the existing Founder dispatch authority still binds the exact candidate/revision/file envelope.
+The durable failure artifact proves a bounded runtime timeout, not candidate quality. No score, promotion, admission, or rejection inference may be drawn from this run. This reconciliation does not authorize a retry. Any later dispatch or retry remains subject to the already-canonical B012 authority, exact current-main eligibility, the exact candidate/revision/file envelope, and any applicable recovery-policy or new-evidence requirements.
 
 ## Governance Disposition
 
