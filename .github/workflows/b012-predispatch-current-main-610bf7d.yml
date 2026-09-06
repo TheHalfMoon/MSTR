@@ -1,0 +1,87 @@
+name: B012 current-main predispatch eligibility 610bf7d
+
+on:
+  push:
+    branches:
+      - evidence/b012-predispatch-current-main-610bf7d
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: 610bf7dacc5ee921d99a4fa2eb9023553021e84c
+  EXPECTED_REPLAY_SHA256: 749eaf1f72a27a47a2a3d993d36a8147f71057428e24cee3271abd8a088e93fb
+  HF_HUB_OFFLINE: "1"
+  TRANSFORMERS_OFFLINE: "1"
+
+jobs:
+  current_main_eligibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout live canonical main as branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.16'
+          check-latest: false
+      - name: Prove current-main eligibility and authority boundary
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          test "$(git symbolic-ref --short HEAD)" = main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$EXPECTED_MAIN"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B012 | tee /tmp/b012-eligibility.json
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          eligibility = json.loads(Path('/tmp/b012-eligibility.json').read_text())
+          assert eligibility['eligible'] is True, eligibility
+
+          authority = json.loads(Path('artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json').read_text())
+          binding = json.loads(Path('artifacts/manifests/B012-executor-toolchain-binding.json').read_text())
+          helper = Path('colab/mstr_t031_replay.py')
+          helper_sha = hashlib.sha256(helper.read_bytes()).hexdigest()
+
+          assert authority['status'] == 'AUTHORIZED_CANONICAL'
+          assert authority['task_id'] == 'B012'
+          assert authority['scope']['candidate_ids'] == ['mellum-4b', 'qwen3.5-0.8b-control']
+          assert authority['scope']['training'] is False
+          assert authority['scope']['paid_compute'] is False
+          assert authority['scope']['paid_model_api'] is False
+          assert authority['scope']['new_candidate_access'] is False
+          assert binding['status'] == 'SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL'
+          assert helper_sha == '749eaf1f72a27a47a2a3d993d36a8147f71057428e24cee3271abd8a088e93fb'
+          assert binding['replay_helper_sha256'] == helper_sha
+          assert binding['dispatch_boundary']['issue'] == 162
+          assert binding['dispatch_boundary']['command'] == 'B012_RUN <authorized-candidate>'
+          assert binding['dispatch_boundary']['max_parallel_candidates'] == 1
+          assert binding['dispatch_boundary']['max_job_minutes'] == 120
+          assert binding['execution_boundary']['training'] is False
+          assert binding['execution_boundary']['paid_compute'] is False
+          assert binding['execution_boundary']['paid_model_api'] is False
+          assert binding['timeout_budget_recovery']['retry_authority_created'] is False
+
+          print('B012_CURRENT_MAIN_ELIGIBLE=true')
+          print('B012_AUTHORITY_BOUNDARY=PASS')
+          print('B012_BINDING_CURRENT=PASS')
+          print('RETRY_AUTHORITY_CREATED=false')
+          print('MODEL_ACCESS=NONE')
+          print('TRAINING=false')
+          print('PAID_COST_USD=0.0')
+          PY
+          python -m pytest -q tests/contract/test_b012_authority.py tests/contract/test_b012_executor_binding.py tests/contract/test_b012_timeout_binding.py tests/contract/test_b012_timeout_budget.py
+          python -m mstr_qualify validate
+          test -z "$(git status --porcelain)"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$EXPECTED_MAIN"
+          echo 'B012_PREDISPATCH_CURRENT_MAIN=PASS'
