@@ -1,0 +1,209 @@
+name: PR173 B012 independent review 9aa9d22
+
+on:
+  push:
+    branches:
+      - evidence/pr173-b012-independent-review-9aa9d22
+
+permissions:
+  contents: read
+
+jobs:
+  semantic_security_governance_review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      PYTHONPATH: colab
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 9aa9d221e8b0be9d8af5d1e9efb2b11b89c13b6b
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Verify exact immutable review subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=603a6865fdbf5a5434565e870d73054c5b574f2a
+          HEAD=9aa9d221e8b0be9d8af5d1e9efb2b11b89c13b6b
+          TREE=0d62b79860d7f6468238491de0a97846d3fd1de0
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TREE"
+          test "$(git merge-base "$BASE" "$HEAD")" = "$BASE"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE"
+          test "$(git ls-remote origin refs/heads/feat/b012-executor-toolchain-binding | awk '{print $1}')" = "$HEAD"
+          git diff --check "$BASE".."$HEAD"
+          test "$(git diff --name-only "$BASE".."$HEAD" | wc -l)" = 10
+      - name: Independent semantic security and governance assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          def read(path: str) -> str:
+              return Path(path).read_text(encoding='utf-8')
+
+          binding = json.loads(read('artifacts/manifests/B012-executor-toolchain-binding.json'))
+          lock = json.loads(read('artifacts/manifests/B012-executor-toolchain-lock.json'))
+          envelope = json.loads(read('artifacts/manifests/B012-equivalent-qualification-execution-envelope.json'))
+          authority = json.loads(read('artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json'))
+          b011 = json.loads(read('artifacts/manifests/B011-acquired-candidates.json'))
+          raw = json.loads(read('benchmarks/manifests/B012-raw-code-proxy.json'))
+          workflow = read('.github/workflows/b012-qualify.yml')
+          helper = read('colab/mstr_executor_toolchain.py')
+          governance = read('colab/mstr_b012_governance.py')
+          source = read('colab/mstr_b012_source.py')
+          artifacts = read('colab/mstr_b012_artifacts.py')
+          raw_exec = read('colab/mstr_b012_raw_code.py')
+          executor = read('colab/mstr_b012_execute.py')
+
+          candidates = ['mellum-4b', 'qwen3.5-0.8b-control']
+          assert authority['status'] == 'AUTHORIZED_CANONICAL'
+          assert authority['scope']['candidate_ids'] == candidates
+          assert binding['candidate_ids'] == candidates
+          assert envelope['candidate_ids'] == candidates
+          assert lock['task_binding']['candidate_ids'] == candidates
+
+          # No authority transfer or expansion.
+          assert lock['explicit_dependency_reuse']['source_task'] == 'T031'
+          assert lock['explicit_dependency_reuse']['authority_transfer'] is False
+          assert binding['dependency_reuse']['authority_transfer'] is False
+          boundary = binding['execution_boundary']
+          for key in ('authority_transfer','candidate_revision_or_file_expansion','new_candidates','training','weight_changing_training','paid_compute','paid_model_api','production_release'):
+              assert boundary[key] is False, key
+          assert boundary['git_model_binaries'] == 0
+          assert boundary['founder_machine_model_binaries'] == 0
+          assert boundary['paid_cost_usd'] == 0.0
+
+          # Dispatch is exact, owner-scoped, serialized, and canonical-main only.
+          assert 'github.event.issue.number == 162' in workflow
+          assert "github.event.comment.user.login == 'TheHalfMoon'" in workflow
+          assert "github.event.comment.author_association == 'OWNER'" in workflow
+          assert '"B012_RUN mellum-4b"' in workflow
+          assert '"B012_RUN qwen3.5-0.8b-control"' in workflow
+          assert 'ref: main' in workflow
+          assert 'persist-credentials: false' in workflow
+          assert 'cancel-in-progress: false' in workflow
+          assert 'timeout-minutes: 120' in workflow
+          assert 'workflow_dispatch:' not in workflow
+
+          # Source access is exact-revision, exact-file, hash/size checked, HTTPS allowlisted.
+          assert b011['resource_cost_usd'] == 0.0
+          assert b011['observed_total_download_bytes'] == 9817996174
+          assert 'https://huggingface.co/{upstream}/resolve/{revision}/{filename}' in source
+          assert 'download_verified(' in source
+          assert 'expected_sha256=sha' in source
+          assert 'allowed_hosts=allowed_hosts' in source
+          assert 'downloaded size mismatch' in source
+          assert 'B010/B011 exact required-file set mismatch' in source
+          assert 'B012 candidate download-byte ceiling drift detected' in source
+          assert 'URL credentials are prohibited' in helper
+          assert 'nonstandard HTTPS port rejected' in helper
+          assert 'host outside pinned allowlist' in helper
+          assert 'AllowlistedRedirectHandler' in helper
+          assert 'download hash mismatch' in helper
+          assert 'destination.unlink(missing_ok=True)' in helper
+
+          # Tool/runtime identities and network/provider environment are pinned/fail closed.
+          assert lock['llama_cpp']['conversion_quantization_commit'] == 'fc35562ba46fbbf8e30cac85edbb39642c37d248'
+          assert lock['llama_cpp']['runtime_commit'] == '3173a56471c1753650cd806694145ffd6dcace67'
+          assert lock['llama_cpp']['quantization_arms'] == ['Q4_K_M','Q4_K_S']
+          assert lock['task_binding']['runtime_benchmark']['gpu_layers'] == 0
+          assert lock['task_binding']['runtime_benchmark']['device'] == 'none'
+          assert 'blocked_prefixes = ("LLAMA_ARG_", "HF_", "HUGGINGFACE_", "CUDA_", "NVIDIA_")' in helper
+          assert 'OPENAI_API_KEY' in helper and 'ANTHROPIC_API_KEY' in helper and 'GOOGLE_API_KEY' in helper
+          assert 'checkout --detach' in helper
+          assert 'llama.cpp commit mismatch' in helper
+
+          # Live-main TOCTOU guards bracket material execution, and cleanup is unconditional.
+          assert executor.count('_require_live_main(repo_root)') >= 3
+          assert 'candidate outside exact B012 authority' in executor
+          assert 'shutil.rmtree(workdir, ignore_errors=True)' in executor
+          assert 'finally:' in executor
+          assert 'candidate_admission_decision' in executor
+          assert 'NOT_MADE_BY_B012_EXECUTOR' in executor
+          assert 'B012_EXECUTION_FAILED_CLOSED' in executor
+
+          # Equivalent qualification observations are bounded and not admission claims.
+          assert raw['verification']['score_is_observation_not_admission_gate'] is True
+          assert raw['execution']['network_model_calls'] == 0
+          assert len(raw['tasks']) == 3
+          assert 'ast.parse(prompt + completion)' in raw_exec
+          assert 'OBSERVATIONAL_RAW_CODE_PROXY_NOT_FINAL_ADMISSION' in raw_exec
+          assert 'candidate_id == "mellum-4b"' in artifacts
+          assert 'Mellum source tokenizer exposed no FIM token identity' in artifacts
+          assert 'Mellum FIM token export preservation failed' in artifacts
+          assert 'f16.unlink(missing_ok=True)' in artifacts
+          assert 'output.unlink(missing_ok=True)' in artifacts
+
+          # Binding covers every execution component with exact content hashes.
+          bound = {
+            'toolchain_lock_sha256':'artifacts/manifests/B012-executor-toolchain-lock.json',
+            'raw_code_manifest_sha256':'benchmarks/manifests/B012-raw-code-proxy.json',
+            'runtime_profile_sha256':'configs/runtimes/llama-cpp-cpu.json',
+            'reused_t031_lock_sha256':'artifacts/manifests/T031-executor-toolchain-lock.json',
+            'reused_t031_replay_overlay_sha256':'artifacts/manifests/T031-t029-producer-replay-overlay.json',
+            'toolchain_helper_sha256':'colab/mstr_executor_toolchain.py',
+            'replay_helper_sha256':'colab/mstr_t031_replay.py',
+            'reused_measurement_helper_sha256':'colab/mstr_t031_measure.py',
+            'governance_script_sha256':'colab/mstr_b012_governance.py',
+            'source_script_sha256':'colab/mstr_b012_source.py',
+            'artifact_script_sha256':'colab/mstr_b012_artifacts.py',
+            'raw_code_script_sha256':'colab/mstr_b012_raw_code.py',
+            'executor_script_sha256':'colab/mstr_b012_execute.py',
+            'workflow_sha256':'.github/workflows/b012-qualify.yml',
+          }
+          for key, path in bound.items():
+              assert binding[key] == hashlib.sha256(Path(path).read_bytes()).hexdigest(), key
+
+          # Governance enforces the same immutable boundaries at execution time.
+          assert 'require_file_sha256' in governance
+          assert 'candidate set drift detected' in governance
+          assert 'dependency reuse authority boundary is invalid' in governance
+          assert 'candidate scope expansion prohibition drift detected' in governance
+          assert 'paid execution remains prohibited' in governance
+          assert 'training remains prohibited' in governance
+          assert 'new candidate access remains prohibited' in governance
+
+          print('PR173_SUBSTANTIVE_REVIEW=PASS')
+          print('FINDINGS=NONE')
+          print('MODEL_ACCESS=NONE')
+          print('TRAINING=false')
+          print('PAID_COST_USD=0.0')
+          PY
+      - name: Focused adversarial contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_b012_executor_binding.py
+          python -m ruff check \
+            colab/mstr_b012_governance.py \
+            colab/mstr_b012_source.py \
+            colab/mstr_b012_artifacts.py \
+            colab/mstr_b012_raw_code.py \
+            colab/mstr_b012_execute.py \
+            tests/contract/test_b012_executor_binding.py
+          python -m ruff format --check \
+            colab/mstr_b012_governance.py \
+            colab/mstr_b012_source.py \
+            colab/mstr_b012_artifacts.py \
+            colab/mstr_b012_raw_code.py \
+            colab/mstr_b012_execute.py \
+            tests/contract/test_b012_executor_binding.py
+      - name: Final immutable review-subject check
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | awk '{print $1}')" = '603a6865fdbf5a5434565e870d73054c5b574f2a'
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/feat/b012-executor-toolchain-binding | awk '{print $1}')" = '9aa9d221e8b0be9d8af5d1e9efb2b11b89c13b6b'
+          echo 'PR173_INDEPENDENT_REVIEW_FINAL=PASS'
