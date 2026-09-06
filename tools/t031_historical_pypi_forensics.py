@@ -40,7 +40,7 @@ DIRECT = [
 ]
 PYPI_HOST = "pypi.org"
 FILES_HOST = "files.pythonhosted.org"
-USER_AGENT = "mstr-t031-historical-pypi-forensics/1"
+USER_AGENT = "mstr-t031-historical-pypi-forensics/2"
 
 
 def _request_json(url: str) -> dict[str, Any]:
@@ -98,7 +98,9 @@ def _python_compatible(file_info: dict[str, Any]) -> bool:
         return False
 
 
-def _best_compatible_wheel(files: list[dict[str, Any]], tag_rank: dict[Tag, int]) -> dict[str, Any] | None:
+def _best_compatible_wheel(
+    files: list[dict[str, Any]], tag_rank: dict[Tag, int]
+) -> dict[str, Any] | None:
     candidates: list[tuple[int, str, dict[str, Any]]] = []
     for item in files:
         if item.get("packagetype") != "bdist_wheel" or item.get("yanked"):
@@ -147,37 +149,49 @@ def _select_release(
         if wheel is not None:
             choices.append((version, wheel))
     if not choices:
-        rendered = ",".join(str(s) for s in specifiers) or "<any>"
-        raise RuntimeError(f"no compatible pre-cutoff wheel for {name} satisfying {rendered}")
+        rendered = ",".join(str(spec) for spec in specifiers) or "<any>"
+        raise RuntimeError(
+            f"no compatible pre-cutoff wheel for {name} satisfying {rendered}"
+        )
     choices.sort(key=lambda pair: pair[0], reverse=True)
     return choices[0]
 
 
 def _wheel_requires_dist(path: Path) -> list[str]:
     with zipfile.ZipFile(path) as archive:
-        metadata_names = [name for name in archive.namelist() if name.endswith(".dist-info/METADATA")]
+        metadata_names = [
+            name
+            for name in archive.namelist()
+            if name.endswith(".dist-info/METADATA") and name.count("/") == 1
+        ]
         if len(metadata_names) != 1:
-            raise RuntimeError(f"expected one METADATA in {path.name}, found {len(metadata_names)}")
+            raise RuntimeError(
+                f"expected one top-level METADATA in {path.name}, found {len(metadata_names)}"
+            )
         text = archive.read(metadata_names[0]).decode("utf-8", errors="replace")
     message = Parser().parsestr(text)
     return list(message.get_all("Requires-Dist") or [])
 
 
-def _marker_applies(requirement: Requirement) -> bool:
+def _marker_applies(requirement: Requirement, active_extras: set[str]) -> bool:
     if requirement.marker is None:
         return True
-    env = default_environment()
-    env.update(
+    base = default_environment()
+    base.update(
         {
             "python_full_version": "3.11.16",
             "python_version": "3.11",
             "implementation_name": "cpython",
             "platform_system": "Linux",
             "sys_platform": "linux",
-            "extra": "",
         }
     )
-    return bool(requirement.marker.evaluate(env))
+    for extra in sorted({"", *active_extras}):
+        env = dict(base)
+        env["extra"] = extra
+        if requirement.marker.evaluate(env):
+            return True
+    return False
 
 
 def reconstruct(workdir: Path) -> dict[str, Any]:
@@ -186,6 +200,8 @@ def reconstruct(workdir: Path) -> dict[str, Any]:
     pypi_cache: dict[str, dict[str, Any]] = {}
     constraints: dict[str, list[SpecifierSet]] = defaultdict(list)
     display_names: dict[str, str] = {}
+    requested_extras: dict[str, set[str]] = defaultdict(set)
+    processed_extras: dict[str, set[str]] = defaultdict(set)
     selected: dict[str, dict[str, Any]] = {}
     wheelhouse = workdir / "wheelhouse"
     wheelhouse.mkdir(parents=True, exist_ok=True)
@@ -199,7 +215,7 @@ def reconstruct(workdir: Path) -> dict[str, Any]:
     iterations = 0
     while queue:
         iterations += 1
-        if iterations > 1000:
+        if iterations > 2000:
             raise RuntimeError("resolver did not converge")
         canonical = queue.popleft()
         name = display_names.get(canonical, canonical)
@@ -207,11 +223,21 @@ def reconstruct(workdir: Path) -> dict[str, Any]:
         if metadata is None:
             metadata = _request_json(f"https://pypi.org/pypi/{name}/json")
             pypi_cache[canonical] = metadata
-        version, file_info = _select_release(name, constraints[canonical], metadata, tag_rank)
+        version, file_info = _select_release(
+            name, constraints[canonical], metadata, tag_rank
+        )
         filename = str(file_info["filename"])
         expected_sha = str(file_info["digests"]["sha256"])
         prior = selected.get(canonical)
-        if prior and prior["version"] == str(version) and prior["filename"] == filename:
+        same_selection = bool(
+            prior
+            and prior["version"] == str(version)
+            and prior["filename"] == filename
+        )
+        extras_pending = not requested_extras[canonical].issubset(
+            processed_extras[canonical]
+        )
+        if same_selection and not extras_pending:
             continue
 
         destination = wheelhouse / filename
@@ -222,6 +248,8 @@ def reconstruct(workdir: Path) -> dict[str, Any]:
             if actual != expected_sha:
                 raise RuntimeError(f"cached wheel hash mismatch: {filename}")
 
+        if not same_selection:
+            processed_extras[canonical].clear()
         selected[canonical] = {
             "name": name,
             "version": str(version),
@@ -233,18 +261,26 @@ def reconstruct(workdir: Path) -> dict[str, Any]:
             "size_bytes": destination.stat().st_size,
         }
 
+        active_extras = set(requested_extras[canonical])
         for raw_req in _wheel_requires_dist(destination):
             req = Requirement(raw_req)
-            if req.extras or not _marker_applies(req):
+            if not _marker_applies(req, active_extras):
                 continue
             dep = canonicalize_name(req.name)
             display_names.setdefault(dep, req.name)
             new_spec = req.specifier
             rendered = str(new_spec)
+            constraint_changed = False
             if all(str(existing) != rendered for existing in constraints[dep]):
                 constraints[dep].append(new_spec)
+                constraint_changed = True
+            extras_before = set(requested_extras[dep])
+            requested_extras[dep].update(str(extra) for extra in req.extras)
+            extras_changed = requested_extras[dep] != extras_before
+            if constraint_changed or extras_changed or dep not in selected:
                 queue.append(dep)
 
+        processed_extras[canonical].update(active_extras)
         for dep in list(selected):
             if dep not in constraints:
                 continue
@@ -255,16 +291,28 @@ def reconstruct(workdir: Path) -> dict[str, Any]:
     venv_dir = workdir / "venv"
     venv.EnvBuilder(with_pip=True, clear=True).create(venv_dir)
     python_exe = venv_dir / "bin" / "python"
-    wheel_paths = [str(wheelhouse / selected[name]["filename"]) for name in sorted(selected)]
+    wheel_paths = [
+        str(wheelhouse / selected[name]["filename"]) for name in sorted(selected)
+    ]
     install = subprocess.run(
-        [str(python_exe), "-m", "pip", "install", "--no-index", "--no-deps", *wheel_paths],
+        [
+            str(python_exe),
+            "-m",
+            "pip",
+            "install",
+            "--no-index",
+            "--no-deps",
+            *wheel_paths,
+        ],
         check=False,
         capture_output=True,
         text=True,
         timeout=900,
     )
     if install.returncode != 0:
-        raise RuntimeError(f"historical wheel install failed:\n{install.stdout}\n{install.stderr}")
+        raise RuntimeError(
+            f"historical wheel install failed:\n{install.stdout}\n{install.stderr}"
+        )
     check = subprocess.run(
         [str(python_exe), "-m", "pip", "check"],
         check=False,
@@ -273,7 +321,9 @@ def reconstruct(workdir: Path) -> dict[str, Any]:
         timeout=120,
     )
     if check.returncode != 0:
-        raise RuntimeError(f"historical closure pip check failed:\n{check.stdout}\n{check.stderr}")
+        raise RuntimeError(
+            f"historical closure pip check failed:\n{check.stdout}\n{check.stderr}"
+        )
     freeze = subprocess.run(
         [str(python_exe), "-m", "pip", "freeze", "--all"],
         check=True,
@@ -282,16 +332,27 @@ def reconstruct(workdir: Path) -> dict[str, Any]:
         timeout=120,
     ).stdout.splitlines()
 
+    for canonical, record in selected.items():
+        record["requested_extras"] = sorted(requested_extras[canonical])
+
     return {
-        "schema_version": "mstr.t031-historical-pypi-forensics.v1",
+        "schema_version": "mstr.t031-historical-pypi-forensics.v2",
         "task_id": "T031",
-        "historical_install_cutoff_utc": CUTOFF.isoformat().replace("+00:00", "Z"),
+        "historical_install_cutoff_utc": CUTOFF.isoformat().replace(
+            "+00:00", "Z"
+        ),
         "source_t029_run_id": 32959729068,
         "source_t029_head": "406de41d132fa6d24d55814f3f6dd4fced5f12bd",
         "python_version": "3.11.16",
-        "selection_semantics": "latest stable compatible non-yanked wheel whose upload timestamp is at or before the original pip-install cutoff; dependency metadata recursively resolved with original no-extra marker environment",
+        "selection_semantics": (
+            "latest stable compatible non-yanked wheel whose upload timestamp is at or "
+            "before the original pip-install cutoff; wheel METADATA dependencies recursively "
+            "resolved with Python 3.11.16/Linux markers and dependency-requested extras"
+        ),
         "direct_requirement_names": DIRECT,
-        "direct_selected_versions": {name: selected[canonicalize_name(name)]["version"] for name in DIRECT},
+        "direct_selected_versions": {
+            name: selected[canonicalize_name(name)]["version"] for name in DIRECT
+        },
         "package_count": len(selected),
         "packages": [selected[name] for name in sorted(selected)],
         "pip_check": check.stdout.strip(),
@@ -311,14 +372,21 @@ def main() -> int:
     args.workdir.mkdir(parents=True, exist_ok=True)
     report = reconstruct(args.workdir)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({
-        "package_count": report["package_count"],
-        "direct_selected_versions": report["direct_selected_versions"],
-        "model_access": "NONE",
-        "training": False,
-        "paid_cost_usd": 0.0,
-    }, sort_keys=True))
+    args.output.write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    print(
+        json.dumps(
+            {
+                "package_count": report["package_count"],
+                "direct_selected_versions": report["direct_selected_versions"],
+                "model_access": "NONE",
+                "training": False,
+                "paid_cost_usd": 0.0,
+            },
+            sort_keys=True,
+        )
+    )
     return 0
 
 
