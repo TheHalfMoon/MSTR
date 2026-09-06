@@ -101,9 +101,12 @@ def _load_historical_packages(
             if not isinstance(version, str) or not version:
                 raise ToolchainError(f"historical replay package version is invalid: {name}")
             if not isinstance(url, str) or not isinstance(sha256, str) or len(sha256) != 64:
-                raise ToolchainError(f"historical replay package artifact identity is invalid: {name}")
+                raise ToolchainError(
+                    f"historical replay package artifact identity is invalid: {name}"
+                )
             parsed = urlparse(url)
-            if parsed.scheme.lower() != "https" or (parsed.hostname or "").lower() not in allowed_hosts:
+            host = (parsed.hostname or "").lower()
+            if parsed.scheme.lower() != "https" or host not in allowed_hosts:
                 raise ToolchainError(f"historical replay package URL is outside allowlist: {name}")
             if not isinstance(size_bytes, int) or size_bytes <= 0:
                 raise ToolchainError(f"historical replay package size is invalid: {name}")
@@ -136,7 +139,9 @@ def _load_historical_packages(
     for name, version in HISTORICAL_DIRECT_VERSIONS.items():
         item = by_name.get(name)
         if item is None or item.get("version") != version or item.get("requested") is not True:
-            raise ToolchainError(f"historical replay direct package identity drift detected: {name}")
+            raise ToolchainError(
+                f"historical replay direct package identity drift detected: {name}"
+            )
     return packages, shard_identity
 
 
@@ -184,7 +189,9 @@ def install_historical_replay_toolchain(
             "historical_cutoff_utc": HISTORICAL_CUTOFF_UTC,
             "historical_package_shards": shard_identity,
             "package_count": 59,
-            "reconstruction_semantics": "EXACT_PRE_CUTOFF_PYPI_WHEEL_SET_RECONSTRUCTED_FROM_T029_RESOLUTION",
+            "reconstruction_semantics": (
+                "EXACT_PRE_CUTOFF_PYPI_WHEEL_SET_RECONSTRUCTED_FROM_T029_RESOLUTION"
+            ),
             "equivalence_gate": "EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH",
         }
     )
