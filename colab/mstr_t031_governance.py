@@ -185,8 +185,8 @@ def _require_binding(repo_root: Path) -> tuple[dict[str, object], dict[str, obje
     reconstruction = replay_overlay.get("reconstruction_basis")
     if not isinstance(reconstruction, dict):
         raise ExecutionError("T031 historical replay reconstruction basis is missing")
-    if reconstruction.get("historical_transitive_identity_claim") is not True:
-        raise ExecutionError("T031 historical transitive identity is not asserted")
+    if reconstruction.get("historical_transitive_identity_claim") is not False:
+        raise ExecutionError("T031 replay must not claim unrecorded historical transitive identity")
     if reconstruction.get("equivalence_gate") != "EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH":
         raise ExecutionError("T031 historical artifact-equivalence gate drift detected")
 
