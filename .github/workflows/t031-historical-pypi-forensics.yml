@@ -16,7 +16,7 @@ jobs:
       - name: Checkout forensic branch
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          fetch-depth: 1
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up exact historical Python patch
@@ -29,7 +29,9 @@ jobs:
           EXPECTED_MAIN: 603a6865fdbf5a5434565e870d73054c5b574f2a
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN" || git merge-base --is-ancestor "$EXPECTED_MAIN" HEAD
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          git merge-base --is-ancestor "$EXPECTED_MAIN" HEAD
           python --version
           echo "T031_FORENSIC_SCOPE=PACKAGE_METADATA_AND_PACKAGE_WHEELS_ONLY"
           echo "MODEL_ACCESS=NONE"
