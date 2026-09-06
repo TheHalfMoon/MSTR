@@ -1,0 +1,33 @@
+name: B012 binding materialization 38c3cf8
+
+on:
+  push:
+    branches:
+      - evidence/b012-binding-materialize-38c3cf8
+
+permissions:
+  contents: read
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact recovery subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 38c3cf8a23089b5383b765472f7da4c6b67f9aa3
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Materialize exact SHA-256 identities without model access
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "38c3cf8a23089b5383b765472f7da4c6b67f9aa3"
+          echo "LOCK_SHA256=$(sha256sum artifacts/manifests/B012-executor-toolchain-lock.json | awk '{print $1}')"
+          echo "MEASURE_SHA256=$(sha256sum colab/mstr_b012_measure.py | awk '{print $1}')"
+          echo "GOVERNANCE_SHA256=$(sha256sum colab/mstr_b012_governance.py | awk '{print $1}')"
+          echo "EXECUTOR_SHA256=$(sha256sum colab/mstr_b012_execute.py | awk '{print $1}')"
+          echo "TIMEOUT_TEST_SHA256=$(sha256sum tests/contract/test_b012_timeout_budget.py | awk '{print $1}')"
+          echo "BINDING_TEST_SHA256=$(sha256sum tests/contract/test_b012_executor_binding.py | awk '{print $1}')"
+          echo "MODEL_ACCESS=NONE"
+          echo "TRAINING=false"
+          echo "PAID_COST_USD=0.0"
