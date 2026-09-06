@@ -85,7 +85,7 @@ jobs:
 
           pr174 = get('https://api.github.com/repos/TheHalfMoon/MSTR/pulls/174')
           assert pr174['merged'] is True
-          assert pr174['merge_commit_sha'] == BASE
+          assert pr174['merge_commit_sha'] == 'a2b2788dd5a8a8d5f301359586f6b2019615b4a9'
           mandatory = get('https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/34045842975')
           assert mandatory['conclusion'] == 'failure'
           jobs = get('https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/34045842975/jobs?per_page=100')['jobs']
