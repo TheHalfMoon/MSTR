@@ -1,0 +1,196 @@
+name: PR172 T031 replay repair qualification c02def5
+
+on:
+  push:
+    branches:
+      - evidence/pr172-t031-replay-qualification-c02def5
+
+permissions:
+  contents: read
+
+jobs:
+  exact_identity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: c02def5641e9927dc60b4469f1f8ee2a836a2eb8
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Exact head base tree live-ref and file-scope gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=119a9bcca1c97b9edbcacd6d8d457b31206bb162
+          HEAD=c02def5641e9927dc60b4469f1f8ee2a836a2eb8
+          TREE=98ddabf91c5b2ce9549c6f9eb29728d6ffe30c87
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TREE"
+          test "$(git merge-base "$BASE" "$HEAD")" = "$BASE"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE"
+          test "$(git ls-remote origin refs/heads/fix/t031-t029-producer-replay | awk '{print $1}')" = "$HEAD"
+          git diff --check "$BASE".."$HEAD"
+          cat > /tmp/expected <<'EOF'
+          .github/workflows/t031-measure.yml
+          artifacts/manifests/T031-executor-toolchain-binding.json
+          artifacts/manifests/T031-t029-producer-replay-overlay.json
+          artifacts/results/local/T031/failures/T031-granite-4.1-3b-run-33999224131.json
+          colab/mstr_t031_execute.py
+          colab/mstr_t031_governance.py
+          colab/mstr_t031_replay.py
+          evidence/T031-first-execution-failure-and-replay-repair.md
+          tests/contract/test_t031_executor_binding.py
+          EOF
+          sort /tmp/expected -o /tmp/expected
+          git diff --name-only "$BASE".."$HEAD" | sort > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+
+  binding_contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: c02def5641e9927dc60b4469f1f8ee2a836a2eb8
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify immutable repair binding and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          b=json.loads(Path('artifacts/manifests/T031-executor-toolchain-binding.json').read_text())
+          pairs={
+            'toolchain_lock_sha256':'artifacts/manifests/T031-executor-toolchain-lock.json',
+            'producer_replay_overlay_sha256':'artifacts/manifests/T031-t029-producer-replay-overlay.json',
+            'toolchain_helper_sha256':'colab/mstr_executor_toolchain.py',
+            'producer_replay_helper_sha256':'colab/mstr_t031_replay.py',
+            'governance_script_sha256':'colab/mstr_t031_governance.py',
+            'source_script_sha256':'colab/mstr_t031_source.py',
+            'artifact_script_sha256':'colab/mstr_t031_artifacts.py',
+            'measurement_script_sha256':'colab/mstr_t031_measure.py',
+            'executor_script_sha256':'colab/mstr_t031_execute.py',
+            'workflow_sha256':'.github/workflows/t031-measure.yml',
+          }
+          for k,p in pairs.items():
+              actual=hashlib.sha256(Path(p).read_bytes()).hexdigest()
+              assert b[k]==actual,(k,b[k],actual)
+          assert hashlib.sha256(Path('artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json').read_bytes()).hexdigest()==b['authority_sha256']
+          assert hashlib.sha256(Path('artifacts/manifests/T031-local-measurement-execution-envelope.json').read_bytes()).hexdigest()==b['envelope_sha256']
+          assert b['source_main']=='119a9bcca1c97b9edbcacd6d8d457b31206bb162'
+          assert b['producer_replay']=={
+              'acceptance_gate':'EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH',
+              'base_lock_semantics':'PINNED_PIP_AND_SYSTEM_IDENTITY_WITH_FULL_REPLAY_CLOSURE',
+              'historical_transitive_identity_claim':False,
+              'package_count':40,
+              'python_version':'3.11.16',
+              'status':'EVIDENCE_BOUNDED_REPLAY',
+          }
+          o=json.loads(Path('artifacts/manifests/T031-t029-producer-replay-overlay.json').read_text())
+          assert o['package_count']==40
+          assert o['resolution_evidence']['run_id']==34031883766
+          assert o['resolution_evidence']['model_access']=='NONE'
+          assert o['reconstruction_basis']['historical_transitive_identity_claim'] is False
+          assert o['reconstruction_basis']['equivalence_gate']=='EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH'
+          e=b['execution_boundary']
+          for k in ['authority_transfer','b012_execution','t032_execution','t033_execution','t034_admission_decision','training']:
+              assert e[k] is False,k
+          assert e['paid_cost_usd']==0.0 and e['git_model_binaries']==0 and e['founder_machine_model_binaries']==0
+          PY
+          python -m py_compile colab/mstr_executor_toolchain.py colab/mstr_t031_replay.py colab/mstr_t031_artifacts.py colab/mstr_t031_execute.py colab/mstr_t031_governance.py colab/mstr_t031_measure.py colab/mstr_t031_source.py tests/contract/test_t031_executor_binding.py
+
+  replay_install_smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: c02def5641e9927dc60b4469f1f8ee2a836a2eb8
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Install and verify complete replay closure without model access
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="$PWD/colab"
+          python - <<'PY'
+          import tempfile
+          from pathlib import Path
+          from mstr_t031_replay import install_replay_toolchain
+          with tempfile.TemporaryDirectory() as td:
+              python_exe,identity=install_replay_toolchain(
+                  base_lock_path=Path('artifacts/manifests/T031-executor-toolchain-lock.json'),
+                  overlay_path=Path('artifacts/manifests/T031-t029-producer-replay-overlay.json'),
+                  root=Path(td),
+              )
+              assert python_exe.is_file()
+              assert identity['python_version']=='3.11.16'
+              assert identity['package_count']==40
+              assert identity['packages']['huggingface-hub']=='1.30.0'
+              assert identity['packages']['typer']=='0.27.2'
+              assert identity['packages']['torch']=='2.13.0+cpu'
+              assert identity['packages']['transformers']=='5.15.1'
+              assert identity['historical_transitive_identity_claim'] is False
+              assert identity['equivalence_gate']=='EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH'
+          print('REPLAY_INSTALL_SMOKE=PASS')
+          print('MODEL_ACCESS=NONE')
+          print('TRAINING=false')
+          print('PAID_COST_USD=0.0')
+          PY
+
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: c02def5641e9927dc60b4469f1f8ee2a836a2eb8
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Frozen repository quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_t031_executor_binding.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m ruff format --check colab/mstr_t031_replay.py colab/mstr_t031_execute.py colab/mstr_t031_governance.py tests/contract/test_t031_executor_binding.py
+          python -m mypy src/mstr_qualify
+          test -z "$(git status --porcelain)"
+
+  final_qualification:
+    needs: [exact_identity, binding_contract, replay_install_smoke, quality]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Reverify exact live refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=119a9bcca1c97b9edbcacd6d8d457b31206bb162
+          HEAD=c02def5641e9927dc60b4469f1f8ee2a836a2eb8
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | awk '{print $1}')" = "$BASE"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/fix/t031-t029-producer-replay | awk '{print $1}')" = "$HEAD"
+          echo 'T031_REPLAY_REPAIR_EXACT_HEAD_QUALIFICATION=PASS'
+          echo "BASE_SHA=$BASE"
+          echo "TARGET_HEAD=$HEAD"
+          echo 'TARGET_TREE=98ddabf91c5b2ce9549c6f9eb29728d6ffe30c87'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
