@@ -21,6 +21,7 @@ from mstr_b012_governance import (
 )
 from mstr_b012_measure import (
     B012BenchmarkError,
+    effective_benchmark_wall_budget,
     measure_set_bounded,
     validate_benchmark_budget,
 )
@@ -49,6 +50,7 @@ def execute(args: argparse.Namespace) -> int:
     failure_path = output_dir / f"B012-{args.candidate}-failure.json"
     workdir = args.workdir.resolve()
     started_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    execution_started_monotonic = time.monotonic()
     head = "UNKNOWN"
     replay_identity: dict[str, object] | None = None
     execution_stage = "INITIALIZATION"
@@ -117,6 +119,19 @@ def execute(args: argparse.Namespace) -> int:
             runtime_cfg=runtime_cfg,
             max_job_minutes=runner_cfg.get("max_job_minutes"),
         )
+        execution_stage = "RUNTIME_BENCHMARK_BUDGET"
+        pre_benchmark_elapsed_seconds = max(
+            0.0, time.monotonic() - execution_started_monotonic
+        )
+        effective_benchmark_budget_seconds = effective_benchmark_wall_budget(
+            budget=budget,
+            pre_benchmark_elapsed_seconds=pre_benchmark_elapsed_seconds,
+        )
+        runtime_budget_observation: dict[str, object] = {
+            **budget,
+            "pre_benchmark_elapsed_seconds": pre_benchmark_elapsed_seconds,
+            "effective_benchmark_wall_budget_seconds": effective_benchmark_budget_seconds,
+        }
         runtime_commit = str(tool_identity["runtime_commit"])
         benchmark_started = time.monotonic()
 
@@ -132,7 +147,7 @@ def execute(args: argparse.Namespace) -> int:
             warmups=warmups,
             measured=measured,
             configured_timeout_seconds=budget["per_invocation_timeout_seconds"],
-            budget_seconds=budget["benchmark_wall_budget_seconds"],
+            budget_seconds=effective_benchmark_budget_seconds,
             benchmark_started_monotonic=benchmark_started,
         )
 
@@ -148,7 +163,7 @@ def execute(args: argparse.Namespace) -> int:
             warmups=warmups,
             measured=measured,
             configured_timeout_seconds=budget["per_invocation_timeout_seconds"],
-            budget_seconds=budget["benchmark_wall_budget_seconds"],
+            budget_seconds=effective_benchmark_budget_seconds,
             benchmark_started_monotonic=benchmark_started,
         )
 
@@ -193,7 +208,7 @@ def execute(args: argparse.Namespace) -> int:
             "q4_k_m_sha256": q4_sha,
             "q4_k_m_size_bytes": q4_size,
             "hosted_lane_claim": "AUTHORIZED_EPHEMERAL_REFERENCE_NOT_U1_8GB_HARDWARE_CLAIM",
-            "runtime_benchmark_budget": budget,
+            "runtime_benchmark_budget": runtime_budget_observation,
             "runtime_resource": {"prefill_8k": prefill, "isolated_decode_128": decode},
             "raw_code_proxy": raw_code,
         }
