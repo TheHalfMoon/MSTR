@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import shutil
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -17,10 +18,17 @@ from mstr_executor_toolchain import (
     _run_checked,
     download_verified,
     read_json,
+    require_file_sha256,
 )
 
 DIRECT_REPLAY_PACKAGES = frozenset(
     {"gguf", "numpy", "protobuf", "safetensors", "sentencepiece", "torch", "transformers"}
+)
+HISTORICAL_CUTOFF_UTC = "2026-08-26T10:44:06Z"
+HISTORICAL_SHARD_PATHS = (
+    "artifacts/manifests/T031-t029-historical-pypi-packages-01.json",
+    "artifacts/manifests/T031-t029-historical-pypi-packages-02.json",
+    "artifacts/manifests/T031-t029-historical-pypi-packages-03.json",
 )
 
 
@@ -71,10 +79,10 @@ def _validated_package_entries(
     *,
     allowed_hosts: frozenset[str],
     label: str,
-) -> list[dict[str, str]]:
+) -> list[dict[str, object]]:
     if not isinstance(entries, list):
         raise ToolchainError(f"{label} package list is missing")
-    result: list[dict[str, str]] = []
+    result: list[dict[str, object]] = []
     seen: set[str] = set()
     for raw in entries:
         if not isinstance(raw, dict):
@@ -85,9 +93,9 @@ def _validated_package_entries(
         sha256 = raw.get("sha256")
         if not all(isinstance(value, str) and value for value in (version, url, sha256)):
             raise ToolchainError(f"{label} package entry has invalid scalar fields: {name}")
-        if len(sha256) != 64:
+        if len(str(sha256)) != 64:
             raise ToolchainError(f"{label} package SHA-256 length is invalid: {name}")
-        parsed = urlparse(url)
+        parsed = urlparse(str(url))
         host = (parsed.hostname or "").lower()
         if parsed.scheme.lower() != "https" or host not in allowed_hosts:
             raise ToolchainError(
@@ -96,13 +104,92 @@ def _validated_package_entries(
         if name in seen:
             raise ToolchainError(f"duplicate {label} package identity: {name}")
         seen.add(name)
-        result.append({"name": name, "version": version, "url": url, "sha256": sha256})
+        record: dict[str, object] = {
+            "name": name,
+            "version": str(version),
+            "url": str(url),
+            "sha256": str(sha256),
+        }
+        size_bytes = raw.get("size_bytes")
+        if size_bytes is not None:
+            if not isinstance(size_bytes, int) or size_bytes <= 0:
+                raise ToolchainError(f"{label} package size is invalid: {name}")
+            record["size_bytes"] = size_bytes
+        result.append(record)
     return result
+
+
+def _historical_package_entries(
+    *, overlay: dict[str, object], overlay_path: Path, allowed_hosts: frozenset[str]
+) -> list[dict[str, object]]:
+    shard_bindings = overlay.get("historical_package_shards")
+    if shard_bindings is None:
+        return _validated_package_entries(
+            overlay.get("packages"), allowed_hosts=allowed_hosts, label="producer replay closure"
+        )
+    if not isinstance(shard_bindings, list):
+        raise ToolchainError("historical replay shard binding list is invalid")
+    if overlay.get("historical_cutoff_utc") != HISTORICAL_CUTOFF_UTC:
+        raise ToolchainError("historical replay cutoff drift detected")
+    observed_paths = [item.get("path") for item in shard_bindings if isinstance(item, dict)]
+    if observed_paths != list(HISTORICAL_SHARD_PATHS):
+        raise ToolchainError("historical replay shard path set drift detected")
+
+    repo_root = overlay_path.resolve().parents[2]
+    cutoff = datetime.fromisoformat(HISTORICAL_CUTOFF_UTC.replace("Z", "+00:00"))
+    packages: list[dict[str, object]] = []
+    for index, binding in enumerate(shard_bindings, start=1):
+        if not isinstance(binding, dict):
+            raise ToolchainError("historical replay shard binding must be an object")
+        path_value = binding.get("path")
+        sha256 = binding.get("sha256")
+        if not isinstance(path_value, str) or not isinstance(sha256, str) or len(sha256) != 64:
+            raise ToolchainError("historical replay shard binding scalar is invalid")
+        shard_path = repo_root / path_value
+        require_file_sha256(shard_path, sha256)
+        shard = read_json(shard_path)
+        if (
+            shard.get("schema_version") != "mstr.t031-historical-package-shard.v1"
+            or shard.get("task_id") != "T031"
+            or shard.get("shard_index") != index
+        ):
+            raise ToolchainError(f"historical replay shard identity drift detected: {path_value}")
+        raw_packages = shard.get("packages")
+        entries = _validated_package_entries(
+            raw_packages, allowed_hosts=allowed_hosts, label=f"historical replay shard {index}"
+        )
+        if not isinstance(raw_packages, list):
+            raise ToolchainError(f"historical replay shard package list is invalid: {path_value}")
+        for raw, entry in zip(raw_packages, entries, strict=True):
+            if not isinstance(raw, dict):
+                raise ToolchainError("historical replay shard package entry is invalid")
+            uploaded_raw = raw.get("upload_time_iso_8601")
+            if not isinstance(uploaded_raw, str):
+                raise ToolchainError(
+                    f"historical replay upload timestamp is missing: {entry['name']}"
+                )
+            uploaded = datetime.fromisoformat(uploaded_raw.replace("Z", "+00:00"))
+            if uploaded.tzinfo is None:
+                uploaded = uploaded.replace(tzinfo=timezone.utc)
+            if uploaded > cutoff:
+                raise ToolchainError(
+                    f"historical replay package exceeds T029 cutoff: {entry['name']}"
+                )
+            size_bytes = raw.get("size_bytes")
+            if not isinstance(size_bytes, int) or size_bytes <= 0:
+                raise ToolchainError(f"historical replay package size is invalid: {entry['name']}")
+            entry["size_bytes"] = size_bytes
+            packages.append(entry)
+
+    names = [_normalized_package_name(item.get("name")) for item in packages]
+    if len(names) != len(set(names)):
+        raise ToolchainError("duplicate package identity across historical replay shards")
+    return packages
 
 
 def _download_entries(
     *,
-    entries: list[dict[str, str]],
+    entries: list[dict[str, object]],
     destination: Path,
     allowed_hosts: frozenset[str],
     user_agent: str,
@@ -110,15 +197,20 @@ def _download_entries(
     destination.mkdir(parents=True, exist_ok=True)
     paths: list[Path] = []
     for index, entry in enumerate(entries):
-        suffix = unquote(Path(urlparse(entry["url"]).path).name) or f"package-{index}.whl"
+        url = str(entry["url"])
+        suffix = unquote(Path(urlparse(url).path).name) or f"package-{index}.whl"
         target = destination / suffix
         download_verified(
-            url=entry["url"],
-            expected_sha256=entry["sha256"],
+            url=url,
+            expected_sha256=str(entry["sha256"]),
             destination=target,
             allowed_hosts=allowed_hosts,
             user_agent=user_agent,
         )
+        expected_size = entry.get("size_bytes")
+        if isinstance(expected_size, int) and target.stat().st_size != expected_size:
+            target.unlink(missing_ok=True)
+            raise ToolchainError(f"downloaded size mismatch: {entry['name']}")
         paths.append(target)
     return paths
 
@@ -126,7 +218,7 @@ def _download_entries(
 def install_replay_toolchain(
     *, base_lock_path: Path, overlay_path: Path, root: Path
 ) -> tuple[Path, dict[str, object]]:
-    """Install the exact full T029 replay dependency closure plus pinned pip."""
+    """Install the exact evidence-bounded T029 replay dependency closure plus pinned pip."""
 
     base_lock = read_json(base_lock_path)
     overlay = read_json(overlay_path)
@@ -150,9 +242,13 @@ def install_replay_toolchain(
     ):
         raise ToolchainError("producer replay hosts must be a string list")
     overlay_hosts = frozenset(overlay_hosts_raw)
-    if overlay_hosts != frozenset(
-        {"files.pythonhosted.org", "download.pytorch.org", "download-r2.pytorch.org"}
-    ):
+    allowed_overlay_hosts = {
+        frozenset({"files.pythonhosted.org"}),
+        frozenset(
+            {"files.pythonhosted.org", "download.pytorch.org", "download-r2.pytorch.org"}
+        ),
+    }
+    if overlay_hosts not in allowed_overlay_hosts:
         raise ToolchainError("producer replay package host allowlist drift detected")
 
     direct_raw = overlay.get("direct_package_names")
@@ -162,10 +258,10 @@ def install_replay_toolchain(
     if direct_names != DIRECT_REPLAY_PACKAGES:
         raise ToolchainError("producer replay direct package set drift detected")
 
-    overlay_entries = _validated_package_entries(
-        overlay.get("packages"), allowed_hosts=overlay_hosts, label="producer replay closure"
+    overlay_entries = _historical_package_entries(
+        overlay=overlay, overlay_path=overlay_path, allowed_hosts=overlay_hosts
     )
-    overlay_names = {entry["name"] for entry in overlay_entries}
+    overlay_names = {_normalized_package_name(entry.get("name")) for entry in overlay_entries}
     if not DIRECT_REPLAY_PACKAGES.issubset(overlay_names):
         raise ToolchainError("producer replay closure is missing a direct package")
     package_count = overlay.get("package_count")
@@ -184,13 +280,13 @@ def install_replay_toolchain(
         entries=pip_entries,
         destination=wheel_root / "pip",
         allowed_hosts=base_hosts,
-        user_agent="mstr-t031-replay-pip/2",
+        user_agent="mstr-t031-replay-pip/3",
     )
     overlay_paths = _download_entries(
         entries=overlay_entries,
         destination=wheel_root / "closure",
         allowed_hosts=overlay_hosts,
-        user_agent="mstr-t031-replay-closure/2",
+        user_agent="mstr-t031-replay-closure/3",
     )
 
     venv = root / "venv"
@@ -224,7 +320,7 @@ def install_replay_toolchain(
         timeout=INSTALL_TIMEOUT_SECONDS,
     )
 
-    expected = {entry["name"]: entry["version"] for entry in overlay_entries}
+    expected = {str(entry["name"]): str(entry["version"]) for entry in overlay_entries}
     verification_script = (
         "import importlib.metadata,json,sys;"
         "expected=json.loads(sys.argv[1]);"
@@ -250,6 +346,8 @@ def install_replay_toolchain(
         "python_version": python_version,
         "package_count": len(verified),
         "packages": verified,
-        "historical_transitive_identity_claim": False,
+        "historical_transitive_identity_claim": overlay.get("historical_package_shards")
+        is not None,
+        "historical_cutoff_utc": overlay.get("historical_cutoff_utc"),
         "equivalence_gate": "EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH",
     }
