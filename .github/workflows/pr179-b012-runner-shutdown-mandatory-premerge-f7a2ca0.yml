@@ -1,0 +1,261 @@
+name: PR179 B012 runner shutdown mandatory premerge
+
+on:
+  push:
+    branches:
+      - evidence/pr179-b012-runner-shutdown-mandatory-premerge-f7a2ca0
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: pr179-b012-runner-shutdown-mandatory-premerge-f7a2ca0
+  cancel-in-progress: false
+
+env:
+  BASE_SHA: 610bf7dacc5ee921d99a4fa2eb9023553021e84c
+  SUBJECT_SHA: f7a2ca07d9b48f71644e87cc41cd0f45e52cab27
+  SUBJECT_BRANCH: fix/b012-runner-shutdown-evidence-34064172421
+  PR_NUMBER: '179'
+  QUALIFICATION_RUN_ID: '34067038144'
+  REVIEW_RUN_ID: '34067637430'
+  INCIDENT_EVIDENCE_SHA256: e5abc34f9d251951d4b38508fd0c6f67d8200282f564279a4c6fada65e354030
+  HF_HUB_OFFLINE: '1'
+  TRANSFORMERS_OFFLINE: '1'
+
+jobs:
+  canonical_gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact canonical main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.16'
+          check-latest: false
+
+      - name: Prove exact-main B012 eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = main
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B012 | tee "$RUNNER_TEMP/b012-eligible.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          data = json.loads(Path(os.environ["RUNNER_TEMP"] + "/b012-eligible.json").read_text())
+          assert data["task_id"] == "B012"
+          assert data["eligible"] is True
+          PY
+          test -z "$(git status --porcelain)"
+          echo 'B012_MACHINE_ELIGIBILITY_AT_EXACT_MAIN=PASS'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
+
+  exact_head_premerge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.16'
+          check-latest: false
+
+      - name: Prove immutable topology and live PR state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          test "$(git merge-base "$BASE_SHA" "$SUBJECT_SHA")" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$SUBJECT_BRANCH | awk '{print $1}')" = "$SUBJECT_SHA"
+          python - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.request
+
+          token = os.environ["GH_TOKEN"]
+          headers = {
+              "Authorization": f"Bearer {token}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+              "User-Agent": "mstr-premerge",
+          }
+          def get(url: str):
+              with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30) as r:
+                  return json.load(r)
+
+          root = "https://api.github.com/repos/TheHalfMoon/MSTR"
+          pr = None
+          for _ in range(6):
+              pr = get(f"{root}/pulls/179")
+              if pr.get("mergeable") is not None:
+                  break
+              time.sleep(2)
+          assert pr is not None
+          assert pr["state"] == "open"
+          assert pr["draft"] is False
+          assert pr["base"]["sha"] == "610bf7dacc5ee921d99a4fa2eb9023553021e84c"
+          assert pr["head"]["sha"] == "f7a2ca07d9b48f71644e87cc41cd0f45e52cab27"
+          assert pr["mergeable"] is True
+
+          reviews = get(f"{root}/pulls/179/reviews?per_page=100")
+          assert not any(r.get("state") == "CHANGES_REQUESTED" for r in reviews)
+          review_comments = get(f"{root}/pulls/179/comments?per_page=100")
+          assert review_comments == []
+
+          for run_id in (34067038144, 34067637430):
+              run = get(f"{root}/actions/runs/{run_id}")
+              assert run["status"] == "completed"
+              assert run["conclusion"] == "success"
+          PY
+
+      - name: Verify exact four-file evidence semantics and containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          base = "610bf7dacc5ee921d99a4fa2eb9023553021e84c"
+          subject = "f7a2ca07d9b48f71644e87cc41cd0f45e52cab27"
+          expected = {
+              "artifacts/manifests/B012-executor-toolchain-binding.json",
+              "artifacts/results/equivalent/B012/failures/B012-mellum-4b-run-34064172421.json",
+              "evidence/mstr-000b/B012-runner-shutdown-34064172421.md",
+              "tests/contract/test_b012_runner_shutdown_evidence.py",
+          }
+          actual = set(subprocess.check_output(
+              ["git", "diff", "--name-only", f"{base}..{subject}"], text=True
+          ).splitlines())
+          assert actual == expected
+
+          evidence_path = Path("artifacts/results/equivalent/B012/failures/B012-mellum-4b-run-34064172421.json")
+          evidence = json.loads(evidence_path.read_text())
+          assert evidence["failure_classification"] == "B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_NO_DURABLE_RESULT"
+          assert evidence["model_quality_verdict"] == "NONE"
+          assert evidence["model_access_before_shutdown"] == "UNKNOWN_UNRECORDED"
+          assert evidence["candidate_execution_completion"] == "NOT_PROVEN"
+          assert evidence["executor_authored_failure_json"] is False
+          assert evidence["retry_authority_created"] is False
+          assert evidence["same_action_retry_performed_by_this_evidence"] is False
+          assert evidence["training"] is False
+          assert evidence["paid_model_api"] is False
+          assert evidence["candidate_expansion"] is False
+
+          current = json.loads(Path("artifacts/manifests/B012-executor-toolchain-binding.json").read_text())
+          previous = json.loads(subprocess.check_output(
+              ["git", "show", f"{base}:artifacts/manifests/B012-executor-toolchain-binding.json"],
+              text=True,
+          ))
+          recovery = current.pop("runner_shutdown_recovery")
+          assert current == previous
+          assert recovery["retry_authority_created"] is False
+          assert recovery["model_quality_verdict"] == "NONE"
+          PY
+          test "$(sha256sum artifacts/results/equivalent/B012/failures/B012-mellum-4b-run-34064172421.json | awk '{print $1}')" = "$INCIDENT_EVIDENCE_SHA256"
+
+      - name: Run mandatory exact-head quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_authority.py \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_timeout_binding.py \
+            tests/contract/test_b012_timeout_budget.py \
+            tests/contract/test_t031_executor_binding.py \
+            tests/contract/test_t031_replay_version_equivalence.py
+          python -m pytest -q
+          python -m ruff check .
+          python -m ruff format --check tests/contract/test_b012_runner_shutdown_evidence.py
+          python -m mypy src
+          python -m mstr_qualify validate
+          test -z "$(git status --porcelain)"
+
+      - name: Final exact-head live guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$SUBJECT_BRANCH | awk '{print $1}')" = "$SUBJECT_SHA"
+          echo 'PR179_EXACT_HEAD_PREMERGE=PASS'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
+
+  final_premerge:
+    needs: [canonical_gate, exact_head_premerge]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Final immutable live-ref and PR guard
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$SUBJECT_BRANCH | awk '{print $1}')" = "$SUBJECT_SHA"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          token = os.environ["GH_TOKEN"]
+          req = urllib.request.Request(
+              "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/179",
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+                  "User-Agent": "mstr-final-premerge",
+              },
+          )
+          with urllib.request.urlopen(req, timeout=30) as r:
+              pr = json.load(r)
+          assert pr["state"] == "open"
+          assert pr["draft"] is False
+          assert pr["base"]["sha"] == "610bf7dacc5ee921d99a4fa2eb9023553021e84c"
+          assert pr["head"]["sha"] == "f7a2ca07d9b48f71644e87cc41cd0f45e52cab27"
+          PY
+          echo 'PR179_MANDATORY_PREMERGE=PASS'
+          echo 'QUALIFICATION_RUN_ID=34067038144'
+          echo 'INDEPENDENT_REVIEW_RUN_ID=34067637430'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
