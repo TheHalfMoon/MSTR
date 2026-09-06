@@ -155,8 +155,17 @@ def _require_binding(repo_root: Path) -> tuple[dict[str, object], dict[str, obje
         raise ExecutionError("paid execution remains prohibited")
     if scope.get("training") is not False or scope.get("weight_changing_training") is not False:
         raise ExecutionError("training remains prohibited")
-    if scope.get("new_candidate_access") is not False or scope.get("candidate_revision_or_file_expansion") is not False:
-        raise ExecutionError("candidate scope expansion remains prohibited")
+    if scope.get("new_candidate_access") is not False:
+        raise ExecutionError("new candidate access remains prohibited")
+    prohibited = envelope.get("prohibited_operations")
+    if not isinstance(prohibited, list):
+        raise ExecutionError("B012 prohibited-operation envelope is missing")
+    required_prohibitions = {
+        "K2_OR_ANY_NEW_CANDIDATE",
+        "CANDIDATE_REVISION_OR_FILE_EXPANSION",
+    }
+    if not required_prohibitions.issubset({item for item in prohibited if isinstance(item, str)}):
+        raise ExecutionError("candidate scope expansion prohibition drift detected")
     if scope.get("git_model_binaries") is not False or scope.get("founder_machine_large_artifacts") != 0:
         raise ExecutionError("model binary retention boundary drift detected")
 
