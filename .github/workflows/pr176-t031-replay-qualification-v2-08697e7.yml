@@ -1,0 +1,181 @@
+name: PR176 T031 replay repair canonical exact-head qualification v2
+
+on:
+  push:
+    branches:
+      - evidence/pr176-t031-replay-qualification-v2-08697e7
+
+permissions:
+  contents: read
+
+env:
+  BASE_SHA: 90fb88734006de8296825034345ba89ed6614794
+  TARGET_HEAD: 08697e7f8bb95aabc8f25677074ebeee18771169
+  TARGET_TREE: 27ab4f780234a969435daa873007bcb934933d1a
+  TARGET_BRANCH: fix/t031-historical-59wheel-binding-truth
+  HF_HUB_OFFLINE: "1"
+  TRANSFORMERS_OFFLINE: "1"
+
+jobs:
+  exact_identity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact subject identity and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$BASE_SHA" "$TARGET_HEAD")" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | awk '{print $1}')" = "$TARGET_HEAD"
+          git diff --check "$BASE_SHA".."$TARGET_HEAD"
+          cat > /tmp/expected <<'EOF'
+          artifacts/manifests/T031-executor-toolchain-binding.json
+          artifacts/manifests/T031-t029-historical-producer-replay-overlay.json
+          artifacts/manifests/T031-t029-historical-pypi-packages-01.json
+          artifacts/manifests/T031-t029-historical-pypi-packages-02.json
+          artifacts/manifests/T031-t029-historical-pypi-packages-03.json
+          colab/mstr_t031_execute.py
+          colab/mstr_t031_governance.py
+          colab/mstr_t031_historical_replay.py
+          tests/contract/test_t031_executor_binding.py
+          EOF
+          sort /tmp/expected -o /tmp/expected
+          git diff --name-only "$BASE_SHA".."$TARGET_HEAD" | sort > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          echo 'EXACT_SUBJECT_IDENTITY=PASS'
+
+  authority_and_binding:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify immutable authority and bounded reconstruction binding
+        shell: bash
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          from mstr_t031_historical_replay import _load_historical_packages
+
+          root = Path('.')
+          authority = json.loads((root / 'artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json').read_text())
+          binding = json.loads((root / 'artifacts/manifests/T031-executor-toolchain-binding.json').read_text())
+          overlay_path = root / binding['producer_replay_overlay_path']
+          overlay = json.loads(overlay_path.read_text())
+
+          assert authority['status'] == 'AUTHORIZED_CANONICAL'
+          assert authority['task_id'] == 'T031'
+          scope = authority['scope']
+          for key in [
+              'b010_b012_candidates', 'candidate_revision_or_file_expansion', 'new_candidates',
+              'paid_compute', 'paid_model_api', 'production_release', 't032_execution',
+              't033_execution', 't034_admission_decision', 'training', 'weight_changing_training',
+          ]:
+              assert scope[key] is False, key
+          assert scope['founder_machine_large_artifacts'] == 0
+          assert scope['git_model_binaries'] is False
+
+          pairs = {
+              'toolchain_lock_sha256': 'artifacts/manifests/T031-executor-toolchain-lock.json',
+              'producer_replay_overlay_sha256': binding['producer_replay_overlay_path'],
+              'toolchain_helper_sha256': 'colab/mstr_executor_toolchain.py',
+              'producer_replay_helper_sha256': 'colab/mstr_t031_replay.py',
+              'historical_replay_helper_sha256': 'colab/mstr_t031_historical_replay.py',
+              'governance_script_sha256': 'colab/mstr_t031_governance.py',
+              'source_script_sha256': 'colab/mstr_t031_source.py',
+              'artifact_script_sha256': 'colab/mstr_t031_artifacts.py',
+              'measurement_script_sha256': 'colab/mstr_t031_measure.py',
+              'executor_script_sha256': 'colab/mstr_t031_execute.py',
+              'workflow_sha256': '.github/workflows/t031-measure.yml',
+          }
+          for key, path in pairs.items():
+              actual = hashlib.sha256((root / path).read_bytes()).hexdigest()
+              assert binding[key] == actual, (key, binding[key], actual)
+
+          assert binding['candidate_ids'] == scope['candidate_ids']
+          assert binding['producer_replay']['package_count'] == 59
+          assert binding['producer_replay']['historical_transitive_identity_claim'] is False
+          assert binding['producer_replay']['acceptance_gate'] == 'EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH'
+          assert overlay['reconstruction_basis']['historical_transitive_identity_claim'] is False
+          assert overlay['reconstruction_basis']['equivalence_gate'] == 'EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH'
+          assert overlay['historical_smoke_evidence']['run_id'] == 34042093348
+          assert overlay['historical_smoke_evidence']['model_access'] == 'NONE'
+          assert overlay['historical_smoke_evidence']['training'] is False
+          assert overlay['historical_smoke_evidence']['paid_cost_usd'] == 0.0
+          packages, shards = _load_historical_packages(overlay=overlay, overlay_path=overlay_path)
+          assert len(packages) == 59
+          assert len(shards) == 3
+          boundary = binding['execution_boundary']
+          for key in ['authority_transfer', 'b012_execution', 't032_execution', 't033_execution', 't034_admission_decision', 'training']:
+              assert boundary[key] is False, key
+          assert boundary['paid_cost_usd'] == 0.0
+          assert boundary['git_model_binaries'] == 0
+          assert boundary['founder_machine_model_binaries'] == 0
+          print('T031_AUTHORITY_AND_BINDING=PASS')
+          print('MODEL_ACCESS=NONE')
+          print('TRAINING=false')
+          print('PAID_COST_USD=0.0')
+          PY
+
+  canonical_quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Run canonical frozen quality gates and task-specific contracts
+        shell: bash
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_t031_executor_binding.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src/mstr_qualify
+          test -z "$(git status --porcelain)"
+          echo 'CANONICAL_FROZEN_QUALITY=PASS'
+
+  final_qualification:
+    needs: [exact_identity, authority_and_binding, canonical_quality]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Final live-ref guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | awk '{print $1}')" = "$TARGET_HEAD"
+          echo 'PR176_T031_CANONICAL_EXACT_HEAD_QUALIFICATION=PASS'
+          echo "BASE_SHA=$BASE_SHA"
+          echo "TARGET_HEAD=$TARGET_HEAD"
+          echo "TARGET_TREE=$TARGET_TREE"
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
