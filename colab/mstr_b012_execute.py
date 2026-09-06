@@ -120,9 +120,7 @@ def execute(args: argparse.Namespace) -> int:
             max_job_minutes=runner_cfg.get("max_job_minutes"),
         )
         execution_stage = "RUNTIME_BENCHMARK_BUDGET"
-        pre_benchmark_elapsed_seconds = max(
-            0.0, time.monotonic() - execution_started_monotonic
-        )
+        pre_benchmark_elapsed_seconds = max(0.0, time.monotonic() - execution_started_monotonic)
         effective_benchmark_budget_seconds = effective_benchmark_wall_budget(
             budget=budget,
             pre_benchmark_elapsed_seconds=pre_benchmark_elapsed_seconds,
