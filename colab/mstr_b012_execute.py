@@ -133,7 +133,7 @@ def execute(args: argparse.Namespace) -> int:
             "effective_benchmark_wall_budget_seconds": effective_benchmark_budget_seconds,
         }
         runtime_commit = str(tool_identity["runtime_commit"])
-        benchmark_started = time.monotonic()
+        benchmark_started = execution_started_monotonic + pre_benchmark_elapsed_seconds
 
         execution_stage = "RUNTIME_BENCHMARK_PREFILL"
         prefill = measure_set_bounded(
