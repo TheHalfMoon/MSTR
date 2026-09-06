@@ -1,0 +1,180 @@
+name: T031 historical 59-wheel no-model smoke
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout evidence head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up exact historical Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+
+      - name: Verify exact evidence scope
+        env:
+          EXPECTED_MAIN: 603a6865fdbf5a5434565e870d73054c5b574f2a
+          EXPECTED_REPLAY_HEAD: 8e4aa537c15f45e48f214496222085510ab0d2c4
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main fix/t031-historical-pypi-replay-v2
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse origin/fix/t031-historical-pypi-replay-v2)" = "$EXPECTED_REPLAY_HEAD"
+          git merge-base --is-ancestor "$EXPECTED_REPLAY_HEAD" HEAD
+          test "$(git diff --name-only "$EXPECTED_MAIN" "$EXPECTED_REPLAY_HEAD")" = $'artifacts/manifests/T031-t029-historical-pypi-packages-01.json\nartifacts/manifests/T031-t029-historical-pypi-packages-02.json\nartifacts/manifests/T031-t029-historical-pypi-packages-03.json'
+          test "$(git diff --name-only "$EXPECTED_REPLAY_HEAD" HEAD)" = ".github/workflows/t031-historical-59wheel-smoke.yml"
+
+      - name: Validate and install exact historical wheel closure
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import importlib.metadata
+          import json
+          import os
+          import subprocess
+          import urllib.parse
+          import urllib.request
+          import venv
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          cutoff = datetime(2026, 8, 26, 10, 44, 6, tzinfo=timezone.utc)
+          shards = sorted(Path("artifacts/manifests").glob("T031-t029-historical-pypi-packages-*.json"))
+          assert [p.name for p in shards] == [
+              "T031-t029-historical-pypi-packages-01.json",
+              "T031-t029-historical-pypi-packages-02.json",
+              "T031-t029-historical-pypi-packages-03.json",
+          ]
+          packages = []
+          for index, path in enumerate(shards, start=1):
+              payload = json.loads(path.read_text(encoding="utf-8"))
+              assert payload["schema_version"] == "mstr.t031-historical-package-shard.v1"
+              assert payload["task_id"] == "T031"
+              assert payload["shard_index"] == index
+              packages.extend(payload["packages"])
+          assert len(packages) == 59, len(packages)
+          names = [str(p["name"]).lower().replace("_", "-") for p in packages]
+          assert len(names) == len(set(names))
+          by_name = {name: p for name, p in zip(names, packages, strict=True)}
+          expected_direct = {
+              "numpy": "2.4.6",
+              "torch": "2.13.0",
+              "sentencepiece": "0.2.2",
+              "protobuf": "7.36.0",
+              "gguf": "0.19.0",
+              "safetensors": "0.8.0",
+              "transformers": "5.15.1",
+          }
+          for name, version in expected_direct.items():
+              assert by_name[name]["version"] == version, (name, by_name[name]["version"])
+              assert by_name[name]["requested"] is True
+          assert "+cpu" not in str(by_name["torch"]["version"])
+          assert any(name.startswith("nvidia-") for name in names)
+          assert "cuda-bindings" in by_name
+
+          wheelhouse = Path(os.environ["RUNNER_TEMP"]) / "t031-historical-wheelhouse"
+          wheelhouse.mkdir(parents=True, exist_ok=True)
+          paths = []
+          total = 0
+          opener = urllib.request.build_opener()
+          opener.addheaders = [("User-Agent", "mstr-t031-historical-59wheel-smoke/1")]
+          for record in packages:
+              raw_time = str(record["upload_time_iso_8601"])
+              uploaded = datetime.fromisoformat(raw_time.replace("Z", "+00:00"))
+              assert uploaded <= cutoff, (record["name"], raw_time)
+              url = str(record["url"])
+              parsed = urllib.parse.urlparse(url)
+              assert parsed.scheme == "https"
+              assert parsed.hostname in {"files.pythonhosted.org", "pypi.org"}, url
+              filename = Path(parsed.path).name
+              assert filename.endswith(".whl"), filename
+              destination = wheelhouse / filename
+              digest = hashlib.sha256()
+              with opener.open(url, timeout=180) as response, destination.open("wb") as handle:
+                  final = urllib.parse.urlparse(response.geturl())
+                  assert final.scheme == "https"
+                  assert final.hostname in {"files.pythonhosted.org", "pypi.org"}
+                  while True:
+                      chunk = response.read(1024 * 1024)
+                      if not chunk:
+                          break
+                      digest.update(chunk)
+                      handle.write(chunk)
+              assert digest.hexdigest() == record["sha256"], record["name"]
+              assert destination.stat().st_size == record["size_bytes"], record["name"]
+              total += destination.stat().st_size
+              paths.append(str(destination))
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "t031-historical-venv"
+          venv.EnvBuilder(with_pip=True, clear=True).create(root)
+          python_exe = root / "bin" / "python"
+          pip_version = subprocess.run(
+              [str(python_exe), "-m", "pip", "--version"],
+              check=True, capture_output=True, text=True
+          ).stdout.strip()
+          subprocess.run(
+              [str(python_exe), "-m", "pip", "install", "--no-index", "--no-deps", *paths],
+              check=True,
+              timeout=1800,
+          )
+          check = subprocess.run(
+              [str(python_exe), "-m", "pip", "check"],
+              check=True, capture_output=True, text=True, timeout=120
+          ).stdout.strip()
+          version_script = """
+          import importlib.metadata, json
+          names = ['numpy','torch','sentencepiece','protobuf','gguf','safetensors','transformers']
+          print(json.dumps({n: importlib.metadata.version(n) for n in names}, sort_keys=True))
+          import torch
+          print('TORCH_IMPORT_VERSION=' + torch.__version__)
+          """
+          observed = subprocess.run(
+              [str(python_exe), "-c", version_script],
+              check=True, capture_output=True, text=True, timeout=180
+          ).stdout.strip()
+          print("T031_HISTORICAL_PACKAGE_COUNT=59")
+          print(f"T031_HISTORICAL_WHEEL_BYTES={total}")
+          print(f"T031_REPLAY_PIP_IDENTITY={pip_version}")
+          print(f"T031_PIP_CHECK={check or 'No broken requirements found.'}")
+          print(observed)
+          print("T031_STAGE_SEMANTICS_PROVEN=false")
+          print("T031_CLOSURE_INSTALLABLE=true")
+          print("MODEL_ACCESS=NONE")
+          print("TRAINING=false")
+          print("PAID_COST_USD=0.0")
+          PY
+
+      - name: Record no-model evidence summary
+        run: |
+          set -euo pipefail
+          {
+            echo "CANONICAL_MAIN=603a6865fdbf5a5434565e870d73054c5b574f2a"
+            echo "REPLAY_HEAD=8e4aa537c15f45e48f214496222085510ab0d2c4"
+            echo "EVIDENCE_HEAD=$(git rev-parse HEAD)"
+            sha256sum artifacts/manifests/T031-t029-historical-pypi-packages-*.json
+            echo "PACKAGE_COUNT=59"
+            echo "T031_STAGE_SEMANTICS_PROVEN=false"
+            echo "MODEL_ACCESS=NONE"
+            echo "TRAINING=false"
+            echo "PAID_COST_USD=0.0"
+          } > "$RUNNER_TEMP/t031-historical-59wheel-smoke.txt"
+
+      - name: Upload no-model evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: t031-historical-59wheel-smoke
+          path: ${{ runner.temp }}/t031-historical-59wheel-smoke.txt
+          if-no-files-found: error
+          retention-days: 7
