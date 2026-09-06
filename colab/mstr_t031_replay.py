@@ -20,6 +20,11 @@ from mstr_executor_toolchain import (
 )
 
 
+DIRECT_REPLAY_PACKAGES = frozenset(
+    {"gguf", "numpy", "protobuf", "safetensors", "sentencepiece", "torch", "transformers"}
+)
+
+
 def _normalized_package_name(value: object) -> str:
     if not isinstance(value, str) or not value:
         raise ToolchainError("package name must be a non-empty string")
@@ -29,7 +34,7 @@ def _normalized_package_name(value: object) -> str:
 def _require_replay_system_identity(
     base_lock: dict[str, object], overlay: dict[str, object]
 ) -> str:
-    """Require the replay Python and the base lock's system build-tool identities."""
+    """Require replay Python and the base lock's system build-tool identities."""
 
     expected_python = overlay.get("python_version")
     if not isinstance(expected_python, str):
@@ -83,6 +88,8 @@ def _validated_package_entries(
         sha256 = raw.get("sha256")
         if not all(isinstance(value, str) and value for value in (version, url, sha256)):
             raise ToolchainError(f"{label} package entry has invalid scalar fields: {name}")
+        if len(sha256) != 64:
+            raise ToolchainError(f"{label} package SHA-256 length is invalid: {name}")
         parsed = urlparse(url)
         host = (parsed.hostname or "").lower()
         if parsed.scheme.lower() != "https" or host not in allowed_hosts:
@@ -122,7 +129,7 @@ def _download_entries(
 def install_replay_toolchain(
     *, base_lock_path: Path, overlay_path: Path, root: Path
 ) -> tuple[Path, dict[str, object]]:
-    """Install the base transitive lock plus the exact T029 replay overlay."""
+    """Install the exact full T029 replay dependency closure plus pinned pip."""
 
     base_lock = read_json(base_lock_path)
     overlay = read_json(overlay_path)
@@ -151,20 +158,22 @@ def install_replay_toolchain(
     ):
         raise ToolchainError("producer replay package host allowlist drift detected")
 
+    direct_raw = overlay.get("direct_package_names")
+    if not isinstance(direct_raw, list) or not all(isinstance(item, str) for item in direct_raw):
+        raise ToolchainError("producer replay direct package names are missing")
+    direct_names = {_normalized_package_name(item) for item in direct_raw}
+    if direct_names != DIRECT_REPLAY_PACKAGES:
+        raise ToolchainError("producer replay direct package set drift detected")
+
     overlay_entries = _validated_package_entries(
-        overlay.get("packages"), allowed_hosts=overlay_hosts, label="producer replay"
+        overlay.get("packages"), allowed_hosts=overlay_hosts, label="producer replay closure"
     )
     overlay_names = {entry["name"] for entry in overlay_entries}
-    if overlay_names != {
-        "gguf",
-        "numpy",
-        "protobuf",
-        "safetensors",
-        "sentencepiece",
-        "torch",
-        "transformers",
-    }:
-        raise ToolchainError("producer replay direct package set drift detected")
+    if not DIRECT_REPLAY_PACKAGES.issubset(overlay_names):
+        raise ToolchainError("producer replay closure is missing a direct package")
+    package_count = overlay.get("package_count")
+    if not isinstance(package_count, int) or package_count != len(overlay_entries):
+        raise ToolchainError("producer replay package-count binding drift detected")
 
     pip_entry_raw = base_python.get("pip")
     if not isinstance(pip_entry_raw, dict):
@@ -172,31 +181,19 @@ def install_replay_toolchain(
     pip_entries = _validated_package_entries(
         [pip_entry_raw], allowed_hosts=base_hosts, label="base pip"
     )
-    base_entries = _validated_package_entries(
-        base_python.get("packages"), allowed_hosts=base_hosts, label="base transitive"
-    )
-    retained_base_entries = [
-        entry for entry in base_entries if entry["name"] not in overlay_names
-    ]
 
     wheel_root = root / "wheels"
     pip_paths = _download_entries(
         entries=pip_entries,
         destination=wheel_root / "pip",
         allowed_hosts=base_hosts,
-        user_agent="mstr-t031-replay-base/1",
-    )
-    base_paths = _download_entries(
-        entries=retained_base_entries,
-        destination=wheel_root / "base",
-        allowed_hosts=base_hosts,
-        user_agent="mstr-t031-replay-base/1",
+        user_agent="mstr-t031-replay-pip/2",
     )
     overlay_paths = _download_entries(
         entries=overlay_entries,
-        destination=wheel_root / "overlay",
+        destination=wheel_root / "closure",
         allowed_hosts=overlay_hosts,
-        user_agent="mstr-t031-replay-overlay/1",
+        user_agent="mstr-t031-replay-closure/2",
     )
 
     venv = root / "venv"
@@ -225,15 +222,12 @@ def install_replay_toolchain(
             "install",
             "--no-index",
             "--no-deps",
-            *[str(path) for path in base_paths],
             *[str(path) for path in overlay_paths],
         ],
         timeout=INSTALL_TIMEOUT_SECONDS,
     )
 
-    expected_overlay = {
-        entry["name"]: entry["version"] for entry in overlay_entries
-    }
+    expected = {entry["name"]: entry["version"] for entry in overlay_entries}
     verification_script = (
         "import importlib.metadata,json,sys;"
         "expected=json.loads(sys.argv[1]);"
@@ -242,7 +236,7 @@ def install_replay_toolchain(
         "print(json.dumps(actual,sort_keys=True))"
     )
     verified_json = _run_checked(
-        [str(python_exe), "-c", verification_script, json.dumps(expected_overlay, sort_keys=True)],
+        [str(python_exe), "-c", verification_script, json.dumps(expected, sort_keys=True)],
         timeout=LOCAL_SETUP_TIMEOUT_SECONDS,
     )
     _run_checked(
@@ -257,6 +251,8 @@ def install_replay_toolchain(
     return python_exe, {
         "overlay_id": overlay.get("overlay_id"),
         "python_version": python_version,
+        "package_count": len(verified),
         "packages": verified,
+        "historical_transitive_identity_claim": False,
         "equivalence_gate": "EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH",
     }
