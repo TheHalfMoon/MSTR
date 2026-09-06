@@ -1,0 +1,202 @@
+name: Mandatory premerge PR175 B012 reconciliation exact head
+
+on:
+  push:
+    branches:
+      - evidence/pr175-b012-reconciliation-mandatory-premerge-d688f59
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  checks: read
+  statuses: read
+
+concurrency:
+  group: pr175-b012-reconciliation-mandatory-premerge-d688f59
+  cancel-in-progress: false
+
+env:
+  PR_NUMBER: '175'
+  BASE_SHA: a2b2788dd5a8a8d5f301359586f6b2019615b4a9
+  HEAD_SHA: d688f5922a427a25dd48f27c607603edc4e74de1
+  HEAD_TREE: 569fb23fe58a16bd15383e44666ca8284c3a8d02
+  TARGET_BRANCH: governance/pr174-b012-merge-race-reconciliation
+  QUALIFICATION_RUN: '34052869726'
+  QUALIFICATION_EVIDENCE_HEAD: 89ed577ddf7702e8a3ada3b7dc0acaab6135b5af
+  REVIEW_RUN: '34053158407'
+  REVIEW_EVIDENCE_HEAD: 666c371807005be5a5e68c0f977ef5b1a370b94a
+
+jobs:
+  governance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Verify live GitHub merge gates
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | awk '{print $1}')" = "$HEAD_SHA"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          token = os.environ['GH_TOKEN']
+          headers = {
+              'Authorization': f'Bearer {token}',
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+          }
+          root = 'https://api.github.com/repos/TheHalfMoon/MSTR'
+
+          def get(path: str):
+              request = urllib.request.Request(f'{root}{path}', headers=headers)
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)
+
+          pr = get(f"/pulls/{os.environ['PR_NUMBER']}")
+          assert pr['state'] == 'open' and pr['draft'] is False and pr['merged'] is False
+          assert pr['mergeable'] is True
+          assert pr['base']['ref'] == 'main' and pr['base']['sha'] == os.environ['BASE_SHA']
+          assert pr['head']['ref'] == os.environ['TARGET_BRANCH'] and pr['head']['sha'] == os.environ['HEAD_SHA']
+          assert pr['commits'] == 3 and pr['changed_files'] == 1
+          files = get(f"/pulls/{os.environ['PR_NUMBER']}/files?per_page=100")
+          assert [item['filename'] for item in files] == ['evidence/B012-pr174-merge-race-reconciliation.md']
+
+          for run_env, head_env, expected_jobs in (
+              ('QUALIFICATION_RUN', 'QUALIFICATION_EVIDENCE_HEAD', {'canonical_eligibility', 'exact_head', 'final'}),
+              ('REVIEW_RUN', 'REVIEW_EVIDENCE_HEAD', {'substantive_governance_review'}),
+          ):
+              run = get(f"/actions/runs/{os.environ[run_env]}")
+              assert run['status'] == 'completed' and run['conclusion'] == 'success'
+              assert run['head_sha'] == os.environ[head_env]
+              jobs = get(f"/actions/runs/{os.environ[run_env]}/jobs?per_page=100")['jobs']
+              by = {job['name']: job['conclusion'] for job in jobs}
+              assert expected_jobs <= by.keys()
+              assert all(by[name] == 'success' for name in expected_jobs)
+
+          reviews = get(f"/pulls/{os.environ['PR_NUMBER']}/reviews?per_page=100")
+          assert not any(
+              item['state'] == 'CHANGES_REQUESTED' and item.get('commit_id') == os.environ['HEAD_SHA']
+              for item in reviews
+          )
+
+          branch = get('/branches/main')
+          assert branch['name'] == 'main' and branch['commit']['sha'] == os.environ['BASE_SHA']
+
+          authority = get(
+              '/contents/artifacts/authorities/'
+              'B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json'
+              f"?ref={os.environ['BASE_SHA']}"
+          )
+          assert authority['sha'] == '5be28abac1836a469ae1cf7fb81caf4af9b31990'
+
+          combined = get(f"/commits/{os.environ['HEAD_SHA']}/status")
+          assert combined['state'] == 'success'
+          assert all(item['state'] == 'success' for item in combined['statuses'])
+
+          checks = get(f"/commits/{os.environ['HEAD_SHA']}/check-runs?per_page=100")
+          assert all(item['status'] == 'completed' for item in checks['check_runs'])
+          assert all(item['conclusion'] in {'success', 'neutral', 'skipped'} for item in checks['check_runs'])
+
+          print('PR175_LIVE_GOVERNANCE=PASS')
+          print('EXACT_HEAD_REVIEW=PASS')
+          print('REVIEW_THREADS_BLOCKING=NONE_OBSERVED')
+          PY
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact target topology and reconciliation boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          test "$(git merge-base "$BASE_SHA" "$HEAD_SHA")" = "$BASE_SHA"
+          test "$(git diff --name-only "$BASE_SHA".."$HEAD_SHA")" = 'evidence/B012-pr174-merge-race-reconciliation.md'
+          git diff --check "$BASE_SHA".."$HEAD_SHA"
+          grep -Fq 'PR174_MANDATORY_PREMERGE_FINAL_GUARD = FAILURE' evidence/B012-pr174-merge-race-reconciliation.md
+          grep -Fq 'RETROACTIVE_PREMERGE_PASS = PROHIBITED' evidence/B012-pr174-merge-race-reconciliation.md
+          grep -Fq 'RESULT_CLASSIFICATION = B012_EXECUTION_FAILED_CLOSED' evidence/B012-pr174-merge-race-reconciliation.md
+          grep -Fq 'MODEL_QUALITY_VERDICT = NONE' evidence/B012-pr174-merge-race-reconciliation.md
+          grep -Fq 'This reconciliation does not authorize a retry.' evidence/B012-pr174-merge-race-reconciliation.md
+          grep -Fq 'This artifact creates no new Founder authority and authorizes no external effect by itself.' evidence/B012-pr174-merge-race-reconciliation.md
+
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.16'
+          check-latest: false
+      - name: Re-run mandatory frozen quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src/mstr_qualify
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$HEAD_TREE"
+          test -z "$(git status --porcelain)"
+
+  canonical_eligibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.BASE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.16'
+          check-latest: false
+      - name: Reverify B012 eligibility on exact canonical base
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B012
+          echo 'B012_CANONICAL_ELIGIBILITY=PASS'
+
+  merge_authorization:
+    needs: [governance, quality, canonical_eligibility]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Final exact refs guard and bounded authorization
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | awk '{print $1}')" = "$HEAD_SHA"
+          echo 'MANDATORY_PREMERGE=PASS'
+          echo "EXPECTED_HEAD_SHA=$HEAD_SHA"
+          echo "EXPECTED_BASE_SHA=$BASE_SHA"
+          echo 'MERGE_AUTHORIZED=YES_FOR_EXACT_HEAD_ONLY'
+          echo 'RETRY_AUTHORITY_CREATED=false'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
