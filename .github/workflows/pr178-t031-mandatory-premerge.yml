@@ -1,0 +1,240 @@
+name: PR178 T031 mandatory premerge a8fa069
+
+on:
+  push:
+    branches:
+      - evidence/pr178-t031-mandatory-premerge-a8fa069
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+env:
+  BASE_SHA: f207ed9080fba1bb597a4091029dfd2a381eb346
+  TARGET_HEAD: a8fa069838e05661d3f32dec960c450363ed5a18
+  TARGET_TREE: e48c611e695c468ff9508696f2db44139e88d62f
+  TARGET_BRANCH: fix/t031-pep440-replay-version-equivalence
+  QUALIFICATION_RUN: "34066070646"
+  REVIEW_RUN: "34066244950"
+  REVIEW_ID: "5126932040"
+  HF_HUB_OFFLINE: "1"
+  TRANSFORMERS_OFFLINE: "1"
+
+jobs:
+  canonical_legacy_gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact canonical main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Verify canonical T031 authority and legacy frontier
+        shell: bash
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          test "$(git symbolic-ref --short HEAD)" = main
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          python -m pytest -q tests/contract/test_t031_authority.py tests/contract/test_t031_executor_binding.py tests/contract/test_b012_executor_binding.py
+          set +e
+          python -m mstr_qualify task eligible T031 > /tmp/t031-machine-task.json 2>&1
+          status=$?
+          set -e
+          test "$status" = 2
+          grep -Fq '"code": "task_gate.task_unknown"' /tmp/t031-machine-task.json
+          grep -Fq '"task_id": "T031"' /tmp/t031-machine-task.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          authority = json.loads(Path('artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json').read_text())
+          binding = json.loads(Path('artifacts/manifests/T031-executor-toolchain-binding.json').read_text())
+          assert authority['status'] == 'AUTHORIZED_CANONICAL'
+          assert authority['task_id'] == 'T031'
+          assert binding['task_id'] == 'T031'
+          assert binding['status'] == 'SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL'
+          assert authority['scope']['candidate_ids'] == [
+              'granite-4.1-3b', 'ministral-3-3b', 'qwen2.5-coder-1.5b', 'qwen3-4b',
+              'qwen3.5-2b', 'qwen3.5-4b', 'smollm3-3b', 'yi-coder-1.5b',
+          ]
+          for key in (
+              'b010_b012_candidates', 'candidate_revision_or_file_expansion', 'new_candidates',
+              'paid_compute', 'paid_model_api', 'production_release', 't032_execution',
+              't033_execution', 't034_admission_decision', 'training', 'weight_changing_training',
+          ):
+              assert authority['scope'][key] is False, key
+          print('T031_CANONICAL_AUTHORITY=PASS')
+          print('T031_MACHINE_GATE_APPLICABILITY=NOT_APPLICABLE')
+          PY
+          test -z "$(git status --porcelain)"
+
+  prerequisite_evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Verify exact qualification review and PR review record
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          headers = {
+              'Authorization': f'Bearer {os.environ["GH_TOKEN"]}',
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+          }
+          root = 'https://api.github.com/repos/TheHalfMoon/MSTR'
+          def get(path):
+              req = urllib.request.Request(root + path, headers=headers)
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  return json.load(response)
+
+          for run_id in (os.environ['QUALIFICATION_RUN'], os.environ['REVIEW_RUN']):
+              run = get(f'/actions/runs/{run_id}')
+              assert run['conclusion'] == 'success', (run_id, run['conclusion'])
+
+          qualification_jobs = get(f'/actions/runs/{os.environ["QUALIFICATION_RUN"]}/jobs?per_page=100')['jobs']
+          qualification_conclusions = {job['name']: job['conclusion'] for job in qualification_jobs}
+          assert qualification_conclusions == {
+              'exact_head_qualification': 'success',
+              'final_live_refs': 'success',
+          }
+
+          review_jobs = get(f'/actions/runs/{os.environ["REVIEW_RUN"]}/jobs?per_page=100')['jobs']
+          assert {job['name']: job['conclusion'] for job in review_jobs} == {
+              'independent_substantive_review': 'success'
+          }
+
+          reviews = get('/pulls/178/reviews?per_page=100')
+          matching = [item for item in reviews if str(item['id']) == os.environ['REVIEW_ID']]
+          assert len(matching) == 1
+          review = matching[0]
+          assert review['commit_id'] == os.environ['TARGET_HEAD']
+          assert review['state'] == 'COMMENTED'
+          body = review.get('body') or ''
+          assert 'Review findings: none.' in body
+          assert f'run `{os.environ["REVIEW_RUN"]}`' in body
+          assert f'run `{os.environ["QUALIFICATION_RUN"]}`' in body
+
+          changes_requested = [item for item in reviews if item['state'] == 'CHANGES_REQUESTED']
+          assert changes_requested == [], changes_requested
+          print('PR178_PREREQUISITE_EVIDENCE=PASS')
+          print('PR178_ANCHORED_REVIEW=PASS')
+          print('CHANGES_REQUESTED=NONE')
+          PY
+
+  exact_head_quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout immutable PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Requalify exact head before merge
+        shell: bash
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$BASE_SHA" "$TARGET_HEAD")" = "$BASE_SHA"
+          git diff --check "$BASE_SHA".."$TARGET_HEAD"
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_t031_replay_version_equivalence.py tests/contract/test_t031_executor_binding.py tests/contract/test_b012_executor_binding.py
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src
+          python -m mstr_qualify validate
+          test -z "$(git status --porcelain)"
+          echo 'PR178_EXACT_HEAD_QUALITY=PASS'
+
+  final_merge_authorization:
+    needs: [canonical_legacy_gate, prerequisite_evidence, exact_head_quality]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Final exact live refs PR and review-thread guard
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | awk '{print $1}')" = "$TARGET_HEAD"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          headers = {
+              'Authorization': f'Bearer {os.environ["GH_TOKEN"]}',
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+          }
+          root = 'https://api.github.com/repos/TheHalfMoon/MSTR'
+          def get(path):
+              req = urllib.request.Request(root + path, headers=headers)
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  return json.load(response)
+
+          pr = get('/pulls/178')
+          assert pr['state'] == 'open'
+          assert pr['draft'] is False
+          assert pr['head']['sha'] == os.environ['TARGET_HEAD']
+          assert pr['base']['sha'] == os.environ['BASE_SHA']
+          assert pr['changed_files'] == 6
+          assert pr['mergeable'] is not False
+
+          files = get('/pulls/178/files?per_page=100')
+          observed = sorted(item['filename'] for item in files)
+          expected = sorted([
+              'artifacts/manifests/B012-executor-toolchain-binding.json',
+              'artifacts/manifests/T031-executor-toolchain-binding.json',
+              'artifacts/results/local/T031/failures/T031-granite-4.1-3b-run-34065259852.json',
+              'colab/mstr_t031_replay.py',
+              'evidence/T031-current-main-pep440-replay-version-repair.md',
+              'tests/contract/test_t031_replay_version_equivalence.py',
+          ])
+          assert observed == expected, (observed, expected)
+
+          reviews = get('/pulls/178/reviews?per_page=100')
+          assert not any(item['state'] == 'CHANGES_REQUESTED' for item in reviews)
+          print('PR178_FINAL_PR_STATE=PASS')
+          print('PR178_CHANGED_FILE_SET=PASS')
+          print('PR178_REVIEW_STATE=PASS')
+          PY
+          echo 'PR178_MANDATORY_PREMERGE=PASS'
+          echo 'PR178_MERGE_AUTHORIZATION=PASS'
+          echo "EXPECTED_HEAD_SHA=$TARGET_HEAD"
+          echo "EXPECTED_BASE_SHA=$BASE_SHA"
+          echo 'MODEL_EXECUTION_AUTHORIZED_BY_PREMERGE=false'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
