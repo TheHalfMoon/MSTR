@@ -4,7 +4,7 @@
   "authority_id": "T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION",
   "authority_path": "artifacts/authorities/T031_FOUNDER_AUTHORITY_FOR_LOCAL_MEASUREMENT_REGENERATION.json",
   "authority_sha256": "f7ac76d05d2a9dfa91fc4ff76fef42aac0c080aaefc89b9c2dc6348d93fb92cd",
-  "binding_id": "T031_CANONICAL_EXECUTOR_TOOLCHAIN_BINDING_HASH_BOUND_59_WHEEL_RECONSTRUCTION_2026_09_06",
+  "binding_id": "T031_CANONICAL_EXECUTOR_TOOLCHAIN_BINDING_HASH_BOUND_59_WHEEL_PEP440_VERSION_EQUIVALENCE_2026_09_07",
   "candidate_ids": [
     "granite-4.1-3b",
     "ministral-3-3b",
@@ -15,7 +15,11 @@
     "smollm3-3b",
     "yi-coder-1.5b"
   ],
-  "contexts": [4096, 8192, 16384],
+  "contexts": [
+    4096,
+    8192,
+    16384
+  ],
   "dispatch_boundary": {
     "canonicalization_required": true,
     "checkout_ref": "main",
@@ -32,7 +36,10 @@
   "execution_boundary": {
     "authority_transfer": false,
     "b012_execution": false,
-    "durable_outputs": ["JSON", "JSONL"],
+    "durable_outputs": [
+      "JSON",
+      "JSONL"
+    ],
     "founder_machine_model_binaries": 0,
     "git_model_binaries": 0,
     "paid_cost_usd": 0.0,
@@ -70,13 +77,29 @@
     "package_count": 59,
     "python_version": "3.11.16",
     "reconstruction_semantics": "HASH_BOUND_PRE_CUTOFF_RECONSTRUCTION_NOT_HISTORICAL_TRANSITIVE_IDENTITY_PROOF",
-    "status": "EVIDENCE_BOUNDED_REPLAY"
+    "status": "EVIDENCE_BOUNDED_REPLAY",
+    "version_consistency_semantics": "PEP_440_EQUIVALENCE_AFTER_EXACT_HASH_BOUND_WHEEL_INSTALLATION"
   },
   "producer_replay_helper_path": "colab/mstr_t031_replay.py",
-  "producer_replay_helper_sha256": "d6f646ec35d27288c20cb7ad35984c98310e806609a7f4fde0172dfae207dfa4",
+  "producer_replay_helper_sha256": "749eaf1f72a27a47a2a3d993d36a8147f71057428e24cee3271abd8a088e93fb",
   "producer_replay_overlay_path": "artifacts/manifests/T031-t029-historical-producer-replay-overlay.json",
   "producer_replay_overlay_sha256": "12fe286dfcef4a9d0222147eb2f965fd6e09cdf0c74964b0958bd31b23a5bf65",
   "repair_evidence": {
+    "current_main_pep440_version_false_negative": {
+      "artifact_id": 9998741981,
+      "artifact_zip_sha256": "d430a954a37f0e2f182f1ef3ea98a53fdd9ef924daf8109ff69e089b5ead4421",
+      "candidate_id": "granite-4.1-3b",
+      "canonical_main": "f207ed9080fba1bb597a4091029dfd2a381eb346",
+      "classification": "T031_EXECUTION_FAILED_CLOSED",
+      "failure_json_sha256": "22165fc42c064a5f7b9b3c98de9c88d71d154fa0133ec25df71f835f1556b9c3",
+      "model_access": "NONE",
+      "observed_metadata_version": "13.0.3.0",
+      "package": "cuda-toolkit",
+      "paid_cost_usd": 0.0,
+      "run_id": 34065259852,
+      "training": false,
+      "manifest_version": "13.0.3"
+    },
     "first_execution": {
       "artifact_id": 9979311948,
       "artifact_zip_sha256": "48c7b071b3ae6dfcb3b36e7ddcbc890ee8206687f5c9570026d8f927d2ad935a",
@@ -130,9 +153,9 @@
     "pip_report_sha256": "0cfbf0151ad03a7e1a0d902b1b1351310cd7ef18d8185ba2de990d212f7498ef",
     "pip_run_id": 33987490628
   },
-  "satisfies_pending_condition": "CANONICAL_EXECUTOR_TOOLCHAIN_BINDING_WITH_HASH_BOUND_59_WHEEL_PRE_CUTOFF_RECONSTRUCTION_AND_EXACT_T029_ARTIFACT_EQUIVALENCE_GATE; DOES_NOT_EXPAND_T031_FOUNDER_AUTHORITY",
+  "satisfies_pending_condition": "CANONICAL_EXECUTOR_TOOLCHAIN_BINDING_WITH_HASH_BOUND_59_WHEEL_PRE_CUTOFF_RECONSTRUCTION_AND_EXACT_T029_ARTIFACT_EQUIVALENCE_GATE; PEP440_VERSION_EQUIVALENCE_IS_POST_HASH_METADATA_CONSISTENCY_ONLY; DOES_NOT_EXPAND_T031_FOUNDER_AUTHORITY",
   "schema_version": "mstr.t031-executor-binding.v1",
-  "source_main": "a2b2788dd5a8a8d5f301359586f6b2019615b4a9",
+  "source_main": "f207ed9080fba1bb597a4091029dfd2a381eb346",
   "source_script_path": "colab/mstr_t031_source.py",
   "source_script_sha256": "7fe274b2d7817490ca6e4e5b470c191a341f2eea93894568a6ae2b12871ce3aa",
   "status": "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL",
