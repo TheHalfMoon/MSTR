@@ -1,0 +1,187 @@
+{
+  "packages": [
+    {
+      "name": "annotated-doc",
+      "requested": false,
+      "sha256": "117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101",
+      "size_bytes": 5302,
+      "upload_time_iso_8601": "2026-07-28T13:50:57.239109Z",
+      "url": "https://files.pythonhosted.org/packages/3e/30/e900b21425a860e195f32e37657aa1f7c7f2b1bfb26f03ca209b90933c06/annotated_doc-0.0.5-py3-none-any.whl",
+      "version": "0.0.5"
+    },
+    {
+      "name": "anyio",
+      "requested": false,
+      "sha256": "9f505dda5ac9f0c8309b5e8bd445a8c2bf7246f3ce950121e45ea15bc41d1494",
+      "size_bytes": 125813,
+      "upload_time_iso_8601": "2026-07-12T20:29:05.763870Z",
+      "url": "https://files.pythonhosted.org/packages/da/35/f2287558c17e29fafc8ef3daf819bb9834061cfa43bff8014f7df7f63bdc/anyio-4.14.2-py3-none-any.whl",
+      "version": "4.14.2"
+    },
+    {
+      "name": "certifi",
+      "requested": false,
+      "sha256": "62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775",
+      "size_bytes": 136983,
+      "upload_time_iso_8601": "2026-07-22T03:35:11.276376Z",
+      "url": "https://files.pythonhosted.org/packages/0b/a7/71ac2cff56fec219ed242bb11b8efb69fcc4bec75db06fb7bfe35de520e6/certifi-2026.7.22-py3-none-any.whl",
+      "version": "2026.7.22"
+    },
+    {
+      "name": "charset-normalizer",
+      "requested": false,
+      "sha256": "c7b742bf31c88566b4bb6335a7f393bb322e580b6bb98df7bd0c25e6e3519ce8",
+      "size_bytes": 262325,
+      "upload_time_iso_8601": "2026-08-15T08:16:54.085182Z",
+      "url": "https://files.pythonhosted.org/packages/0d/35/731ac04aa0a097fc1c97f0994c375bdb230c6c96619db794208fe664e9ce/charset_normalizer-3.5.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "3.5.1"
+    },
+    {
+      "name": "click",
+      "requested": false,
+      "sha256": "e6f9f66136c816745b9d65817da91d61d957fb16e02e4dcd0552553c5a197b76",
+      "size_bytes": 119243,
+      "upload_time_iso_8601": "2026-06-24T17:45:13.730054Z",
+      "url": "https://files.pythonhosted.org/packages/fb/e2/79c688af8b210d232694e31e59da9f6ec747bae31c3f5946e4e9b98860d5/click-8.4.2-py3-none-any.whl",
+      "version": "8.4.2"
+    },
+    {
+      "name": "cuda-bindings",
+      "requested": false,
+      "sha256": "04436a9364059c84b8f9636f359eccda1cf814341f5b670c71d80d2f79dbc708",
+      "size_bytes": 6674166,
+      "upload_time_iso_8601": "2026-05-29T23:11:45.478602Z",
+      "url": "https://files.pythonhosted.org/packages/95/7a/c5e3c34a409b148f5c0f5a4ea374158f95d488862c1dffedf9aa5c639df9/cuda_bindings-13.3.1-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "13.3.1"
+    },
+    {
+      "name": "cuda-pathfinder",
+      "requested": false,
+      "sha256": "e9d67e950f3d5992b854dfd25917c3719d0c21d3057b11abe86ba6feec526138",
+      "size_bytes": 63091,
+      "upload_time_iso_8601": "2026-08-24T04:13:56.054692Z",
+      "url": "https://files.pythonhosted.org/packages/62/01/a7171c5e2e8755597bd8f1c1eb228a0876f502afdf25f936061f5dbe2880/cuda_pathfinder-1.7.0-py3-none-any.whl",
+      "version": "1.7.0"
+    },
+    {
+      "name": "cuda-toolkit",
+      "requested": false,
+      "sha256": "d693caaa261214ddd7dbb60d68e71cbed884e68c2be7509778f3051da0b91c3f",
+      "size_bytes": 2512,
+      "upload_time_iso_8601": "2026-04-14T00:50:08.173517Z",
+      "url": "https://files.pythonhosted.org/packages/d1/c7/a79086a62c98befcdb8349656c6f114e2db3b8b2422f6e25c97a7f2a9a3c/cuda_toolkit-13.0.3.0-py2.py3-none-any.whl",
+      "version": "13.0.3"
+    },
+    {
+      "name": "filelock",
+      "requested": false,
+      "sha256": "22e58ca3b1ae3b98993b762d7338367ae64fe50252bf78d59da3bfebcdf1cedd",
+      "size_bytes": 99864,
+      "upload_time_iso_8601": "2026-08-23T17:37:53.913430Z",
+      "url": "https://files.pythonhosted.org/packages/01/a4/9b63d595d748e3aff8812b65eacc1a2c4bd90b7c2012e08e72373b4835eb/filelock-3.32.4-py3-none-any.whl",
+      "version": "3.32.4"
+    },
+    {
+      "name": "fsspec",
+      "requested": false,
+      "sha256": "b57ddbafedfaef7018c1ecab32aa200a9d7ca26b77965f64e48b70061249d279",
+      "size_bytes": 206583,
+      "upload_time_iso_8601": "2026-07-28T16:34:49.538692Z",
+      "url": "https://files.pythonhosted.org/packages/fd/3c/6a2bf344106328fd04963664a60b9bb6496fc25df8e962fcdc1367285fb9/fsspec-2026.7.0-py3-none-any.whl",
+      "version": "2026.7.0"
+    },
+    {
+      "name": "gguf",
+      "requested": true,
+      "sha256": "70bcd10edfe697fb2dad6e40af2234b9d8ece9a41a99761405121ebda1c3c1cd",
+      "size_bytes": 118475,
+      "upload_time_iso_8601": "2026-05-06T13:04:02.588361Z",
+      "url": "https://files.pythonhosted.org/packages/b3/bb/d71d6da82763528c2c2ed6b59a9d6142c6595545a4c448e2085d155e88c2/gguf-0.19.0-py3-none-any.whl",
+      "version": "0.19.0"
+    },
+    {
+      "name": "h11",
+      "requested": false,
+      "sha256": "63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86",
+      "size_bytes": 37515,
+      "upload_time_iso_8601": "2025-04-24T03:35:24.344199Z",
+      "url": "https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl",
+      "version": "0.16.0"
+    },
+    {
+      "name": "hf-xet",
+      "requested": false,
+      "sha256": "d62671bb130879cef0ee4c9ebe47a14af6c66ec53e6d84dc15936e5ffdfac82f",
+      "size_bytes": 4464663,
+      "upload_time_iso_8601": "2026-08-03T22:33:03.802362Z",
+      "url": "https://files.pythonhosted.org/packages/67/4e/a28359bf1c1ecf11eba22123168c138698f7cb576ac678f5a2e16cd5da08/hf_xet-1.6.0-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+      "version": "1.6.0"
+    },
+    {
+      "name": "httpcore",
+      "requested": false,
+      "sha256": "2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55",
+      "size_bytes": 78784,
+      "upload_time_iso_8601": "2025-04-24T22:06:20.566605Z",
+      "url": "https://files.pythonhosted.org/packages/7e/f5/f66802a942d491edb555dd61e3a9961140fd64c90bce1eafd741609d334d/httpcore-1.0.9-py3-none-any.whl",
+      "version": "1.0.9"
+    },
+    {
+      "name": "httpx",
+      "requested": false,
+      "sha256": "d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad",
+      "size_bytes": 73517,
+      "upload_time_iso_8601": "2024-12-06T15:37:21.509172Z",
+      "url": "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl",
+      "version": "0.28.1"
+    },
+    {
+      "name": "huggingface-hub",
+      "requested": false,
+      "sha256": "58a8bacb03072edfc38067065e9dc24bbb34805410fcd36a1632de0b329660bb",
+      "size_bytes": 793202,
+      "upload_time_iso_8601": "2026-08-18T12:27:12.719169Z",
+      "url": "https://files.pythonhosted.org/packages/51/0e/eafef18f1a75e125e68395db21131db0cf868a128ecd2fce69b4df6c584b/huggingface_hub-1.28.0-py3-none-any.whl",
+      "version": "1.28.0"
+    },
+    {
+      "name": "idna",
+      "requested": false,
+      "sha256": "815e7be7a7806d54abb586dc943addc79e8b2ee16915059658cbeff4b1b43bf4",
+      "size_bytes": 68550,
+      "upload_time_iso_8601": "2026-08-18T05:14:22.343598Z",
+      "url": "https://files.pythonhosted.org/packages/57/b0/0e52c878c53f245edd3a11020f20979b3f490f245af532c7cae3027754b5/idna-3.19-py3-none-any.whl",
+      "version": "3.19"
+    },
+    {
+      "name": "jinja2",
+      "requested": false,
+      "sha256": "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67",
+      "size_bytes": 134899,
+      "upload_time_iso_8601": "2025-03-05T20:05:00.369721Z",
+      "url": "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl",
+      "version": "3.1.6"
+    },
+    {
+      "name": "markdown-it-py",
+      "requested": false,
+      "sha256": "9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a",
+      "size_bytes": 91687,
+      "upload_time_iso_8601": "2026-05-07T12:08:27.182789Z",
+      "url": "https://files.pythonhosted.org/packages/b3/81/4da04ced5a082363ecfa159c010d200ecbd959ae410c10c0264a38cac0f5/markdown_it_py-4.2.0-py3-none-any.whl",
+      "version": "4.2.0"
+    },
+    {
+      "name": "markupsafe",
+      "requested": false,
+      "sha256": "0bf2a864d67e76e5c9a34dc26ec616a66b9888e25e7b9460e1c76d3293bd9dbf",
+      "size_bytes": 22940,
+      "upload_time_iso_8601": "2025-09-27T18:36:22.249510Z",
+      "url": "https://files.pythonhosted.org/packages/30/ac/0273f6fcb5f42e314c6d8cd99effae6a5354604d461b8d392b5ec9530a54/markupsafe-3.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "3.0.3"
+    }
+  ],
+  "schema_version": "mstr.t031-historical-package-shard.v1",
+  "shard_index": 1,
+  "task_id": "T031"
+}

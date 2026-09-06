@@ -26,8 +26,8 @@ from mstr_t031_governance import (
     _require_binding,
     _require_live_main,
 )
+from mstr_t031_historical_replay import install_historical_replay_toolchain
 from mstr_t031_measure import _measure_set
-from mstr_t031_replay import install_replay_toolchain
 from mstr_t031_source import _candidate_source, _download_candidate
 
 
@@ -88,7 +88,7 @@ def execute(args: argparse.Namespace) -> int:
                 raise ExecutionError("canonical manifest SHA-256 is missing")
             require_file_sha256(path, expected)
 
-        python_exe, replay_identity = install_replay_toolchain(
+        python_exe, replay_identity = install_historical_replay_toolchain(
             base_lock_path=repo_root / LOCK_PATH,
             overlay_path=repo_root / REPLAY_OVERLAY_PATH,
             root=workdir / "python",
