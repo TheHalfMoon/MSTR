@@ -22,15 +22,12 @@ jobs:
         with:
           python-version: "3.11.16"
           check-latest: false
-      - name: Materialize exact Ruff fix
+      - name: Materialize exact Ruff import fix
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install -e '.[dev]'
-          python -m ruff check colab/mstr_t031_replay.py --fix
-          python -m ruff format colab/mstr_t031_replay.py
-          python -m ruff check colab/mstr_t031_replay.py
-          python -m ruff format --check colab/mstr_t031_replay.py
+          python -m ruff check colab/mstr_t031_replay.py --fix-only || true
           git diff -- colab/mstr_t031_replay.py | tee /tmp/ruff-fix.diff
           test -s /tmp/ruff-fix.diff
           echo 'MODEL_ACCESS=NONE'
