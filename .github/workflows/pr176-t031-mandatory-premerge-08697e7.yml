@@ -1,0 +1,179 @@
+name: PR176 T031 mandatory premerge verification 08697e7
+
+on:
+  push:
+    branches:
+      - evidence/pr176-t031-mandatory-premerge-08697e7
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+env:
+  BASE_SHA: 90fb88734006de8296825034345ba89ed6614794
+  TARGET_HEAD: 08697e7f8bb95aabc8f25677074ebeee18771169
+  TARGET_TREE: 27ab4f780234a969435daa873007bcb934933d1a
+  TARGET_BRANCH: fix/t031-historical-59wheel-binding-truth
+  QUALIFICATION_RUN: "34057263503"
+  REVIEW_RUN: "34057502017"
+  REVIEW_ID: "5126516028"
+  HF_HUB_OFFLINE: "1"
+  TRANSFORMERS_OFFLINE: "1"
+
+jobs:
+  evidence_and_subject:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact subject and prerequisite evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$BASE_SHA" "$TARGET_HEAD")" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | awk '{print $1}')" = "$TARGET_HEAD"
+          git diff --check "$BASE_SHA".."$TARGET_HEAD"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          headers = {
+              'Authorization': f'Bearer {os.environ["GH_TOKEN"]}',
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+          }
+          root = 'https://api.github.com/repos/TheHalfMoon/MSTR'
+          def get(path):
+              request = urllib.request.Request(root + path, headers=headers)
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)
+
+          pr = get('/pulls/176')
+          assert pr['state'] == 'open'
+          assert pr['draft'] is False
+          assert pr['head']['sha'] == os.environ['TARGET_HEAD']
+          assert pr['base']['sha'] == os.environ['BASE_SHA']
+          assert pr['changed_files'] == 9
+          assert pr['mergeable'] is not False
+
+          for run_id in (os.environ['QUALIFICATION_RUN'], os.environ['REVIEW_RUN']):
+              run = get(f'/actions/runs/{run_id}')
+              assert run['conclusion'] == 'success', (run_id, run['conclusion'])
+
+          reviews = get('/pulls/176/reviews?per_page=100')
+          matching = [r for r in reviews if str(r['id']) == os.environ['REVIEW_ID']]
+          assert len(matching) == 1
+          review = matching[0]
+          assert review['commit_id'] == os.environ['TARGET_HEAD']
+          assert review['state'] == 'COMMENTED'
+          assert 'Review findings: none.' in (review.get('body') or '')
+          print('PR176_PREREQUISITE_EVIDENCE=PASS')
+          print('PR176_REVIEW_RECONCILIATION=PASS')
+          PY
+
+  canonical_main_eligibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Verify exact canonical main and T031 eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git symbolic-ref --short HEAD)" = main
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git ls-remote origin refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify validate
+          python -m mstr_qualify task eligible T031
+          test -z "$(git status --porcelain)"
+          echo 'T031_CANONICAL_MAIN_ELIGIBILITY=PASS'
+
+  exact_head_quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      PYTHONPATH: colab
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+      - name: Mandatory exact-head canonical regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/contract/test_t031_executor_binding.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src/mstr_qualify
+          test -z "$(git status --porcelain)"
+          echo 'PR176_MANDATORY_EXACT_HEAD_QUALITY=PASS'
+
+  final_merge_authorization:
+    needs: [evidence_and_subject, canonical_main_eligibility, exact_head_quality]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Final live-ref and PR-state guard
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | awk '{print $1}')" = "$BASE_SHA"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | awk '{print $1}')" = "$TARGET_HEAD"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          headers = {
+              'Authorization': f'Bearer {os.environ["GH_TOKEN"]}',
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+          }
+          request = urllib.request.Request('https://api.github.com/repos/TheHalfMoon/MSTR/pulls/176', headers=headers)
+          with urllib.request.urlopen(request, timeout=30) as response:
+              pr = json.load(response)
+          assert pr['state'] == 'open'
+          assert pr['draft'] is False
+          assert pr['head']['sha'] == os.environ['TARGET_HEAD']
+          assert pr['base']['sha'] == os.environ['BASE_SHA']
+          assert pr['mergeable'] is not False
+          print('PR176_FINAL_PR_STATE=PASS')
+          PY
+          echo 'PR176_MANDATORY_PREMERGE=PASS'
+          echo 'PR176_MERGE_AUTHORIZATION=PASS'
+          echo "EXPECTED_HEAD_SHA=$TARGET_HEAD"
+          echo "EXPECTED_BASE_SHA=$BASE_SHA"
+          echo 'MODEL_EXECUTION_AUTHORIZED_BY_PREMERGE=false'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
