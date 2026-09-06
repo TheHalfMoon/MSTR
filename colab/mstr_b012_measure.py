@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from mstr_b012_governance import ExecutionError
 from mstr_t031_governance import ExecutionError as T031ExecutionError
