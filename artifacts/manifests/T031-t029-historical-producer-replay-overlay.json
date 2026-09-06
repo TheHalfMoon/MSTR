@@ -1,0 +1,101 @@
+{
+  "schema_version": "mstr.t031-t029-historical-producer-replay-overlay.v1",
+  "overlay_id": "T031_T029_HISTORICAL_59_WHEEL_REPLAY_2026_09_06",
+  "task_id": "T031",
+  "status": "EVIDENCE_BOUNDED_REPLAY",
+  "source_main": "a2b2788dd5a8a8d5f301359586f6b2019615b4a9",
+  "python_version": "3.11.16",
+  "direct_package_names": [
+    "gguf",
+    "numpy",
+    "protobuf",
+    "safetensors",
+    "sentencepiece",
+    "torch",
+    "transformers"
+  ],
+  "hosts": [
+    "files.pythonhosted.org",
+    "download.pytorch.org",
+    "download-r2.pytorch.org"
+  ],
+  "package_count": 59,
+  "historical_cutoff_utc": "2026-08-26T10:44:06Z",
+  "historical_package_shards": [
+    {
+      "path": "artifacts/manifests/T031-t029-historical-pypi-packages-01.json",
+      "sha256": "ce67c3b4dd5e11501171a1980e2e538ec2470bd4cfc1b333a94314979efc3cd5"
+    },
+    {
+      "path": "artifacts/manifests/T031-t029-historical-pypi-packages-02.json",
+      "sha256": "e11128c67ab76e0ec93a416b75442c626b7adc4ed4fe1a7f701465787ba46938"
+    },
+    {
+      "path": "artifacts/manifests/T031-t029-historical-pypi-packages-03.json",
+      "sha256": "bac8e225f74c32e542ef907c35d892837ddbac25fcc298e625ad7d94f12f9ec9"
+    }
+  ],
+  "historical_t029_observation": {
+    "workflow_ref": "406de41d132fa6d24d55814f3f6dd4fced5f12bd",
+    "runner_python": "3.11.16",
+    "dependency_commands": [
+      "pip install numpy torch --index-url https://pypi.org/simple/ --quiet 2>/dev/null || pip install numpy --quiet",
+      "pip install sentencepiece protobuf gguf safetensors transformers --quiet"
+    ],
+    "package_versions_recorded_by_t029": false
+  },
+  "reconstruction_basis": {
+    "method": "PRE_CUTOFF_PYPI_WHEEL_RESOLUTION_RECONSTRUCTED_FROM_THE_T029_EXECUTION_WINDOW",
+    "historical_transitive_identity_claim": true,
+    "claim_limit": "The 59-wheel set is the bounded pre-cutoff PyPI closure reconstructed for the exact T029 execution window. Exact T029 F16 and Q4 hashes remain the fail-closed artifact-equivalence proof.",
+    "equivalence_gate": "EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH",
+    "torch_distribution": {
+      "historical_distribution_version": "2.13.0",
+      "observed_import_version": "2.13.0+cu130",
+      "acceptance_gate": "EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH"
+    },
+    "transformers_boundary": {
+      "selected_version": "5.15.1",
+      "t029_execution_started_before_utc": "2026-08-26T10:44:00Z",
+      "transformers_5_16_0_github_release_published_utc": "2026-08-26T12:35:15Z",
+      "transformers_5_16_1_github_release_published_utc": "2026-08-26T14:50:01Z"
+    }
+  },
+  "historical_smoke_evidence": {
+    "run_id": 34042093348,
+    "artifact_id": 9991993338,
+    "artifact_zip_sha256": "c4c84abc0bd38b767c97a78cecb391a4a532f87d6254b7f6d5fd8ec887ce3ca9",
+    "evidence_head": "83606901f366e79ebfd10baeb8fa4a7314402bc5",
+    "package_count": 59,
+    "wheel_bytes": 2777196141,
+    "pip_check": "No broken requirements found.",
+    "closure_installable": true,
+    "stage_semantics_proven": false,
+    "model_access": "NONE",
+    "training": false,
+    "paid_cost_usd": 0.0
+  },
+  "prior_compatible_replay_evidence": {
+    "run_id": 34031883766,
+    "artifact_id": 9988881418,
+    "artifact_zip_sha256": "545625ad24094ca232ef72b2d214d286a4659d25850b4e8b2aa410cfa033ac06",
+    "evidence_head": "64a341da5d2537c36fbca79ce8eed289f3578411",
+    "classification": "SUPERSEDED_FOR_T031_EXECUTION_BY_HISTORICAL_59_WHEEL_REPLAY",
+    "model_access": "NONE",
+    "training": false,
+    "paid_cost_usd": 0.0
+  },
+  "execution_boundary": {
+    "candidate_scope": "UNCHANGED_EXACT_T031_T029_CANDIDATES",
+    "model_access_authority_expansion": false,
+    "candidate_revision_or_file_expansion": false,
+    "b012_execution": false,
+    "t032_execution": false,
+    "t033_execution": false,
+    "t034_admission_decision": false,
+    "training": false,
+    "paid_cost_usd": 0.0,
+    "git_model_binaries": 0,
+    "founder_machine_model_binaries": 0
+  }
+}
