@@ -1,0 +1,141 @@
+name: PR182 B012 postmerge verification
+
+on:
+  push:
+    branches:
+      - evidence/pr182-b012-postmerge-b04db4a
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  OLD_MAIN: 4e72c3e1a4e196ad67d932c71c896511968da08e
+  SUBJECT_SHA: 35678ec3ee90b58be35d336a9ddf2993c72f82a9
+  NEW_MAIN: b04db4aa42de3c4b5adcba2f54052a6ab2d3fcec
+  EXPECTED_TREE: 5c18857b12565f6d5838b83c0fede8c9fdb8a556
+  STAGED_EXECUTOR_SHA256: 1cffee33a17c524dac0743a975d6538e845361d8ae7f8dedf808e4c740f5250e
+  CANDIDATE_WORKFLOW_SHA256: 383cae4a3729045b9d5a5b2e23ef3430a410070fceefc507b78eaaeaf0232f29
+  REPAIR_MANIFEST_SHA256: 97f791427adf1402f90a07a2a74c31d66c2e892d78c858885ce4078704c35b92
+
+jobs:
+  postmerge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact canonical main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+
+      - name: Prove canonical merge identity and topology
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$(git symbolic-ref --short HEAD)" == "main" ]]
+          [[ "$(git rev-parse HEAD)" == "$NEW_MAIN" ]]
+          [[ "$(git show -s --format=%T HEAD)" == "$EXPECTED_TREE" ]]
+          [[ "$(git rev-parse HEAD^1)" == "$OLD_MAIN" ]]
+          [[ "$(git rev-parse HEAD^2)" == "$SUBJECT_SHA" ]]
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          headers = {
+              'Authorization': f"Bearer {os.environ['GH_TOKEN']}",
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+              'User-Agent': 'mstr-pr182-postmerge',
+          }
+          request = urllib.request.Request(
+              'https://api.github.com/repos/TheHalfMoon/MSTR/pulls/182', headers=headers
+          )
+          with urllib.request.urlopen(request, timeout=30) as response:
+              pr = json.load(response)
+          assert pr['state'] == 'closed'
+          assert pr['merged'] is True
+          assert pr['merge_commit_sha'] == os.environ['NEW_MAIN']
+          assert pr['head']['sha'] == os.environ['SUBJECT_SHA']
+          assert pr['changed_files'] == 4
+          print('MERGE_IDENTITY_AND_TOPOLOGY=PASS')
+          PY
+
+      - name: Verify canonical repair hashes and inert activation boundary
+        run: |
+          set -euo pipefail
+          printf '%s  %s\n' "$STAGED_EXECUTOR_SHA256" colab/mstr_b012_staged.py | sha256sum -c -
+          printf '%s  %s\n' "$CANDIDATE_WORKFLOW_SHA256" configs/workflows/b012-qualify-staged.yml | sha256sum -c -
+          printf '%s  %s\n' "$REPAIR_MANIFEST_SHA256" artifacts/manifests/B012-runner-shutdown-topology-repair.json | sha256sum -c -
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          binding = json.loads(Path('artifacts/manifests/B012-executor-toolchain-binding.json').read_text())
+          repair = json.loads(Path('artifacts/manifests/B012-runner-shutdown-topology-repair.json').read_text())
+          assert binding['status'] == 'BLOCKED_PENDING_RUNNER_SHUTDOWN_TOPOLOGY_REPAIR'
+          assert 'runner_shutdown_topology_repair_manifest_sha256' not in binding
+          assert repair['activation_state'] == 'INERT_UNTIL_SEPARATE_CANONICAL_BINDING_ACTIVATION'
+          recovery = repair['recovery_semantics']
+          assert recovery['retry_authority_created'] is False
+          assert recovery['external_dispatch_authority_created'] is False
+          assert recovery['activation_requires_separate_review_and_merge'] is True
+          assert recovery['activation_requires_exact_main_task_eligibility'] is True
+          assert recovery['activation_requires_reverification_of_canonical_external_effect_authority'] is True
+          print('CANONICAL_REPAIR_INERT_BOUNDARY=PASS')
+          PY
+
+      - name: Reverify B012 machine state on exact canonical main
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B012 | tee /tmp/b012-eligibility.json
+          python - <<'PY'
+          import json
+          import os
+          data = json.load(open('/tmp/b012-eligibility.json', encoding='utf-8'))
+          assert data['task_id'] == 'B012'
+          assert data['canonical_main'] == os.environ['NEW_MAIN']
+          assert data['eligible'] is True
+          assert data['authority_result']['satisfied'] is True
+          assert data['state_consistency_result']['observed_state'] == 'PENDING'
+          assert all(item['satisfied'] for item in data['prerequisite_results'])
+          print('B012_POSTMERGE_ELIGIBILITY=PASS')
+          PY
+
+      - name: Postmerge focused and full quality gate
+        run: |
+          set -euo pipefail
+          python -m pytest -q \
+            tests/contract/test_b012_stage_checkpoint_topology.py \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_timeout_budget.py \
+            tests/contract/test_b012_authority.py
+          python -m py_compile colab/mstr_b012_staged.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m ruff format --check \
+            colab/mstr_b012_staged.py \
+            tests/contract/test_b012_stage_checkpoint_topology.py
+          python -m mypy src/mstr_qualify
+
+      - name: Final exact canonical-main guard
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$NEW_MAIN" ]]
+          [[ "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" == "$NEW_MAIN" ]]
+          echo 'PR182_POSTMERGE=PASS'
+          echo 'B012_REPAIR_CANONICAL=true'
+          echo 'B012_ACTIVATION_STATE=INERT_PENDING_SEPARATE_ACTIVATION'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
