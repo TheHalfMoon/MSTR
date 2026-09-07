@@ -27,9 +27,7 @@ def test_59_wheel_replay_failed_closed_on_exact_t029_f16_gate() -> None:
 
     assert failure["task_id"] == "T031"
     assert failure["candidate_id"] == "granite-4.1-3b"
-    assert failure["canonical_main_at_start"] == (
-        "610bf7dacc5ee921d99a4fa2eb9023553021e84c"
-    )
+    assert failure["canonical_main_at_start"] == ("610bf7dacc5ee921d99a4fa2eb9023553021e84c")
     assert failure["result_classification"] == "T031_EXECUTION_FAILED_CLOSED"
     assert failure["error_type"] == "ToolchainError"
     error = str(failure["error"])
