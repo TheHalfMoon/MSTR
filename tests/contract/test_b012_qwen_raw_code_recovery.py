@@ -143,9 +143,7 @@ def test_repeated_qwen_recovery_shutdown_is_preserved_without_quality_claim() ->
     assert _sha256(RECOVERY_INCIDENT) == RECOVERY_INCIDENT_SHA256
     assert incident["run_id"] == 34169060075
     assert incident["job_id"] == 101885732522
-    assert incident["canonical_main_at_start"] == (
-        "5e74e77c1fc86d4ebc7e64654f45bd18f565edd6"
-    )
+    assert incident["canonical_main_at_start"] == ("5e74e77c1fc86d4ebc7e64654f45bd18f565edd6")
     assert incident["failure_classification"] == (
         "B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_NO_DURABLE_RECOVERY_RESULT"
     )
