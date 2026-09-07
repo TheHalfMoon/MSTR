@@ -1,0 +1,59 @@
+name: PR182 B012 topology digest diagnostic
+
+on:
+  push:
+    branches:
+      - evidence/pr182-b012-digest-diagnostic-1233edd
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SUBJECT_SHA: 1233edd9f5b58a8117eb06c4d8a98bee2dad0310
+    steps:
+      - name: Checkout evidence branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout exact subject
+        run: |
+          set -euo pipefail
+          git checkout --detach "$SUBJECT_SHA"
+          [[ "$(git rev-parse HEAD)" == "$SUBJECT_SHA" ]]
+
+      - name: Materialize exact subject digests
+        run: |
+          set -euo pipefail
+          sha256sum \
+            colab/mstr_b012_staged.py \
+            configs/workflows/b012-qualify-staged.yml \
+            artifacts/manifests/B012-runner-shutdown-topology-repair.json \
+            tests/contract/test_b012_stage_checkpoint_topology.py
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          repair_path = Path('artifacts/manifests/B012-runner-shutdown-topology-repair.json')
+          repair = json.loads(repair_path.read_text(encoding='utf-8'))
+          for label, path, field in (
+              ('staged_executor', Path('colab/mstr_b012_staged.py'), 'staged_executor_sha256'),
+              ('candidate_workflow', Path('configs/workflows/b012-qualify-staged.yml'), 'candidate_workflow_sha256'),
+          ):
+              actual = hashlib.sha256(path.read_bytes()).hexdigest()
+              expected = repair[field]
+              print(f'{label.upper()}_ACTUAL_SHA256={actual}')
+              print(f'{label.upper()}_MANIFEST_SHA256={expected}')
+              print(f'{label.upper()}_MATCH={str(actual == expected).lower()}')
+          print(f'REPAIR_ACTUAL_SHA256={hashlib.sha256(repair_path.read_bytes()).hexdigest()}')
+          print('MODEL_EXECUTION=NONE')
+          print('MODEL_ACCESS=NONE')
+          print('TRAINING=false')
+          print('PAID_COST_USD=0.0')
+          PY
