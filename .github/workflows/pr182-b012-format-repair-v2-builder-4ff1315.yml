@@ -1,0 +1,104 @@
+name: PR182 B012 format repair v2 builder
+
+on:
+  push:
+    branches:
+      - evidence/pr182-b012-format-repair-v2-builder-4ff1315
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SUBJECT_BRANCH: fix/b012-stage-checkpoint-topology-repair
+      EXPECTED_HEAD: 4ff131543a4e5a181a623f3c0ea83aeac778c4df
+      BASE_SHA: 4e72c3e1a4e196ad67d932c71c896511968da08e
+    steps:
+      - name: Checkout exact subject branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SUBJECT_BRANCH }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+
+      - name: Guard exact live refs
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_HEAD" ]]
+          [[ "$(git ls-remote origin refs/heads/main | cut -f1)" == "$BASE_SHA" ]]
+          [[ "$(git ls-remote origin "refs/heads/$SUBJECT_BRANCH" | cut -f1)" == "$EXPECTED_HEAD" ]]
+
+      - name: Format exact repair files and rebind staged executor digest
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m ruff format colab/mstr_b012_staged.py tests/contract/test_b012_stage_checkpoint_topology.py
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          staged = Path('colab/mstr_b012_staged.py')
+          manifest_path = Path('artifacts/manifests/B012-runner-shutdown-topology-repair.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          digest = hashlib.sha256(staged.read_bytes()).hexdigest()
+          manifest['staged_executor_sha256'] = digest
+          manifest_path.write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          print(f'STAGED_EXECUTOR_SHA256={digest}')
+          print(f'REPAIR_MANIFEST_SHA256={hashlib.sha256(manifest_path.read_bytes()).hexdigest()}')
+          PY
+          python -m ruff check colab/mstr_b012_staged.py tests/contract/test_b012_stage_checkpoint_topology.py
+          python -m ruff format --check colab/mstr_b012_staged.py tests/contract/test_b012_stage_checkpoint_topology.py
+          python -m py_compile colab/mstr_b012_staged.py
+          python -m pytest -q tests/contract/test_b012_stage_checkpoint_topology.py
+
+      - name: Prove only intended working-tree files changed
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only)
+          expected=(
+            "artifacts/manifests/B012-runner-shutdown-topology-repair.json"
+            "colab/mstr_b012_staged.py"
+            "tests/contract/test_b012_stage_checkpoint_topology.py"
+          )
+          [[ "${#changed[@]}" -eq 3 ]]
+          for path in "${expected[@]}"; do
+            printf '%s\n' "${changed[@]}" | grep -Fx -- "$path" >/dev/null
+          done
+          git diff --quiet -- configs/workflows/b012-qualify-staged.yml
+          git diff --quiet "$BASE_SHA" HEAD -- .github/workflows/b012-qualify.yml
+          git diff --quiet "$BASE_SHA" HEAD -- artifacts/manifests/B012-executor-toolchain-binding.json
+
+      - name: Commit and push forward-only formatting repair
+        run: |
+          set -euo pipefail
+          [[ "$(git ls-remote origin refs/heads/main | cut -f1)" == "$BASE_SHA" ]]
+          [[ "$(git ls-remote origin "refs/heads/$SUBJECT_BRANCH" | cut -f1)" == "$EXPECTED_HEAD" ]]
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/manifests/B012-runner-shutdown-topology-repair.json colab/mstr_b012_staged.py tests/contract/test_b012_stage_checkpoint_topology.py
+          git commit -m "style(b012): format staged topology repair"
+          git push origin "HEAD:$SUBJECT_BRANCH"
+          echo "NEW_SUBJECT_SHA=$(git rev-parse HEAD)"
+          echo "NEW_SUBJECT_TREE=$(git show -s --format=%T HEAD)"
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          print(f"STAGED_EXECUTOR_SHA256={hashlib.sha256(Path('colab/mstr_b012_staged.py').read_bytes()).hexdigest()}")
+          print(f"REPAIR_MANIFEST_SHA256={hashlib.sha256(Path('artifacts/manifests/B012-runner-shutdown-topology-repair.json').read_bytes()).hexdigest()}")
+          PY
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
