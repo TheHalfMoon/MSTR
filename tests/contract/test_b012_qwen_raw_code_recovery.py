@@ -10,6 +10,7 @@ INCIDENT = (
     ROOT / "artifacts/results/equivalent/B012/failures/"
     "B012-qwen3.5-0.8b-control-run-34155931982.json"
 )
+BINDING = ROOT / "artifacts/manifests/B012-executor-toolchain-binding.json"
 RUNNER = ROOT / "colab/mstr_b012_qwen_raw_code_recovery.py"
 WORKFLOW_SPEC = ROOT / "configs/workflows/b012-qwen-raw-code-recovery.yml"
 ACTIVE_WORKFLOW = ROOT / ".github/workflows/b012-qwen-raw-code-recovery.yml"
@@ -19,9 +20,10 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def test_qwen_raw_code_recovery_is_inert_and_exactly_bound() -> None:
+def test_qwen_raw_code_recovery_is_activated_and_exactly_bound() -> None:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-    assert manifest["status"] == "INERT_PENDING_SEPARATE_ACTIVATION"
+    binding = json.loads(BINDING.read_text(encoding="utf-8"))
+    assert manifest["status"] == "ACTIVATED_CANONICAL"
     assert manifest["candidate_id"] == "qwen3.5-0.8b-control"
     assert manifest["prior_run_id"] == 34155931982
     assert manifest["prior_stage05_artifact_id"] == 10031329744
@@ -38,10 +40,20 @@ def test_qwen_raw_code_recovery_is_inert_and_exactly_bound() -> None:
     assert manifest["recovery_script_sha256"] == _sha256(RUNNER)
     assert manifest["recovery_workflow_sha256"] == _sha256(WORKFLOW_SPEC)
     assert manifest["incident_evidence_sha256"] == _sha256(INCIDENT)
-    assert manifest["activation"]["separate_activation_pr_required"] is True
-    assert manifest["activation"]["retry_authority_created"] is False
-    assert manifest["activation"]["external_dispatch_authority_created"] is False
-    assert not ACTIVE_WORKFLOW.exists()
+    assert ACTIVE_WORKFLOW.read_bytes() == WORKFLOW_SPEC.read_bytes()
+    assert binding["qwen_raw_code_recovery_manifest_sha256"] == _sha256(MANIFEST)
+    activation = binding["qwen_raw_code_recovery_activation"]
+    assert activation["recovery_manifest_sha256"] == _sha256(MANIFEST)
+    assert activation["recovery_script_sha256"] == _sha256(RUNNER)
+    assert activation["active_workflow_sha256"] == _sha256(ACTIVE_WORKFLOW)
+    assert activation["incident_evidence_sha256"] == _sha256(INCIDENT)
+    assert activation["retry_authority_created"] is False
+    assert activation["external_dispatch_authority_created"] is False
+    assert activation["candidate_expansion"] is False
+    assert activation["revision_or_file_expansion"] is False
+    assert activation["model_access"] == "NONE"
+    assert activation["training"] is False
+    assert activation["paid_cost_usd"] == 0.0
 
 
 def test_qwen_recovery_scope_skips_completed_benchmarks() -> None:
@@ -79,8 +91,9 @@ def test_qwen_recovery_runner_is_fail_closed_and_minimal() -> None:
     assert "ACTIVATED_CANONICAL" in source
 
 
-def test_qwen_recovery_workflow_spec_has_exact_dispatch_boundary() -> None:
-    text = WORKFLOW_SPEC.read_text(encoding="utf-8")
+def test_qwen_recovery_workflow_has_exact_dispatch_boundary() -> None:
+    text = ACTIVE_WORKFLOW.read_text(encoding="utf-8")
+    assert text == WORKFLOW_SPEC.read_text(encoding="utf-8")
     assert "github.event.issue.number == 162" in text
     assert "github.event.comment.user.login == 'TheHalfMoon'" in text
     assert "github.event.comment.author_association == 'OWNER'" in text
@@ -91,6 +104,8 @@ def test_qwen_recovery_workflow_spec_has_exact_dispatch_boundary() -> None:
     assert "cancel-in-progress: false" in text
     assert "mstr_b012_qwen_raw_code_recovery.py" in text
     assert "upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02" in text
+    assert ".gguf" not in text
+    assert ".safetensors" not in text
 
 
 def test_qwen_shutdown_incident_is_not_a_model_verdict_or_retry_grant() -> None:
