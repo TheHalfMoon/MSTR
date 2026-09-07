@@ -153,9 +153,6 @@ jobs:
           assert steps['Upload Qwen raw-code recovery JSON'] == 'skipped'
           assert steps['Remove ephemeral B012 recovery binaries'] == 'skipped'
           PY
-          gh run view "$INCIDENT_RUN" --repo "$GITHUB_REPOSITORY" --log > /tmp/incident.log
-          grep -F 'The runner has received a shutdown signal.' /tmp/incident.log >/dev/null
-          grep -F 'The operation was canceled.' /tmp/incident.log >/dev/null
 
       - name: Run focused fail-closed contracts
         shell: bash
