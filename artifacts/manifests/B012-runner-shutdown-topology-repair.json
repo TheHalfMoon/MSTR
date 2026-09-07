@@ -1,0 +1,96 @@
+{
+  "activation_state": "INERT_UNTIL_SEPARATE_CANONICAL_BINDING_ACTIVATION",
+  "activation_target": ".github/workflows/b012-qualify.yml",
+  "authority_boundary": {
+    "authority_scope_modified": false,
+    "authority_transfer": false,
+    "candidate_ids": [
+      "mellum-4b",
+      "qwen3.5-0.8b-control"
+    ],
+    "candidate_revision_or_file_expansion": false,
+    "new_candidates": false,
+    "production_release": false,
+    "training": false,
+    "weight_changing_training": false
+  },
+  "base_main": "4e72c3e1a4e196ad67d932c71c896511968da08e",
+  "benchmark_semantics": {
+    "authorized_job_ceiling_seconds": 7200,
+    "benchmark_wall_budget_seconds": 4800,
+    "decode_tokens": 128,
+    "measured_repetitions": 3,
+    "modified_by_repair": false,
+    "per_invocation_timeout_seconds": 900,
+    "prefill_decode_share_one_monotonic_budget_clock": true,
+    "prompt_tokens": 8192,
+    "reserved_non_benchmark_seconds": 2400,
+    "threads": 2,
+    "warmups_excluded": 1
+  },
+  "candidate_workflow_path": "configs/workflows/b012-qualify-staged.yml",
+  "candidate_workflow_sha256": "383cae4a3729045b9d5a5b2e23ef3430a410070fceefc507b78eaaeaf0232f29",
+  "model_access_performed_by_repair": false,
+  "model_execution_performed_by_repair": false,
+  "paid_cost_usd": 0.0,
+  "recovery_semantics": {
+    "activation_requires_exact_main_task_eligibility": true,
+    "activation_requires_reverification_of_canonical_external_effect_authority": true,
+    "activation_requires_separate_review_and_merge": true,
+    "external_dispatch_authority_created": false,
+    "prior_failure_classification_preserved": true,
+    "repair_is_new_repository_evidence": true,
+    "retry_authority_created": false,
+    "retry_same_failed_action_without_new_evidence": false,
+    "same_monolithic_topology_repetition": false
+  },
+  "repair_classification": "SINGLE_EPHEMERAL_JOB_WITH_DURABLE_JSON_STAGE_CHECKPOINTS",
+  "repair_id": "B012_RUNNER_SHUTDOWN_STAGE_CHECKPOINT_TOPOLOGY_2026_09_07",
+  "resource_boundary": {
+    "aggregate_required_source_download_bytes": 9817996174,
+    "founder_machine_model_binaries": 0,
+    "git_model_binaries": 0,
+    "paid_compute": false,
+    "paid_cost_usd": 0.0,
+    "paid_model_api": false,
+    "resource_ceiling_modified": false
+  },
+  "schema_version": "mstr.b012-runner-shutdown-topology-repair.v1",
+  "staged_executor_path": "colab/mstr_b012_staged.py",
+  "staged_executor_sha256": "c1c44fe92fd22b9ae74a1d0d83d50d26b75161b6ddbfffd29d17958bf5c1b6e4",
+  "task_id": "B012",
+  "topology": {
+    "duplicate_source_downloads_introduced": false,
+    "durable_checkpoint_after_each_completed_stage": true,
+    "durable_checkpoint_format": "JSON_ONLY",
+    "ephemeral_workspace_shared_across_stages": true,
+    "final_cleanup": "REMOVE_EPHEMERAL_B012_WORKDIR",
+    "large_binary_artifact_uploads": false,
+    "large_binary_transfer_between_jobs": false,
+    "max_job_minutes": 120,
+    "max_parallel_candidates": 1,
+    "runner": "ubuntu-24.04",
+    "single_ephemeral_job": true,
+    "source_reacquisition_count_per_candidate_run": 1,
+    "stages": [
+      "init",
+      "source",
+      "quantize",
+      "prefill",
+      "decode",
+      "raw-code",
+      "finalize"
+    ]
+  },
+  "training_performed_by_repair": false,
+  "triggering_incidents": [
+    {
+      "classification": "B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_NO_DURABLE_RESULT",
+      "run_id": 34064172421
+    },
+    {
+      "classification": "B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_NO_DURABLE_RESULT",
+      "run_id": 34068813113
+    }
+  ]
+}
