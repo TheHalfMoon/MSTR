@@ -36,9 +36,7 @@ PRIOR_STAGE05_ARTIFACT_ID = 10031329744
 PRIOR_STAGE05_ARTIFACT_DIGEST = (
     "sha256:726e154a9e94c67eea4b0bdec5440912af6055e46cac9f95861872a044616fee"
 )
-PRIOR_STAGE05_CHECKPOINT_SHA256 = (
-    "2141781456f54623e6b87c9e7528ea767f49062670fbb62b77d639b3ec3d1f88"
-)
+PRIOR_STAGE05_CHECKPOINT_SHA256 = "2141781456f54623e6b87c9e7528ea767f49062670fbb62b77d639b3ec3d1f88"
 EXPECTED_Q4_K_M_SHA256 = "47f87d507130b70d7b54a159e7bf982e4fbe7dc75eae74e3cd9c9c9284805626"
 EXPECTED_Q4_K_M_SIZE_BYTES = 541903296
 
@@ -143,14 +141,19 @@ def _prepare_minimal_tools(
     cli_copy = tools / "llama-cli"
     shutil.copy2(cli, cli_copy)
     shutil.rmtree(runtime_dir, ignore_errors=True)
-    return conversion_dir, quantizer_copy, cli_copy, {
-        "repository": repository,
-        "conversion_quantization_commit": conversion_commit,
-        "runtime_commit": runtime_commit,
-        "build_flags": build_flags,
-        "recovery_targets": ["llama-quantize", "llama-cli"],
-        "llama_bench_built": False,
-    }
+    return (
+        conversion_dir,
+        quantizer_copy,
+        cli_copy,
+        {
+            "repository": repository,
+            "conversion_quantization_commit": conversion_commit,
+            "runtime_commit": runtime_commit,
+            "build_flags": build_flags,
+            "recovery_targets": ["llama-quantize", "llama-cli"],
+            "llama_bench_built": False,
+        },
+    )
 
 
 def execute(args: argparse.Namespace) -> int:

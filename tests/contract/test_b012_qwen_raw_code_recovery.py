@@ -7,8 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "artifacts/manifests/B012-qwen-raw-code-runner-shutdown-recovery.json"
 INCIDENT = (
-    ROOT
-    / "artifacts/results/equivalent/B012/failures/"
+    ROOT / "artifacts/results/equivalent/B012/failures/"
     "B012-qwen3.5-0.8b-control-run-34155931982.json"
 )
 RUNNER = ROOT / "colab/mstr_b012_qwen_raw_code_recovery.py"
@@ -86,8 +85,7 @@ def test_qwen_recovery_workflow_spec_has_exact_dispatch_boundary() -> None:
     assert "github.event.comment.user.login == 'TheHalfMoon'" in text
     assert "github.event.comment.author_association == 'OWNER'" in text
     assert (
-        "github.event.comment.body == "
-        "'B012_RECOVER_RAW_CODE qwen3.5-0.8b-control 34155931982'"
+        "github.event.comment.body == 'B012_RECOVER_RAW_CODE qwen3.5-0.8b-control 34155931982'"
     ) in text
     assert "timeout-minutes: 45" in text
     assert "cancel-in-progress: false" in text

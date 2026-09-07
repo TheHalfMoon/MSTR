@@ -43,7 +43,7 @@
     "training": false
   },
   "recovery_script_path": "colab/mstr_b012_qwen_raw_code_recovery.py",
-  "recovery_script_sha256": "da1fd434ebe9e48935098180ef1c4a7638eace24935ffa7a347587448e271b78",
+  "recovery_script_sha256": "80c0d2ce4082b3e0b37f0b84bf21975b1cac7e9ad3e9959db751aa27dabb741f",
   "recovery_workflow_sha256": "7643ef2b87c32901e5cbdf384001a341cfd061f4a33437a4fb7556dadc6c33a0",
   "recovery_workflow_spec_path": "configs/workflows/b012-qwen-raw-code-recovery.yml",
   "schema_version": "mstr.b012-qwen-raw-code-recovery.v1",
