@@ -1,0 +1,191 @@
+name: PR187 B012 Qwen Q4 provenance postmerge verification
+
+on:
+  push:
+    branches:
+      - evidence/pr187-b012-qwen-q4-provenance-postmerge-5e74e77
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  PR_NUMBER: "187"
+  CANONICAL_MAIN: 5e74e77c1fc86d4ebc7e64654f45bd18f565edd6
+  CANONICAL_TREE: 66120bf247e7d9b9da34d5d47603493c8dce4c30
+  SUBJECT_HEAD: 7c4e18a84b8246f3ec3e79d2bc94a4eec5167945
+  QUALIFICATION_RUN: "34164502333"
+  REVIEW_RUN: "34167133071"
+  PREMERGE_RUN: "34167503527"
+  CORRECT_Q4_SHA: 177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa
+
+jobs:
+  postmerge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout postmerge evidence branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+          check-latest: false
+
+      - name: Verify postmerge provenance and live canonical identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          [[ "$(git rev-parse origin/main)" == "$CANONICAL_MAIN" ]]
+          [[ "$(git show -s --format=%T origin/main)" == "$CANONICAL_TREE" ]]
+          [[ "$(git merge-base "$CANONICAL_MAIN" HEAD)" == "$CANONICAL_MAIN" ]]
+          [[ "$(git rev-parse HEAD^)" == "$CANONICAL_MAIN" ]]
+          mapfile -t evidence_delta < <(git diff --name-only "$CANONICAL_MAIN...HEAD")
+          [[ "${#evidence_delta[@]}" -eq 1 ]]
+          [[ "${evidence_delta[0]}" == ".github/workflows/pr187-b012-qwen-q4-provenance-postmerge-5e74e77.yml" ]]
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          headers = {
+              'Authorization': f"Bearer {os.environ['GH_TOKEN']}",
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+              'User-Agent': 'mstr-pr187-postmerge',
+          }
+          def get(path: str):
+              req = urllib.request.Request(f'https://api.github.com/repos/TheHalfMoon/MSTR{path}', headers=headers)
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  return json.load(response)
+          pr = get('/pulls/187')
+          assert pr['state'] == 'closed'
+          assert pr['merged'] is True
+          assert pr['merge_commit_sha'] == os.environ['CANONICAL_MAIN']
+          assert pr['head']['sha'] == os.environ['SUBJECT_HEAD']
+          assert pr['changed_files'] == 8
+          for env_name in ('QUALIFICATION_RUN', 'REVIEW_RUN', 'PREMERGE_RUN'):
+              run = get('/actions/runs/' + os.environ[env_name])
+              assert run['status'] == 'completed'
+              assert run['conclusion'] == 'success'
+          print('POSTMERGE_PROVENANCE=PASS')
+          print('CANONICAL_MAIN_IDENTITY=PASS')
+          print('MERGED_PR_IDENTITY=PASS')
+          print('PREMERGE_CHAIN=PASS')
+          PY
+
+      - name: Independently re-prove immutable Q4 provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/pr187-postmerge-artifacts
+          mkdir -p /tmp/pr187-postmerge-artifacts/{stage03,stage05,recovery}
+          gh run download 34155931982 -n b012-qwen3.5-0.8b-control-stage-03-quantize-34155931982 -D /tmp/pr187-postmerge-artifacts/stage03
+          gh run download 34155931982 -n b012-qwen3.5-0.8b-control-stage-05-decode-34155931982 -D /tmp/pr187-postmerge-artifacts/stage05
+          gh run download 34163308005 -n b012-qwen3.5-0.8b-control-raw-code-recovery-34163308005 -D /tmp/pr187-postmerge-artifacts/recovery
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          correct = os.environ['CORRECT_Q4_SHA']
+          s3 = json.loads((Path('/tmp/pr187-postmerge-artifacts/stage03') / 'B012-qwen3.5-0.8b-control-checkpoint-03-quantize.json').read_text())
+          s5 = json.loads((Path('/tmp/pr187-postmerge-artifacts/stage05') / 'B012-qwen3.5-0.8b-control-stage-state.json').read_text())
+          failure = json.loads((Path('/tmp/pr187-postmerge-artifacts/recovery') / 'B012-qwen3.5-0.8b-control-raw-code-recovery-failure.json').read_text())
+          assert s3['checkpoint_payload']['q4_k_m_sha256'] == correct
+          assert s3['checkpoint_payload']['q4_k_m_size_bytes'] == 541903296
+          assert s5['q4_k_m_sha256'] == correct
+          assert s5['q4_k_m_size_bytes'] == 541903296
+          assert s5['last_completed_stage'] == 'decode'
+          assert failure['result_classification'] == 'B012_RAW_CODE_RECOVERY_FAILED_CLOSED'
+          assert failure['candidate_admission_decision'] == 'NONE'
+          PY
+
+      - name: Verify canonical repaired semantics and authority boundary
+        run: |
+          set -euo pipefail
+          git checkout --detach "$CANONICAL_MAIN"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          correct = os.environ['CORRECT_Q4_SHA']
+          manifest = json.loads(Path('artifacts/manifests/B012-qwen-raw-code-runner-shutdown-recovery.json').read_text())
+          binding = json.loads(Path('artifacts/manifests/B012-executor-toolchain-binding.json').read_text())
+          incident = json.loads(Path('artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-run-34155931982.json').read_text())
+          failure = json.loads(Path('artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-raw-code-recovery-run-34163308005.json').read_text())
+          assert manifest['expected_q4_k_m_sha256'] == correct
+          assert manifest['expected_q4_k_m_size_bytes'] == 541903296
+          assert incident['q4_k_m_sha256'] == correct
+          assert failure['corrected_prior_stage03_q4_sha256'] == correct
+          assert failure['raw_code_executed'] is False
+          assert failure['candidate_admission_decision'] == 'NONE'
+          assert failure['model_quality_verdict'] == 'NONE'
+          repair = binding['qwen_raw_code_recovery_activation']['provenance_repair']
+          assert repair['corrected_prior_stage03_q4_sha256'] == correct
+          assert repair['retry_authority_created'] is False
+          assert repair['external_dispatch_authority_created'] is False
+          assert repair['model_access'] == 'NONE'
+          assert repair['training'] is False
+          assert repair['paid_cost_usd'] == 0.0
+          PY
+
+      - name: Verify B012 eligibility on exact new canonical main
+        run: |
+          set -euo pipefail
+          git checkout -B main origin/main
+          [[ "$(git rev-parse HEAD)" == "$CANONICAL_MAIN" ]]
+          [[ "$(git show -s --format=%T HEAD)" == "$CANONICAL_TREE" ]]
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B012 | tee /tmp/b012-postmerge-eligible.json
+          python - <<'PY'
+          import json
+          import os
+          gate = json.load(open('/tmp/b012-postmerge-eligible.json', encoding='utf-8'))
+          assert gate['canonical_main'] == os.environ['CANONICAL_MAIN']
+          assert gate['eligible'] is True
+          assert gate['authority_result']['required'] is True
+          assert gate['authority_result']['satisfied'] is True
+          assert gate['state_consistency_result']['observed_state'] == 'PENDING'
+          assert gate['supersession_result']['superseded'] is False
+          print('B012_POSTMERGE_ELIGIBLE=true')
+          PY
+
+      - name: Run canonical postmerge regression
+        run: |
+          set -euo pipefail
+          git checkout --detach "$CANONICAL_MAIN"
+          python -m pytest -q \
+            tests/contract/test_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_stage_checkpoint_topology.py \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_timeout_budget.py \
+            tests/contract/test_b012_authority.py
+          python -m py_compile colab/mstr_b012_qwen_raw_code_recovery.py tests/contract/test_b012_qwen_raw_code_recovery.py
+          python -m mstr_qualify validate
+          python -m ruff check .
+          python -m ruff format --check \
+            colab/mstr_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_qwen_raw_code_recovery.py
+          python -m pytest -q
+          python -m mypy src/mstr_qualify
+
+      - name: Final canonical guard
+        run: |
+          set -euo pipefail
+          REMOTE_MAIN="$(git ls-remote origin refs/heads/main | cut -f1)"
+          [[ "$REMOTE_MAIN" == "$CANONICAL_MAIN" ]]
+          [[ "$(git rev-parse HEAD)" == "$CANONICAL_MAIN" ]]
+          [[ "$(git show -s --format=%T HEAD)" == "$CANONICAL_TREE" ]]
+          echo "FINAL_CANONICAL_MAIN=$REMOTE_MAIN"
+          echo "FINAL_CANONICAL_TREE=$CANONICAL_TREE"
+          echo 'POSTMERGE_VERIFICATION=PASS'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
