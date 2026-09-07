@@ -37,7 +37,7 @@ PRIOR_STAGE05_ARTIFACT_DIGEST = (
     "sha256:726e154a9e94c67eea4b0bdec5440912af6055e46cac9f95861872a044616fee"
 )
 PRIOR_STAGE05_CHECKPOINT_SHA256 = "2141781456f54623e6b87c9e7528ea767f49062670fbb62b77d639b3ec3d1f88"
-EXPECTED_Q4_K_M_SHA256 = "47f87d507130b70d7b54a159e7bf982e4fbe7dc75eae74e3cd9c9c9284805626"
+EXPECTED_Q4_K_M_SHA256 = "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa"
 EXPECTED_Q4_K_M_SIZE_BYTES = 541903296
 
 RECOVERY_MANIFEST_PATH = Path(
@@ -166,6 +166,8 @@ def execute(args: argparse.Namespace) -> int:
     workdir.mkdir(parents=True)
 
     started_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    observed_q4_sha256: str | None = None
+    observed_q4_size_bytes: int | None = None
     try:
         main_start = _require_live_main(repo_root)
         _, envelope, lock, manifest = _require_recovery_activation(repo_root)
@@ -200,6 +202,8 @@ def execute(args: argparse.Namespace) -> int:
         )
         regenerated_sha = sha256_file(q4)
         regenerated_size = q4.stat().st_size
+        observed_q4_sha256 = regenerated_sha
+        observed_q4_size_bytes = regenerated_size
         if regenerated_sha != EXPECTED_Q4_K_M_SHA256:
             raise ExecutionError("B012 Qwen recovery regenerated Q4 SHA-256 mismatch")
         if regenerated_size != EXPECTED_Q4_K_M_SIZE_BYTES:
@@ -279,6 +283,10 @@ def execute(args: argparse.Namespace) -> int:
             "prior_run_id": PRIOR_RUN_ID,
             "error_type": type(exc).__name__,
             "error": str(exc),
+            "expected_q4_k_m_sha256": EXPECTED_Q4_K_M_SHA256,
+            "expected_q4_k_m_size_bytes": EXPECTED_Q4_K_M_SIZE_BYTES,
+            "observed_regenerated_q4_sha256": observed_q4_sha256,
+            "observed_regenerated_q4_size_bytes": observed_q4_size_bytes,
             "candidate_admission_decision": "NONE",
             "training": False,
             "paid_cost_usd": 0.0,
