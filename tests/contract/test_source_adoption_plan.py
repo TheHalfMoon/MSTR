@@ -47,3 +47,20 @@ def test_b032_b033_bind_source_adoption_without_authority_expansion() -> None:
         assert token in strategy
     assert "B032 itself authorizes none of those external effects" in tasks
     assert "source-code-permission conflation" in tasks
+
+
+def test_original_downstream_obligations_remain_explicit() -> None:
+    tasks = TASKS.read_text(encoding="utf-8")
+    for required in (
+        "Data Constitution, language mix, software evolution",
+        "self-alignment, teacher policy, verifier health",
+        "multi-fidelity RL promotion",
+        "dynamic synthetic environment generation",
+        "previous-MSTR bootstrap with independent admission",
+        "Q4 anchor plus Q3/Q2/structured-ternary",
+        "FAST/NORMAL/DEEP effort-control tournament",
+        "sealed anti-leakage headline qualification",
+        "future-Git-history/public-solution/network leakage",
+        "no experimental sub-Q4 artifact can replace",
+    ):
+        assert required in tasks
