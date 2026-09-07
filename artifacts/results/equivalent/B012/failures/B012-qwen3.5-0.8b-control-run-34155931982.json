@@ -1,0 +1,62 @@
+{
+  "candidate_admission_decision": "NONE",
+  "candidate_id": "qwen3.5-0.8b-control",
+  "canonical_main_at_dispatch": "7ebb02c3c46c64d226d412def8bc88fd5f2c1594",
+  "classification": "B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_AFTER_STAGE05_NO_RAW_CODE_RESULT",
+  "completed_durable_stages": [
+    "init",
+    "source",
+    "quantize",
+    "prefill",
+    "decode"
+  ],
+  "decode_evidence": "DURABLE_STAGE05_COMPLETE",
+  "durable_artifact_count": 5,
+  "durable_artifacts": [
+    {
+      "artifact_id": 10031093785,
+      "digest": "sha256:6792d180518bb87940abf90216631d64aea6efcdc3bc5eab47e5579c73ccf8b0",
+      "stage": "init"
+    },
+    {
+      "artifact_id": 10031125136,
+      "digest": "sha256:53271a7486b128b6a48b6c0da16efc699a568b604185e546fcb4923a8a92b8ba",
+      "stage": "source"
+    },
+    {
+      "artifact_id": 10031142398,
+      "digest": "sha256:925f5447fb6f93bbfedcdad1eab3b2cc9e95b3748f041e313b5fb96052a4aeb1",
+      "stage": "quantize"
+    },
+    {
+      "artifact_id": 10031325318,
+      "digest": "sha256:b2a9e939534737ac060be5250d894af5b6807cf75b74e95d4fd13b6f2da4e492",
+      "stage": "prefill"
+    },
+    {
+      "artifact_id": 10031329744,
+      "digest": "sha256:726e154a9e94c67eea4b0bdec5440912af6055e46cac9f95861872a044616fee",
+      "stage": "decode"
+    }
+  ],
+  "external_dispatch_authority_created": false,
+  "interrupted_stage": "raw-code",
+  "interrupted_step_conclusion": "cancelled",
+  "last_durable_stage": "decode",
+  "model_quality_verdict": "NONE",
+  "paid_cost_usd": 0.0,
+  "prefill_evidence": "DURABLE_STAGE04_COMPLETE",
+  "q4_k_m_sha256": "47f87d507130b70d7b54a159e7bf982e4fbe7dc75eae74e3cd9c9c9284805626",
+  "q4_k_m_size_bytes": 541903296,
+  "raw_code_result": "NONE",
+  "retry_authority_created": false,
+  "runner_shutdown_utc": "2026-09-07T19:54:56.1281340Z",
+  "schema_version": "mstr.b012-infrastructure-incident.v1",
+  "shutdown_diagnostic": "The runner has received a shutdown signal.",
+  "stage05_checkpoint_sha256": "2141781456f54623e6b87c9e7528ea767f49062670fbb62b77d639b3ec3d1f88",
+  "task_id": "B012",
+  "training": false,
+  "workflow_conclusion": "failure",
+  "workflow_job_id": 101847640786,
+  "workflow_run_id": 34155931982
+}

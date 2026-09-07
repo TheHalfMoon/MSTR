@@ -1,0 +1,59 @@
+name: B012 Qwen raw-code recovery
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: b012-equivalent-qualification-single-candidate
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    if: >-
+      github.event.issue.number == 162 &&
+      github.event.comment.user.login == 'TheHalfMoon' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.body == 'B012_RECOVER_RAW_CODE qwen3.5-0.8b-control 34155931982'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout live canonical main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned B012 Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+
+      - name: Recover Qwen raw-code evidence only
+        id: recover
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          python colab/mstr_b012_qwen_raw_code_recovery.py \
+            --output-dir "$RUNNER_TEMP/b012-qwen-raw-code-results" \
+            --workdir "$RUNNER_TEMP/b012-qwen-raw-code-work"
+
+      - name: Upload Qwen raw-code recovery JSON
+        if: always() && steps.recover.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: b012-qwen3.5-0.8b-control-raw-code-recovery-${{ github.run_id }}
+          path: ${{ runner.temp }}/b012-qwen-raw-code-results/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove ephemeral B012 recovery binaries
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/b012-qwen-raw-code-work"

@@ -1,0 +1,52 @@
+{
+  "activation": {
+    "active_workflow_path": ".github/workflows/b012-qwen-raw-code-recovery.yml",
+    "canonical_postmerge_verification_required": true,
+    "exact_issue_command": "B012_RECOVER_RAW_CODE qwen3.5-0.8b-control 34155931982",
+    "external_dispatch_authority_created": false,
+    "retry_authority_created": false,
+    "separate_activation_pr_required": true
+  },
+  "candidate_id": "qwen3.5-0.8b-control",
+  "expected_q4_k_m_sha256": "47f87d507130b70d7b54a159e7bf982e4fbe7dc75eae74e3cd9c9c9284805626",
+  "expected_q4_k_m_size_bytes": 541903296,
+  "incident_evidence_path": "artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-run-34155931982.json",
+  "incident_evidence_sha256": "62fe9b70d0bc4130feeba1c9163a8d51483729746301e29b889d7bc54526fc5b",
+  "prior_run_canonical_main": "7ebb02c3c46c64d226d412def8bc88fd5f2c1594",
+  "prior_run_id": 34155931982,
+  "prior_stage05_artifact_digest": "sha256:726e154a9e94c67eea4b0bdec5440912af6055e46cac9f95861872a044616fee",
+  "prior_stage05_artifact_id": 10031329744,
+  "prior_stage05_checkpoint_sha256": "2141781456f54623e6b87c9e7528ea767f49062670fbb62b77d639b3ec3d1f88",
+  "qualification_boundary": {
+    "model_access": "NONE",
+    "model_execution": "NONE",
+    "paid_cost_usd": 0.0,
+    "training": false
+  },
+  "recovery_id": "B012_QWEN_RAW_CODE_RUNNER_SHUTDOWN_RECOVERY_2026_09_07",
+  "recovery_scope": {
+    "candidate_expansion": false,
+    "durable_outputs": [
+      "JSON"
+    ],
+    "founder_machine_model_binaries": false,
+    "git_model_binaries": false,
+    "paid_compute": false,
+    "paid_model_api": false,
+    "reacquire_exact_b010_qwen_files": true,
+    "regenerate_exact_q4_k_m_and_q4_k_s": true,
+    "require_q4_k_m_identity_match_to_prior_stage03": true,
+    "rerun_decode": false,
+    "rerun_prefill": false,
+    "revision_or_file_expansion": false,
+    "run_raw_code_proxy": true,
+    "training": false
+  },
+  "recovery_script_path": "colab/mstr_b012_qwen_raw_code_recovery.py",
+  "recovery_script_sha256": "80c0d2ce4082b3e0b37f0b84bf21975b1cac7e9ad3e9959db751aa27dabb741f",
+  "recovery_workflow_sha256": "7643ef2b87c32901e5cbdf384001a341cfd061f4a33437a4fb7556dadc6c33a0",
+  "recovery_workflow_spec_path": "configs/workflows/b012-qwen-raw-code-recovery.yml",
+  "schema_version": "mstr.b012-qwen-raw-code-recovery.v1",
+  "status": "INERT_PENDING_SEPARATE_ACTIVATION",
+  "task_id": "B012"
+}
