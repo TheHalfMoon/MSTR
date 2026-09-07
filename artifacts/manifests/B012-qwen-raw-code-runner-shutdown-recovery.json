@@ -5,7 +5,16 @@
     "exact_issue_command": "B012_RECOVER_RAW_CODE qwen3.5-0.8b-control 34155931982",
     "external_dispatch_authority_created": false,
     "retry_authority_created": false,
-    "separate_activation_pr_required": true
+    "separate_activation_pr_required": true,
+    "activation_base_main": "31549eeb78f2b3346c0915519cf5f4899ab47773",
+    "recovery_package_merge_commit": "31549eeb78f2b3346c0915519cf5f4899ab47773",
+    "recovery_package_postmerge_run_id": 34161170022,
+    "recovery_package_postmerge_evidence_head": "3bdab353ee6aa7dd60510208b1e0f02545d3ebea",
+    "activation_is_separate_repository_change": true,
+    "active_workflow_materialized": true,
+    "model_access_during_activation": "NONE",
+    "training": false,
+    "paid_cost_usd": 0.0
   },
   "candidate_id": "qwen3.5-0.8b-control",
   "expected_q4_k_m_sha256": "47f87d507130b70d7b54a159e7bf982e4fbe7dc75eae74e3cd9c9c9284805626",
@@ -47,6 +56,6 @@
   "recovery_workflow_sha256": "7643ef2b87c32901e5cbdf384001a341cfd061f4a33437a4fb7556dadc6c33a0",
   "recovery_workflow_spec_path": "configs/workflows/b012-qwen-raw-code-recovery.yml",
   "schema_version": "mstr.b012-qwen-raw-code-recovery.v1",
-  "status": "INERT_PENDING_SEPARATE_ACTIVATION",
+  "status": "ACTIVATED_CANONICAL",
   "task_id": "B012"
 }
