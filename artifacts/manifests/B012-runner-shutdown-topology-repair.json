@@ -1,5 +1,5 @@
 {
-  "activation_state": "INERT_UNTIL_SEPARATE_CANONICAL_BINDING_ACTIVATION",
+  "activation_state": "ACTIVATED_BY_SEPARATE_CANONICAL_BINDING_CHANGE",
   "activation_target": ".github/workflows/b012-qualify.yml",
   "authority_boundary": {
     "authority_scope_modified": false,
@@ -92,5 +92,14 @@
       "classification": "B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_NO_DURABLE_RESULT",
       "run_id": 34068813113
     }
-  ]
+  ],
+  "activation_evidence": {
+    "activation_base_main": "b04db4aa42de3c4b5adcba2f54052a6ab2d3fcec",
+    "repair_merge_commit": "b04db4aa42de3c4b5adcba2f54052a6ab2d3fcec",
+    "repair_postmerge_run_id": 34148201124,
+    "repair_postmerge_status": "SUCCESS",
+    "model_access": "NONE",
+    "training": false,
+    "paid_cost_usd": 0.0
+  }
 }

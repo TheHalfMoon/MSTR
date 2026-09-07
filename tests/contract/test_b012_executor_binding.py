@@ -26,6 +26,8 @@ ARTIFACTS = ROOT / "colab/mstr_b012_artifacts.py"
 RAW_EXECUTOR = ROOT / "colab/mstr_b012_raw_code.py"
 EXECUTOR = ROOT / "colab/mstr_b012_execute.py"
 WORKFLOW = ROOT / ".github/workflows/b012-qualify.yml"
+TOPOLOGY_REPAIR = ROOT / "artifacts/manifests/B012-runner-shutdown-topology-repair.json"
+STAGED_EXECUTOR = ROOT / "colab/mstr_b012_staged.py"
 
 CANDIDATES = ["mellum-4b", "qwen3.5-0.8b-control"]
 
@@ -48,7 +50,7 @@ def test_binding_matches_canonical_authority_and_envelope() -> None:
     assert authority["status"] == "AUTHORIZED_CANONICAL"
     assert authority["authority_id"] == "B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION"
     assert authority["task_id"] == "B012"
-    assert binding["status"] == "BLOCKED_PENDING_RUNNER_SHUTDOWN_TOPOLOGY_REPAIR"
+    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
     assert binding["task_id"] == "B012"
     assert binding["source_main"] == "603a6865fdbf5a5434565e870d73054c5b574f2a"
     assert binding["candidate_ids"] == CANDIDATES
@@ -107,6 +109,11 @@ def test_binding_hashes_every_execution_component() -> None:
     for path, digest in expected.items():
         assert isinstance(digest, str)
         assert _sha256(path) == digest
+
+    repair = _read_json(TOPOLOGY_REPAIR)
+    assert binding["runner_shutdown_topology_repair_manifest_sha256"] == _sha256(TOPOLOGY_REPAIR)
+    assert repair["staged_executor_sha256"] == _sha256(STAGED_EXECUTOR)
+    assert binding["workflow_sha256"] == repair["candidate_workflow_sha256"]
 
 
 def test_lock_and_binding_preserve_zero_cost_no_transfer_boundary() -> None:
@@ -173,6 +180,8 @@ def test_issue_comment_dispatch_is_canonical_owner_scoped() -> None:
     assert "group: b012-equivalent-qualification-single-candidate" in workflow
     assert "cancel-in-progress: false" in workflow
     assert 'python-version: "3.11.16"' in workflow
+    assert "mstr_b012_staged.py" in workflow
+    assert "mstr_b012_execute.py" not in workflow
 
     dispatch = binding["dispatch_boundary"]
     assert isinstance(dispatch, dict)

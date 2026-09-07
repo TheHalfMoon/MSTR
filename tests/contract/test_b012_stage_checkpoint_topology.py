@@ -38,14 +38,15 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def test_repair_package_is_hash_bound_and_does_not_activate_dispatch() -> None:
+def test_repair_package_is_hash_bound_after_separate_canonical_activation() -> None:
     binding = _read_json(BINDING)
     repair = _read_json(REPAIR)
 
-    assert binding["status"] == "BLOCKED_PENDING_RUNNER_SHUTDOWN_TOPOLOGY_REPAIR"
-    assert "runner_shutdown_topology_repair_manifest_sha256" not in binding
+    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
+    assert binding["runner_shutdown_topology_repair_manifest_sha256"] == _sha256(REPAIR)
+    assert binding["workflow_sha256"] == _sha256(ROOT / ".github/workflows/b012-qualify.yml")
 
-    assert repair["activation_state"] == "INERT_UNTIL_SEPARATE_CANONICAL_BINDING_ACTIVATION"
+    assert repair["activation_state"] == "ACTIVATED_BY_SEPARATE_CANONICAL_BINDING_CHANGE"
     assert repair["activation_target"] == ".github/workflows/b012-qualify.yml"
     assert repair["candidate_workflow_path"] == "configs/workflows/b012-qualify-staged.yml"
     assert repair["candidate_workflow_sha256"] == _sha256(CANDIDATE_WORKFLOW)
@@ -69,6 +70,17 @@ def test_repair_package_is_hash_bound_and_does_not_activate_dispatch() -> None:
         is True
     )
     assert recovery["activation_requires_separate_review_and_merge"] is True
+
+    activation = binding["runner_shutdown_topology_activation"]
+    assert isinstance(activation, dict)
+    assert activation["repair_manifest_sha256"] == _sha256(REPAIR)
+    assert activation["staged_executor_sha256"] == _sha256(STAGED_EXECUTOR)
+    assert activation["active_workflow_sha256"] == _sha256(
+        ROOT / ".github/workflows/b012-qualify.yml"
+    )
+    assert activation["activation_is_separate_repository_change"] is True
+    assert activation["retry_authority_created"] is False
+    assert activation["external_dispatch_authority_created"] is False
 
 
 def test_candidate_workflow_uses_seven_ordered_stages_and_json_only_uploads() -> None:
