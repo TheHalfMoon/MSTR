@@ -101,7 +101,12 @@ jobs:
         run: |
           set -euo pipefail
           rm -f "$BUILDER_WORKFLOW" "$BUILDER_HELPER"
+          echo 'FINAL_WORKTREE_STATUS_BEGIN'
+          git status --short
+          echo 'FINAL_WORKTREE_STATUS_END'
           mapfile -t changed < <(git diff --name-only "$BASE_MAIN")
+          printf 'FINAL_CHANGED_COUNT=%s\n' "${#changed[@]}"
+          printf 'FINAL_CHANGED_PATH=%s\n' "${changed[@]}"
           expected=(
             ".github/workflows/b012-qwen-raw-code-recovery.yml"
             "artifacts/manifests/B012-executor-toolchain-binding.json"
