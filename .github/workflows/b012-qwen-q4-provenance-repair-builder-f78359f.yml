@@ -1,0 +1,296 @@
+name: B012 Qwen Q4 provenance repair builder
+
+on:
+  push:
+    branches:
+      - builder/b012-qwen-q4-provenance-repair-f78359f
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact builder branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: builder/b012-qwen-q4-provenance-repair-f78359f
+          fetch-depth: 0
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+
+      - name: Construct provenance repair bytes
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD^)" == "f78359f87ab5f5259e5569bea178261dbd9cc8e7" ]]
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          OLD = "47f87d507130b70d7b54a159e7bf982e4fbe7dc75eae74e3cd9c9c9284805626"
+          CORRECT = "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa"
+          STAGE03_DIGEST = "sha256:925f5447fb6f93bbfedcdad1eab3b2cc9e95b3748f041e313b5fb96052a4aeb1"
+          RECOVERY_ARTIFACT_DIGEST = "sha256:ab8ad711b7c4794247f892bdf36d74fbc4213f130db298f2c504abbace6f6bae"
+
+          incident_path = Path("artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-run-34155931982.json")
+          incident = json.loads(incident_path.read_text(encoding="utf-8"))
+          assert incident["q4_k_m_sha256"] == OLD
+          incident["q4_k_m_sha256"] = CORRECT
+          incident["q4_identity_provenance"] = {
+              "source_run_id": 34155931982,
+              "stage03_artifact_id": 10031142398,
+              "stage03_artifact_digest": STAGE03_DIGEST,
+              "stage03_checkpoint_q4_k_m_sha256": CORRECT,
+              "stage05_artifact_id": 10031329744,
+              "stage05_stage_state_q4_k_m_sha256": CORRECT,
+              "repository_value_before_correction": OLD,
+              "correction_reason": "Durable Stage 03 and Stage 05 artifacts both record the Q4_K_M artifact actually used by prefill/decode as the corrected SHA-256.",
+          }
+          incident_path.write_text(json.dumps(incident, indent=2) + "\n", encoding="utf-8")
+
+          incident_md = Path("evidence/B012-qwen-raw-code-runner-shutdown-34155931982.md")
+          text = incident_md.read_text(encoding="utf-8")
+          assert OLD in text
+          text = text.replace(OLD, CORRECT)
+          text += (
+              "\n## Provenance correction — 2026-09-07\n\n"
+              "A later raw-code recovery attempt exposed an inconsistency in the repository copy of this incident record. "
+              "The immutable Stage 03 artifact `10031142398` (artifact digest `" + STAGE03_DIGEST + "`) and the Stage 05 artifact `10031329744` both record the Q4_K_M SHA-256 actually used by prefill/decode as `" + CORRECT + "` at `541903296` bytes. "
+              "The prior repository value `" + OLD + "` was therefore a provenance transcription error and is superseded by the durable workflow artifacts.\n\n"
+              "This correction changes no candidate verdict, authority, runtime metric, source revision, or model binary.\n"
+          )
+          incident_md.write_text(text, encoding="utf-8")
+
+          runner_path = Path("colab/mstr_b012_qwen_raw_code_recovery.py")
+          runner = runner_path.read_text(encoding="utf-8")
+          assert OLD in runner
+          runner = runner.replace(OLD, CORRECT)
+          needle = '    started_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())\n    try:\n'
+          replacement = (
+              '    started_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())\n'
+              '    observed_q4_sha256: str | None = None\n'
+              '    observed_q4_size_bytes: int | None = None\n'
+              '    try:\n'
+          )
+          assert needle in runner
+          runner = runner.replace(needle, replacement, 1)
+          needle = '        regenerated_sha = sha256_file(q4)\n        regenerated_size = q4.stat().st_size\n'
+          replacement = (
+              '        regenerated_sha = sha256_file(q4)\n'
+              '        regenerated_size = q4.stat().st_size\n'
+              '        observed_q4_sha256 = regenerated_sha\n'
+              '        observed_q4_size_bytes = regenerated_size\n'
+          )
+          assert needle in runner
+          runner = runner.replace(needle, replacement, 1)
+          needle = '            "error": str(exc),\n            "candidate_admission_decision": "NONE",\n'
+          replacement = (
+              '            "error": str(exc),\n'
+              '            "expected_q4_k_m_sha256": EXPECTED_Q4_K_M_SHA256,\n'
+              '            "expected_q4_k_m_size_bytes": EXPECTED_Q4_K_M_SIZE_BYTES,\n'
+              '            "observed_regenerated_q4_sha256": observed_q4_sha256,\n'
+              '            "observed_regenerated_q4_size_bytes": observed_q4_size_bytes,\n'
+              '            "candidate_admission_decision": "NONE",\n'
+          )
+          assert needle in runner
+          runner = runner.replace(needle, replacement, 1)
+          runner_path.write_text(runner, encoding="utf-8")
+
+          test_path = Path("tests/contract/test_b012_qwen_raw_code_recovery.py")
+          test = test_path.read_text(encoding="utf-8")
+          assert OLD in test
+          test = test.replace(OLD, CORRECT)
+          needle = '    assert "B012_RAW_CODE_RECOVERY_FAILED_CLOSED" in source\n    assert "ACTIVATED_CANONICAL" in source\n'
+          replacement = (
+              '    assert "B012_RAW_CODE_RECOVERY_FAILED_CLOSED" in source\n'
+              '    assert "observed_regenerated_q4_sha256" in source\n'
+              '    assert "observed_regenerated_q4_size_bytes" in source\n'
+              '    assert "ACTIVATED_CANONICAL" in source\n'
+          )
+          assert needle in test
+          test = test.replace(needle, replacement, 1)
+          needle = '    assert incident["raw_code_result"] == "NONE"\n'
+          replacement = (
+              '    assert incident["q4_k_m_sha256"] == (\n'
+              '        "' + CORRECT + '"\n'
+              '    )\n'
+              '    assert incident["q4_identity_provenance"]["stage03_artifact_id"] == 10031142398\n'
+              '    assert incident["raw_code_result"] == "NONE"\n'
+          )
+          assert needle in test
+          test = test.replace(needle, replacement, 1)
+          test_path.write_text(test, encoding="utf-8")
+
+          recovery_failure = {
+              "schema_version": "mstr.b012-qwen-raw-code-recovery-incident.v1",
+              "task_id": "B012",
+              "candidate_id": "qwen3.5-0.8b-control",
+              "workflow_run_id": 34163308005,
+              "workflow_job_id": 101869362618,
+              "canonical_main_at_dispatch": "f78359f87ab5f5259e5569bea178261dbd9cc8e7",
+              "artifact_id": 10033484666,
+              "artifact_digest": RECOVERY_ARTIFACT_DIGEST,
+              "artifact_size_bytes": 548,
+              "result_classification": "B012_RAW_CODE_RECOVERY_FAILED_CLOSED",
+              "error_type": "ExecutionError",
+              "error": "B012 Qwen recovery regenerated Q4 SHA-256 mismatch",
+              "root_cause_classification": "B012_RECOVERY_PRIOR_Q4_PROVENANCE_BINDING_ERROR",
+              "historical_expected_q4_sha256_at_failed_run": OLD,
+              "corrected_prior_stage03_q4_sha256": CORRECT,
+              "corrected_prior_stage03_artifact_id": 10031142398,
+              "corrected_prior_stage03_artifact_digest": STAGE03_DIGEST,
+              "observed_regenerated_q4_sha256": "UNRECORDED_BY_RUN_34163308005",
+              "raw_code_executed": False,
+              "raw_code_result": "NONE",
+              "candidate_admission_decision": "NONE",
+              "model_quality_verdict": "NONE",
+              "retry_authority_created": False,
+              "external_dispatch_authority_created": False,
+              "training": False,
+              "paid_cost_usd": 0.0,
+              "started_utc": "2026-09-07T21:29:20Z",
+              "failed_utc": "2026-09-07T21:37:55Z",
+          }
+          recovery_failure_path = Path("artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-raw-code-recovery-run-34163308005.json")
+          recovery_failure_path.write_text(json.dumps(recovery_failure, indent=2) + "\n", encoding="utf-8")
+
+          evidence_path = Path("evidence/B012-qwen-q4-provenance-repair-34163308005.md")
+          evidence_path.write_text(
+              "# B012 Qwen Q4 provenance repair after recovery run 34163308005\n\n"
+              "## Observed failure\n\n"
+              "Recovery workflow run `34163308005` on canonical main `f78359f87ab5f5259e5569bea178261dbd9cc8e7` failed closed before raw-code execution with `B012 Qwen recovery regenerated Q4 SHA-256 mismatch`. The failure JSON was durably uploaded as artifact `10033484666` with artifact digest `" + RECOVERY_ARTIFACT_DIGEST + "`. Cleanup succeeded.\n\n"
+              "## Root cause\n\n"
+              "The recovery package had been bound to Q4_K_M SHA-256 `" + OLD + "`. Reinspection of the immutable original run artifacts showed that both Stage 03 artifact `10031142398` (`" + STAGE03_DIGEST + "`) and Stage 05 artifact `10031329744` record the Q4_K_M artifact actually used by prefill/decode as `" + CORRECT + "` at `541903296` bytes. The repository incident record had transcribed the wrong hash.\n\n"
+              "Therefore run `34163308005` is a provenance-binding failure, not a model-quality failure and not a raw-code result. The observed regenerated Q4 hash was not included in the v1 failure schema and cannot be reconstructed after cleanup; the repaired runner records it on any future mismatch.\n\n"
+              "## Boundary\n\n"
+              "This repair performs no model access, does not authorize a retry, does not create external-dispatch authority, does not expand candidate/revision/file scope, and does not change prior prefill/decode observations. Any future recovery execution remains separately gated by canonical repository governance.\n"
+              "\n```text\nMODEL_ACCESS_DURING_REPAIR = NONE\nMODEL_EXECUTION_DURING_REPAIR = NONE\nTRAINING = false\nPAID_COST_USD = 0.0\n```\n",
+              encoding="utf-8",
+          )
+          PY
+
+          python -m pip install -e '.[dev]'
+          python -m ruff format \
+            colab/mstr_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_qwen_raw_code_recovery.py
+
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          CORRECT = "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa"
+          OLD = "47f87d507130b70d7b54a159e7bf982e4fbe7dc75eae74e3cd9c9c9284805626"
+
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          incident_path = Path("artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-run-34155931982.json")
+          runner_path = Path("colab/mstr_b012_qwen_raw_code_recovery.py")
+          failure_path = Path("artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-raw-code-recovery-run-34163308005.json")
+          manifest_path = Path("artifacts/manifests/B012-qwen-raw-code-runner-shutdown-recovery.json")
+          binding_path = Path("artifacts/manifests/B012-executor-toolchain-binding.json")
+
+          incident_sha = sha(incident_path)
+          runner_sha = sha(runner_path)
+
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          assert manifest["expected_q4_k_m_sha256"] == OLD
+          manifest["expected_q4_k_m_sha256"] = CORRECT
+          manifest["incident_evidence_sha256"] = incident_sha
+          manifest["recovery_script_sha256"] = runner_sha
+          manifest["provenance_repair"] = {
+              "failed_recovery_run_id": 34163308005,
+              "failed_recovery_artifact_id": 10033484666,
+              "failed_recovery_artifact_digest": "sha256:ab8ad711b7c4794247f892bdf36d74fbc4213f130db298f2c504abbace6f6bae",
+              "failed_recovery_evidence_path": str(failure_path),
+              "repository_q4_sha256_before_repair": OLD,
+              "corrected_prior_stage03_q4_sha256": CORRECT,
+              "source_stage03_artifact_id": 10031142398,
+              "source_stage03_artifact_digest": "sha256:925f5447fb6f93bbfedcdad1eab3b2cc9e95b3748f041e313b5fb96052a4aeb1",
+              "raw_code_executed_in_failed_recovery": False,
+              "model_quality_verdict": "NONE",
+              "retry_authority_created": False,
+              "external_dispatch_authority_created": False,
+              "model_access_during_repair": "NONE",
+              "training": False,
+              "paid_cost_usd": 0.0,
+          }
+          manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+          manifest_sha = sha(manifest_path)
+
+          binding = json.loads(binding_path.read_text(encoding="utf-8"))
+          binding["qwen_raw_code_recovery_manifest_sha256"] = manifest_sha
+          activation = binding["qwen_raw_code_recovery_activation"]
+          activation["recovery_manifest_sha256"] = manifest_sha
+          activation["recovery_script_sha256"] = runner_sha
+          activation["incident_evidence_sha256"] = incident_sha
+          activation["provenance_repair"] = {
+              "failed_recovery_run_id": 34163308005,
+              "failed_recovery_artifact_id": 10033484666,
+              "corrected_prior_stage03_q4_sha256": CORRECT,
+              "source_stage03_artifact_id": 10031142398,
+              "retry_authority_created": False,
+              "external_dispatch_authority_created": False,
+              "model_access": "NONE",
+              "training": False,
+              "paid_cost_usd": 0.0,
+          }
+          binding_path.write_text(json.dumps(binding, indent=2) + "\n", encoding="utf-8")
+
+          print(f"INCIDENT_SHA256={incident_sha}")
+          print(f"RUNNER_SHA256={runner_sha}")
+          print(f"MANIFEST_SHA256={manifest_sha}")
+          PY
+
+      - name: Verify repaired contracts without model access
+        run: |
+          set -euo pipefail
+          python -m pytest -q \
+            tests/contract/test_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_executor_binding.py
+          python -m py_compile colab/mstr_b012_qwen_raw_code_recovery.py
+          python -m mstr_qualify validate
+          python -m ruff check \
+            colab/mstr_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_qwen_raw_code_recovery.py
+          python -m ruff format --check \
+            colab/mstr_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_qwen_raw_code_recovery.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          correct = "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa"
+          incident = json.loads(Path("artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-run-34155931982.json").read_text())
+          failure = json.loads(Path("artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-raw-code-recovery-run-34163308005.json").read_text())
+          manifest = json.loads(Path("artifacts/manifests/B012-qwen-raw-code-runner-shutdown-recovery.json").read_text())
+          assert incident["q4_k_m_sha256"] == correct
+          assert manifest["expected_q4_k_m_sha256"] == correct
+          assert failure["root_cause_classification"] == "B012_RECOVERY_PRIOR_Q4_PROVENANCE_BINDING_ERROR"
+          assert failure["raw_code_executed"] is False
+          assert failure["model_quality_verdict"] == "NONE"
+          assert manifest["provenance_repair"]["retry_authority_created"] is False
+          assert manifest["provenance_repair"]["external_dispatch_authority_created"] is False
+          print("B012_QWEN_Q4_PROVENANCE_REPAIR=PASS")
+          print("MODEL_ACCESS=NONE")
+          print("MODEL_EXECUTION=NONE")
+          print("TRAINING=false")
+          print("PAID_COST_USD=0.0")
+          PY
+
+      - name: Commit clean repair tree
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/b012-qwen-q4-provenance-repair-builder-f78359f.yml
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add -A
+          git diff --cached --name-only
+          git commit -m "fix(b012): correct Qwen Q4 recovery provenance"
+          git push origin HEAD:builder/b012-qwen-q4-provenance-repair-f78359f
