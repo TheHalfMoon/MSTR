@@ -34,7 +34,7 @@ def test_qwen_raw_code_recovery_is_activated_and_exactly_bound() -> None:
         "2141781456f54623e6b87c9e7528ea767f49062670fbb62b77d639b3ec3d1f88"
     )
     assert manifest["expected_q4_k_m_sha256"] == (
-        "47f87d507130b70d7b54a159e7bf982e4fbe7dc75eae74e3cd9c9c9284805626"
+        "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa"
     )
     assert manifest["expected_q4_k_m_size_bytes"] == 541903296
     assert manifest["recovery_script_sha256"] == _sha256(RUNNER)
@@ -88,6 +88,8 @@ def test_qwen_recovery_runner_is_fail_closed_and_minimal() -> None:
     assert "download_candidate" in source
     assert "convert_quantize" in source
     assert "B012_RAW_CODE_RECOVERY_FAILED_CLOSED" in source
+    assert "observed_regenerated_q4_sha256" in source
+    assert "observed_regenerated_q4_size_bytes" in source
     assert "ACTIVATED_CANONICAL" in source
 
 
@@ -116,6 +118,10 @@ def test_qwen_shutdown_incident_is_not_a_model_verdict_or_retry_grant() -> None:
     assert incident["interrupted_stage"] == "raw-code"
     assert incident["interrupted_step_conclusion"] == "cancelled"
     assert incident["durable_artifact_count"] == 5
+    assert incident["q4_k_m_sha256"] == (
+        "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa"
+    )
+    assert incident["q4_identity_provenance"]["stage03_artifact_id"] == 10031142398
     assert incident["raw_code_result"] == "NONE"
     assert incident["candidate_admission_decision"] == "NONE"
     assert incident["model_quality_verdict"] == "NONE"

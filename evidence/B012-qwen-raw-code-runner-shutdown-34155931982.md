@@ -23,7 +23,7 @@ and the Stage 05 checkpoint JSON SHA-256 is
 `2141781456f54623e6b87c9e7528ea767f49062670fbb62b77d639b3ec3d1f88`.
 
 The durable Stage 03 evidence records Q4_K_M SHA-256
-`47f87d507130b70d7b54a159e7bf982e4fbe7dc75eae74e3cd9c9c9284805626`
+`177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa`
 at `541903296` bytes. Stage 04 and Stage 05 completed under the canonical
 B012 benchmark contract.
 
@@ -58,3 +58,9 @@ perform candidate admission.
 
 A separate activation change, exact-main verification, and an explicit
 canonical issue dispatch remain required before any recovery model access.
+
+## Provenance correction — 2026-09-07
+
+A later raw-code recovery attempt exposed an inconsistency in the repository copy of this incident record. The immutable Stage 03 artifact `10031142398` (artifact digest `sha256:925f5447fb6f93bbfedcdad1eab3b2cc9e95b3748f041e313b5fb96052a4aeb1`) and the Stage 05 artifact `10031329744` both record the Q4_K_M SHA-256 actually used by prefill/decode as `177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa` at `541903296` bytes. The prior repository value `47f87d507130b70d7b54a159e7bf982e4fbe7dc75eae74e3cd9c9c9284805626` was therefore a provenance transcription error and is superseded by the durable workflow artifacts.
+
+This correction changes no candidate verdict, authority, runtime metric, source revision, or model binary.
