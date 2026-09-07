@@ -1,0 +1,227 @@
+name: PR187 B012 Qwen Q4 provenance qualification v2
+
+on:
+  push:
+    branches:
+      - evidence/pr187-b012-qwen-q4-provenance-qualification-v2-7c4e18a
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  PR_NUMBER: "187"
+  BASE_SHA: f78359f87ab5f5259e5569bea178261dbd9cc8e7
+  SUBJECT_BRANCH: fix/b012-qwen-q4-provenance-repair
+  SUBJECT_SHA: 7c4e18a84b8246f3ec3e79d2bc94a4eec5167945
+  SUBJECT_TREE: 66120bf247e7d9b9da34d5d47603493c8dce4c30
+  CORRECT_Q4_SHA: 177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout qualification evidence branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+
+      - name: Verify exact base head tree ancestry and scope
+        run: |
+          set -euo pipefail
+          git fetch origin main "$SUBJECT_BRANCH"
+          [[ "$(git rev-parse origin/main)" == "$BASE_SHA" ]]
+          [[ "$(git rev-parse "origin/$SUBJECT_BRANCH")" == "$SUBJECT_SHA" ]]
+          [[ "$(git rev-parse "$SUBJECT_SHA^")" == "$BASE_SHA" ]]
+          [[ "$(git show -s --format=%T "$SUBJECT_SHA")" == "$SUBJECT_TREE" ]]
+          mapfile -t changed < <(git diff --name-only "$BASE_SHA...$SUBJECT_SHA")
+          expected=(
+            "artifacts/manifests/B012-executor-toolchain-binding.json"
+            "artifacts/manifests/B012-qwen-raw-code-runner-shutdown-recovery.json"
+            "artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-raw-code-recovery-run-34163308005.json"
+            "artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-run-34155931982.json"
+            "colab/mstr_b012_qwen_raw_code_recovery.py"
+            "evidence/B012-qwen-q4-provenance-repair-34163308005.md"
+            "evidence/B012-qwen-raw-code-runner-shutdown-34155931982.md"
+            "tests/contract/test_b012_qwen_raw_code_recovery.py"
+          )
+          [[ "${#changed[@]}" -eq 8 ]]
+          for path in "${expected[@]}"; do
+            printf '%s\n' "${changed[@]}" | grep -Fx -- "$path" >/dev/null
+          done
+          git diff --quiet "$BASE_SHA" "$SUBJECT_SHA" -- .github/workflows/b012-qwen-raw-code-recovery.yml
+          git diff --quiet "$BASE_SHA" "$SUBJECT_SHA" -- configs/workflows/b012-qwen-raw-code-recovery.yml
+
+      - name: Verify immutable workflow artifacts prove corrected Q4 identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/pr187-artifacts
+          mkdir -p /tmp/pr187-artifacts/stage03 /tmp/pr187-artifacts/stage05 /tmp/pr187-artifacts/recovery
+
+          [[ "$(gh api repos/TheHalfMoon/MSTR/actions/artifacts/10031142398 --jq .digest)" == "sha256:925f5447fb6f93bbfedcdad1eab3b2cc9e95b3748f041e313b5fb96052a4aeb1" ]]
+          [[ "$(gh api repos/TheHalfMoon/MSTR/actions/artifacts/10031329744 --jq .digest)" == "sha256:726e154a9e94c67eea4b0bdec5440912af6055e46cac9f95861872a044616fee" ]]
+          [[ "$(gh api repos/TheHalfMoon/MSTR/actions/artifacts/10033484666 --jq .digest)" == "sha256:ab8ad711b7c4794247f892bdf36d74fbc4213f130db298f2c504abbace6f6bae" ]]
+
+          gh run download 34155931982 --repo TheHalfMoon/MSTR \
+            -n b012-qwen3.5-0.8b-control-stage-03-quantize-34155931982 \
+            -D /tmp/pr187-artifacts/stage03
+          gh run download 34155931982 --repo TheHalfMoon/MSTR \
+            -n b012-qwen3.5-0.8b-control-stage-05-decode-34155931982 \
+            -D /tmp/pr187-artifacts/stage05
+          gh run download 34163308005 --repo TheHalfMoon/MSTR \
+            -n b012-qwen3.5-0.8b-control-raw-code-recovery-34163308005 \
+            -D /tmp/pr187-artifacts/recovery
+
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          correct = os.environ["CORRECT_Q4_SHA"]
+
+          def one(root: str, pattern: str) -> Path:
+              matches = list(Path(root).rglob(pattern))
+              assert len(matches) == 1, (root, pattern, matches)
+              return matches[0]
+
+          stage03 = json.loads(one(
+              "/tmp/pr187-artifacts/stage03", "*checkpoint-03-quantize.json"
+          ).read_text())
+          assert stage03["checkpoint_payload"]["q4_k_m_sha256"] == correct
+          assert stage03["checkpoint_payload"]["q4_k_m_size_bytes"] == 541903296
+
+          stage05 = json.loads(one(
+              "/tmp/pr187-artifacts/stage05", "*stage-state.json"
+          ).read_text())
+          assert stage05["q4_k_m_sha256"] == correct
+          assert stage05["q4_k_m_size_bytes"] == 541903296
+          assert stage05["last_completed_stage"] == "decode"
+
+          failed = json.loads(one(
+              "/tmp/pr187-artifacts/recovery", "*raw-code-recovery-failure.json"
+          ).read_text())
+          assert failed["result_classification"] == "B012_RAW_CODE_RECOVERY_FAILED_CLOSED"
+          assert failed["error"] == "B012 Qwen recovery regenerated Q4 SHA-256 mismatch"
+          assert failed["candidate_admission_decision"] == "NONE"
+          assert failed["training"] is False
+          assert failed["paid_cost_usd"] == 0.0
+          print("IMMUTABLE_ARTIFACT_PROVENANCE=PASS")
+          PY
+
+      - name: Verify B012 exact-main eligibility
+        run: |
+          set -euo pipefail
+          git checkout -B main origin/main
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B012 | tee /tmp/b012.json
+          python - <<'PY'
+          import json, os
+          data = json.load(open('/tmp/b012.json', encoding='utf-8'))
+          assert data['task_id'] == 'B012'
+          assert data['canonical_main'] == os.environ['BASE_SHA']
+          assert data['eligible'] is True
+          assert data['authority_result']['satisfied'] is True
+          assert data['state_consistency_result']['observed_state'] == 'PENDING'
+          assert data['supersession_result']['superseded'] is False
+          assert all(item['satisfied'] for item in data['prerequisite_results'])
+          PY
+          git checkout --detach "$SUBJECT_SHA"
+
+      - name: Verify corrected binding and fail-closed semantics
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          correct = os.environ['CORRECT_Q4_SHA']
+          incident_path = Path('artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-run-34155931982.json')
+          failure_path = Path('artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-raw-code-recovery-run-34163308005.json')
+          runner_path = Path('colab/mstr_b012_qwen_raw_code_recovery.py')
+          manifest_path = Path('artifacts/manifests/B012-qwen-raw-code-runner-shutdown-recovery.json')
+          binding_path = Path('artifacts/manifests/B012-executor-toolchain-binding.json')
+          active_workflow = Path('.github/workflows/b012-qwen-raw-code-recovery.yml')
+          workflow_spec = Path('configs/workflows/b012-qwen-raw-code-recovery.yml')
+
+          incident = json.loads(incident_path.read_text())
+          failure = json.loads(failure_path.read_text())
+          manifest = json.loads(manifest_path.read_text())
+          binding = json.loads(binding_path.read_text())
+
+          assert incident['q4_k_m_sha256'] == correct
+          provenance = incident['q4_identity_provenance']
+          assert provenance['stage03_artifact_id'] == 10031142398
+          assert provenance['stage05_artifact_id'] == 10031329744
+          assert provenance['stage03_checkpoint_q4_k_m_sha256'] == correct
+          assert provenance['stage05_stage_state_q4_k_m_sha256'] == correct
+
+          assert failure['root_cause_classification'] == 'B012_RECOVERY_PRIOR_Q4_PROVENANCE_BINDING_ERROR'
+          assert failure['raw_code_executed'] is False
+          assert failure['raw_code_result'] == 'NONE'
+          assert failure['model_quality_verdict'] == 'NONE'
+          assert failure['retry_authority_created'] is False
+          assert failure['external_dispatch_authority_created'] is False
+
+          assert manifest['status'] == 'ACTIVATED_CANONICAL'
+          assert manifest['expected_q4_k_m_sha256'] == correct
+          assert manifest['incident_evidence_sha256'] == sha(incident_path)
+          assert manifest['recovery_script_sha256'] == sha(runner_path)
+          assert binding['qwen_raw_code_recovery_manifest_sha256'] == sha(manifest_path)
+          activation = binding['qwen_raw_code_recovery_activation']
+          assert activation['recovery_manifest_sha256'] == sha(manifest_path)
+          assert activation['recovery_script_sha256'] == sha(runner_path)
+          assert activation['incident_evidence_sha256'] == sha(incident_path)
+          assert activation['retry_authority_created'] is False
+          assert activation['external_dispatch_authority_created'] is False
+          assert manifest['provenance_repair']['retry_authority_created'] is False
+          assert manifest['provenance_repair']['external_dispatch_authority_created'] is False
+          assert active_workflow.read_bytes() == workflow_spec.read_bytes()
+
+          runner = runner_path.read_text()
+          assert 'observed_regenerated_q4_sha256' in runner
+          assert 'observed_regenerated_q4_size_bytes' in runner
+          print('CORRECTED_BINDING_AND_BOUNDARY=PASS')
+          PY
+
+      - name: Run focused and full qualification quality gate
+        run: |
+          set -euo pipefail
+          python -m pytest -q \
+            tests/contract/test_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_stage_checkpoint_topology.py \
+            tests/contract/test_b012_authority.py
+          python -m py_compile colab/mstr_b012_qwen_raw_code_recovery.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m ruff format --check \
+            colab/mstr_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_qwen_raw_code_recovery.py
+          python -m mypy src/mstr_qualify
+
+      - name: Final exact live qualification guard
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$SUBJECT_SHA" ]]
+          [[ "$(git show -s --format=%T HEAD)" == "$SUBJECT_TREE" ]]
+          [[ "$(git ls-remote origin refs/heads/main | cut -f1)" == "$BASE_SHA" ]]
+          [[ "$(git ls-remote origin "refs/heads/$SUBJECT_BRANCH" | cut -f1)" == "$SUBJECT_SHA" ]]
+          echo 'PR187_QUALIFICATION_V2=PASS'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
