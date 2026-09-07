@@ -180,15 +180,15 @@
     "training": false,
     "paid_cost_usd": 0.0
   },
-  "qwen_raw_code_recovery_manifest_sha256": "6b9536e16c52fefe03ee2844c68008f68e36cdd91ae45987086e1acda0259d70",
+  "qwen_raw_code_recovery_manifest_sha256": "b1c8d03cb227b828b923107f3ce1ee9ca2c0898fdbb0d20d02f025f3aebc27b6",
   "qwen_raw_code_recovery_activation": {
     "recovery_id": "B012_QWEN_RAW_CODE_RUNNER_SHUTDOWN_RECOVERY_2026_09_07",
     "candidate_id": "qwen3.5-0.8b-control",
     "prior_run_id": 34155931982,
-    "recovery_manifest_sha256": "6b9536e16c52fefe03ee2844c68008f68e36cdd91ae45987086e1acda0259d70",
-    "recovery_script_sha256": "80c0d2ce4082b3e0b37f0b84bf21975b1cac7e9ad3e9959db751aa27dabb741f",
+    "recovery_manifest_sha256": "b1c8d03cb227b828b923107f3ce1ee9ca2c0898fdbb0d20d02f025f3aebc27b6",
+    "recovery_script_sha256": "b6df4ec7ea587ba46507ae39c06e61f13b2eb84314d0164b5a55009ccfa0c652",
     "active_workflow_sha256": "7643ef2b87c32901e5cbdf384001a341cfd061f4a33437a4fb7556dadc6c33a0",
-    "incident_evidence_sha256": "62fe9b70d0bc4130feeba1c9163a8d51483729746301e29b889d7bc54526fc5b",
+    "incident_evidence_sha256": "353ea5694b818e05d38b0ac9019480f9601a193185c3f00568a90eee1bbb5763",
     "prior_stage05_checkpoint_sha256": "2141781456f54623e6b87c9e7528ea767f49062670fbb62b77d639b3ec3d1f88",
     "activation_base_main": "31549eeb78f2b3346c0915519cf5f4899ab47773",
     "recovery_package_postmerge_run_id": 34161170022,
@@ -199,6 +199,17 @@
     "revision_or_file_expansion": false,
     "model_access": "NONE",
     "training": false,
-    "paid_cost_usd": 0.0
+    "paid_cost_usd": 0.0,
+    "provenance_repair": {
+      "failed_recovery_run_id": 34163308005,
+      "failed_recovery_artifact_id": 10033484666,
+      "corrected_prior_stage03_q4_sha256": "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa",
+      "source_stage03_artifact_id": 10031142398,
+      "retry_authority_created": false,
+      "external_dispatch_authority_created": false,
+      "model_access": "NONE",
+      "training": false,
+      "paid_cost_usd": 0.0
+    }
   }
 }

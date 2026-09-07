@@ -46,7 +46,7 @@
   "model_quality_verdict": "NONE",
   "paid_cost_usd": 0.0,
   "prefill_evidence": "DURABLE_STAGE04_COMPLETE",
-  "q4_k_m_sha256": "47f87d507130b70d7b54a159e7bf982e4fbe7dc75eae74e3cd9c9c9284805626",
+  "q4_k_m_sha256": "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa",
   "q4_k_m_size_bytes": 541903296,
   "raw_code_result": "NONE",
   "retry_authority_created": false,
@@ -58,5 +58,15 @@
   "training": false,
   "workflow_conclusion": "failure",
   "workflow_job_id": 101847640786,
-  "workflow_run_id": 34155931982
+  "workflow_run_id": 34155931982,
+  "q4_identity_provenance": {
+    "source_run_id": 34155931982,
+    "stage03_artifact_id": 10031142398,
+    "stage03_artifact_digest": "sha256:925f5447fb6f93bbfedcdad1eab3b2cc9e95b3748f041e313b5fb96052a4aeb1",
+    "stage03_checkpoint_q4_k_m_sha256": "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa",
+    "stage05_artifact_id": 10031329744,
+    "stage05_stage_state_q4_k_m_sha256": "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa",
+    "repository_value_before_correction": "47f87d507130b70d7b54a159e7bf982e4fbe7dc75eae74e3cd9c9c9284805626",
+    "correction_reason": "Durable Stage 03 and Stage 05 artifacts both record the Q4_K_M artifact actually used by prefill/decode as the corrected SHA-256."
+  }
 }
