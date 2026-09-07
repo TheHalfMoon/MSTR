@@ -1,0 +1,101 @@
+name: PR188 task formatting repair
+
+on:
+  push:
+    branches:
+      - evidence/pr188-task-format-repair-18b54a4
+
+permissions:
+  contents: write
+
+env:
+  MAIN_SHA: 5e74e77c1fc86d4ebc7e64654f45bd18f565edd6
+  TARGET_BRANCH: plan/mstr-source-adoption-capability-mining-v2-5e74e77
+  OLD_SUBJECT_SHA: 18b54a4374e9d6a5958ebe2cb916be1fac356a2e
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repair branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+
+      - name: Checkout exact PR subject
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          test "$(git rev-parse origin/main)" = "$MAIN_SHA"
+          test "$(git rev-parse "origin/$TARGET_BRANCH")" = "$OLD_SUBJECT_SHA"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          python -m pip install --disable-pip-version-check -e '.[dev]'
+
+      - name: Restore canonical task-list formatting only
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('specs/002-code-model-supremacy-foundation/tasks.md')
+          text = path.read_text(encoding='utf-8')
+
+          for task_id, next_task in [('B032', 'B033'), ('B033', 'B034')]:
+              pattern = rf'(- \[ \] \*\*{task_id} .*?\n)(.*?)(?=\n- \[ \] \*\*{next_task} )'
+              match = re.search(pattern, text, flags=re.S)
+              assert match, task_id
+              header, body = match.group(1), match.group(2)
+              lines = body.rstrip().splitlines()
+              fixed = []
+              for line in lines:
+                  if line.startswith('Prerequisite:') or line.startswith('Outputs:'):
+                      line = '  ' + line
+                  fixed.append(line)
+              replacement = header + '\n'.join(fixed) + '\n'
+              text = text[:match.start()] + replacement + text[match.end():]
+
+          text = text.replace(
+              '`evidence/mstr-000b/B032-downstream-contracts.md`.\n- [ ] **B033',
+              '`evidence/mstr-000b/B032-downstream-contracts.md`.\n\n- [ ] **B033',
+              1,
+          )
+          text = text.replace(
+              '`evidence/mstr-000b/B033-independent-review.md`.\n- [ ] **B034',
+              '`evidence/mstr-000b/B033-independent-review.md`.\n\n- [ ] **B034',
+              1,
+          )
+          path.write_text(text if text.endswith('\n') else text + '\n', encoding='utf-8')
+          PY
+          mapfile -t changed < <(git diff --name-only "$OLD_SUBJECT_SHA")
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = 'specs/002-code-model-supremacy-foundation/tasks.md'
+
+      - name: Requalify formatting-only repair
+        run: |
+          set -euo pipefail
+          python -m pytest -q tests/contract/test_source_adoption_plan.py tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m ruff format --check tests/contract/test_source_adoption_plan.py
+          python -m mypy src/mstr_qualify
+
+      - name: Guard and publish
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MAIN_SHA"
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$OLD_SUBJECT_SHA"
+          git config user.name "TheHalfMoon"
+          git config user.email "alshehriofficial@gmail.com"
+          git add specs/002-code-model-supremacy-foundation/tasks.md
+          git commit -m "style(plan): preserve canonical task formatting"
+          test "$(git rev-parse HEAD^)" = "$OLD_SUBJECT_SHA"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
