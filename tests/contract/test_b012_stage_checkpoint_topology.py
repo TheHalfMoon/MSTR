@@ -44,9 +44,7 @@ def test_repair_package_is_hash_bound_after_separate_canonical_activation() -> N
 
     assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
     assert binding["runner_shutdown_topology_repair_manifest_sha256"] == _sha256(REPAIR)
-    assert binding["workflow_sha256"] == _sha256(
-        ROOT / ".github/workflows/b012-qualify.yml"
-    )
+    assert binding["workflow_sha256"] == _sha256(ROOT / ".github/workflows/b012-qualify.yml")
 
     assert repair["activation_state"] == "ACTIVATED_BY_SEPARATE_CANONICAL_BINDING_CHANGE"
     assert repair["activation_target"] == ".github/workflows/b012-qualify.yml"
