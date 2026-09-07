@@ -121,10 +121,10 @@ def test_binding_records_recurrence_without_authority_expansion() -> None:
         assert boundary[key] is False
 
 
-def test_binding_blocks_same_topology_until_separately_reviewed_repair() -> None:
+def test_binding_preserves_shutdown_evidence_after_separate_topology_activation() -> None:
     binding = _read_json(BINDING)
 
-    assert binding["status"] == "BLOCKED_PENDING_RUNNER_SHUTDOWN_TOPOLOGY_REPAIR"
+    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
     second = binding["repeated_runner_shutdown_recovery"]
     assert isinstance(second, dict)
     assert second["repeating_same_topology_authorized_by_this_evidence"] is False
