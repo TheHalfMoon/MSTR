@@ -1,0 +1,255 @@
+name: PR181 B012 second shutdown independent review
+
+on:
+  push:
+    branches:
+      - evidence/pr181-b012-second-shutdown-independent-review-97b2fbe
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  SUBJECT_BRANCH: fix/b012-second-runner-shutdown-evidence-34068813113
+  SUBJECT_SHA: 97b2fbea7493b2499546a0f9c7933ee212002764
+  SUBJECT_TREE: 206b3d85404b76a08cc323904eff18ed1d31e604
+  BASE_SHA: d9fbf070c425b3da378655cbbd8f656d1a8b7b90
+  QUALIFICATION_RUN: "34135803996"
+  INCIDENT_RUN: "34068813113"
+  INCIDENT_JOB: "101582272038"
+  INCIDENT_EVIDENCE_SHA256: f20f8a1048392932d477c521329566341f0c1a13115caa3091bb27dfcb38df75
+  FIRST_INCIDENT_RUN: "34064172421"
+  FIRST_INCIDENT_EVIDENCE_SHA256: e5abc34f9d251951d4b38508fd0c6f67d8200282f564279a4c6fada65e354030
+  AUTHORITY_SHA256: ded6ce0015e89b331c1a4fbd6934d64df0eff7d324a836be307d3130c036d8c8
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout review evidence branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+
+      - name: Prove exact live PR identity and five-file containment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin main "$SUBJECT_BRANCH"
+          [[ "$(git rev-parse origin/main)" == "$BASE_SHA" ]]
+          [[ "$(git rev-parse "origin/$SUBJECT_BRANCH")" == "$SUBJECT_SHA" ]]
+          [[ "$(git merge-base "$BASE_SHA" "$SUBJECT_SHA")" == "$BASE_SHA" ]]
+          [[ "$(git show -s --format=%T "$SUBJECT_SHA")" == "$SUBJECT_TREE" ]]
+          python - <<'PY'
+          import json, os, urllib.request
+          req = urllib.request.Request(
+              "https://api.github.com/repos/TheHalfMoon/MSTR/pulls/181",
+              headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Accept": "application/vnd.github+json"},
+          )
+          with urllib.request.urlopen(req) as response:
+              pr = json.load(response)
+          assert pr["state"] == "open"
+          assert pr["draft"] is True
+          assert pr["base"]["ref"] == "main"
+          assert pr["base"]["sha"] == os.environ["BASE_SHA"]
+          assert pr["head"]["ref"] == os.environ["SUBJECT_BRANCH"]
+          assert pr["head"]["sha"] == os.environ["SUBJECT_SHA"]
+          assert pr["changed_files"] == 5
+          PY
+          mapfile -t changed < <(git diff --name-only "$BASE_SHA...$SUBJECT_SHA")
+          expected=(
+            "artifacts/manifests/B012-executor-toolchain-binding.json"
+            "artifacts/results/equivalent/B012/failures/B012-mellum-4b-run-34068813113.json"
+            "evidence/mstr-000b/B012-runner-shutdown-34068813113.md"
+            "tests/contract/test_b012_executor_binding.py"
+            "tests/contract/test_b012_runner_shutdown_evidence.py"
+          )
+          [[ "${#changed[@]}" -eq 5 ]]
+          for path in "${expected[@]}"; do
+            printf '%s\n' "${changed[@]}" | grep -Fx -- "$path" >/dev/null
+          done
+
+      - name: Verify machine B012 eligibility on actual canonical main
+        run: |
+          set -euo pipefail
+          git checkout -B main origin/main
+          [[ "$(git symbolic-ref --short HEAD)" == "main" ]]
+          [[ "$(git rev-parse HEAD)" == "$BASE_SHA" ]]
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B012 | tee /tmp/b012-eligibility.json
+          python - <<'PY'
+          import json
+          data = json.load(open('/tmp/b012-eligibility.json', encoding='utf-8'))
+          assert data['task_id'] == 'B012'
+          assert data['canonical_main'] == 'd9fbf070c425b3da378655cbbd8f656d1a8b7b90'
+          assert data['eligible'] is True
+          assert data['authority_result']['satisfied'] is True
+          PY
+          git checkout --detach "$SUBJECT_SHA"
+
+      - name: Verify exact-head qualification identity and success
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          req = urllib.request.Request(
+              f"https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/{os.environ['QUALIFICATION_RUN']}",
+              headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Accept": "application/vnd.github+json"},
+          )
+          with urllib.request.urlopen(req) as response:
+              run = json.load(response)
+          assert run['status'] == 'completed'
+          assert run['conclusion'] == 'success'
+          assert run['head_branch'] == 'evidence/pr181-b012-second-shutdown-qualification-97b2fbe'
+          PY
+
+      - name: Independently verify second runner-shutdown incident
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          headers = {"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Accept": "application/vnd.github+json"}
+          def get(url: str):
+              req = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(req) as response:
+                  return json.load(response)
+          run = get(f"https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/{os.environ['INCIDENT_RUN']}")
+          assert run['status'] == 'completed'
+          assert run['conclusion'] == 'failure'
+          assert run['head_sha'] == '61bacde1ee21831080accc8a226433562a6aeaf9'
+          assert run['event'] == 'issue_comment'
+          jobs = get(f"https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/{os.environ['INCIDENT_RUN']}/jobs?per_page=100")
+          job = next(item for item in jobs['jobs'] if str(item['id']) == os.environ['INCIDENT_JOB'])
+          steps = {step['name']: step['conclusion'] for step in job['steps']}
+          assert steps['Execute governed B012 qualification'] == 'cancelled'
+          assert steps['Upload durable JSON evidence only'] == 'skipped'
+          artifacts = get(f"https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/{os.environ['INCIDENT_RUN']}/artifacts?per_page=100")
+          assert artifacts['total_count'] == 0
+          PY
+          printf '%s  %s\n' "$INCIDENT_EVIDENCE_SHA256" artifacts/results/equivalent/B012/failures/B012-mellum-4b-run-34068813113.json | sha256sum -c -
+          printf '%s  %s\n' "$FIRST_INCIDENT_EVIDENCE_SHA256" artifacts/results/equivalent/B012/failures/B012-mellum-4b-run-34064172421.json | sha256sum -c -
+
+      - name: Review recurrence semantics and fail-closed dispatch boundary
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          binding_path = Path('artifacts/manifests/B012-executor-toolchain-binding.json')
+          binding = json.loads(binding_path.read_text())
+          authority_path = Path('artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json')
+          authority_hash = hashlib.sha256(authority_path.read_bytes()).hexdigest()
+          assert authority_hash == os.environ['AUTHORITY_SHA256']
+          assert binding['authority_sha256'] == authority_hash
+          assert binding['candidate_ids'] == ['mellum-4b', 'qwen3.5-0.8b-control']
+          assert binding['status'] == 'BLOCKED_PENDING_RUNNER_SHUTDOWN_TOPOLOGY_REPAIR'
+
+          first = binding['runner_shutdown_recovery']
+          second = binding['repeated_runner_shutdown_recovery']
+          assert first['run_id'] == int(os.environ['FIRST_INCIDENT_RUN'])
+          assert first['failure_classification'] == 'B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_NO_DURABLE_RESULT'
+          assert first['model_quality_verdict'] == 'NONE'
+          assert first['retry_authority_created'] is False
+          assert second['run_id'] == int(os.environ['INCIDENT_RUN'])
+          assert second['job_id'] == int(os.environ['INCIDENT_JOB'])
+          assert second['candidate_id'] == 'mellum-4b'
+          assert second['failure_classification'] == first['failure_classification']
+          assert second['prior_runner_shutdown_run_id'] == first['run_id']
+          assert second['same_failure_class_recurred'] is True
+          assert second['same_single_job_execution_topology'] is True
+          assert second['repeating_same_topology_authorized_by_this_evidence'] is False
+          assert second['durable_artifact_count'] == 0
+          assert second['model_quality_verdict'] == 'NONE'
+          assert second['model_access_before_shutdown'] == 'UNKNOWN_UNRECORDED'
+          assert second['candidate_execution_completion'] == 'NOT_PROVEN'
+          assert second['training'] is False
+          assert second['paid_model_api'] is False
+          assert second['candidate_expansion'] is False
+          assert second['retry_authority_created'] is False
+
+          boundary = binding['execution_boundary']
+          for key in ('authority_transfer','candidate_revision_or_file_expansion','new_candidates','training','weight_changing_training','paid_compute','paid_model_api','production_release'):
+              assert boundary[key] is False
+          assert boundary['git_model_binaries'] == 0
+          assert boundary['founder_machine_model_binaries'] == 0
+          assert boundary['paid_cost_usd'] == 0.0
+
+          governance = Path('colab/mstr_b012_governance.py').read_text()
+          assert 'SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL' in governance
+          assert 'B012 executor binding status is not executable when canonical' in governance
+          # With the subject binding blocked, the existing executor cannot cross governance into model access.
+          assert "execution_stage = \"CANONICAL_GOVERNANCE\"" in Path('colab/mstr_b012_execute.py').read_text()
+          assert "binding, envelope, lock = _require_binding(repo_root)" in Path('colab/mstr_b012_execute.py').read_text()
+          PY
+
+      - name: Verify incident evidence claim boundaries
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          incident = json.loads(Path('artifacts/results/equivalent/B012/failures/B012-mellum-4b-run-34068813113.json').read_text())
+          assert incident['task_id'] == 'B012'
+          assert incident['candidate_id'] == 'mellum-4b'
+          assert incident['run_id'] == 34068813113
+          assert incident['job_id'] == 101582272038
+          assert incident['failure_classification'] == 'B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_NO_DURABLE_RESULT'
+          assert incident['workflow_conclusion'] == 'failure'
+          assert incident['execution_step_conclusion'] == 'cancelled'
+          assert incident['artifact_upload_step_conclusion'] == 'skipped'
+          assert incident['durable_artifact_count'] == 0
+          assert incident['executor_authored_failure_json'] is False
+          assert incident['model_quality_verdict'] == 'NONE'
+          assert incident['model_access_before_shutdown'] == 'UNKNOWN_UNRECORDED'
+          assert incident['candidate_execution_completion'] == 'NOT_PROVEN'
+          assert incident['training'] is False
+          assert incident['paid_model_api'] is False
+          assert incident['candidate_expansion'] is False
+          assert incident['retry_authority_created'] is False
+          assert incident['same_action_retry_performed_by_this_evidence'] is False
+          evidence = Path('evidence/mstr-000b/B012-runner-shutdown-34068813113.md').read_text()
+          for marker in (
+              'MODEL_QUALITY_VERDICT=NONE',
+              'MODEL_ACCESS_BEFORE_SHUTDOWN=UNKNOWN_UNRECORDED',
+              'CANDIDATE_EXECUTION_COMPLETION=NOT_PROVEN',
+              'TRAINING=false',
+              'PAID_MODEL_API=false',
+              'CANDIDATE_EXPANSION=false',
+              'RETRY_AUTHORITY_CREATED=false',
+              'REPEATING_SAME_TOPOLOGY_AUTHORIZED_BY_THIS_EVIDENCE=false',
+          ):
+              assert marker in evidence
+          PY
+
+      - name: Run independent focused and full quality verification
+        run: |
+          python -m pytest -q tests/contract/test_b012_authority.py tests/contract/test_b012_executor_binding.py tests/contract/test_b012_runner_shutdown_evidence.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m ruff format --check tests/contract/test_b012_executor_binding.py tests/contract/test_b012_runner_shutdown_evidence.py
+          python -m mypy src/mstr_qualify
+
+      - name: Final immutable live review guard
+        run: |
+          set -euo pipefail
+          [[ "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" == "$BASE_SHA" ]]
+          [[ "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git "refs/heads/$SUBJECT_BRANCH" | cut -f1)" == "$SUBJECT_SHA" ]]
+          [[ "$(git rev-parse HEAD)" == "$SUBJECT_SHA" ]]
+          echo 'PR181_INDEPENDENT_REVIEW=PASS'
+          echo 'FINDINGS=NONE'
+          echo 'B012_BINDING_STATUS=BLOCKED_PENDING_RUNNER_SHUTDOWN_TOPOLOGY_REPAIR'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
