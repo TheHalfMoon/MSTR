@@ -1,3 +1,4 @@
+# Canonical postmerge evidence for PR #183.
 name: PR183 B012 activation postmerge verification
 
 on:
