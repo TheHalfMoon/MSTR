@@ -38,6 +38,11 @@ jobs:
           test "$(git show -s --format=%T HEAD)" = "$PLAN_BASE_TREE"
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$PLAN_BASE"
 
+      - name: Install canonical development toolchain
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check -e '.[dev]'
+
       - name: Reconstruct bounded amendment
         run: |
           set -euo pipefail
