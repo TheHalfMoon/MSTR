@@ -1,0 +1,256 @@
+name: PR182 B012 independent topology review
+
+on:
+  push:
+    branches:
+      - evidence/pr182-b012-independent-review-35678ec
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      BASE_SHA: 4e72c3e1a4e196ad67d932c71c896511968da08e
+      SUBJECT_BRANCH: fix/b012-stage-checkpoint-topology-repair
+      SUBJECT_SHA: 35678ec3ee90b58be35d336a9ddf2993c72f82a9
+      SUBJECT_TREE: 5c18857b12565f6d5838b83c0fede8c9fdb8a556
+      QUALIFICATION_RUN_ID: "34145683090"
+      QUALIFICATION_EVIDENCE_COMMIT: 3c0105ac3dbb2943103e0c515e8c49406f02912f
+      QUALIFICATION_WORKFLOW_PATH: .github/workflows/pr182-b012-topology-qualification-v3-35678ec.yml
+      PR_NUMBER: "182"
+    steps:
+      - name: Checkout independent review branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+
+      - name: Verify live PR and qualification provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin main "$SUBJECT_BRANCH" evidence/pr182-b012-topology-qualification-v3-35678ec
+          [[ "$(git rev-parse origin/main)" == "$BASE_SHA" ]]
+          [[ "$(git rev-parse "origin/$SUBJECT_BRANCH")" == "$SUBJECT_SHA" ]]
+          [[ "$(git merge-base "$BASE_SHA" "$SUBJECT_SHA")" == "$BASE_SHA" ]]
+          [[ "$(git show -s --format=%T "$SUBJECT_SHA")" == "$SUBJECT_TREE" ]]
+          [[ "$(git rev-parse "$QUALIFICATION_EVIDENCE_COMMIT^")" == "$SUBJECT_SHA" ]]
+          [[ "$(git rev-parse origin/evidence/pr182-b012-topology-qualification-v3-35678ec)" == "$QUALIFICATION_EVIDENCE_COMMIT" ]]
+          git show "$QUALIFICATION_EVIDENCE_COMMIT:$QUALIFICATION_WORKFLOW_PATH" | grep -F "SUBJECT_SHA: $SUBJECT_SHA" >/dev/null
+          git show "$QUALIFICATION_EVIDENCE_COMMIT:$QUALIFICATION_WORKFLOW_PATH" | grep -F "SUBJECT_TREE: $SUBJECT_TREE" >/dev/null
+          git show "$QUALIFICATION_EVIDENCE_COMMIT:$QUALIFICATION_WORKFLOW_PATH" | grep -F "BASE_SHA: $BASE_SHA" >/dev/null
+
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          token = os.environ['GH_TOKEN']
+          headers = {
+              'Accept': 'application/vnd.github+json',
+              'Authorization': f'Bearer {token}',
+              'X-GitHub-Api-Version': '2022-11-28',
+              'User-Agent': 'mstr-pr182-independent-review',
+          }
+          def get(url: str):
+              request = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)
+
+          run = get(f"https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/{os.environ['QUALIFICATION_RUN_ID']}")
+          assert run['status'] == 'completed'
+          assert run['conclusion'] == 'success'
+          assert run['head_sha'] == os.environ['QUALIFICATION_EVIDENCE_COMMIT']
+
+          pr = get(f"https://api.github.com/repos/TheHalfMoon/MSTR/pulls/{os.environ['PR_NUMBER']}")
+          assert pr['state'] == 'open'
+          assert pr['draft'] is False
+          assert pr['base']['ref'] == 'main'
+          assert pr['base']['sha'] == os.environ['BASE_SHA']
+          assert pr['head']['ref'] == os.environ['SUBJECT_BRANCH']
+          assert pr['head']['sha'] == os.environ['SUBJECT_SHA']
+          assert pr['changed_files'] == 4
+          print('LIVE_PR_AND_QUALIFICATION_PROVENANCE=PASS')
+          PY
+
+      - name: Checkout exact subject for substantive review
+        run: |
+          set -euo pipefail
+          git checkout --detach "$SUBJECT_SHA"
+          [[ "$(git rev-parse HEAD)" == "$SUBJECT_SHA" ]]
+          [[ "$(git show -s --format=%T HEAD)" == "$SUBJECT_TREE" ]]
+
+      - name: Review containment and inert activation boundary
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only "$BASE_SHA...$SUBJECT_SHA")
+          expected=(
+            "artifacts/manifests/B012-runner-shutdown-topology-repair.json"
+            "colab/mstr_b012_staged.py"
+            "configs/workflows/b012-qualify-staged.yml"
+            "tests/contract/test_b012_stage_checkpoint_topology.py"
+          )
+          [[ "${#changed[@]}" -eq 4 ]]
+          for path in "${expected[@]}"; do
+            printf '%s\n' "${changed[@]}" | grep -Fx -- "$path" >/dev/null
+          done
+          git diff --quiet "$BASE_SHA" "$SUBJECT_SHA" -- .github/workflows/b012-qualify.yml
+          git diff --quiet "$BASE_SHA" "$SUBJECT_SHA" -- artifacts/manifests/B012-executor-toolchain-binding.json
+
+          python - <<'PY'
+          import hashlib
+          import json
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, 'colab')
+          import mstr_b012_staged as staged
+
+          def sha(path: str) -> str:
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+          repair = json.loads(Path('artifacts/manifests/B012-runner-shutdown-topology-repair.json').read_text())
+          binding = json.loads(Path('artifacts/manifests/B012-executor-toolchain-binding.json').read_text())
+          lock = json.loads(Path('artifacts/manifests/B012-executor-toolchain-lock.json').read_text())
+          authority = json.loads(Path('artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json').read_text())
+
+          assert repair['staged_executor_sha256'] == sha('colab/mstr_b012_staged.py')
+          assert repair['candidate_workflow_sha256'] == sha('configs/workflows/b012-qualify-staged.yml')
+          assert binding['status'] == 'BLOCKED_PENDING_RUNNER_SHUTDOWN_TOPOLOGY_REPAIR'
+          assert 'runner_shutdown_topology_repair_manifest_sha256' not in binding
+          assert repair['activation_state'] == 'INERT_UNTIL_SEPARATE_CANONICAL_BINDING_ACTIVATION'
+          assert repair['recovery_semantics']['retry_authority_created'] is False
+          assert repair['recovery_semantics']['external_dispatch_authority_created'] is False
+          assert repair['recovery_semantics']['activation_requires_separate_review_and_merge'] is True
+          assert repair['recovery_semantics']['activation_requires_exact_main_task_eligibility'] is True
+          assert repair['recovery_semantics']['activation_requires_reverification_of_canonical_external_effect_authority'] is True
+
+          candidates = ['mellum-4b', 'qwen3.5-0.8b-control']
+          assert repair['authority_boundary']['candidate_ids'] == candidates
+          assert authority['scope']['candidate_ids'] == candidates
+          for key in ('candidate_revision_or_file_expansion', 'new_candidates', 'training', 'weight_changing_training', 'production_release', 'authority_scope_modified', 'authority_transfer'):
+              assert repair['authority_boundary'][key] is False
+          for key in ('paid_compute', 'paid_model_api'):
+              assert repair['resource_boundary'][key] is False
+          assert repair['resource_boundary']['aggregate_required_source_download_bytes'] == 9817996174
+          assert repair['resource_boundary']['git_model_binaries'] == 0
+          assert repair['resource_boundary']['founder_machine_model_binaries'] == 0
+
+          runtime = lock['task_binding']['runtime_benchmark']
+          expected_runtime = {
+              'prompt_tokens': 8192,
+              'decode_tokens': 128,
+              'threads': 2,
+              'warmups_excluded': 1,
+              'measured_repetitions': 3,
+              'per_invocation_timeout_seconds': 900,
+              'benchmark_wall_budget_seconds': 4800,
+              'reserved_non_benchmark_seconds': 2400,
+              'authorized_job_ceiling_seconds': 7200,
+          }
+          for key, value in expected_runtime.items():
+              assert runtime[key] == value
+          assert lock['runner']['max_job_minutes'] == 120
+          benchmark = repair['benchmark_semantics']
+          for key, value in expected_runtime.items():
+              assert benchmark[key] == value
+          assert benchmark['prefill_decode_share_one_monotonic_budget_clock'] is True
+          assert benchmark['modified_by_repair'] is False
+
+          try:
+              staged._require_staged_binding(Path.cwd())
+          except staged.ExecutionError as exc:
+              assert 'not activated in the executor binding' in str(exc)
+          else:
+              raise AssertionError('inert staged executor unexpectedly passed active binding guard')
+          print('INERT_AUTHORITY_AND_FROZEN_SEMANTICS_REVIEW=PASS')
+          PY
+
+      - name: Review checkpoint topology and failure durability
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          workflow = Path('configs/workflows/b012-qualify-staged.yml').read_text(encoding='utf-8')
+          staged = Path('colab/mstr_b012_staged.py').read_text(encoding='utf-8')
+          stages = ('init', 'source', 'quantize', 'prefill', 'decode', 'raw-code', 'finalize')
+
+          assert workflow.count('\njobs:\n') == 1
+          assert workflow.count('\n  qualify:\n') == 1
+          assert 'runs-on: ubuntu-24.04' in workflow
+          assert 'timeout-minutes: 120' in workflow
+          assert 'group: b012-equivalent-qualification-single-candidate' in workflow
+          assert 'cancel-in-progress: false' in workflow
+          assert 'workflow_dispatch:' not in workflow
+          assert '\n  push:' not in workflow
+          assert 'actions/cache@' not in workflow
+          assert 'actions/download-artifact@' not in workflow
+          assert 'mstr_b012_execute.py' not in workflow
+          assert workflow.count('actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02') == 7
+          assert workflow.count('${{ runner.temp }}/b012-results/*.json') == 7
+          assert workflow.count('if: always() && steps.') == 7
+          assert '.gguf' not in workflow
+          assert '.safetensors' not in workflow
+          assert 'b012-work' not in '\n'.join(line for line in workflow.splitlines() if line.lstrip().startswith('path:'))
+
+          positions = []
+          for stage in stages:
+              needle = f'--stage {stage}'
+              assert workflow.count(needle) == 1
+              positions.append(workflow.index(needle))
+          assert positions == sorted(positions)
+          assert workflow.index('Remove ephemeral B012 binaries') > positions[-1]
+          assert 'rm -rf "$RUNNER_TEMP/b012-work"' in workflow
+
+          assert staged.count('download_candidate(') == 1
+          assert staged.count('convert_quantize(') == 1
+          assert 'execution_started_monotonic' in staged
+          assert 'benchmark_started = observation.get("benchmark_started_monotonic")' in staged
+          assert 'budget_seconds=float(effective_budget)' in staged
+          assert 'last_durable_checkpoint_stage' in staged
+          assert 'completed_stages' in staged
+          assert 'durable_output_format": "JSON_ONLY"' in staged
+          assert 'durable_binary_artifacts": False' in staged
+          print('CHECKPOINT_TOPOLOGY_AND_FAILURE_DURABILITY_REVIEW=PASS')
+          PY
+
+      - name: Re-run focused and full quality independently
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q \
+            tests/contract/test_b012_stage_checkpoint_topology.py \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_timeout_budget.py \
+            tests/contract/test_b012_authority.py
+          python -m py_compile colab/mstr_b012_staged.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m ruff format --check colab/mstr_b012_staged.py tests/contract/test_b012_stage_checkpoint_topology.py
+          python -m mypy src/mstr_qualify
+
+      - name: Final independent live-ref guard
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$SUBJECT_SHA" ]]
+          [[ "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" == "$BASE_SHA" ]]
+          [[ "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git "refs/heads/$SUBJECT_BRANCH" | cut -f1)" == "$SUBJECT_SHA" ]]
+          echo 'PR182_INDEPENDENT_REVIEW=PASS'
+          echo 'MATERIAL_FINDINGS=0'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
