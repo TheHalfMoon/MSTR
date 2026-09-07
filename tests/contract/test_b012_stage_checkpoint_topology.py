@@ -38,11 +38,11 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def test_repair_package_is_hash_bound_after_separate_canonical_activation() -> None:
+def test_repair_package_remains_hash_bound_while_later_qwen_incident_reblocks_dispatch() -> None:
     binding = _read_json(BINDING)
     repair = _read_json(REPAIR)
 
-    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
+    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR"
     assert binding["runner_shutdown_topology_repair_manifest_sha256"] == _sha256(REPAIR)
     assert binding["workflow_sha256"] == _sha256(ROOT / ".github/workflows/b012-qualify.yml")
 
@@ -81,6 +81,14 @@ def test_repair_package_is_hash_bound_after_separate_canonical_activation() -> N
     assert activation["activation_is_separate_repository_change"] is True
     assert activation["retry_authority_created"] is False
     assert activation["external_dispatch_authority_created"] is False
+
+    qwen = binding["qwen_raw_code_recovery_runner_shutdown"]
+    assert isinstance(qwen, dict)
+    assert qwen["run_id"] == 34169060075
+    assert qwen["same_recovery_topology_as_failed_run_34163308005"] is True
+    assert qwen["repeating_same_recovery_topology_authorized_by_this_evidence"] is False
+    assert qwen["retry_authority_created"] is False
+    assert qwen["external_dispatch_authority_created"] is False
 
 
 def test_candidate_workflow_uses_seven_ordered_stages_and_json_only_uploads() -> None:
