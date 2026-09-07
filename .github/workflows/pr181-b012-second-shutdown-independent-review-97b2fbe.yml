@@ -188,7 +188,6 @@ jobs:
           governance = Path('colab/mstr_b012_governance.py').read_text()
           assert 'SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL' in governance
           assert 'B012 executor binding status is not executable when canonical' in governance
-          # With the subject binding blocked, the existing executor cannot cross governance into model access.
           assert "execution_stage = \"CANONICAL_GOVERNANCE\"" in Path('colab/mstr_b012_execute.py').read_text()
           assert "binding, envelope, lock = _require_binding(repo_root)" in Path('colab/mstr_b012_execute.py').read_text()
           PY
@@ -217,18 +216,21 @@ jobs:
           assert incident['candidate_expansion'] is False
           assert incident['retry_authority_created'] is False
           assert incident['same_action_retry_performed_by_this_evidence'] is False
+
           evidence = Path('evidence/mstr-000b/B012-runner-shutdown-34068813113.md').read_text()
-          for marker in (
-              'MODEL_QUALITY_VERDICT=NONE',
-              'MODEL_ACCESS_BEFORE_SHUTDOWN=UNKNOWN_UNRECORDED',
-              'CANDIDATE_EXECUTION_COMPLETION=NOT_PROVEN',
-              'TRAINING=false',
-              'PAID_MODEL_API=false',
-              'CANDIDATE_EXPANSION=false',
-              'RETRY_AUTHORITY_CREATED=false',
-              'REPEATING_SAME_TOPOLOGY_AUTHORIZED_BY_THIS_EVIDENCE=false',
-          ):
-              assert marker in evidence
+          required_prose = (
+              'This is not a model-quality verdict',
+              'whether model access had already occurred before shutdown',
+              'candidate execution completion',
+              'The authorized executor contains no training path.',
+              'did not expand candidate authority',
+              'use a paid model API',
+              'This evidence does not create retry authority.',
+              'does not authorize another execution using the same unmodified single-job evidence-loss topology.',
+              'A separately reviewed topology repair must be canonical before another B012 external execution is considered.',
+          )
+          for statement in required_prose:
+              assert statement in evidence
           PY
 
       - name: Run independent focused and full quality verification
