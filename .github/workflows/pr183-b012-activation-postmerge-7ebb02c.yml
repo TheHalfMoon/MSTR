@@ -1,0 +1,193 @@
+name: PR183 B012 activation postmerge verification
+
+on:
+  push:
+    branches:
+      - evidence/pr183-b012-activation-postmerge-7ebb02c
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  PR_NUMBER: "183"
+  CANONICAL_MAIN: 7ebb02c3c46c64d226d412def8bc88fd5f2c1594
+  CANONICAL_TREE: 21c21200967de1cbfc82c268309a74e669d8fc6a
+  SUBJECT_HEAD: 30309808dfe5e352e5289653bcea97cf18bc2ec3
+  QUALIFICATION_RUN: "34150730256"
+  REVIEW_RUN: "34152364613"
+  PREMERGE_RUN: "34152729365"
+  EXPECTED_STAGED_SHA256: 1cffee33a17c524dac0743a975d6538e845361d8ae7f8dedf808e4c740f5250e
+  EXPECTED_WORKFLOW_SHA256: 383cae4a3729045b9d5a5b2e23ef3430a410070fceefc507b78eaaeaf0232f29
+  EXPECTED_REPAIR_SHA256: 2dfc075480fb1549b811fe0976ddef745e0399ccc6c9a301b180684e4f88429e
+
+jobs:
+  postmerge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout postmerge evidence branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+
+      - name: Verify postmerge provenance and live canonical identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          [[ "$(git rev-parse origin/main)" == "$CANONICAL_MAIN" ]]
+          [[ "$(git show -s --format=%T origin/main)" == "$CANONICAL_TREE" ]]
+          [[ "$(git merge-base "$CANONICAL_MAIN" HEAD)" == "$CANONICAL_MAIN" ]]
+          git diff --name-only "$CANONICAL_MAIN..HEAD" > /tmp/evidence_changed
+          [[ "$(wc -l < /tmp/evidence_changed)" -eq 1 ]]
+          grep -Fx '.github/workflows/pr183-b012-activation-postmerge-7ebb02c.yml' /tmp/evidence_changed
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          headers = {
+              'Authorization': f"Bearer {os.environ['GH_TOKEN']}",
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+              'User-Agent': 'mstr-b012-pr183-postmerge',
+          }
+
+          def get(url: str):
+              req = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  return json.load(response)
+
+          pr = get(f"https://api.github.com/repos/TheHalfMoon/MSTR/pulls/{os.environ['PR_NUMBER']}")
+          assert pr['state'] == 'closed'
+          assert pr['merged'] is True
+          assert pr['merge_commit_sha'] == os.environ['CANONICAL_MAIN']
+          assert pr['head']['sha'] == os.environ['SUBJECT_HEAD']
+          assert pr['changed_files'] == 6
+          for env_name in ('QUALIFICATION_RUN', 'REVIEW_RUN', 'PREMERGE_RUN'):
+              run = get('https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/' + os.environ[env_name])
+              assert run['status'] == 'completed'
+              assert run['conclusion'] == 'success'
+          print('POSTMERGE_PROVENANCE=PASS')
+          print('CANONICAL_MAIN_IDENTITY=PASS')
+          print('MERGED_PR_IDENTITY=PASS')
+          print('PREMERGE_CHAIN=PASS')
+          PY
+
+      - name: Verify canonical activation semantics and hashes
+        run: |
+          set -euo pipefail
+          git checkout --detach "$CANONICAL_MAIN"
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path.cwd()
+          active = root / '.github/workflows/b012-qualify.yml'
+          staged_workflow = root / 'configs/workflows/b012-qualify-staged.yml'
+          staged_executor = root / 'colab/mstr_b012_staged.py'
+          repair_path = root / 'artifacts/manifests/B012-runner-shutdown-topology-repair.json'
+          binding_path = root / 'artifacts/manifests/B012-executor-toolchain-binding.json'
+
+          def digest(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          assert active.read_bytes() == staged_workflow.read_bytes()
+          assert digest(active) == os.environ['EXPECTED_WORKFLOW_SHA256']
+          assert digest(staged_workflow) == os.environ['EXPECTED_WORKFLOW_SHA256']
+          assert digest(staged_executor) == os.environ['EXPECTED_STAGED_SHA256']
+          assert digest(repair_path) == os.environ['EXPECTED_REPAIR_SHA256']
+
+          repair = json.loads(repair_path.read_text(encoding='utf-8'))
+          binding = json.loads(binding_path.read_text(encoding='utf-8'))
+          assert repair['activation_state'] == 'ACTIVATED_BY_SEPARATE_CANONICAL_BINDING_CHANGE'
+          assert repair['candidate_workflow_sha256'] == os.environ['EXPECTED_WORKFLOW_SHA256']
+          assert repair['staged_executor_sha256'] == os.environ['EXPECTED_STAGED_SHA256']
+          assert repair['recovery_semantics']['repair_is_new_repository_evidence'] is True
+          assert repair['recovery_semantics']['same_monolithic_topology_repetition'] is False
+          assert repair['recovery_semantics']['retry_authority_created'] is False
+          assert repair['recovery_semantics']['external_dispatch_authority_created'] is False
+
+          assert binding['status'] == 'SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL'
+          assert binding['candidate_ids'] == ['mellum-4b', 'qwen3.5-0.8b-control']
+          assert binding['workflow_sha256'] == os.environ['EXPECTED_WORKFLOW_SHA256']
+          assert binding['runner_shutdown_topology_repair_manifest_sha256'] == os.environ['EXPECTED_REPAIR_SHA256']
+          activation = binding['runner_shutdown_topology_activation']
+          assert activation['repair_manifest_sha256'] == os.environ['EXPECTED_REPAIR_SHA256']
+          assert activation['staged_executor_sha256'] == os.environ['EXPECTED_STAGED_SHA256']
+          assert activation['active_workflow_sha256'] == os.environ['EXPECTED_WORKFLOW_SHA256']
+          assert activation['retry_authority_created'] is False
+          assert activation['external_dispatch_authority_created'] is False
+          assert activation['model_access'] == 'NONE'
+          assert activation['training'] is False
+          assert activation['paid_cost_usd'] == 0.0
+          print('CANONICAL_ACTIVATION_HASHES=PASS')
+          print('CANONICAL_AUTHORITY_BOUNDARY=PASS')
+          PY
+
+      - name: Verify B012 eligibility on exact new canonical main
+        run: |
+          set -euo pipefail
+          git checkout -B main origin/main
+          [[ "$(git rev-parse HEAD)" == "$CANONICAL_MAIN" ]]
+          [[ "$(git show -s --format=%T HEAD)" == "$CANONICAL_TREE" ]]
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B012 | tee /tmp/b012-postmerge-eligible.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          gate = json.loads(Path('/tmp/b012-postmerge-eligible.json').read_text(encoding='utf-8'))
+          assert gate['canonical_main'] == os.environ['CANONICAL_MAIN']
+          assert gate['eligible'] is True
+          assert gate['authority_result']['required'] is True
+          assert gate['authority_result']['satisfied'] is True
+          assert gate['state_consistency_result']['observed_state'] == 'PENDING'
+          assert gate['supersession_result']['superseded'] is False
+          print('B012_POSTMERGE_ELIGIBLE=true')
+          PY
+
+      - name: Run canonical postmerge regression
+        run: |
+          set -euo pipefail
+          git checkout --detach "$CANONICAL_MAIN"
+          python -m pytest -q \
+            tests/contract/test_b012_stage_checkpoint_topology.py \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_timeout_budget.py \
+            tests/contract/test_b012_authority.py
+          python -m mstr_qualify validate
+          python -m ruff check .
+          python -m ruff format --check \
+            tests/contract/test_b012_stage_checkpoint_topology.py \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            colab/mstr_b012_staged.py
+          python -m pytest -q
+          python -m mypy src/mstr_qualify
+
+      - name: Final canonical guard
+        run: |
+          set -euo pipefail
+          REMOTE_MAIN="$(git ls-remote origin refs/heads/main | cut -f1)"
+          [[ "$REMOTE_MAIN" == "$CANONICAL_MAIN" ]]
+          [[ "$(git rev-parse HEAD)" == "$CANONICAL_MAIN" ]]
+          [[ "$(git show -s --format=%T HEAD)" == "$CANONICAL_TREE" ]]
+          echo "FINAL_CANONICAL_MAIN=$REMOTE_MAIN"
+          echo "FINAL_CANONICAL_TREE=$CANONICAL_TREE"
+          echo 'POSTMERGE_VERIFICATION=PASS'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
