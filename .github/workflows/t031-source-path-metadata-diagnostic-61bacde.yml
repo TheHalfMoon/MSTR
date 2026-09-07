@@ -1,0 +1,91 @@
+name: T031 source path metadata diagnostic
+
+on:
+  push:
+    branches:
+      - evidence/t031-source-path-metadata-diagnostic-61bacde
+
+permissions:
+  contents: read
+
+env:
+  MAIN_SHA: 61bacde1ee21831080accc8a226433562a6aeaf9
+  T029_PRODUCER_SHA: 406de41d132fa6d24d55814f3f6dd4fced5f12bd
+  LLAMA_CPP_SHA: fc35562ba46fbbf8e30cac85edbb39642c37d248
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove canonical main remains exact
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          [[ "$(git rev-parse origin/main)" == "$MAIN_SHA" ]]
+
+      - name: Prove T029 and T031 source-directory basename semantics differ
+        run: |
+          set -euo pipefail
+          git show "$T029_PRODUCER_SHA:colab/mstr_t029_quantize.py" > "$RUNNER_TEMP/t029.py"
+          git show "$MAIN_SHA:colab/mstr_t031_execute.py" > "$RUNNER_TEMP/t031.py"
+          grep -F 'src_dir = workdir / "source" / args.candidate.replace(".", "-")' "$RUNNER_TEMP/t029.py"
+          grep -F 'source_dir = workdir / "source" / args.candidate' "$RUNNER_TEMP/t031.py"
+          python - <<'PY'
+          candidates = [
+              "granite-4.1-3b",
+              "ministral-3-3b",
+              "qwen2.5-coder-1.5b",
+              "qwen3-4b",
+              "qwen3.5-2b",
+              "qwen3.5-4b",
+              "smollm3-3b",
+              "yi-coder-1.5b",
+          ]
+          changed = {candidate: candidate.replace(".", "-") for candidate in candidates if "." in candidate}
+          assert changed == {
+              "granite-4.1-3b": "granite-4-1-3b",
+              "qwen2.5-coder-1.5b": "qwen2-5-coder-1-5b",
+              "qwen3.5-2b": "qwen3-5-2b",
+              "qwen3.5-4b": "qwen3-5-4b",
+              "yi-coder-1.5b": "yi-coder-1-5b",
+          }
+          print("T029_T031_SOURCE_BASENAME_DRIFT=PROVEN")
+          PY
+
+      - name: Prove exact llama.cpp commit can write directory-derived model name into GGUF metadata
+        run: |
+          set -euo pipefail
+          git init "$RUNNER_TEMP/llama.cpp"
+          git -C "$RUNNER_TEMP/llama.cpp" remote add origin https://github.com/ggml-org/llama.cpp.git
+          git -C "$RUNNER_TEMP/llama.cpp" fetch --depth 1 origin "$LLAMA_CPP_SHA"
+          git -C "$RUNNER_TEMP/llama.cpp" checkout --detach "$LLAMA_CPP_SHA"
+          metadata="$RUNNER_TEMP/llama.cpp/gguf-py/gguf/metadata.py"
+          grep -F 'model_id = model_path.name' "$metadata"
+          grep -F 'if metadata.name is None and model_full_name_component is not None:' "$metadata"
+          grep -F 'metadata.name = Metadata.id_to_title(model_full_name_component)' "$metadata"
+          grep -F 'gguf_writer.add_name(self.name)' "$metadata"
+          echo "DIRECTORY_BASENAME_TO_GGUF_GENERAL_NAME_CAUSAL_PATH=PROVEN"
+
+      - name: Record bounded interpretation
+        run: |
+          echo "ROOT_CAUSE_CANDIDATE=HISTORICAL_SOURCE_DIRECTORY_BASENAME_NOT_REPLAYED"
+          echo "SOLE_ROOT_CAUSE_PROVEN=false"
+          echo "EXACT_ARTIFACT_EQUIVALENCE_STILL_REQUIRED=true"
+          echo "T029_EXPECTED_HASH_REWRITTEN=false"
+          echo "MODEL_EXECUTION=NONE"
+          echo "MODEL_ACCESS=NONE"
+          echo "TRAINING=false"
+          echo "PAID_COST_USD=0.0"
+
+      - name: Final immutable main guard
+        run: |
+          set -euo pipefail
+          [[ "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" == "$MAIN_SHA" ]]
+          echo "T031_SOURCE_PATH_DIAGNOSTIC=PASS"
