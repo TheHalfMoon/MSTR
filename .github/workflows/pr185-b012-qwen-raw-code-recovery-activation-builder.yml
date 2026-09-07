@@ -39,6 +39,8 @@ jobs:
           git fetch origin main
           [[ "$(git rev-parse origin/main)" == "$BASE_MAIN" ]]
           [[ "$(git merge-base "$BASE_MAIN" HEAD)" == "$BASE_MAIN" ]]
+          git branch -f main origin/main
+          [[ "$(git rev-parse refs/heads/main)" == "$BASE_MAIN" ]]
           python -m pip install -e '.[dev]'
           python -m mstr_qualify task eligible B012 | tee /tmp/b012-eligible.json
           python - <<'PY'
