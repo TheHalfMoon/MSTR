@@ -14,6 +14,7 @@ env:
   POSTMERGE_RUN: "34161170022"
   POSTMERGE_EVIDENCE_HEAD: 3bdab353ee6aa7dd60510208b1e0f02545d3ebea
   BUILDER_WORKFLOW: .github/workflows/pr185-b012-qwen-raw-code-recovery-activation-builder.yml
+  BUILDER_HELPER: tools/pr185_b012_qwen_activation_builder.py
 
 jobs:
   build:
@@ -37,7 +38,7 @@ jobs:
           set -euo pipefail
           git fetch origin main
           [[ "$(git rev-parse origin/main)" == "$BASE_MAIN" ]]
-          [[ "$(git rev-parse HEAD^)" == "$BASE_MAIN" ]]
+          [[ "$(git merge-base "$BASE_MAIN" HEAD)" == "$BASE_MAIN" ]]
           python -m pip install -e '.[dev]'
           python -m mstr_qualify task eligible B012 | tee /tmp/b012-eligible.json
           python - <<'PY'
@@ -45,7 +46,6 @@ jobs:
           import os
           import urllib.request
           from pathlib import Path
-
           gate = json.loads(Path('/tmp/b012-eligible.json').read_text(encoding='utf-8'))
           assert gate['canonical_main'] == os.environ['BASE_MAIN']
           assert gate['eligible'] is True
@@ -53,18 +53,17 @@ jobs:
           assert gate['authority_result']['satisfied'] is True
           assert gate['state_consistency_result']['observed_state'] == 'PENDING'
           assert all(item['satisfied'] for item in gate['prerequisite_results'])
-
           headers = {
               'Authorization': f"Bearer {os.environ['GH_TOKEN']}",
               'Accept': 'application/vnd.github+json',
               'X-GitHub-Api-Version': '2022-11-28',
               'User-Agent': 'mstr-b012-qwen-activation-builder',
           }
-          req = urllib.request.Request(
+          request = urllib.request.Request(
               'https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/' + os.environ['POSTMERGE_RUN'],
               headers=headers,
           )
-          with urllib.request.urlopen(req, timeout=30) as response:
+          with urllib.request.urlopen(request, timeout=30) as response:
               run = json.load(response)
           assert run['status'] == 'completed' and run['conclusion'] == 'success'
           assert run['head_sha'] == os.environ['POSTMERGE_EVIDENCE_HEAD']
@@ -74,235 +73,7 @@ jobs:
       - name: Materialize reviewed activation bytes
         run: |
           set -euo pipefail
-          cp configs/workflows/b012-qwen-raw-code-recovery.yml .github/workflows/b012-qwen-raw-code-recovery.yml
-          python - <<'PY'
-          import hashlib
-          import json
-          import os
-          from pathlib import Path
-
-          root = Path.cwd()
-          manifest_path = root / 'artifacts/manifests/B012-qwen-raw-code-runner-shutdown-recovery.json'
-          binding_path = root / 'artifacts/manifests/B012-executor-toolchain-binding.json'
-          active_path = root / '.github/workflows/b012-qwen-raw-code-recovery.yml'
-          spec_path = root / 'configs/workflows/b012-qwen-raw-code-recovery.yml'
-          script_path = root / 'colab/mstr_b012_qwen_raw_code_recovery.py'
-          incident_path = root / 'artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-run-34155931982.json'
-
-          def digest(path: Path) -> str:
-              return hashlib.sha256(path.read_bytes()).hexdigest()
-
-          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
-          binding = json.loads(binding_path.read_text(encoding='utf-8'))
-          assert manifest['status'] == 'INERT_PENDING_SEPARATE_ACTIVATION'
-          assert manifest['candidate_id'] == 'qwen3.5-0.8b-control'
-          assert manifest['prior_run_id'] == 34155931982
-          assert manifest['recovery_script_sha256'] == digest(script_path)
-          assert manifest['recovery_workflow_sha256'] == digest(spec_path)
-          assert manifest['incident_evidence_sha256'] == digest(incident_path)
-          assert active_path.read_bytes() == spec_path.read_bytes()
-          assert 'qwen_raw_code_recovery_manifest_sha256' not in binding
-
-          manifest['status'] = 'ACTIVATED_CANONICAL'
-          activation = manifest['activation']
-          activation['activation_base_main'] = os.environ['BASE_MAIN']
-          activation['recovery_package_merge_commit'] = os.environ['BASE_MAIN']
-          activation['recovery_package_postmerge_run_id'] = int(os.environ['POSTMERGE_RUN'])
-          activation['recovery_package_postmerge_evidence_head'] = os.environ['POSTMERGE_EVIDENCE_HEAD']
-          activation['activation_is_separate_repository_change'] = True
-          activation['active_workflow_materialized'] = True
-          activation['model_access_during_activation'] = 'NONE'
-          activation['training'] = False
-          activation['paid_cost_usd'] = 0.0
-          manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
-          manifest_sha = digest(manifest_path)
-
-          binding['qwen_raw_code_recovery_manifest_sha256'] = manifest_sha
-          binding['qwen_raw_code_recovery_activation'] = {
-              'recovery_id': manifest['recovery_id'],
-              'candidate_id': manifest['candidate_id'],
-              'prior_run_id': manifest['prior_run_id'],
-              'recovery_manifest_sha256': manifest_sha,
-              'recovery_script_sha256': manifest['recovery_script_sha256'],
-              'active_workflow_sha256': manifest['recovery_workflow_sha256'],
-              'incident_evidence_sha256': manifest['incident_evidence_sha256'],
-              'prior_stage05_checkpoint_sha256': manifest['prior_stage05_checkpoint_sha256'],
-              'activation_base_main': os.environ['BASE_MAIN'],
-              'recovery_package_postmerge_run_id': int(os.environ['POSTMERGE_RUN']),
-              'activation_is_separate_repository_change': True,
-              'retry_authority_created': False,
-              'external_dispatch_authority_created': False,
-              'candidate_expansion': False,
-              'revision_or_file_expansion': False,
-              'model_access': 'NONE',
-              'training': False,
-              'paid_cost_usd': 0.0,
-          }
-          binding_path.write_text(json.dumps(binding, indent=2) + '\n', encoding='utf-8')
-
-          test_path = root / 'tests/contract/test_b012_qwen_raw_code_recovery.py'
-          test_path.write_text('''from __future__ import annotations
-
-import hashlib
-import json
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[2]
-MANIFEST = ROOT / "artifacts/manifests/B012-qwen-raw-code-runner-shutdown-recovery.json"
-INCIDENT = (
-    ROOT / "artifacts/results/equivalent/B012/failures/"
-    "B012-qwen3.5-0.8b-control-run-34155931982.json"
-)
-BINDING = ROOT / "artifacts/manifests/B012-executor-toolchain-binding.json"
-RUNNER = ROOT / "colab/mstr_b012_qwen_raw_code_recovery.py"
-WORKFLOW_SPEC = ROOT / "configs/workflows/b012-qwen-raw-code-recovery.yml"
-ACTIVE_WORKFLOW = ROOT / ".github/workflows/b012-qwen-raw-code-recovery.yml"
-
-
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def test_qwen_raw_code_recovery_is_activated_and_exactly_bound() -> None:
-    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-    binding = json.loads(BINDING.read_text(encoding="utf-8"))
-    assert manifest["status"] == "ACTIVATED_CANONICAL"
-    assert manifest["candidate_id"] == "qwen3.5-0.8b-control"
-    assert manifest["prior_run_id"] == 34155931982
-    assert manifest["prior_stage05_artifact_id"] == 10031329744
-    assert manifest["prior_stage05_artifact_digest"] == (
-        "sha256:726e154a9e94c67eea4b0bdec5440912af6055e46cac9f95861872a044616fee"
-    )
-    assert manifest["prior_stage05_checkpoint_sha256"] == (
-        "2141781456f54623e6b87c9e7528ea767f49062670fbb62b77d639b3ec3d1f88"
-    )
-    assert manifest["expected_q4_k_m_sha256"] == (
-        "47f87d507130b70d7b54a159e7bf982e4fbe7dc75eae74e3cd9c9c9284805626"
-    )
-    assert manifest["expected_q4_k_m_size_bytes"] == 541903296
-    assert manifest["recovery_script_sha256"] == _sha256(RUNNER)
-    assert manifest["recovery_workflow_sha256"] == _sha256(WORKFLOW_SPEC)
-    assert manifest["incident_evidence_sha256"] == _sha256(INCIDENT)
-    assert ACTIVE_WORKFLOW.read_bytes() == WORKFLOW_SPEC.read_bytes()
-    assert binding["qwen_raw_code_recovery_manifest_sha256"] == _sha256(MANIFEST)
-    activation = binding["qwen_raw_code_recovery_activation"]
-    assert activation["recovery_manifest_sha256"] == _sha256(MANIFEST)
-    assert activation["recovery_script_sha256"] == _sha256(RUNNER)
-    assert activation["active_workflow_sha256"] == _sha256(ACTIVE_WORKFLOW)
-    assert activation["incident_evidence_sha256"] == _sha256(INCIDENT)
-    assert activation["retry_authority_created"] is False
-    assert activation["external_dispatch_authority_created"] is False
-    assert activation["candidate_expansion"] is False
-    assert activation["revision_or_file_expansion"] is False
-    assert activation["model_access"] == "NONE"
-    assert activation["training"] is False
-    assert activation["paid_cost_usd"] == 0.0
-
-
-def test_qwen_recovery_scope_skips_completed_benchmarks() -> None:
-    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-    scope = manifest["recovery_scope"]
-    assert scope["reacquire_exact_b010_qwen_files"] is True
-    assert scope["require_q4_k_m_identity_match_to_prior_stage03"] is True
-    assert scope["rerun_prefill"] is False
-    assert scope["rerun_decode"] is False
-    assert scope["run_raw_code_proxy"] is True
-    assert scope["candidate_expansion"] is False
-    assert scope["revision_or_file_expansion"] is False
-    assert scope["training"] is False
-    assert scope["paid_compute"] is False
-    assert scope["paid_model_api"] is False
-    assert scope["git_model_binaries"] is False
-    assert scope["founder_machine_model_binaries"] is False
-    assert scope["durable_outputs"] == ["JSON"]
-
-
-def test_qwen_recovery_runner_is_fail_closed_and_minimal() -> None:
-    source = RUNNER.read_text(encoding="utf-8")
-    assert 'CANDIDATE_ID = "qwen3.5-0.8b-control"' in source
-    assert "PRIOR_RUN_ID = 34155931982" in source
-    assert 'target="llama-quantize"' in source
-    assert 'target="llama-cli"' in source
-    assert "llama-bench" not in source
-    assert "measure_set_bounded" not in source
-    assert "_stage_prefill" not in source
-    assert "_stage_decode" not in source
-    assert "run_raw_code_proxy" in source
-    assert "download_candidate" in source
-    assert "convert_quantize" in source
-    assert "B012_RAW_CODE_RECOVERY_FAILED_CLOSED" in source
-    assert "ACTIVATED_CANONICAL" in source
-
-
-def test_qwen_recovery_workflow_has_exact_dispatch_boundary() -> None:
-    text = ACTIVE_WORKFLOW.read_text(encoding="utf-8")
-    assert text == WORKFLOW_SPEC.read_text(encoding="utf-8")
-    assert "github.event.issue.number == 162" in text
-    assert "github.event.comment.user.login == 'TheHalfMoon'" in text
-    assert "github.event.comment.author_association == 'OWNER'" in text
-    assert (
-        "github.event.comment.body == 'B012_RECOVER_RAW_CODE qwen3.5-0.8b-control 34155931982'"
-    ) in text
-    assert "timeout-minutes: 45" in text
-    assert "cancel-in-progress: false" in text
-    assert "mstr_b012_qwen_raw_code_recovery.py" in text
-    assert "upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02" in text
-    assert ".gguf" not in text
-    assert ".safetensors" not in text
-
-
-def test_qwen_shutdown_incident_is_not_a_model_verdict_or_retry_grant() -> None:
-    incident = json.loads(INCIDENT.read_text(encoding="utf-8"))
-    assert incident["workflow_run_id"] == 34155931982
-    assert incident["workflow_job_id"] == 101847640786
-    assert incident["last_durable_stage"] == "decode"
-    assert incident["interrupted_stage"] == "raw-code"
-    assert incident["interrupted_step_conclusion"] == "cancelled"
-    assert incident["durable_artifact_count"] == 5
-    assert incident["raw_code_result"] == "NONE"
-    assert incident["candidate_admission_decision"] == "NONE"
-    assert incident["model_quality_verdict"] == "NONE"
-    assert incident["retry_authority_created"] is False
-    assert incident["external_dispatch_authority_created"] is False
-''', encoding='utf-8')
-
-          evidence_path = root / 'evidence/B012-qwen-raw-code-recovery-activation.md'
-          evidence_path.write_text(f'''# B012 Qwen raw-code recovery activation
-
-## Scope
-
-This repository change activates only the already-reviewed Qwen raw-code recovery package for the missing Stage 06 evidence from workflow run `34155931982`.
-
-## Canonical provenance
-
-- activation base main: `{os.environ['BASE_MAIN']}`
-- inert recovery package merge: PR #184 / `{os.environ['BASE_MAIN']}`
-- inert recovery package postmerge verification: run `{os.environ['POSTMERGE_RUN']}` / SUCCESS
-- postmerge evidence head: `{os.environ['POSTMERGE_EVIDENCE_HEAD']}`
-- candidate: `qwen3.5-0.8b-control`
-- exact recovery dispatch: `B012_RECOVER_RAW_CODE qwen3.5-0.8b-control 34155931982`
-
-## Activation effect
-
-The reviewed workflow spec is materialized byte-for-byte at `.github/workflows/b012-qwen-raw-code-recovery.yml`. The activated recovery manifest is SHA-256-bound into the existing B012 executor binding.
-
-This activation performs no model access or execution. It creates no retry authority and no external-dispatch authority. It does not expand candidate, revision, file, network, quantization, runtime, cost, training, or durable-artifact scope.
-
-External recovery execution remains separately gated by canonical postmerge verification of this activation and the exact owner-authored Issue #162 dispatch command.
-
-```text
-MODEL_ACCESS_DURING_ACTIVATION = NONE
-MODEL_EXECUTION_DURING_ACTIVATION = NONE
-TRAINING = false
-PAID_COST_USD = 0.0
-GIT_MODEL_BINARIES = 0
-FOUNDER_MACHINE_MODEL_BINARIES = 0
-```
-''', encoding='utf-8')
-
-          print('ACTIVATED_MANIFEST_SHA256=' + manifest_sha)
-          print('ACTIVE_WORKFLOW_SHA256=' + digest(active_path))
-          PY
+          python "$BUILDER_HELPER"
 
       - name: Run focused construction verification
         run: |
@@ -323,7 +94,7 @@ FOUNDER_MACHINE_MODEL_BINARIES = 0
       - name: Commit only final activation package
         run: |
           set -euo pipefail
-          rm -f "$BUILDER_WORKFLOW"
+          rm -f "$BUILDER_WORKFLOW" "$BUILDER_HELPER"
           mapfile -t changed < <(git diff --name-only "$BASE_MAIN")
           expected=(
             ".github/workflows/b012-qwen-raw-code-recovery.yml"
