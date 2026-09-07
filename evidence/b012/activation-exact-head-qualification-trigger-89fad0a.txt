@@ -1,0 +1,8 @@
+B012 activation exact-head qualification trigger
+Target head: 89fad0a31f9da964aa842bb41bf4c832a7682311
+Target tree: f9466fa5f1b37feb702e5253b9158f871b25a201
+Canonical main: b04db4aa42de3c4b5adcba2f54052a6ab2d3fcec
+Model execution: NONE
+Model access: NONE
+Training: false
+Paid cost USD: 0.0
