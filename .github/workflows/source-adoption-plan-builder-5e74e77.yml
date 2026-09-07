@@ -52,6 +52,12 @@ jobs:
             specs/002-code-model-supremacy-foundation/tasks.md \
             tests/contract/test_source_adoption_plan.py \
             | sort > /tmp/expected-files
+          git add -N \
+            artifacts/manifests/MSTR-source-adoption-research-snapshot-2026-09-08.json \
+            docs/canonical/MSTR_SOURCE_ADOPTION_AND_CAPABILITY_MINING_STRATEGY.md \
+            specs/002-code-model-supremacy-foundation/research-source-adoption-2026-09-08.md \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            tests/contract/test_source_adoption_plan.py
           git status --short
           git diff --name-only "$PLAN_BASE" | sort > /tmp/actual-files
           diff -u /tmp/expected-files /tmp/actual-files
