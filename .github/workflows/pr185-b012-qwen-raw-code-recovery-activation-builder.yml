@@ -13,6 +13,7 @@ env:
   BASE_MAIN: 31549eeb78f2b3346c0915519cf5f4899ab47773
   POSTMERGE_RUN: "34161170022"
   POSTMERGE_EVIDENCE_HEAD: 3bdab353ee6aa7dd60510208b1e0f02545d3ebea
+  BUILDER_BRANCH: builder/pr185-b012-qwen-raw-code-recovery-activation-31549ee
   BUILDER_WORKFLOW: .github/workflows/pr185-b012-qwen-raw-code-recovery-activation-builder.yml
   BUILDER_HELPER: tools/pr185_b012_qwen_activation_builder.py
 
@@ -37,10 +38,11 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin main
+          BUILDER_HEAD="$(git rev-parse HEAD)"
           [[ "$(git rev-parse origin/main)" == "$BASE_MAIN" ]]
-          [[ "$(git merge-base "$BASE_MAIN" HEAD)" == "$BASE_MAIN" ]]
-          git branch -f main origin/main
-          [[ "$(git rev-parse refs/heads/main)" == "$BASE_MAIN" ]]
+          [[ "$(git merge-base "$BASE_MAIN" "$BUILDER_HEAD")" == "$BASE_MAIN" ]]
+          git checkout -B main origin/main
+          [[ "$(git rev-parse HEAD)" == "$BASE_MAIN" ]]
           python -m pip install -e '.[dev]'
           python -m mstr_qualify task eligible B012 | tee /tmp/b012-eligible.json
           python - <<'PY'
@@ -71,6 +73,8 @@ jobs:
           assert run['head_sha'] == os.environ['POSTMERGE_EVIDENCE_HEAD']
           print('ACTIVATION_ENTRY=PASS')
           PY
+          git checkout "$BUILDER_BRANCH"
+          [[ "$(git rev-parse HEAD)" == "$BUILDER_HEAD" ]]
 
       - name: Materialize reviewed activation bytes
         run: |
@@ -113,4 +117,4 @@ jobs:
           git config user.email 'alshehriofficial@gmail.com'
           git add -A
           git commit -m 'fix(b012): activate Qwen raw-code recovery'
-          git push origin HEAD:builder/pr185-b012-qwen-raw-code-recovery-activation-31549ee
+          git push origin HEAD:"$BUILDER_BRANCH"
