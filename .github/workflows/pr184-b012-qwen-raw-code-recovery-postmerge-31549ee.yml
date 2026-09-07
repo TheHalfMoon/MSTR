@@ -1,0 +1,188 @@
+# Canonical postmerge evidence for PR #184.
+name: PR184 B012 Qwen raw-code recovery postmerge verification
+
+on:
+  push:
+    branches:
+      - evidence/pr184-b012-qwen-raw-code-recovery-postmerge-31549ee
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+env:
+  PR_NUMBER: "184"
+  CANONICAL_MAIN: 31549eeb78f2b3346c0915519cf5f4899ab47773
+  CANONICAL_TREE: 54ecb7ad01fb29eecd7abd5049cf9a4c8fb80383
+  SUBJECT_HEAD: 7fc74906e2ddd82a044a5fee3fbf73ac188ad11e
+  QUALIFICATION_RUN: "34159617069"
+  REVIEW_RUN: "34160191947"
+  PREMERGE_RUN: "34160489477"
+
+jobs:
+  postmerge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout postmerge evidence branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+
+      - name: Verify postmerge provenance and live canonical identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          [[ "$(git rev-parse origin/main)" == "$CANONICAL_MAIN" ]]
+          [[ "$(git show -s --format=%T origin/main)" == "$CANONICAL_TREE" ]]
+          [[ "$(git merge-base "$CANONICAL_MAIN" HEAD)" == "$CANONICAL_MAIN" ]]
+          git diff --name-only "$CANONICAL_MAIN..HEAD" > /tmp/evidence_changed
+          [[ "$(wc -l < /tmp/evidence_changed)" -eq 1 ]]
+          grep -Fx '.github/workflows/pr184-b012-qwen-raw-code-recovery-postmerge-31549ee.yml' /tmp/evidence_changed
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          headers = {
+              'Authorization': f"Bearer {os.environ['GH_TOKEN']}",
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+              'User-Agent': 'mstr-b012-pr184-postmerge',
+          }
+
+          def get(url: str):
+              request = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)
+
+          pr = get(f"https://api.github.com/repos/TheHalfMoon/MSTR/pulls/{os.environ['PR_NUMBER']}")
+          assert pr['state'] == 'closed'
+          assert pr['merged'] is True
+          assert pr['merge_commit_sha'] == os.environ['CANONICAL_MAIN']
+          assert pr['head']['sha'] == os.environ['SUBJECT_HEAD']
+          assert pr['changed_files'] == 6
+          for env_name in ('QUALIFICATION_RUN', 'REVIEW_RUN', 'PREMERGE_RUN'):
+              run = get('https://api.github.com/repos/TheHalfMoon/MSTR/actions/runs/' + os.environ[env_name])
+              assert run['status'] == 'completed'
+              assert run['conclusion'] == 'success'
+          print('POSTMERGE_PROVENANCE=PASS')
+          print('CANONICAL_MAIN_IDENTITY=PASS')
+          print('MERGED_PR_IDENTITY=PASS')
+          print('PREMERGE_CHAIN=PASS')
+          PY
+
+      - name: Verify canonical recovery remains inert and exactly bound
+        run: |
+          set -euo pipefail
+          git checkout --detach "$CANONICAL_MAIN"
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path.cwd()
+          manifest_path = root / 'artifacts/manifests/B012-qwen-raw-code-runner-shutdown-recovery.json'
+          incident_path = root / 'artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-run-34155931982.json'
+          script_path = root / 'colab/mstr_b012_qwen_raw_code_recovery.py'
+          workflow_spec_path = root / 'configs/workflows/b012-qwen-raw-code-recovery.yml'
+          active_path = root / '.github/workflows/b012-qwen-raw-code-recovery.yml'
+          binding_path = root / 'artifacts/manifests/B012-executor-toolchain-binding.json'
+
+          def digest(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          incident = json.loads(incident_path.read_text(encoding='utf-8'))
+          binding = json.loads(binding_path.read_text(encoding='utf-8'))
+
+          assert manifest['status'] == 'INERT_PENDING_SEPARATE_ACTIVATION'
+          assert manifest['candidate_id'] == 'qwen3.5-0.8b-control'
+          assert manifest['prior_run_id'] == 34155931982
+          assert manifest['incident_evidence_sha256'] == digest(incident_path)
+          assert manifest['recovery_script_sha256'] == digest(script_path)
+          assert manifest['recovery_workflow_sha256'] == digest(workflow_spec_path)
+          assert not active_path.exists()
+          assert 'qwen_raw_code_recovery_manifest_sha256' not in binding
+          assert manifest['activation']['separate_activation_pr_required'] is True
+          assert manifest['activation']['canonical_postmerge_verification_required'] is True
+          assert manifest['activation']['retry_authority_created'] is False
+          assert manifest['activation']['external_dispatch_authority_created'] is False
+          assert manifest['activation']['exact_issue_command'] == 'B012_RECOVER_RAW_CODE qwen3.5-0.8b-control 34155931982'
+          assert incident['raw_code_result'] == 'NONE'
+          assert incident['model_quality_verdict'] == 'NONE'
+          assert incident['candidate_admission_decision'] == 'NONE'
+          assert incident['retry_authority_created'] is False
+          assert incident['external_dispatch_authority_created'] is False
+          print('CANONICAL_RECOVERY_INERT=PASS')
+          print('RECOVERY_COMPONENT_IDENTITIES=PASS')
+          print('NO_DISPATCH_AUTHORITY_CREATED=PASS')
+          PY
+
+      - name: Verify B012 eligibility on exact new canonical main
+        run: |
+          set -euo pipefail
+          git checkout -B main origin/main
+          [[ "$(git rev-parse HEAD)" == "$CANONICAL_MAIN" ]]
+          [[ "$(git show -s --format=%T HEAD)" == "$CANONICAL_TREE" ]]
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B012 | tee /tmp/b012-postmerge-eligible.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          gate = json.loads(Path('/tmp/b012-postmerge-eligible.json').read_text(encoding='utf-8'))
+          assert gate['canonical_main'] == os.environ['CANONICAL_MAIN']
+          assert gate['eligible'] is True
+          assert gate['authority_result']['required'] is True
+          assert gate['authority_result']['satisfied'] is True
+          assert gate['state_consistency_result']['observed_state'] == 'PENDING'
+          assert gate['supersession_result']['superseded'] is False
+          assert all(item['satisfied'] for item in gate['prerequisite_results'])
+          print('B012_POSTMERGE_ELIGIBLE=true')
+          PY
+
+      - name: Run canonical postmerge regression
+        run: |
+          set -euo pipefail
+          git checkout --detach "$CANONICAL_MAIN"
+          python -m pytest -q \
+            tests/contract/test_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_stage_checkpoint_topology.py \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_timeout_budget.py \
+            tests/contract/test_b012_authority.py
+          python -m mstr_qualify validate
+          python -m ruff check .
+          python -m ruff format --check \
+            colab/mstr_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_qwen_raw_code_recovery.py
+          python -m pytest -q
+          python -m mypy src/mstr_qualify
+
+      - name: Final canonical guard
+        run: |
+          set -euo pipefail
+          REMOTE_MAIN="$(git ls-remote origin refs/heads/main | cut -f1)"
+          [[ "$REMOTE_MAIN" == "$CANONICAL_MAIN" ]]
+          [[ "$(git rev-parse HEAD)" == "$CANONICAL_MAIN" ]]
+          [[ "$(git show -s --format=%T HEAD)" == "$CANONICAL_TREE" ]]
+          echo "FINAL_CANONICAL_MAIN=$REMOTE_MAIN"
+          echo "FINAL_CANONICAL_TREE=$CANONICAL_TREE"
+          echo 'PR184_POSTMERGE_VERIFICATION=PASS'
+          echo 'B012_POSTMERGE_ELIGIBLE=true'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
