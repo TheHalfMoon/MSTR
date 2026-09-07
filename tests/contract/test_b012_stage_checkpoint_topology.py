@@ -64,7 +64,10 @@ def test_repair_package_is_hash_bound_and_does_not_activate_dispatch() -> None:
     assert recovery["retry_authority_created"] is False
     assert recovery["external_dispatch_authority_created"] is False
     assert recovery["activation_requires_exact_main_task_eligibility"] is True
-    assert recovery["activation_requires_reverification_of_canonical_external_effect_authority"] is True
+    assert (
+        recovery["activation_requires_reverification_of_canonical_external_effect_authority"]
+        is True
+    )
     assert recovery["activation_requires_separate_review_and_merge"] is True
 
 

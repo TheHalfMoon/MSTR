@@ -57,7 +57,7 @@
   },
   "schema_version": "mstr.b012-runner-shutdown-topology-repair.v1",
   "staged_executor_path": "colab/mstr_b012_staged.py",
-  "staged_executor_sha256": "48c133e06119f82892baae4891f3362ba9151f9aae45890723b8e20e8fcad0be",
+  "staged_executor_sha256": "1cffee33a17c524dac0743a975d6538e845361d8ae7f8dedf808e4c740f5250e",
   "task_id": "B012",
   "topology": {
     "duplicate_source_downloads_introduced": false,

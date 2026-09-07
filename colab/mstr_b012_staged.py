@@ -122,9 +122,7 @@ def _load_state(output_dir: Path, candidate: str, stage: str) -> dict[str, objec
     return state
 
 
-TOPOLOGY_REPAIR_PATH = Path(
-    "artifacts/manifests/B012-runner-shutdown-topology-repair.json"
-)
+TOPOLOGY_REPAIR_PATH = Path("artifacts/manifests/B012-runner-shutdown-topology-repair.json")
 
 
 def _require_staged_binding(
@@ -133,7 +131,9 @@ def _require_staged_binding(
     binding = read_json(repo_root / BINDING_PATH)
     expected_manifest = binding.get("runner_shutdown_topology_repair_manifest_sha256")
     if not isinstance(expected_manifest, str):
-        raise ExecutionError("B012 topology-repair manifest is not activated in the executor binding")
+        raise ExecutionError(
+            "B012 topology-repair manifest is not activated in the executor binding"
+        )
     require_file_sha256(repo_root / TOPOLOGY_REPAIR_PATH, expected_manifest)
     repair = read_json(repo_root / TOPOLOGY_REPAIR_PATH)
     expected_executor = repair.get("staged_executor_sha256")
@@ -197,9 +197,7 @@ def _complete_stage(
     _write(_checkpoint_path(output_dir, str(state["candidate_id"]), stage), checkpoint)
 
 
-def _stage_init(
-    *, repo_root: Path, output_dir: Path, workdir: Path, candidate: str
-) -> None:
+def _stage_init(*, repo_root: Path, output_dir: Path, workdir: Path, candidate: str) -> None:
     if workdir.exists():
         shutil.rmtree(workdir)
     workdir.mkdir(parents=True)
@@ -224,9 +222,7 @@ def _stage_init(
         overlay_path=repo_root / T031_REPLAY_OVERLAY_PATH,
         root=workdir / "python",
     )
-    conversion_dir, quantizer, bench, cli, tool_identity = prepare_tools(
-        lock=lock, workdir=workdir
-    )
+    conversion_dir, quantizer, bench, cli, tool_identity = prepare_tools(lock=lock, workdir=workdir)
     canonical_end = _require_live_main(repo_root)
     if canonical_end != head:
         raise ExecutionError("B012 canonical main moved during staged toolchain setup")
@@ -267,9 +263,7 @@ def _stage_init(
     )
 
 
-def _stage_source(
-    *, repo_root: Path, output_dir: Path, candidate: str
-) -> None:
+def _stage_source(*, repo_root: Path, output_dir: Path, candidate: str) -> None:
     state = _load_state(output_dir, candidate, "source")
     _, envelope, _ = _require_stage_main(repo_root, state)
     workdir = _path_from_state(state, "workdir")
@@ -304,9 +298,7 @@ def _stage_source(
     )
 
 
-def _stage_quantize(
-    *, repo_root: Path, output_dir: Path, candidate: str
-) -> None:
+def _stage_quantize(*, repo_root: Path, output_dir: Path, candidate: str) -> None:
     state = _load_state(output_dir, candidate, "quantize")
     _require_stage_main(repo_root, state)
     workdir = _path_from_state(state, "workdir")
@@ -375,9 +367,7 @@ def _runtime_configuration(
     return runtime_cfg, runner_cfg, budget
 
 
-def _stage_prefill(
-    *, repo_root: Path, output_dir: Path, candidate: str
-) -> None:
+def _stage_prefill(*, repo_root: Path, output_dir: Path, candidate: str) -> None:
     state = _load_state(output_dir, candidate, "prefill")
     _, _, lock = _require_stage_main(repo_root, state)
     runtime_cfg, _, budget = _runtime_configuration(lock)
@@ -432,9 +422,7 @@ def _stage_prefill(
     )
 
 
-def _stage_decode(
-    *, repo_root: Path, output_dir: Path, candidate: str
-) -> None:
+def _stage_decode(*, repo_root: Path, output_dir: Path, candidate: str) -> None:
     state = _load_state(output_dir, candidate, "decode")
     _, _, lock = _require_stage_main(repo_root, state)
     runtime_cfg, _, budget = _runtime_configuration(lock)
@@ -451,13 +439,18 @@ def _stage_decode(
         or float(effective_budget) <= 0
     ):
         raise ExecutionError("B012 staged shared benchmark clock is invalid")
-    if observation.get("per_invocation_timeout_seconds") != budget["per_invocation_timeout_seconds"]:
+    if (
+        observation.get("per_invocation_timeout_seconds")
+        != budget["per_invocation_timeout_seconds"]
+    ):
         raise ExecutionError("B012 staged benchmark timeout drift detected")
     if observation.get("benchmark_wall_budget_seconds") != budget["benchmark_wall_budget_seconds"]:
         raise ExecutionError("B012 staged benchmark wall budget drift detected")
 
     tool_identity = state.get("tool_identity")
-    if not isinstance(tool_identity, dict) or not isinstance(tool_identity.get("runtime_commit"), str):
+    if not isinstance(tool_identity, dict) or not isinstance(
+        tool_identity.get("runtime_commit"), str
+    ):
         raise ExecutionError("B012 staged runtime identity is missing")
     decode = measure_set_bounded(
         arm="isolated_decode_128",
@@ -486,9 +479,7 @@ def _stage_decode(
     )
 
 
-def _stage_raw_code(
-    *, repo_root: Path, output_dir: Path, candidate: str
-) -> None:
+def _stage_raw_code(*, repo_root: Path, output_dir: Path, candidate: str) -> None:
     state = _load_state(output_dir, candidate, "raw-code")
     _require_stage_main(repo_root, state)
     raw_manifest = read_json(repo_root / RAW_CODE_PATH)
@@ -506,9 +497,7 @@ def _stage_raw_code(
     )
 
 
-def _stage_finalize(
-    *, repo_root: Path, output_dir: Path, candidate: str
-) -> None:
+def _stage_finalize(*, repo_root: Path, output_dir: Path, candidate: str) -> None:
     state = _load_state(output_dir, candidate, "finalize")
     _require_stage_main(repo_root, state)
     canonical_end = _require_live_main(repo_root)
@@ -526,7 +515,10 @@ def _stage_finalize(
     quantization = state.get("quantization")
     if not isinstance(source_verification, list):
         raise ExecutionError("B012 staged source verification is missing")
-    if not all(isinstance(value, dict) for value in (prefill, decode, raw_code, runtime_budget, quantization)):
+    if not all(
+        isinstance(value, dict)
+        for value in (prefill, decode, raw_code, runtime_budget, quantization)
+    ):
         raise ExecutionError("B012 staged qualification evidence is incomplete")
 
     result = {
