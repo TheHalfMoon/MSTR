@@ -1,0 +1,221 @@
+name: PR188 source adoption independent review
+
+on:
+  push:
+    branches:
+      - evidence/pr188-source-adoption-review-8711092
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+env:
+  PR_NUMBER: "188"
+  BASE_SHA: 5e74e77c1fc86d4ebc7e64654f45bd18f565edd6
+  SUBJECT_BRANCH: plan/mstr-source-adoption-capability-mining-v2-5e74e77
+  SUBJECT_SHA: 8711092d9c9f007f62d976774ff6b00ba32a0bbc
+  SUBJECT_TREE: f7a5ce124125b4067a0203387c7a98eebf0f952a
+  QUALIFICATION_RUN_ID: "34169591373"
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout review evidence branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+
+      - name: Verify prerequisite qualification and exact subject
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/TheHalfMoon/MSTR/actions/runs/$QUALIFICATION_RUN_ID --jq .status)" = completed
+          test "$(gh api repos/TheHalfMoon/MSTR/actions/runs/$QUALIFICATION_RUN_ID --jq .conclusion)" = success
+          git fetch origin main "$SUBJECT_BRANCH"
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          test "$(git rev-parse "origin/$SUBJECT_BRANCH")" = "$SUBJECT_SHA"
+          test "$(git rev-parse "$SUBJECT_SHA^")" = "$BASE_SHA"
+          test "$(git show -s --format=%T "$SUBJECT_SHA")" = "$SUBJECT_TREE"
+          test "$(gh api repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER --jq .state)" = open
+          test "$(gh api repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER --jq .base.sha)" = "$BASE_SHA"
+          test "$(gh api repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER --jq .head.sha)" = "$SUBJECT_SHA"
+          git checkout --detach "$SUBJECT_SHA"
+
+      - name: Independently review planning semantics and governance
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import json
+          import subprocess
+          from pathlib import Path
+
+          BASE = '5e74e77c1fc86d4ebc7e64654f45bd18f565edd6'
+          SUBJECT = '8711092d9c9f007f62d976774ff6b00ba32a0bbc'
+          EXPECTED = {
+              'artifacts/manifests/MSTR-source-adoption-research-snapshot-2026-09-08.json',
+              'docs/canonical/MSTR_SOURCE_ADOPTION_AND_CAPABILITY_MINING_STRATEGY.md',
+              'specs/002-code-model-supremacy-foundation/research-source-adoption-2026-09-08.md',
+              'specs/002-code-model-supremacy-foundation/tasks.md',
+              'tests/contract/test_source_adoption_plan.py',
+          }
+
+          changed = set(subprocess.check_output(
+              ['git', 'diff', '--name-only', f'{BASE}...{SUBJECT}'], text=True
+          ).splitlines())
+          assert changed == EXPECTED, (changed, EXPECTED)
+
+          snapshot = json.loads(Path(
+              'artifacts/manifests/MSTR-source-adoption-research-snapshot-2026-09-08.json'
+          ).read_text(encoding='utf-8'))
+          assert snapshot['status'] == 'PLANNING_RESEARCH_NOT_ADOPTION'
+          assert snapshot['canonical_planning_base'] == BASE
+          assert snapshot['canonical_planning_base_tree'] == '66120bf247e7d9b9da34d5d47603493c8dce4c30'
+          assert len(snapshot['sources']) == 18
+          assert len({item['source_id'] for item in snapshot['sources']}) == 18
+          assert snapshot['revision_reverification'] == {
+              'reverified_date': '2026-09-08',
+              'source_count': 18,
+              'unchanged_source_count': 13,
+              'changed_source_count': 5,
+              'changed_sources': [
+                  'deepseek-harness', 'mini-swe-agent', 'swe-rex', 'aider', 'ifm-xllm'
+              ],
+          }
+          revisions = {item['source_id']: item['observed_revision'] for item in snapshot['sources']}
+          expected_revisions = {
+              'deepseek-harness': 'c389f96bf3a9b6807cb71ed6bdad5849be0df6d8',
+              'mini-swe-agent': '04d809ceab9df28f9adaed044884180159172930',
+              'swe-rex': '5c995c365dfb1fd5bc56fda688be5d8538f9931f',
+              'aider': '5dc9490bb35f9729ef2c95d00a19ccd30c26339c',
+              'ifm-xllm': '1891e22b25bda4a4e88e23b3866c3ee7a127e3be',
+          }
+          for source_id, revision in expected_revisions.items():
+              assert revisions[source_id] == revision
+
+          boundary = snapshot['authority_boundary']
+          assert boundary == {
+              'source_code_permission_is_data_admission': False,
+              'source_code_permission_is_model_weight_authority': False,
+              'source_code_permission_is_training_authority': False,
+              'source_code_permission_is_external_effect_authority': False,
+              'model_access': 'NONE',
+              'model_execution': 'NONE',
+              'training': False,
+              'paid_cost_usd': 0.0,
+          }
+          policy = snapshot['adoption_policy']
+          assert policy['prefer_minimal_primitive'] is True
+          assert policy['whole_repository_vendoring_default'] is False
+          assert policy['mutable_upstream_runtime_dependency_allowed'] is False
+          assert policy['runtime_auto_update_allowed'] is False
+          assert policy['license_notice_review_required_before_copy'] is True
+          assert policy['transitive_dependency_review_required'] is True
+          assert policy['behavior_or_equivalence_tests_required'] is True
+          assert policy['rollback_required'] is True
+          assert policy['independent_review_required'] is True
+
+          strategy = Path('docs/canonical/MSTR_SOURCE_ADOPTION_AND_CAPABILITY_MINING_STRATEGY.md').read_text(encoding='utf-8')
+          tasks = Path('specs/002-code-model-supremacy-foundation/tasks.md').read_text(encoding='utf-8')
+          catalog = json.loads(Path('configs/task-gate/mstr-000b.json').read_text(encoding='utf-8'))['tasks']
+
+          required_tokens = [
+              'SourceAdoptionRecord',
+              'ExecutionBackendProfile',
+              'ResumableTaskCheckpoint',
+              'ImprovementDecisionRecord',
+              'RepositoryContextIndexProfile',
+              'TrainingBackendParityRecord',
+              'MINIMAL_BASH_LINEAR_BASELINE',
+          ]
+          for token in required_tokens:
+              assert token in strategy
+              assert token in tasks
+
+          for token in [
+              'SOURCE_CODE_PERMISSION', 'DATA_ADMISSION', 'MODEL_WEIGHT_AUTHORITY',
+              'TRAINING_AUTHORITY', 'EXTERNAL_EFFECT_AUTHORITY'
+          ]:
+              assert token in strategy
+          assert 'External effects created by this document: NONE' in strategy
+          assert 'runtime auto-updaters are forbidden' in strategy
+          assert 'A checkpoint is state, not authority' in strategy
+          assert 'The optimizer MUST NOT read protected evaluation outputs before proposing the candidate' in strategy
+          assert 'No source is auto-updated in production or during installation' in strategy
+          assert 'The matrix is a plan, not evidence that any primitive has already been copied or adopted' in strategy
+
+          for number in range(14, 31):
+              assert catalog[f'B{number:03d}']['canonical_state'] == 'COMPLETE_CANONICAL'
+          assert catalog['B031']['canonical_state'] == 'PENDING'
+          assert catalog['B031']['prerequisites'] == [
+              'A019', 'A020', 'B002', 'B003', 'B004', 'B015', 'B017', 'B019',
+              'B021', 'B023', 'B024', 'B025', 'B027', 'B028', 'B029', 'B030'
+          ]
+          assert catalog['B032']['canonical_state'] == 'PENDING'
+          assert catalog['B032']['prerequisites'] == ['B031']
+          assert catalog['B033']['canonical_state'] == 'PENDING'
+          assert catalog['B033']['prerequisites'] == ['B032']
+          assert catalog['B034']['canonical_state'] == 'PENDING'
+
+          base_tasks = subprocess.check_output(
+              ['git', 'show', f'{BASE}:specs/002-code-model-supremacy-foundation/tasks.md'], text=True
+          )
+          current_b031 = tasks[tasks.index('- [ ] **B031'):tasks.index('- [ ] **B032')]
+          base_b031 = base_tasks[base_tasks.index('- [ ] **B031'):base_tasks.index('- [ ] **B032')]
+          assert current_b031 == base_b031
+          assert 'B032 itself authorizes none of those external effects' in tasks
+          assert 'Confirm completed B014-B030 history was not reopened and B031 prerequisites were not weakened' in tasks
+
+          for forbidden in [
+              'MODEL_WEIGHT_ACCESS = AUTHORIZED',
+              'MODEL_EXECUTION = AUTHORIZED',
+              'TRAINING = AUTHORIZED',
+              'PAID_COMPUTE = AUTHORIZED',
+              'EXTERNAL_DISPATCH = AUTHORIZED',
+          ]:
+              assert forbidden not in strategy
+              assert forbidden not in tasks
+
+          print('INDEPENDENT_SOURCE_ADOPTION_REVIEW=PASS')
+          print('MATERIAL_FINDINGS=0')
+          PY
+
+      - name: Run independent regression gates
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check -e '.[dev]'
+          python -m pytest -q tests/contract/test_source_adoption_plan.py tests/contract/test_task_gate.py tests/contract/test_convergence_external_bindings.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m ruff format --check tests/contract/test_source_adoption_plan.py
+          python -m mypy src/mstr_qualify
+
+      - name: Final exact live independent-review guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT_SHA"
+          test "$(git show -s --format=%T HEAD)" = "$SUBJECT_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          test "$(git ls-remote origin "refs/heads/$SUBJECT_BRANCH" | cut -f1)" = "$SUBJECT_SHA"
+          test "$(gh api repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER --jq .state)" = open
+          test "$(gh api repos/TheHalfMoon/MSTR/pulls/$PR_NUMBER --jq .head.sha)" = "$SUBJECT_SHA"
+          echo 'PR188_INDEPENDENT_REVIEW=PASS'
+          echo 'MATERIAL_FINDINGS=0'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
