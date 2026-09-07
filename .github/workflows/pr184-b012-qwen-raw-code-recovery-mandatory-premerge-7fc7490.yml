@@ -1,0 +1,275 @@
+name: PR184 B012 Qwen raw-code recovery mandatory premerge
+
+on:
+  push:
+    branches:
+      - evidence/pr184-b012-qwen-raw-code-recovery-mandatory-premerge-7fc7490
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  PR_NUMBER: "184"
+  BASE_SHA: 7ebb02c3c46c64d226d412def8bc88fd5f2c1594
+  SUBJECT_BRANCH: fix/b012-qwen-raw-code-runner-shutdown-recovery
+  SUBJECT_SHA: 7fc74906e2ddd82a044a5fee3fbf73ac188ad11e
+  SUBJECT_TREE: 54ecb7ad01fb29eecd7abd5049cf9a4c8fb80383
+  QUALIFICATION_RUN: "34159617069"
+  QUALIFICATION_HEAD: ebf535b466244b8e96a822cc1fffe9761c34cb31
+  QUALIFICATION_BRANCH: evidence/pr184-b012-qwen-raw-code-recovery-qualification-v2-7fc7490
+  REVIEW_RUN: "34160191947"
+  REVIEW_HEAD: 134627b4c38bf7985ce8fbb7ec22df0bfe3648bb
+  REVIEW_BRANCH: evidence/pr184-b012-qwen-raw-code-recovery-independent-review-v3-7fc7490
+
+jobs:
+  premerge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout premerge evidence branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+
+      - name: Prove exact base head tree evidence ancestry and scope
+        run: |
+          set -euo pipefail
+          git fetch origin main "$SUBJECT_BRANCH" "$QUALIFICATION_BRANCH" "$REVIEW_BRANCH"
+          [[ "$(git rev-parse origin/main)" == "$BASE_SHA" ]]
+          [[ "$(git rev-parse "origin/$SUBJECT_BRANCH")" == "$SUBJECT_SHA" ]]
+          [[ "$(git merge-base "$BASE_SHA" "$SUBJECT_SHA")" == "$BASE_SHA" ]]
+          [[ "$(git show -s --format=%T "$SUBJECT_SHA")" == "$SUBJECT_TREE" ]]
+          [[ "$(git rev-parse "origin/$QUALIFICATION_BRANCH")" == "$QUALIFICATION_HEAD" ]]
+          [[ "$(git rev-parse "origin/$REVIEW_BRANCH")" == "$REVIEW_HEAD" ]]
+          [[ "$(git rev-parse "$QUALIFICATION_HEAD^")" == "$SUBJECT_SHA" ]]
+          [[ "$(git rev-parse "$REVIEW_HEAD^")" == "$SUBJECT_SHA" ]]
+          mapfile -t changed < <(git diff --name-only "$BASE_SHA...$SUBJECT_SHA")
+          expected=(
+            "artifacts/manifests/B012-qwen-raw-code-runner-shutdown-recovery.json"
+            "artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-run-34155931982.json"
+            "colab/mstr_b012_qwen_raw_code_recovery.py"
+            "configs/workflows/b012-qwen-raw-code-recovery.yml"
+            "evidence/B012-qwen-raw-code-runner-shutdown-34155931982.md"
+            "tests/contract/test_b012_qwen_raw_code_recovery.py"
+          )
+          [[ "${#changed[@]}" -eq 6 ]]
+          for path in "${expected[@]}"; do
+            printf '%s\n' "${changed[@]}" | grep -Fx -- "$path" >/dev/null
+          done
+          git diff --quiet "$BASE_SHA" "$SUBJECT_SHA" -- .github/workflows/b012-qualify.yml
+          git diff --quiet "$BASE_SHA" "$SUBJECT_SHA" -- artifacts/manifests/B012-executor-toolchain-binding.json
+          if git cat-file -e "$SUBJECT_SHA:.github/workflows/b012-qwen-raw-code-recovery.yml" 2>/dev/null; then
+            echo 'recovery workflow unexpectedly active' >&2
+            exit 1
+          fi
+
+      - name: Reverify B012 machine eligibility on actual canonical main
+        run: |
+          set -euo pipefail
+          git checkout -B main origin/main
+          [[ "$(git symbolic-ref --short HEAD)" == "main" ]]
+          [[ "$(git rev-parse HEAD)" == "$BASE_SHA" ]]
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B012 | tee /tmp/b012-eligibility.json
+          python - <<'PY'
+          import json, os
+          data = json.load(open('/tmp/b012-eligibility.json', encoding='utf-8'))
+          assert data['task_id'] == 'B012'
+          assert data['canonical_main'] == os.environ['BASE_SHA']
+          assert data['eligible'] is True
+          assert data['authority_result']['satisfied'] is True
+          assert data['state_consistency_result']['observed_state'] == 'PENDING'
+          assert data['supersession_result']['superseded'] is False
+          assert all(item['satisfied'] for item in data['prerequisite_results'])
+          PY
+          git checkout --detach "$SUBJECT_SHA"
+
+      - name: Verify immutable qualification review and live PR discussion state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          headers = {
+              'Authorization': f"Bearer {os.environ['GH_TOKEN']}",
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+              'User-Agent': 'mstr-pr184-mandatory-premerge',
+          }
+
+          def rest(path: str):
+              request = urllib.request.Request(
+                  f'https://api.github.com/repos/TheHalfMoon/MSTR{path}', headers=headers
+              )
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)
+
+          q = rest(f"/actions/runs/{os.environ['QUALIFICATION_RUN']}")
+          assert q['status'] == 'completed' and q['conclusion'] == 'success'
+          assert q['head_sha'] == os.environ['QUALIFICATION_HEAD']
+          assert q['head_branch'] == os.environ['QUALIFICATION_BRANCH']
+          qjobs = rest(f"/actions/runs/{os.environ['QUALIFICATION_RUN']}/jobs?per_page=100")['jobs']
+          assert any(job['name'] == 'qualify' and job['conclusion'] == 'success' for job in qjobs)
+
+          r = rest(f"/actions/runs/{os.environ['REVIEW_RUN']}")
+          assert r['status'] == 'completed' and r['conclusion'] == 'success'
+          assert r['head_sha'] == os.environ['REVIEW_HEAD']
+          assert r['head_branch'] == os.environ['REVIEW_BRANCH']
+          rjobs = rest(f"/actions/runs/{os.environ['REVIEW_RUN']}/jobs?per_page=100")['jobs']
+          assert any(job['name'] == 'review' and job['conclusion'] == 'success' for job in rjobs)
+
+          pr = rest('/pulls/184')
+          assert pr['state'] == 'open'
+          assert pr['draft'] is False
+          assert pr['base']['ref'] == 'main'
+          assert pr['base']['sha'] == os.environ['BASE_SHA']
+          assert pr['head']['ref'] == os.environ['SUBJECT_BRANCH']
+          assert pr['head']['sha'] == os.environ['SUBJECT_SHA']
+          assert pr['changed_files'] == 6
+          assert pr['mergeable'] is not False
+          reviews = rest('/pulls/184/reviews?per_page=100')
+          assert not any(review.get('state') == 'CHANGES_REQUESTED' for review in reviews)
+          inline = rest('/pulls/184/comments?per_page=100')
+          assert len(inline) == 0
+
+          query = '''query($owner:String!, $name:String!, $number:Int!) {
+            repository(owner:$owner, name:$name) {
+              pullRequest(number:$number) {
+                reviewThreads(first:100) { nodes { isResolved } }
+              }
+            }
+          }'''
+          payload = json.dumps({
+              'query': query,
+              'variables': {'owner': 'TheHalfMoon', 'name': 'MSTR', 'number': 184},
+          }).encode()
+          request = urllib.request.Request(
+              'https://api.github.com/graphql',
+              data=payload,
+              headers={**headers, 'Content-Type': 'application/json'},
+              method='POST',
+          )
+          with urllib.request.urlopen(request, timeout=30) as response:
+              graph = json.load(response)
+          assert 'errors' not in graph, graph
+          threads = graph['data']['repository']['pullRequest']['reviewThreads']['nodes']
+          assert not any(thread['isResolved'] is False for thread in threads)
+          print('QUALIFICATION_REVIEW_AND_DISCUSSION_STATE=PASS')
+          PY
+
+      - name: Verify recovery identities inert binding and bounded semantics
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          manifest_path = Path('artifacts/manifests/B012-qwen-raw-code-runner-shutdown-recovery.json')
+          incident_path = Path('artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-run-34155931982.json')
+          runner_path = Path('colab/mstr_b012_qwen_raw_code_recovery.py')
+          workflow_path = Path('configs/workflows/b012-qwen-raw-code-recovery.yml')
+          manifest = json.loads(manifest_path.read_text())
+          incident = json.loads(incident_path.read_text())
+          binding = json.loads(Path('artifacts/manifests/B012-executor-toolchain-binding.json').read_text())
+          authority = json.loads(Path('artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json').read_text())
+
+          assert manifest['status'] == 'INERT_PENDING_SEPARATE_ACTIVATION'
+          assert manifest['recovery_script_sha256'] == sha(runner_path)
+          assert manifest['recovery_workflow_sha256'] == sha(workflow_path)
+          assert manifest['incident_evidence_sha256'] == sha(incident_path)
+          assert 'qwen_raw_code_recovery_manifest_sha256' not in binding
+          assert not Path('.github/workflows/b012-qwen-raw-code-recovery.yml').exists()
+          assert authority['status'] == 'AUTHORIZED_CANONICAL'
+          assert authority['scope']['candidate_ids'] == ['mellum-4b', 'qwen3.5-0.8b-control']
+          assert manifest['prior_run_id'] == 34155931982
+          assert manifest['prior_stage05_artifact_id'] == 10031329744
+          assert manifest['prior_stage05_checkpoint_sha256'] == '2141781456f54623e6b87c9e7528ea767f49062670fbb62b77d639b3ec3d1f88'
+          assert manifest['expected_q4_k_m_sha256'] == '47f87d507130b70d7b54a159e7bf982e4fbe7dc75eae74e3cd9c9c9284805626'
+          assert manifest['expected_q4_k_m_size_bytes'] == 541903296
+          scope = manifest['recovery_scope']
+          assert scope['rerun_prefill'] is False and scope['rerun_decode'] is False
+          assert scope['run_raw_code_proxy'] is True
+          assert scope['require_q4_k_m_identity_match_to_prior_stage03'] is True
+          for key in ('candidate_expansion', 'revision_or_file_expansion', 'training', 'paid_compute', 'paid_model_api', 'git_model_binaries', 'founder_machine_model_binaries'):
+              assert scope[key] is False
+          assert manifest['activation']['separate_activation_pr_required'] is True
+          assert manifest['activation']['retry_authority_created'] is False
+          assert manifest['activation']['external_dispatch_authority_created'] is False
+          assert incident['model_quality_verdict'] == 'NONE'
+          assert incident['candidate_admission_decision'] == 'NONE'
+          print('RECOVERY_IDENTITIES_INERT_BOUNDARY_AND_SCOPE=PASS')
+          PY
+
+      - name: Mandatory focused and full quality gate
+        run: |
+          set -euo pipefail
+          python -m pytest -q \
+            tests/contract/test_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_stage_checkpoint_topology.py \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_timeout_budget.py \
+            tests/contract/test_b012_authority.py
+          python -m py_compile colab/mstr_b012_qwen_raw_code_recovery.py
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m ruff format --check \
+            colab/mstr_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_qwen_raw_code_recovery.py
+          python -m mypy src/mstr_qualify
+
+      - name: Final exact live premerge guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$SUBJECT_SHA" ]]
+          [[ "$(git show -s --format=%T HEAD)" == "$SUBJECT_TREE" ]]
+          [[ "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" == "$BASE_SHA" ]]
+          [[ "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git "refs/heads/$SUBJECT_BRANCH" | cut -f1)" == "$SUBJECT_SHA" ]]
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          headers = {
+              'Authorization': f"Bearer {os.environ['GH_TOKEN']}",
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+              'User-Agent': 'mstr-pr184-final-premerge',
+          }
+          def rest(path: str):
+              request = urllib.request.Request(
+                  f'https://api.github.com/repos/TheHalfMoon/MSTR{path}', headers=headers
+              )
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)
+          pr = rest('/pulls/184')
+          assert pr['state'] == 'open' and pr['draft'] is False
+          assert pr['base']['sha'] == os.environ['BASE_SHA']
+          assert pr['head']['sha'] == os.environ['SUBJECT_SHA']
+          assert pr['changed_files'] == 6
+          reviews = rest('/pulls/184/reviews?per_page=100')
+          assert not any(review.get('state') == 'CHANGES_REQUESTED' for review in reviews)
+          PY
+          echo 'PR184_MANDATORY_PREMERGE=PASS'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
