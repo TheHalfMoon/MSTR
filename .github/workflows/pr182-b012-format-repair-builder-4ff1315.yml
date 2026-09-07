@@ -1,0 +1,138 @@
+name: PR182 B012 format repair builder
+
+on:
+  push:
+    branches:
+      - evidence/pr182-b012-format-repair-builder-4ff1315
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SUBJECT_BRANCH: fix/b012-stage-checkpoint-topology-repair
+      EXPECTED_HEAD: 4ff131543a4e5a181a623f3c0ea83aeac778c4df
+      BASE_SHA: 4e72c3e1a4e196ad67d932c71c896511968da08e
+    steps:
+      - name: Checkout exact subject branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SUBJECT_BRANCH }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Guard exact live refs
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_HEAD" ]]
+          [[ "$(git ls-remote origin refs/heads/main | cut -f1)" == "$BASE_SHA" ]]
+          [[ "$(git ls-remote origin "refs/heads/$SUBJECT_BRANCH" | cut -f1)" == "$EXPECTED_HEAD" ]]
+
+      - name: Apply formatting-only repair and exact digest rebind
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          staged_path = Path('colab/mstr_b012_staged.py')
+          staged = staged_path.read_text(encoding='utf-8')
+          replacements = {
+              '        raise ExecutionError("B012 topology-repair manifest is not activated in the executor binding")\n': (
+                  '        raise ExecutionError(\n'
+                  '            "B012 topology-repair manifest is not activated in the executor binding"\n'
+                  '        )\n'
+              ),
+              '    if observation.get("per_invocation_timeout_seconds") != budget["per_invocation_timeout_seconds"]:\n': (
+                  '    if (\n'
+                  '        observation.get("per_invocation_timeout_seconds")\n'
+                  '        != budget["per_invocation_timeout_seconds"]\n'
+                  '    ):\n'
+              ),
+              '    if not isinstance(tool_identity, dict) or not isinstance(tool_identity.get("runtime_commit"), str):\n': (
+                  '    if not isinstance(tool_identity, dict) or not isinstance(\n'
+                  '        tool_identity.get("runtime_commit"), str\n'
+                  '    ):\n'
+              ),
+              '    if not all(isinstance(value, dict) for value in (prefill, decode, raw_code, runtime_budget, quantization)):\n': (
+                  '    if not all(\n'
+                  '        isinstance(value, dict)\n'
+                  '        for value in (prefill, decode, raw_code, runtime_budget, quantization)\n'
+                  '    ):\n'
+              ),
+          }
+          for old, new in replacements.items():
+              if staged.count(old) != 1:
+                  raise SystemExit(f'unexpected staged replacement cardinality: {old!r}')
+              staged = staged.replace(old, new)
+          staged_path.write_text(staged, encoding='utf-8')
+
+          test_path = Path('tests/contract/test_b012_stage_checkpoint_topology.py')
+          test = test_path.read_text(encoding='utf-8')
+          old = '    assert recovery["activation_requires_reverification_of_canonical_external_effect_authority"] is True\n'
+          new = (
+              '    assert (\n'
+              '        recovery["activation_requires_reverification_of_canonical_external_effect_authority"]\n'
+              '        is True\n'
+              '    )\n'
+          )
+          if test.count(old) != 1:
+              raise SystemExit('unexpected topology-test replacement cardinality')
+          test_path.write_text(test.replace(old, new), encoding='utf-8')
+          PY
+
+          python -m pip install -e '.[dev]'
+          python -m ruff check colab/mstr_b012_staged.py tests/contract/test_b012_stage_checkpoint_topology.py
+          python -m ruff format --check colab/mstr_b012_staged.py tests/contract/test_b012_stage_checkpoint_topology.py
+          python -m pytest -q tests/contract/test_b012_stage_checkpoint_topology.py
+
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          staged = Path('colab/mstr_b012_staged.py')
+          manifest_path = Path('artifacts/manifests/B012-runner-shutdown-topology-repair.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          digest = hashlib.sha256(staged.read_bytes()).hexdigest()
+          manifest['staged_executor_sha256'] = digest
+          manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(f'STAGED_EXECUTOR_SHA256={digest}')
+          print(f'REPAIR_MANIFEST_SHA256={hashlib.sha256(manifest_path.read_bytes()).hexdigest()}')
+          PY
+          python -m pytest -q tests/contract/test_b012_stage_checkpoint_topology.py
+          python -m ruff check colab/mstr_b012_staged.py tests/contract/test_b012_stage_checkpoint_topology.py
+          python -m ruff format --check colab/mstr_b012_staged.py tests/contract/test_b012_stage_checkpoint_topology.py
+
+      - name: Prove only intended files changed
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only)
+          expected=(
+            "artifacts/manifests/B012-runner-shutdown-topology-repair.json"
+            "colab/mstr_b012_staged.py"
+            "tests/contract/test_b012_stage_checkpoint_topology.py"
+          )
+          [[ "${#changed[@]}" -eq 3 ]]
+          for path in "${expected[@]}"; do
+            printf '%s\n' "${changed[@]}" | grep -Fx -- "$path" >/dev/null
+          done
+          git diff --quiet -- configs/workflows/b012-qualify-staged.yml
+          git diff --quiet "$BASE_SHA" HEAD -- .github/workflows/b012-qualify.yml
+          git diff --quiet "$BASE_SHA" HEAD -- artifacts/manifests/B012-executor-toolchain-binding.json
+
+      - name: Commit and push forward-only repair
+        run: |
+          set -euo pipefail
+          [[ "$(git ls-remote origin "refs/heads/$SUBJECT_BRANCH" | cut -f1)" == "$EXPECTED_HEAD" ]]
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/manifests/B012-runner-shutdown-topology-repair.json colab/mstr_b012_staged.py tests/contract/test_b012_stage_checkpoint_topology.py
+          git commit -m "style(b012): satisfy topology repair quality gate"
+          git push origin "HEAD:$SUBJECT_BRANCH"
+          echo "NEW_SUBJECT_SHA=$(git rev-parse HEAD)"
+          echo "NEW_SUBJECT_TREE=$(git show -s --format=%T HEAD)"
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'TRAINING=false'
+          echo 'PAID_COST_USD=0.0'
