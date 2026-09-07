@@ -47,21 +47,154 @@ jobs:
         with:
           python-version: "3.11.16"
 
-      - name: Execute governed B012 qualification
+      - name: Stage 01 - initialize governed toolchains
+        id: init
         env:
           PYTHONPATH: colab
         run: |
           set -euo pipefail
-          python colab/mstr_b012_execute.py \
+          python colab/mstr_b012_staged.py \
             --candidate "${{ steps.dispatch.outputs.candidate }}" \
+            --stage init \
             --output-dir "$RUNNER_TEMP/b012-results" \
             --workdir "$RUNNER_TEMP/b012-work"
 
-      - name: Upload durable JSON evidence only
-        if: always()
+      - name: Upload stage 01 JSON checkpoint
+        if: always() && steps.init.outcome != 'skipped'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: b012-${{ steps.dispatch.outputs.candidate }}-${{ github.run_id }}
+          name: b012-${{ steps.dispatch.outputs.candidate }}-stage-01-init-${{ github.run_id }}
           path: ${{ runner.temp }}/b012-results/*.json
           if-no-files-found: error
           retention-days: 7
+
+      - name: Stage 02 - reacquire and verify exact source files
+        id: source
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          python colab/mstr_b012_staged.py \
+            --candidate "${{ steps.dispatch.outputs.candidate }}" \
+            --stage source \
+            --output-dir "$RUNNER_TEMP/b012-results" \
+            --workdir "$RUNNER_TEMP/b012-work"
+
+      - name: Upload stage 02 JSON checkpoint
+        if: always() && steps.source.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: b012-${{ steps.dispatch.outputs.candidate }}-stage-02-source-${{ github.run_id }}
+          path: ${{ runner.temp }}/b012-results/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Stage 03 - convert and quantize
+        id: quantize
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          python colab/mstr_b012_staged.py \
+            --candidate "${{ steps.dispatch.outputs.candidate }}" \
+            --stage quantize \
+            --output-dir "$RUNNER_TEMP/b012-results" \
+            --workdir "$RUNNER_TEMP/b012-work"
+
+      - name: Upload stage 03 JSON checkpoint
+        if: always() && steps.quantize.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: b012-${{ steps.dispatch.outputs.candidate }}-stage-03-quantize-${{ github.run_id }}
+          path: ${{ runner.temp }}/b012-results/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Stage 04 - run bounded prefill benchmark
+        id: prefill
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          python colab/mstr_b012_staged.py \
+            --candidate "${{ steps.dispatch.outputs.candidate }}" \
+            --stage prefill \
+            --output-dir "$RUNNER_TEMP/b012-results" \
+            --workdir "$RUNNER_TEMP/b012-work"
+
+      - name: Upload stage 04 JSON checkpoint
+        if: always() && steps.prefill.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: b012-${{ steps.dispatch.outputs.candidate }}-stage-04-prefill-${{ github.run_id }}
+          path: ${{ runner.temp }}/b012-results/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Stage 05 - run bounded decode benchmark
+        id: decode
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          python colab/mstr_b012_staged.py \
+            --candidate "${{ steps.dispatch.outputs.candidate }}" \
+            --stage decode \
+            --output-dir "$RUNNER_TEMP/b012-results" \
+            --workdir "$RUNNER_TEMP/b012-work"
+
+      - name: Upload stage 05 JSON checkpoint
+        if: always() && steps.decode.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: b012-${{ steps.dispatch.outputs.candidate }}-stage-05-decode-${{ github.run_id }}
+          path: ${{ runner.temp }}/b012-results/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Stage 06 - run raw-code proxy
+        id: raw_code
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          python colab/mstr_b012_staged.py \
+            --candidate "${{ steps.dispatch.outputs.candidate }}" \
+            --stage raw-code \
+            --output-dir "$RUNNER_TEMP/b012-results" \
+            --workdir "$RUNNER_TEMP/b012-work"
+
+      - name: Upload stage 06 JSON checkpoint
+        if: always() && steps.raw_code.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: b012-${{ steps.dispatch.outputs.candidate }}-stage-06-raw-code-${{ github.run_id }}
+          path: ${{ runner.temp }}/b012-results/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Stage 07 - finalize equivalent qualification evidence
+        id: finalize
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          python colab/mstr_b012_staged.py \
+            --candidate "${{ steps.dispatch.outputs.candidate }}" \
+            --stage finalize \
+            --output-dir "$RUNNER_TEMP/b012-results" \
+            --workdir "$RUNNER_TEMP/b012-work"
+
+      - name: Upload stage 07 final JSON evidence
+        if: always() && steps.finalize.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: b012-${{ steps.dispatch.outputs.candidate }}-stage-07-final-${{ github.run_id }}
+          path: ${{ runner.temp }}/b012-results/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove ephemeral B012 binaries
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/b012-work"
