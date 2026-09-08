@@ -1,0 +1,209 @@
+name: PR199 B012 case-checkpoint shutdown independent review
+
+on:
+  push:
+    branches:
+      - evidence/pr199-b012-case-checkpoint-shutdown-independent-review-e02653b
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      REPO: TheHalfMoon/MSTR
+      PR: '199'
+      BASE: 145be15a32448d00fada0e2d9bf736f265c942a1
+      HEAD: e02653b8b3b87100a9a8a5b5122a15636634c52b
+      TREE: dbe5f46cc4f8ef3179f8ea1180f63ee5d5929cfb
+      SUBJECT_BRANCH: governance/b012-qwen-case-checkpoint-runner-shutdown-34265475666
+      QUAL_RUN: '34273248053'
+      QUAL_EVIDENCE_HEAD: 54c4bbb019877433879a861adbeb8a6e3681f3d7
+      INCIDENT_SHA256: e03d0030cb500a2fc97ec3a2f66c17b463028582643d9169c7be6994bc955152
+      FAILURE_CLASS: B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_PARTIAL_DURABLE_PROGRESS_RAW_CODE_UNPROVEN
+      BLOCKED_STATUS: BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.16'
+          check-latest: false
+
+      - name: Reverify exact subject and qualification provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git show -s --format=%T HEAD)" = "$TREE"
+          git fetch origin main "$SUBJECT_BRANCH" --quiet
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/$SUBJECT_BRANCH)" = "$HEAD"
+          test "$(git merge-base "$BASE" "$HEAD")" = "$BASE"
+          test "$(git rev-list --count "$BASE..$HEAD")" = "17"
+          gh api "repos/$REPO/actions/runs/$QUAL_RUN" > /tmp/qual.json
+          jq -e --arg q "$QUAL_EVIDENCE_HEAD" '.status=="completed" and .conclusion=="success" and .head_sha==$q' /tmp/qual.json >/dev/null
+          gh api "repos/$REPO/pulls/$PR" > /tmp/pr.json
+          jq -e --arg b "$BASE" --arg h "$HEAD" '.state=="open" and .draft==false and .mergeable==true and .base.ref=="main" and .base.sha==$b and .head.sha==$h and .changed_files==14' /tmp/pr.json >/dev/null
+
+      - name: Review exact incident-only change surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t actual < <(git diff --name-only "$BASE...$HEAD" | sort)
+          expected=(
+            'artifacts/manifests/B012-executor-toolchain-binding.json'
+            'artifacts/results/equivalent/B012/checkpoints/34265475666/B012-qwen3.5-0.8b-control-raw-code-recovery-case-state.json'
+            'artifacts/results/equivalent/B012/checkpoints/34265475666/B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-01-init.json'
+            'artifacts/results/equivalent/B012/checkpoints/34265475666/B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-02-source.json'
+            'artifacts/results/equivalent/B012/checkpoints/34265475666/B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-03-quantize.json'
+            'artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-raw-code-case-checkpoint-recovery-run-34265475666.json'
+            'evidence/mstr-000b/B012-qwen-case-checkpoint-recovery-runner-shutdown-34265475666.md'
+            'tests/contract/test_b012_executor_binding.py'
+            'tests/contract/test_b012_qwen_case_checkpoint_runner_shutdown_evidence.py'
+            'tests/contract/test_b012_qwen_raw_code_case_checkpoint_topology.py'
+            'tests/contract/test_b012_qwen_raw_code_recovery.py'
+            'tests/contract/test_b012_qwen_staged_recovery_topology.py'
+            'tests/contract/test_b012_runner_shutdown_evidence.py'
+            'tests/contract/test_b012_stage_checkpoint_topology.py'
+          )
+          [[ ${#actual[@]} -eq ${#expected[@]} ]]
+          for i in "${!expected[@]}"; do [[ "${actual[$i]}" == "${expected[$i]}" ]]; done
+          git diff --check "$BASE...$HEAD"
+          test -z "$(git diff --name-only "$BASE...$HEAD" -- '.github/workflows/**' 'colab/**' 'src/**' 'benchmarks/manifests/**' 'configs/workflows/**' 'artifacts/authorities/**')"
+          if git diff --name-only "$BASE...$HEAD" | grep -Ei '\.(gguf|safetensors|bin|onnx|pt|pth|ckpt|exe|dll|so|dylib)$'; then
+            echo 'unexpected binary-like subject path' >&2
+            exit 1
+          fi
+
+      - name: Independently prove checkpoint and incident consistency
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root=Path('artifacts/results/equivalent/B012')
+          cp=root/'checkpoints/34265475666'
+          incident=root/'failures/B012-qwen3.5-0.8b-control-raw-code-case-checkpoint-recovery-run-34265475666.json'
+          state=cp/'B012-qwen3.5-0.8b-control-raw-code-recovery-case-state.json'
+          init=cp/'B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-01-init.json'
+          source=cp/'B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-02-source.json'
+          quant=cp/'B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-03-quantize.json'
+          sha=lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+          expected={
+            incident:'e03d0030cb500a2fc97ec3a2f66c17b463028582643d9169c7be6994bc955152',
+            init:'fabc44925fdb8243d5eeca856b6e9b5fd83db54c4dc9cca27967409382721fb4',
+            source:'38f9693bd55f77f8634ce01dec0e932e990790735399ade55f0a4230bdbf585e',
+            quant:'ed15864153a8e4b26fffca5298dcbd80763e9c7edd0106845555b8325b079205',
+            state:'e5accce8487556a649db0c147a3c5876c0b31f8c1c0b334e48510f3680f58733',
+          }
+          for path,digest in expected.items(): assert sha(path)==digest, path
+          i=json.loads(incident.read_text(encoding='utf-8'))
+          s=json.loads(state.read_text(encoding='utf-8'))
+          q=json.loads(quant.read_text(encoding='utf-8'))
+          assert i['failure_classification']==os.environ['FAILURE_CLASS']
+          assert i['workflow_conclusion']=='failure'
+          assert i['shutdown_occurred_before_workflow_timeout_budget'] is True
+          assert i['infrastructure_root_cause']=='UNKNOWN_BEYOND_RUNNER_SHUTDOWN_SIGNAL'
+          assert i['durable_stages']==['init','source','quantize']
+          assert i['durable_raw_code_case_count']==0 and i['durable_raw_code_cases']==[]
+          assert i['interrupted_stage']=='raw-code-python-clamp'
+          assert i['interrupted_stage_conclusion']=='cancelled'
+          assert i['raw_code_result']=='NONE_DURABLY_PROVEN'
+          assert i['candidate_execution_completion']=='NOT_PROVEN'
+          assert i['candidate_admission_decision']=='NONE'
+          assert i['model_quality_verdict']=='NONE'
+          assert i['ephemeral_cleanup_completion']=='NOT_PROVEN'
+          assert i['same_case_checkpoint_topology_redispatch_authorized_by_this_evidence'] is False
+          assert i['cross_run_resume_authority_created'] is False
+          assert i['retry_authority_created'] is False
+          assert i['external_dispatch_authority_created'] is False
+          assert i['training'] is False and i['paid_model_api'] is False
+          assert i['candidate_expansion'] is False and i['revision_or_file_expansion'] is False
+          assert s['completed_stages']==['init','source','quantize']
+          assert s['last_completed_stage']=='quantize'
+          assert s['raw_code_case_results']=={}
+          assert q['checkpoint_payload']['matches_prior_stage03'] is True
+          assert q['checkpoint_payload']['q4_k_m_sha256']=='177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa'
+          assert q['checkpoint_payload']['q4_k_m_size_bytes']==541903296
+          print('INCIDENT_SEMANTICS=PASS')
+          PY
+
+      - name: Independently prove authority and fail-closed binding boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          authority=Path('artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json')
+          binding=Path('artifacts/manifests/B012-executor-toolchain-binding.json')
+          a=json.loads(authority.read_text(encoding='utf-8'))
+          b=json.loads(binding.read_text(encoding='utf-8'))
+          assert a['status']=='AUTHORIZED_CANONICAL'
+          assert a['authority_id']=='B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
+          assert a['task_id']=='B012'
+          scope=a['scope']
+          assert scope['candidate_ids']==['mellum-4b','qwen3.5-0.8b-control']
+          for key in ('new_candidate_access','training','weight_changing_training','paid_compute','paid_model_api','production_release'):
+              assert scope[key] is False, key
+          assert scope['git_model_binaries'] is False
+          assert a['cost_resource_ceiling']['limits'][0]=={'max':0.0,'resource':'cost','unit':'USD'}
+          assert b['status']==os.environ['BLOCKED_STATUS']
+          shutdown=b['qwen_raw_code_case_checkpoint_runner_shutdown']
+          assert shutdown['failure_evidence_sha256']==os.environ['INCIDENT_SHA256']
+          assert shutdown['durable_raw_code_case_count']==0
+          assert shutdown['raw_code_result']=='NONE_DURABLY_PROVEN'
+          assert shutdown['model_quality_verdict']=='NONE'
+          assert shutdown['candidate_execution_completion']=='NOT_PROVEN'
+          assert shutdown['ephemeral_cleanup_completion']=='NOT_PROVEN'
+          for key in ('same_case_checkpoint_topology_redispatch_authorized_by_this_evidence','cross_run_resume_authority_created','retry_authority_created','external_dispatch_authority_created'):
+              assert shutdown[key] is False, key
+          print('AUTHORITY_AND_BINDING_BOUNDARY=PASS')
+          PY
+
+      - name: Security boundary review
+        shell: bash
+        run: |
+          set -euo pipefail
+          changed=$(git diff --name-only "$BASE...$HEAD")
+          ! printf '%s\n' "$changed" | grep -E '(^|/)(\.env|id_rsa|credentials|secrets?)(\.|$|/)'
+          ! git diff --unified=0 "$BASE...$HEAD" -- . ':!tests/**' ':!evidence/**' | grep -E '^\+.*(BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16})'
+          test -z "$(git diff --name-only "$BASE...$HEAD" -- '.github/**' 'colab/**' 'src/**')"
+          echo 'SECURITY_BOUNDARY=PASS'
+
+      - name: Install repository dev dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Focused independent contract replay
+        run: |
+          PYTHONPATH=colab python -m pytest -q \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_qwen_case_checkpoint_runner_shutdown_evidence.py \
+            tests/contract/test_b012_qwen_raw_code_case_checkpoint_topology.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py
+
+      - name: Review conclusion and immutable guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git show -s --format=%T HEAD)" = "$TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE"
+          test "$(git ls-remote origin refs/heads/$SUBJECT_BRANCH | cut -f1)" = "$HEAD"
+          gh api "repos/$REPO/pulls/$PR" > /tmp/final-pr.json
+          jq -e --arg b "$BASE" --arg h "$HEAD" '.state=="open" and .draft==false and .mergeable==true and .base.sha==$b and .head.sha==$h and .changed_files==14' /tmp/final-pr.json >/dev/null
+          echo 'SEMANTIC_SECURITY_REVIEW_FINDINGS=0'
+          echo 'PR199_INDEPENDENT_REVIEW=PASS'
