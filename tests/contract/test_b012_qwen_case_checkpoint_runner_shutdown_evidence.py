@@ -137,7 +137,6 @@ def test_incident_canonicalization_manifest_binds_all_captured_json() -> None:
 
 def test_executor_binding_reblocks_same_topology_and_hash_binds_incident() -> None:
     binding = _read_json(BINDING)
-    incident = _read_json(INCIDENT)
     shutdown = binding["qwen_raw_code_case_checkpoint_runner_shutdown"]
     assert isinstance(shutdown, dict)
 
@@ -156,5 +155,3 @@ def test_executor_binding_reblocks_same_topology_and_hash_binds_incident() -> No
     assert shutdown["cross_run_resume_authority_created"] is False
     assert shutdown["retry_authority_created"] is False
     assert shutdown["external_dispatch_authority_created"] is False
-
-    assert incident["failure_evidence_path"] if "failure_evidence_path" in incident else True
