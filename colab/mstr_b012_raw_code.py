@@ -65,6 +65,7 @@ def run_raw_code_proxy(
             str(float(temperature)),
             "--seed",
             str(seed),
+            "--no-conversation",
             "--no-display-prompt",
             "--simple-io",
         ]
