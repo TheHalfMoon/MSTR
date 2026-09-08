@@ -1,0 +1,213 @@
+name: PR197 B012 case-checkpoint independent review 82fa7c4
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      REPO: TheHalfMoon/MSTR
+      PR: '197'
+      BASE: 2d35efe6d7350f6aa0241ee9de128134cd321f90
+      HEAD: 82fa7c419dd438381fb4045226593ce9e3c8fcf6
+      TREE: ccb9352c4f980b88636ec4cfbbb85095530110a6
+      SUBJECT_BRANCH: fix/b012-qwen-raw-code-case-checkpoint-topology
+      QUAL_RUN: '34258618607'
+      QUAL_HEAD: dae06af0376762e160a6ee72155c7b451dc826eb
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout exact reviewed subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.16'
+          check-latest: false
+
+      - name: Prove immutable qualification chain and exact scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$SUBJECT_BRANCH" --quiet
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git show -s --format=%T HEAD)" = "$TREE"
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/$SUBJECT_BRANCH)" = "$HEAD"
+          test "$(git merge-base "$BASE" "$HEAD")" = "$BASE"
+          gh api "repos/$REPO/actions/runs/$QUAL_RUN" > /tmp/qual.json
+          jq -e --arg q "$QUAL_HEAD" '.status=="completed" and .conclusion=="success" and .head_sha==$q' /tmp/qual.json >/dev/null
+          gh api "repos/$REPO/pulls/$PR" > /tmp/pr.json
+          jq -e --arg b "$BASE" --arg h "$HEAD" '.state=="open" and .draft==false and .base.ref=="main" and .base.sha==$b and .head.sha==$h and .changed_files==5' /tmp/pr.json >/dev/null
+          expected=$(printf '%s\n' \
+            'artifacts/manifests/B012-qwen-raw-code-case-checkpoint-topology.json' \
+            'colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py' \
+            'configs/workflows/b012-qwen-raw-code-case-checkpoint-recovery.yml' \
+            'evidence/mstr-000b/B012-qwen-raw-code-case-checkpoint-topology.md' \
+            'tests/contract/test_b012_qwen_raw_code_case_checkpoint_topology.py' | sort)
+          test "$(git diff --name-only "$BASE...$HEAD" | sort)" = "$expected"
+          git diff --check "$BASE...$HEAD"
+          for path in \
+            .github/workflows/b012-qwen-raw-code-recovery.yml \
+            artifacts/manifests/B012-executor-toolchain-binding.json \
+            artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json \
+            artifacts/manifests/B012-equivalent-qualification-execution-envelope.json \
+            artifacts/manifests/B012-executor-toolchain-lock.json \
+            benchmarks/manifests/B012-raw-code-proxy.json \
+            colab/mstr_b012_raw_code.py; do
+            git diff --quiet "$BASE" "$HEAD" -- "$path"
+          done
+
+      - name: Prove review state has no unresolved blocker
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/$REPO/pulls/$PR/reviews" > /tmp/reviews.json
+          python - <<'PY'
+          import json
+          data=json.load(open('/tmp/reviews.json', encoding='utf-8'))
+          assert all(x.get('state') != 'CHANGES_REQUESTED' for x in data)
+          print(f'SUBMITTED_REVIEWS={len(data)}')
+          PY
+          gh api graphql \
+            -f query='query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}pageInfo{hasNextPage}}}}}' \
+            -f owner=TheHalfMoon -f repo=MSTR -F number=197 > /tmp/threads.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/threads.json', encoding='utf-8'))['data']['repository']['pullRequest']['reviewThreads']
+          assert d['pageInfo']['hasNextPage'] is False
+          assert all(x['isResolved'] is True for x in d['nodes'])
+          print(f'REVIEW_THREADS={len(d["nodes"])}')
+          PY
+
+      - name: Install repository dev dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Independently review durability authority and frozen execution semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          manifest_path=Path('artifacts/manifests/B012-qwen-raw-code-case-checkpoint-topology.json')
+          script_path=Path('colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py')
+          workflow_path=Path('configs/workflows/b012-qwen-raw-code-case-checkpoint-recovery.yml')
+          raw_path=Path('benchmarks/manifests/B012-raw-code-proxy.json')
+          storage_path=Path('docs/canonical/STORAGE_ARCHITECTURE.md')
+          evidence_path=Path('evidence/mstr-000b/B012-qwen-raw-code-case-checkpoint-topology.md')
+          authority_path=Path('artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json')
+
+          manifest=json.loads(manifest_path.read_text(encoding='utf-8'))
+          raw=json.loads(raw_path.read_text(encoding='utf-8'))
+          authority=json.loads(authority_path.read_text(encoding='utf-8'))
+          sha=lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
+
+          assert manifest['status']=='READY_FOR_SEPARATE_CANONICAL_ACTIVATION'
+          assert manifest['base_main']=='2d35efe6d7350f6aa0241ee9de128134cd321f90'
+          assert manifest['candidate_id']=='qwen3.5-0.8b-control'
+          assert manifest['prior_qualification_run_id']==34155931982
+          assert manifest['case_checkpoint_script_sha256']==sha(script_path)
+          assert manifest['case_checkpoint_workflow_sha256']==sha(workflow_path)
+          assert manifest['raw_code_manifest_sha256']==sha(raw_path)
+          assert authority['authority_id']=='B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
+          assert authority['task_id']=='B012' and authority['status']=='AUTHORIZED_CANONICAL'
+
+          topology=manifest['topology']
+          durability=manifest['durability_boundary']
+          preservation=manifest['semantic_preservation']
+          boundary=manifest['authority_boundary']
+          activation=manifest['activation']
+
+          assert topology['raw_code_case_order']==['python-clamp','python-dedupe','python-safe-divide']
+          assert topology['maximum_uncheckpointed_raw_code_cases']==1
+          assert topology['durable_upload_after_each_raw_code_case'] is True
+          assert topology['durable_checkpoint_format']=='JSON_ONLY'
+          assert topology['single_ephemeral_job'] is True
+          assert topology['source_reacquisition_count_per_dispatch']==1
+          assert topology['prefill_rerun'] is False and topology['decode_rerun'] is False
+          assert topology['large_binary_artifact_uploads'] is False
+          assert [x['id'] for x in raw['tasks']]==['python-clamp','python-dedupe','python-safe-divide']
+
+          assert durability['each_raw_code_case_reverifies_exact_q4_before_model_execution'] is True
+          assert durability['each_completed_raw_code_case_upload_precedes_next_case'] is True
+          assert durability['checkpoint_write_must_succeed_before_completed_state_commit'] is True
+          assert durability['actions_artifact_retention_days']==7
+          assert durability['actions_artifacts_are_transient_transport_not_canonical_evidence'] is True
+          assert durability['canonical_long_term_evidence_store']=='GIT_JSON_REPORTS_MANIFESTS_EVIDENCE'
+          assert durability['storage_policy_path']=='docs/canonical/STORAGE_ARCHITECTURE.md'
+          assert durability['all_checkpoint_artifacts_must_be_canonicalized_to_git_before_dispatch_closeout'] is True
+          assert durability['candidate_admission_requires_canonicalized_checkpoint_evidence'] is True
+          assert durability['missing_or_expired_checkpoint_artifact_fails_closed'] is True
+          assert durability['inconsistent_checkpoint_identity_or_digest_fails_closed'] is True
+          assert durability['cross_run_resume_authority_created'] is False
+          assert durability['same_failed_topology_redispatch_authorized'] is False
+
+          storage=storage_path.read_text(encoding='utf-8')
+          assert 'reports/manifests/evidence, which return to Git' in storage
+          assert 'RUNNER_LIFETIME               = single job' in storage
+          assert 'PERSISTENCE_FOR_DERIVED       = none by default' in storage
+          evidence=evidence_path.read_text(encoding='utf-8')
+          assert 'Every required checkpoint artifact from an authorized case-checkpoint dispatch MUST be captured, hash-verified, and canonicalized into Git evidence before B012 dispatch closeout or any candidate-admission decision.' in evidence
+
+          script=script_path.read_text(encoding='utf-8')
+          start=script.index('def _complete_stage(')
+          end=script.index('\ndef _stage_init', start)
+          complete=script[start:end]
+          assert complete.index('_checkpoint_path(output_dir, stage)') < complete.index('_state_path(output_dir)')
+
+          workflow=workflow_path.read_text(encoding='utf-8')
+          assert workflow.count('actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02')==7
+          assert workflow.count('retention-days: 7')==7
+          assert '.gguf' not in workflow and '.safetensors' not in workflow
+          assert 'actions/download-artifact@' not in workflow and 'actions/cache@' not in workflow
+          assert activation['active_workflow_materialized'] is False
+
+          for key in ('raw_code_manifest_unchanged','raw_code_case_set_unchanged','raw_code_case_order_unchanged','raw_code_prompts_unchanged','raw_code_sampling_unchanged','raw_code_helper_unchanged','runtime_and_tool_revisions_unchanged','candidate_admission_not_decided_by_recovery','score_is_observation_not_admission_gate'):
+              assert preservation[key] is True, key
+          for key in ('authority_scope_modified','authority_transfer','retry_authority_created','external_dispatch_authority_created','candidate_expansion','candidate_revision_or_file_expansion','training','weight_changing_training','paid_compute','paid_model_api','production_release'):
+              assert boundary[key] is False, key
+          assert boundary['git_model_binaries']==0 and boundary['founder_machine_model_binaries']==0
+          assert boundary['paid_cost_usd']==0.0
+          print('INDEPENDENT_SEMANTIC_REVIEW=PASS')
+          PY
+
+      - name: Independent focused and full repository quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify validate
+          PYTHONPATH=colab python -m pytest -q \
+            tests/contract/test_b012_qwen_raw_code_case_checkpoint_topology.py \
+            tests/contract/test_b012_qwen_staged_recovery_topology.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_qwen_raw_code_recovery.py
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src/mstr_qualify
+          python -m ruff format --check \
+            colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py \
+            tests/contract/test_b012_qwen_raw_code_case_checkpoint_topology.py
+
+      - name: Final immutable review guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE"
+          test "$(git ls-remote origin refs/heads/$SUBJECT_BRANCH | cut -f1)" = "$HEAD"
+          gh api "repos/$REPO/pulls/$PR" > /tmp/final.json
+          jq -e --arg b "$BASE" --arg h "$HEAD" '.state=="open" and .draft==false and .base.sha==$b and .head.sha==$h and .changed_files==5' /tmp/final.json >/dev/null
+          echo 'PR197_INDEPENDENT_SEMANTIC_REVIEW=SUCCESS'
