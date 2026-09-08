@@ -15,7 +15,7 @@ def _read_json(path: Path) -> dict[str, object]:
     return value
 
 
-def test_one_shot_workflow_spec_is_inert_owner_scoped_and_json_only() -> None:
+def test_one_shot_workflow_is_materialized_owner_scoped_and_json_only() -> None:
     manifest = _read_json(MANIFEST)
     activation = manifest["activation"]
     assert isinstance(activation, dict)
@@ -23,10 +23,11 @@ def test_one_shot_workflow_spec_is_inert_owner_scoped_and_json_only() -> None:
     active = ACTIVE_WORKFLOW.read_text(encoding="utf-8")
     command = "B012_RECOVER_RAW_CODE_ONE_SHOT qwen3.5-0.8b-control 34155931982"
 
-    assert activation["active_workflow_materialized"] is False
+    assert activation["active_workflow_materialized"] is True
     assert activation["separate_activation_pr_required"] is True
+    assert WORKFLOW_SPEC.read_bytes() == ACTIVE_WORKFLOW.read_bytes()
     assert command in spec
-    assert command not in active
+    assert command in active
     assert "github.event.issue.number == 162" in spec
     assert "github.event.comment.user.login == 'TheHalfMoon'" in spec
     assert "github.event.comment.author_association == 'OWNER'" in spec
@@ -41,8 +42,8 @@ def test_one_shot_workflow_spec_is_inert_owner_scoped_and_json_only() -> None:
     assert "actions/cache@" not in spec
 
 
-def test_active_recovery_surface_is_unchanged_by_inert_repair() -> None:
+def test_active_recovery_surface_is_exactly_the_reviewed_one_shot_spec() -> None:
     active = ACTIVE_WORKFLOW.read_text(encoding="utf-8")
-    assert "B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982" in active
-    assert "B012_RECOVER_RAW_CODE_ONE_SHOT" not in active
-    assert "mstr_b012_qwen_raw_code_one_shot.py" not in active
+    assert "B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982" not in active
+    assert "B012_RECOVER_RAW_CODE_ONE_SHOT qwen3.5-0.8b-control 34155931982" in active
+    assert "python colab/mstr_b012_qwen_raw_code_one_shot.py" in active

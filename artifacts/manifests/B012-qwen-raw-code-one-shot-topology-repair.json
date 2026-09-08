@@ -1,5 +1,7 @@
 {
   "activation": {
+    "activation_base_main": "04096a180e47ed8f81ee81c1bf3d9e471be607fc",
+    "activation_is_separate_repository_change": true,
     "activation_repository_change_only": true,
     "activation_requires_exact_head_qualification": true,
     "activation_requires_exact_main_task_eligibility": true,
@@ -8,10 +10,13 @@
     "activation_requires_mandatory_premerge": true,
     "activation_requires_postmerge_verification": true,
     "activation_requires_reverification_of_existing_b012_authority": true,
-    "active_workflow_materialized": false,
+    "active_workflow_materialized": true,
     "package_performs_model_access": false,
     "package_performs_model_execution": false,
     "proposed_exact_issue_command": "B012_RECOVER_RAW_CODE_ONE_SHOT qwen3.5-0.8b-control 34155931982",
+    "repair_package_merge_commit": "04096a180e47ed8f81ee81c1bf3d9e471be607fc",
+    "repair_package_postmerge_evidence_head": "3618b69ab145f5ed4d18502ca5064812aa6081cd",
+    "repair_package_postmerge_run_id": 34282489164,
     "separate_activation_pr_required": true
   },
   "authority_boundary": {

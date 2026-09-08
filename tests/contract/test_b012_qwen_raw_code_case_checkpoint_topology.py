@@ -132,7 +132,7 @@ def test_case_checkpoint_repair_preserves_exact_raw_code_manifest() -> None:
         assert semantic[key] is True
 
 
-def test_case_checkpoint_workflow_is_active_and_json_only() -> None:
+def test_case_checkpoint_workflow_remains_canonical_but_is_superseded_as_active_surface() -> None:
     manifest = _read_json(MANIFEST)
     activation = manifest["activation"]
     assert isinstance(activation, dict)
@@ -140,8 +140,9 @@ def test_case_checkpoint_workflow_is_active_and_json_only() -> None:
     active = ACTIVE_WORKFLOW.read_text(encoding="utf-8")
 
     assert activation["active_workflow_materialized"] is True
-    assert WORKFLOW.read_bytes() == ACTIVE_WORKFLOW.read_bytes()
-    assert "B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982" in active
+    assert WORKFLOW.read_bytes() != ACTIVE_WORKFLOW.read_bytes()
+    assert "B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982" not in active
+    assert "B012_RECOVER_RAW_CODE_ONE_SHOT qwen3.5-0.8b-control 34155931982" in active
     assert "B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982" in workflow
     assert "timeout-minutes: 45" in workflow
     assert "cancel-in-progress: false" in workflow
@@ -319,13 +320,13 @@ def test_case_checkpoint_activation_is_exactly_bound_and_non_authorizing() -> No
         == "f5dac568a809fe9fed707c3c2d8a298c859d16bb"
     )
     assert activation["active_workflow_materialized"] is True
-    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR"
+    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
     assert bound["repair_id"] == manifest["repair_id"]
     assert bound["candidate_id"] == "qwen3.5-0.8b-control"
     assert bound["prior_run_id"] == 34155931982
     assert bound["repair_manifest_sha256"] == _sha256(MANIFEST)
     assert bound["case_checkpoint_script_sha256"] == _sha256(SCRIPT)
-    assert bound["active_workflow_sha256"] == _sha256(ACTIVE_WORKFLOW)
+    assert bound["active_workflow_sha256"] == _sha256(WORKFLOW)
     assert bound["activation_base_main"] == "4deca995306c197e5cefaf8202e64fe5469f873c"
     assert bound["repair_package_postmerge_run_id"] == 34261221062
     assert (

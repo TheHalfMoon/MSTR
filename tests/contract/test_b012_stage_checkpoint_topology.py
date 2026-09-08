@@ -42,7 +42,7 @@ def test_repair_package_remains_hash_bound_while_later_qwen_incident_reblocks_di
     binding = _read_json(BINDING)
     repair = _read_json(REPAIR)
 
-    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR"
+    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
     assert binding["runner_shutdown_topology_repair_manifest_sha256"] == _sha256(REPAIR)
     assert binding["workflow_sha256"] == _sha256(ROOT / ".github/workflows/b012-qualify.yml")
 
