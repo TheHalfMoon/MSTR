@@ -1,0 +1,197 @@
+name: PR197 B012 case-checkpoint mandatory premerge 82fa7c4
+
+on:
+  push:
+    branches:
+      - evidence/pr197-b012-case-checkpoint-mandatory-premerge-82fa7c4
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  premerge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      REPO: TheHalfMoon/MSTR
+      PR: '197'
+      BASE: 2d35efe6d7350f6aa0241ee9de128134cd321f90
+      HEAD: 82fa7c419dd438381fb4045226593ce9e3c8fcf6
+      TREE: ccb9352c4f980b88636ec4cfbbb85095530110a6
+      SUBJECT_BRANCH: fix/b012-qwen-raw-code-case-checkpoint-topology
+      REPAIR_PARENT: be5dc182c7f15602b5da0999ad7f55108233c568
+      QUAL_RUN: '34259550611'
+      QUAL_HEAD: 5831f72906e7c534d62b54681758de775a8c54f0
+      REVIEW_RUN: '34259975566'
+      REVIEW_HEAD: 440785fc076e5ebb6821610c50821e93a62b7503
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.16'
+          check-latest: false
+
+      - name: Reverify immutable PR qualification and review chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$SUBJECT_BRANCH" --quiet
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git show -s --format=%T HEAD)" = "$TREE"
+          test "$(git show -s --format=%P HEAD)" = "$REPAIR_PARENT"
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/$SUBJECT_BRANCH)" = "$HEAD"
+          test "$(git merge-base "$BASE" "$HEAD")" = "$BASE"
+          gh api "repos/$REPO/pulls/$PR" > /tmp/pr.json
+          jq -e --arg b "$BASE" --arg h "$HEAD" '.state=="open" and .draft==false and .mergeable==true and .base.ref=="main" and .base.sha==$b and .head.sha==$h and .changed_files==5' /tmp/pr.json >/dev/null
+          gh api "repos/$REPO/actions/runs/$QUAL_RUN" > /tmp/qual.json
+          jq -e --arg q "$QUAL_HEAD" '.status=="completed" and .conclusion=="success" and .head_sha==$q' /tmp/qual.json >/dev/null
+          gh api "repos/$REPO/actions/runs/$REVIEW_RUN" > /tmp/review.json
+          jq -e --arg r "$REVIEW_HEAD" '.status=="completed" and .conclusion=="success" and .head_sha==$r' /tmp/review.json >/dev/null
+          echo 'CHAIN=PASS'
+
+      - name: Prove review state has no blockers
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/$REPO/pulls/$PR/reviews" > /tmp/reviews.json
+          python - <<'PY'
+          import json
+          data=json.load(open('/tmp/reviews.json', encoding='utf-8'))
+          assert all(x.get('state') != 'CHANGES_REQUESTED' for x in data)
+          PY
+          gh api graphql \
+            -f query='query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}pageInfo{hasNextPage}}}}}' \
+            -f owner=TheHalfMoon -f repo=MSTR -F number=197 > /tmp/threads.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/threads.json', encoding='utf-8'))['data']['repository']['pullRequest']['reviewThreads']
+          assert d['pageInfo']['hasNextPage'] is False
+          assert all(x['isResolved'] is True for x in d['nodes'])
+          PY
+          echo 'REVIEW_STATE=PASS'
+
+      - name: Prove exact five-file scope and frozen execution surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(printf '%s\n' \
+            'artifacts/manifests/B012-qwen-raw-code-case-checkpoint-topology.json' \
+            'colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py' \
+            'configs/workflows/b012-qwen-raw-code-case-checkpoint-recovery.yml' \
+            'evidence/mstr-000b/B012-qwen-raw-code-case-checkpoint-topology.md' \
+            'tests/contract/test_b012_qwen_raw_code_case_checkpoint_topology.py' | sort)
+          test "$(git diff --name-only "$BASE...$HEAD" | sort)" = "$expected"
+          git diff --check "$BASE...$HEAD"
+          for path in \
+            .github/workflows/b012-qwen-raw-code-recovery.yml \
+            artifacts/manifests/B012-executor-toolchain-binding.json \
+            artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json \
+            artifacts/manifests/B012-equivalent-qualification-execution-envelope.json \
+            artifacts/manifests/B012-executor-toolchain-lock.json \
+            benchmarks/manifests/B012-raw-code-proxy.json \
+            colab/mstr_b012_raw_code.py; do
+            git diff --quiet "$BASE" "$HEAD" -- "$path"
+          done
+          echo 'SCOPE=PASS'
+
+      - name: Install repository dev dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Reprove B012 exact-main machine eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach "$BASE"
+          git branch -f main "$BASE"
+          python -m mstr_qualify task eligible B012 > /tmp/eligibility.json
+          python - <<'PY'
+          import json, os
+          d=json.load(open('/tmp/eligibility.json', encoding='utf-8'))
+          assert d['task_id']=='B012'
+          assert d['canonical_main']==os.environ['BASE']
+          assert d['eligible'] is True and d['reasons']==[]
+          assert d['authority_result']['authority_id']=='B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
+          assert d['authority_result']['satisfied'] is True
+          assert all(x['satisfied'] for x in d['prerequisite_results'])
+          assert d['supersession_result']['satisfied'] is True
+          assert d['state_consistency_result']['satisfied'] is True
+          assert d['candidate_pool_result']['satisfied'] is True
+          assert all(d['semantic_checks'].values())
+          print('B012_EXACT_MAIN_ELIGIBILITY=PASS')
+          PY
+          git checkout --detach "$HEAD"
+
+      - name: Reprove repaired durability and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          mp=Path('artifacts/manifests/B012-qwen-raw-code-case-checkpoint-topology.json')
+          sp=Path('colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py')
+          wp=Path('configs/workflows/b012-qwen-raw-code-case-checkpoint-recovery.yml')
+          ep=Path('evidence/mstr-000b/B012-qwen-raw-code-case-checkpoint-topology.md')
+          rp=Path('benchmarks/manifests/B012-raw-code-proxy.json')
+          m=json.loads(mp.read_text(encoding='utf-8'))
+          sha=lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
+          assert m['case_checkpoint_script_sha256']==sha(sp)
+          assert m['case_checkpoint_workflow_sha256']==sha(wp)
+          assert m['raw_code_manifest_sha256']==sha(rp)
+          d=m['durability_boundary']
+          assert d['checkpoint_write_must_succeed_before_completed_state_commit'] is True
+          assert d['actions_artifacts_are_transient_transport_not_canonical_evidence'] is True
+          assert d['canonical_long_term_evidence_store']=='GIT_JSON_REPORTS_MANIFESTS_EVIDENCE'
+          assert d['all_checkpoint_artifacts_must_be_canonicalized_to_git_before_dispatch_closeout'] is True
+          assert d['missing_or_expired_checkpoint_artifact_fails_closed'] is True
+          assert m['activation']['active_workflow_materialized'] is False
+          for key in ('authority_scope_modified','authority_transfer','retry_authority_created','external_dispatch_authority_created','candidate_expansion','candidate_revision_or_file_expansion','training','weight_changing_training','paid_compute','paid_model_api','production_release'):
+              assert m['authority_boundary'][key] is False, key
+          text=sp.read_text(encoding='utf-8')
+          start=text.index('def _complete_stage(')
+          end=text.index('\ndef _stage_init', start)
+          block=text[start:end]
+          assert block.index('_checkpoint_path(output_dir, stage)') < block.index('_state_path(output_dir)')
+          evidence=ep.read_text(encoding='utf-8')
+          assert 'canonicalized into Git evidence before B012 dispatch closeout or any candidate-admission decision' in evidence
+          print('DURABILITY_AND_AUTHORITY=PASS')
+          PY
+
+      - name: Mandatory repository quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify validate
+          PYTHONPATH=colab python -m pytest -q \
+            tests/contract/test_b012_qwen_raw_code_case_checkpoint_topology.py \
+            tests/contract/test_b012_qwen_staged_recovery_topology.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_qwen_raw_code_recovery.py
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src/mstr_qualify
+          python -m ruff format --check \
+            colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py \
+            tests/contract/test_b012_qwen_raw_code_case_checkpoint_topology.py
+
+      - name: Final guarded-merge readiness proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE"
+          test "$(git ls-remote origin refs/heads/$SUBJECT_BRANCH | cut -f1)" = "$HEAD"
+          gh api "repos/$REPO/pulls/$PR" > /tmp/final-pr.json
+          jq -e --arg b "$BASE" --arg h "$HEAD" '.state=="open" and .draft==false and .mergeable==true and .base.sha==$b and .head.sha==$h and .changed_files==5' /tmp/final-pr.json >/dev/null
+          echo 'PR197_MANDATORY_PREMERGE=SUCCESS'
