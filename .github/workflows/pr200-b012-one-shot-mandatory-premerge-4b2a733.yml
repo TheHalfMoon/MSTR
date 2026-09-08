@@ -1,0 +1,258 @@
+name: Mandatory premerge PR200 B012 one-shot repair
+
+on:
+  push:
+    branches:
+      - evidence/pr200-b012-one-shot-mandatory-premerge-4b2a733
+
+permissions:
+  contents: read
+  actions: read
+  checks: read
+  pull-requests: read
+  statuses: read
+
+concurrency:
+  group: pr200-b012-one-shot-mandatory-premerge-4b2a733
+  cancel-in-progress: false
+
+env:
+  EXPECTED_MAIN: 9ff1680c21be366f11133a4ba2e68ebe0fc1e53b
+  TARGET_HEAD: 4b2a73399c4b7d9caf983024580a27333aaac0a2
+  TARGET_TREE: 14c318cdd13d4d24649edde644e9d28d2c8678d8
+  TARGET_BRANCH: fix/b012-qwen-raw-code-one-shot-mode
+  QUALIFICATION_RUN: '34278937207'
+  QUALIFICATION_EVIDENCE_HEAD: 18bd6b8ab3c4a5e69d2ede336af644348b418d4a
+  REVIEW_RUN: '34281616332'
+  REVIEW_EVIDENCE_HEAD: 0995bb9d1a97319933deafc045f0e37e89de0503
+
+jobs:
+  live_boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Verify qualification review PR and live repository boundary
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_HEAD"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          headers = {
+              "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+
+          def get(url: str):
+              request = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(request) as response:
+                  return json.load(response)
+
+          root = "https://api.github.com/repos/TheHalfMoon/MSTR"
+          qualification = get(f"{root}/actions/runs/{os.environ['QUALIFICATION_RUN']}")
+          assert qualification["status"] == "completed"
+          assert qualification["conclusion"] == "success"
+          assert qualification["head_sha"] == os.environ["QUALIFICATION_EVIDENCE_HEAD"]
+
+          review = get(f"{root}/actions/runs/{os.environ['REVIEW_RUN']}")
+          assert review["status"] == "completed"
+          assert review["conclusion"] == "success"
+          assert review["head_sha"] == os.environ["REVIEW_EVIDENCE_HEAD"]
+
+          pr = get(f"{root}/pulls/200")
+          assert pr["state"] == "open"
+          assert pr["draft"] is False
+          assert pr["base"]["sha"] == os.environ["EXPECTED_MAIN"]
+          assert pr["head"]["sha"] == os.environ["TARGET_HEAD"]
+          assert pr["changed_files"] == 7
+          assert pr["commits"] == 13
+          assert pr["mergeable"] in (True, None)
+
+          files = get(f"{root}/pulls/200/files?per_page=100")
+          expected_files = {
+              "artifacts/manifests/B012-qwen-raw-code-one-shot-topology-repair.json",
+              "colab/mstr_b012_qwen_raw_code_one_shot.py",
+              "colab/mstr_b012_raw_code_one_shot.py",
+              "configs/workflows/b012-qwen-raw-code-one-shot-recovery.yml",
+              "evidence/mstr-000b/B012-qwen-one-shot-mode-topology.md",
+              "tests/contract/test_b012_qwen_raw_code_one_shot_topology.py",
+              "tests/contract/test_b012_qwen_raw_code_one_shot_workflow.py",
+          }
+          assert {item["filename"] for item in files} == expected_files
+
+          reviews = get(f"{root}/pulls/200/reviews?per_page=100")
+          assert reviews == []
+          inline_comments = get(f"{root}/pulls/200/comments?per_page=100")
+          assert inline_comments == []
+
+          issue_comments = get(f"{root}/issues/200/comments?per_page=100")
+          for comment in issue_comments:
+              login = comment["user"]["login"]
+              body = comment.get("body") or ""
+              if login == "qodo-code-review[bot]":
+                  assert "qodo:billing-blocked" in body
+              elif login == "coderabbitai[bot]":
+                  assert "skip review by coderabbit.ai" in body
+              else:
+                  raise AssertionError(f"unreconciled PR conversation comment from {login}")
+
+          branch = get(f"{root}/branches/main")
+          assert branch["commit"]["sha"] == os.environ["EXPECTED_MAIN"]
+          assert branch["protected"] is False
+
+          status = get(f"{root}/commits/{os.environ['TARGET_HEAD']}/status")
+          assert status["state"] == "success"
+          for item in status["statuses"]:
+              assert item["state"] not in {"failure", "error", "pending"}
+
+          checks = get(f"{root}/commits/{os.environ['TARGET_HEAD']}/check-runs?per_page=100")
+          for check in checks["check_runs"]:
+              assert check["status"] == "completed"
+              assert check["conclusion"] in {"success", "neutral", "skipped"}
+
+          query = {
+              "query": "query { repository(owner: \"TheHalfMoon\", name: \"MSTR\") { pullRequest(number: 200) { reviewThreads(first: 100) { nodes { isResolved comments(first: 20) { nodes { author { login } body } } } } reviews(first: 100) { nodes { state author { login } body } } } } }"
+          }
+          request = urllib.request.Request(
+              "https://api.github.com/graphql",
+              data=json.dumps(query).encode(),
+              headers={**headers, "Content-Type": "application/json"},
+              method="POST",
+          )
+          with urllib.request.urlopen(request) as response:
+              payload = json.load(response)
+          assert "errors" not in payload
+          pr_graph = payload["data"]["repository"]["pullRequest"]
+          assert pr_graph["reviewThreads"]["nodes"] == []
+          assert pr_graph["reviews"]["nodes"] == []
+          PY
+
+  scope_semantics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact repair topology semantics and authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$EXPECTED_MAIN" "$TARGET_HEAD")" = "$EXPECTED_MAIN"
+          git diff --check "$EXPECTED_MAIN" "$TARGET_HEAD"
+          git diff --name-only "$EXPECTED_MAIN" "$TARGET_HEAD" | sort > /tmp/actual.txt
+          cat > /tmp/expected.txt <<'EOF'
+          artifacts/manifests/B012-qwen-raw-code-one-shot-topology-repair.json
+          colab/mstr_b012_qwen_raw_code_one_shot.py
+          colab/mstr_b012_raw_code_one_shot.py
+          configs/workflows/b012-qwen-raw-code-one-shot-recovery.yml
+          evidence/mstr-000b/B012-qwen-one-shot-mode-topology.md
+          tests/contract/test_b012_qwen_raw_code_one_shot_topology.py
+          tests/contract/test_b012_qwen_raw_code_one_shot_workflow.py
+          EOF
+          sed -i 's/^          //' /tmp/expected.txt
+          sort -o /tmp/expected.txt /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+          test -z "$(git diff --name-only "$EXPECTED_MAIN" "$TARGET_HEAD" -- .github/workflows artifacts/authorities artifacts/manifests/B012-executor-toolchain-binding.json configs/task-gate docs/canonical/CURRENT_STATE.md specs/002-code-model-supremacy-foundation/tasks.md)"
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path.cwd()
+          repair = json.loads((root / "artifacts/manifests/B012-qwen-raw-code-one-shot-topology-repair.json").read_text())
+          binding = json.loads((root / "artifacts/manifests/B012-executor-toolchain-binding.json").read_text())
+          raw = json.loads((root / "benchmarks/manifests/B012-raw-code-proxy.json").read_text())
+
+          assert repair["status"] == "READY_FOR_SEPARATE_CANONICAL_ACTIVATION"
+          assert repair["repair_hypothesis"]["root_cause_claimed"] is False
+          assert repair["activation"]["separate_activation_pr_required"] is True
+          assert repair["activation"]["active_workflow_materialized"] is False
+          assert repair["activation"]["package_performs_model_access"] is False
+          assert repair["activation"]["package_performs_model_execution"] is False
+          assert "qwen_raw_code_one_shot_activation" not in binding
+          assert raw["execution"] == {
+              "runtime": "llama.cpp-llama-cli-cpu",
+              "context_tokens": 2048,
+              "generated_tokens": 96,
+              "threads": 2,
+              "gpu_layers": 0,
+              "temperature": 0.0,
+              "seed": 42,
+              "network_model_calls": 0,
+          }
+          assert [task["id"] for task in raw["tasks"]] == [
+              "python-clamp",
+              "python-dedupe",
+              "python-safe-divide",
+          ]
+
+          components = repair["components"]
+          for path_key, hash_key in (
+              ("canonical_shared_raw_code_helper_path", "canonical_shared_raw_code_helper_sha256"),
+              ("case_checkpoint_script_path", "case_checkpoint_script_sha256"),
+              ("one_shot_raw_code_helper_path", "one_shot_raw_code_helper_sha256"),
+              ("one_shot_wrapper_path", "one_shot_wrapper_sha256"),
+              ("raw_code_manifest_path", "raw_code_manifest_sha256"),
+          ):
+              path = root / components[path_key]
+              assert hashlib.sha256(path.read_bytes()).hexdigest() == components[hash_key]
+          PY
+          ! grep -F "B012_RECOVER_RAW_CODE_ONE_SHOT" .github/workflows/b012-qwen-raw-code-recovery.yml
+          ! grep -F "mstr_b012_qwen_raw_code_one_shot.py" .github/workflows/b012-qwen-raw-code-recovery.yml
+
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+      - name: Run focused and full repository quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          python -m pytest -q \
+            tests/contract/test_b012_qwen_raw_code_one_shot_topology.py \
+            tests/contract/test_b012_qwen_raw_code_one_shot_workflow.py
+          mstr-qualify validate
+          ruff check .
+          ruff format --check \
+            colab/mstr_b012_qwen_raw_code_one_shot.py \
+            colab/mstr_b012_raw_code_one_shot.py \
+            tests/contract/test_b012_qwen_raw_code_one_shot_topology.py \
+            tests/contract/test_b012_qwen_raw_code_one_shot_workflow.py
+          python -m pytest -q
+          mypy
+
+  final_gate:
+    needs: [live_boundary, scope_semantics, quality]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Final immutable mandatory premerge verdict
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_HEAD"
+          echo 'QUALIFICATION=PASS'
+          echo 'INDEPENDENT_SEMANTIC_SECURITY_REVIEW=PASS'
+          echo 'MANDATORY_PREMERGE=PASS'
