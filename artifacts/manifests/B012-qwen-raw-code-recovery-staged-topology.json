@@ -57,7 +57,7 @@
     "runtime_and_tool_revisions_unchanged": true
   },
   "staged_script_path": "colab/mstr_b012_qwen_raw_code_recovery_staged.py",
-  "staged_script_sha256": "5ba839a00d089ec2734fffce877a52b5a88abbb1f23277ccde8ee4111bc13f22",
+  "staged_script_sha256": "33b1368441b63aae9f12f20c02847595b1e89de94e83e7de36209550eb3692d4",
   "staged_workflow_sha256": "e5a666641af6557efb2aba7091a51db3deef973f6177ab682207a4326d3f4bbe",
   "staged_workflow_spec_path": "configs/workflows/b012-qwen-raw-code-recovery-staged.yml",
   "status": "READY_FOR_SEPARATE_CANONICAL_ACTIVATION",
