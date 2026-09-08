@@ -6,6 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import mstr_b012_qwen_raw_code_recovery_case_checkpoint as case_checkpoint
+import mstr_b012_raw_code_one_shot as one_shot_raw_code
 from mstr_b012_governance import ExecutionError
 from mstr_executor_toolchain import read_json, require_file_sha256
 
@@ -16,6 +17,7 @@ REPAIR_MANIFEST_PATH = Path(
     "artifacts/manifests/B012-qwen-raw-code-one-shot-topology-repair.json"
 )
 SCRIPT_PATH = Path("colab/mstr_b012_qwen_raw_code_one_shot.py")
+ONE_SHOT_HELPER_PATH = Path("colab/mstr_b012_raw_code_one_shot.py")
 ACTIVE_WORKFLOW_PATH = Path(".github/workflows/b012-qwen-raw-code-recovery.yml")
 ACTIVATION_KEY = "qwen_raw_code_one_shot_activation"
 
@@ -47,14 +49,17 @@ def _require_one_shot_activation(
 
     expected_manifest = activation.get("repair_manifest_sha256")
     expected_script = activation.get("one_shot_script_sha256")
+    expected_helper = activation.get("one_shot_raw_code_helper_sha256")
     expected_workflow = activation.get("active_workflow_sha256")
     if not all(
-        isinstance(value, str) for value in (expected_manifest, expected_script, expected_workflow)
+        isinstance(value, str)
+        for value in (expected_manifest, expected_script, expected_helper, expected_workflow)
     ):
         raise ExecutionError("B012 Qwen one-shot activation hash binding is incomplete")
 
     require_file_sha256(repo_root / REPAIR_MANIFEST_PATH, str(expected_manifest))
     require_file_sha256(repo_root / SCRIPT_PATH, str(expected_script))
+    require_file_sha256(repo_root / ONE_SHOT_HELPER_PATH, str(expected_helper))
     require_file_sha256(repo_root / ACTIVE_WORKFLOW_PATH, str(expected_workflow))
     if activation.get("retry_authority_created") is not False:
         raise ExecutionError("B012 Qwen one-shot repair must not fabricate retry authority")
@@ -70,6 +75,7 @@ def _activate_variant() -> None:
     case_checkpoint.SCRIPT_PATH = SCRIPT_PATH
     case_checkpoint.ACTIVE_WORKFLOW_PATH = ACTIVE_WORKFLOW_PATH
     case_checkpoint._require_activation = _require_one_shot_activation
+    case_checkpoint.run_raw_code_proxy = one_shot_raw_code.run_raw_code_proxy
 
 
 def main() -> int:
