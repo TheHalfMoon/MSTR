@@ -138,6 +138,9 @@ jobs:
           set -euo pipefail
           git branch -f main "$BASE_SHA"
           [[ "$(git rev-parse refs/heads/main)" == "$BASE_SHA" ]]
+
+          git checkout --detach "$BASE_SHA"
+          [[ "$(git rev-parse HEAD)" == "$BASE_SHA" ]]
           python -m pip install -e '.[dev]'
           python -m mstr_qualify task eligible B012 > /tmp/eligibility.json
           python - <<'PY'
@@ -162,6 +165,10 @@ jobs:
           assert d['candidate_pool_result']['satisfied'] is True
           assert all(d['semantic_checks'].values())
           PY
+
+          git checkout --detach "$SUBJECT_SHA"
+          [[ "$(git rev-parse HEAD)" == "$SUBJECT_SHA" ]]
+          python -m pip install -e '.[dev]'
           python -m mstr_qualify validate
           python -m pytest -q \
             tests/contract/test_b012_authority.py \
