@@ -1,0 +1,132 @@
+name: B012 Qwen CLI incompatibility incident builder v2
+
+on:
+  push:
+    branches:
+      - evidence/b012-qwen-cli-incompatibility-builder-v2-ddcb989
+
+permissions:
+  contents: write
+
+env:
+  TARGET_BRANCH: governance/b012-qwen-one-shot-cli-incompatibility-34288154926
+  EXPECTED_TARGET_HEAD: ddcb9897d8caae59f8dcdec4692fe31f1916064f
+  EXPECTED_MAIN: 66cd090fc75286bfc24db4bdf8fe58b64394e228
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact incident branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Guard exact branch and canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_HEAD"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_TARGET_HEAD"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+
+      - name: Apply deterministic fail-closed patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          old = "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
+          new = "BLOCKED_PENDING_QWEN_RAW_CODE_RUNTIME_CONTRACT_REPAIR"
+          binding_path = Path("artifacts/manifests/B012-executor-toolchain-binding.json")
+          incident_path = Path("artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-one-shot-runtime-cli-incompatibility-run-34288154926.json")
+          expected_incident_sha = "20e30ef5382189dc22407df0caaab171668c91863cdf972a66bfd90e4615f03d"
+          assert hashlib.sha256(incident_path.read_bytes()).hexdigest() == expected_incident_sha
+          incident = json.loads(incident_path.read_text(encoding="utf-8"))
+          binding = json.loads(binding_path.read_text(encoding="utf-8"))
+          assert binding["status"] == old
+          key = "qwen_raw_code_one_shot_runtime_cli_incompatibility"
+          assert key not in binding
+          binding["status"] = new
+          binding[key] = {
+              "run_id": 34288154926,
+              "run_attempt": 1,
+              "job_id": 102268410928,
+              "candidate_id": "qwen3.5-0.8b-control",
+              "canonical_main_at_start": "66cd090fc75286bfc24db4bdf8fe58b64394e228",
+              "failure_classification": "B012_EXECUTOR_RUNTIME_CLI_INCOMPATIBILITY_RAW_CODE_UNEXECUTED",
+              "failure_evidence_path": str(incident_path),
+              "failure_evidence_sha256": expected_incident_sha,
+              "executor_failure_path": incident["canonical_source_files"]["failure"]["path"],
+              "executor_failure_sha256": incident["canonical_source_files"]["failure"]["sha256"],
+              "state_path": incident["canonical_source_files"]["state"]["path"],
+              "state_sha256": incident["canonical_source_files"]["state"]["sha256"],
+              "checkpoint_01_sha256": incident["canonical_source_files"]["checkpoint_01_init"]["sha256"],
+              "checkpoint_02_sha256": incident["canonical_source_files"]["checkpoint_02_source"]["sha256"],
+              "checkpoint_03_sha256": incident["canonical_source_files"]["checkpoint_03_quantize"]["sha256"],
+              "durable_stages": ["init", "source", "quantize"],
+              "durable_raw_code_case_count": 0,
+              "raw_code_result": "NONE_DURABLY_PROVEN",
+              "model_quality_verdict": "NONE",
+              "candidate_admission_decision": "NONE",
+              "candidate_execution_completion": "NOT_PROVEN",
+              "cleanup_completion": "PROVEN_WORKFLOW_SUCCESS",
+              "runtime_repository": "https://github.com/ggml-org/llama.cpp.git",
+              "runtime_commit": "3173a56471c1753650cd806694145ffd6dcace67",
+              "runtime_binary": "llama-cli",
+              "parser_example": "LLAMA_EXAMPLE_CLI",
+              "rejected_argument": "--no-conversation",
+              "argument_scope": "LLAMA_EXAMPLE_COMPLETION_ONLY",
+              "runtime_contract_repair_required": True,
+              "runtime_migration_requires_equivalence_review": True,
+              "same_topology_redispatch_authorized": False,
+              "cross_run_resume_authority_created": False,
+              "retry_authority_created": False,
+              "external_dispatch_authority_created": False,
+              "task_eligibility_entry_run_id": 34290864636,
+              "candidate_expansion": False,
+              "revision_or_file_expansion": False,
+              "training": False,
+              "weight_changing_training": False,
+              "paid_compute": False,
+              "paid_model_api": False,
+              "paid_cost_usd": 0.0,
+              "production_release": False,
+          }
+          binding_path.write_text(json.dumps(binding, indent=2) + "\n", encoding="utf-8")
+
+          replacements = 0
+          for path in sorted(Path("tests/contract").glob("test_b012*.py")):
+              text = path.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count:
+                  path.write_text(text.replace(old, new), encoding="utf-8")
+                  replacements += count
+          assert replacements >= 8, replacements
+          print(f"binding_status_replacements={replacements}")
+          PY
+          git diff --check
+
+      - name: Guard target before commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$EXPECTED_TARGET_HEAD"
+
+      - name: Commit and push fail-closed binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "TheHalfMoon"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/manifests/B012-executor-toolchain-binding.json tests/contract/test_b012*.py
+          git diff --cached --quiet && { echo "no changes" >&2; exit 1; }
+          git commit -m "governance(b012): reblock Qwen raw-code runtime contract"
+          git push origin HEAD:"$TARGET_BRANCH"
