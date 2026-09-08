@@ -1,0 +1,182 @@
+name: PR200 B012 one-shot repair qualification
+
+on:
+  push:
+    branches:
+      - evidence/pr200-b012-one-shot-qualification-407e36a
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      REPO: TheHalfMoon/MSTR
+      BASE: 9ff1680c21be366f11133a4ba2e68ebe0fc1e53b
+      HEAD: 407e36afbe804dc9c6e87bf8789f8469925f6f44
+      TREE: d22dbc04c8e5a2736d420ce55bf8e2d4f92e0955
+      PR: '200'
+      SUBJECT_BRANCH: fix/b012-qwen-raw-code-one-shot-mode
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout exact repair subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.16'
+          check-latest: false
+
+      - name: Prove exact identities and ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git show -s --format=%T HEAD)" = "$TREE"
+          git fetch origin main "$SUBJECT_BRANCH" --quiet
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/$SUBJECT_BRANCH)" = "$HEAD"
+          test "$(git merge-base "$BASE" "$HEAD")" = "$BASE"
+          test "$(git rev-list --count "$BASE..$HEAD")" = "10"
+
+      - name: Prove live PR identity and exact seven-file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5 6; do
+            gh api "repos/$REPO/pulls/$PR" > /tmp/pr.json
+            mergeable=$(jq -r 'if .mergeable == null then "unknown" else (.mergeable|tostring) end' /tmp/pr.json)
+            [[ "$mergeable" != unknown ]] && break
+            sleep 2
+          done
+          jq -e --arg base "$BASE" --arg head "$HEAD" '.state=="open" and .draft==false and .mergeable==true and .base.sha==$base and .head.sha==$head and .changed_files==7' /tmp/pr.json >/dev/null
+          mapfile -t actual < <(git diff --name-only "$BASE...$HEAD" | sort)
+          expected=(
+            'artifacts/manifests/B012-qwen-raw-code-one-shot-topology-repair.json'
+            'colab/mstr_b012_qwen_raw_code_one_shot.py'
+            'colab/mstr_b012_raw_code_one_shot.py'
+            'configs/workflows/b012-qwen-raw-code-one-shot-recovery.yml'
+            'evidence/mstr-000b/B012-qwen-one-shot-mode-topology.md'
+            'tests/contract/test_b012_qwen_raw_code_one_shot_topology.py'
+            'tests/contract/test_b012_qwen_raw_code_one_shot_workflow.py'
+          )
+          [[ ${#actual[@]} -eq ${#expected[@]} ]]
+          for i in "${!expected[@]}"; do [[ "${actual[$i]}" == "${expected[$i]}" ]]; done
+          git diff --check "$BASE...$HEAD"
+
+      - name: Install repository dev dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Exact-main B012 eligibility and authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -B main origin/main
+          test "$(git rev-parse HEAD)" = "$BASE"
+          test -z "$(git status --porcelain)"
+          python -m mstr_qualify task eligible B012 > /tmp/b012.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          d=json.loads(Path('/tmp/b012.json').read_text(encoding='utf-8'))
+          assert d['task_id']=='B012'
+          assert d['canonical_main']==os.environ['BASE']
+          assert d['eligible'] is True and d['reasons']==[]
+          assert d['authority_result']['authority_id']=='B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
+          assert d['authority_result']['satisfied'] is True
+          assert d['state_consistency_result']['observed_state']=='PENDING'
+          assert d['supersession_result']['satisfied'] is True
+          assert all(x['satisfied'] for x in d['prerequisite_results'])
+          assert all(d['semantic_checks'].values())
+          a=json.loads(Path('artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json').read_text(encoding='utf-8'))
+          assert a['status']=='AUTHORIZED_CANONICAL'
+          assert a['task_id']=='B012'
+          assert a['cost_resource_ceiling']['limits'][0]['max']==0.0
+          PY
+          git checkout --detach "$HEAD"
+
+      - name: Prove frozen surfaces and one-shot repair boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          sha=lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
+          m=json.loads(Path('artifacts/manifests/B012-qwen-raw-code-one-shot-topology-repair.json').read_text(encoding='utf-8'))
+          assert m['status']=='READY_FOR_SEPARATE_CANONICAL_ACTIVATION'
+          assert m['base_main']=='9ff1680c21be366f11133a4ba2e68ebe0fc1e53b'
+          assert m['candidate_id']=='qwen3.5-0.8b-control'
+          assert m['triggering_incident']['run_id']==34265475666
+          assert m['triggering_incident']['raw_code_result']=='NONE_DURABLY_PROVEN'
+          assert m['repair_hypothesis']['pinned_llama_cpp_runtime_commit']=='3173a56471c1753650cd806694145ffd6dcace67'
+          assert m['repair_hypothesis']['explicit_one_shot_flag']=='--no-conversation'
+          assert m['repair_hypothesis']['root_cause_claimed'] is False
+          c=m['components']
+          assert c['canonical_shared_raw_code_helper_sha256']==sha('colab/mstr_b012_raw_code.py')
+          assert c['one_shot_raw_code_helper_sha256']==sha('colab/mstr_b012_raw_code_one_shot.py')
+          assert c['one_shot_wrapper_sha256']==sha('colab/mstr_b012_qwen_raw_code_one_shot.py')
+          assert c['case_checkpoint_script_sha256']==sha('colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py')
+          assert c['raw_code_manifest_sha256']==sha('benchmarks/manifests/B012-raw-code-proxy.json')
+          assert c['active_workflow_at_repair_base_sha256']==sha('.github/workflows/b012-qwen-raw-code-recovery.yml')
+          assert c['canonical_shared_raw_code_helper_sha256']=='bd6d34afd8af60497a4971bb7245fc359c4132bad3772be212b6848aa73060d8'
+          assert c['active_workflow_at_repair_base_sha256']=='f15941577213c5e96a1ebb3993989693628eae5f2e28620f90e03110d303d127'
+          a=m['authority_boundary']
+          for k in ('authority_scope_modified','authority_transfer','candidate_expansion','candidate_revision_or_file_expansion','cross_run_resume_authority_created','external_dispatch_authority_created','paid_compute','paid_model_api','production_release','retry_authority_created','training','weight_changing_training'):
+              assert a[k] is False, k
+          assert a['paid_cost_usd']==0.0 and a['git_model_binaries']==0 and a['founder_machine_model_binaries']==0
+          spec=Path('configs/workflows/b012-qwen-raw-code-one-shot-recovery.yml').read_text(encoding='utf-8')
+          active=Path('.github/workflows/b012-qwen-raw-code-recovery.yml').read_text(encoding='utf-8')
+          cmd='B012_RECOVER_RAW_CODE_ONE_SHOT qwen3.5-0.8b-control 34155931982'
+          assert cmd in spec and cmd not in active
+          assert spec.count('actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02')==7
+          assert '.gguf' not in spec and '.safetensors' not in spec
+          PY
+
+      - name: Focused B012 one-shot contracts
+        run: |
+          PYTHONPATH=colab python -m pytest -q \
+            tests/contract/test_b012_qwen_raw_code_one_shot_topology.py \
+            tests/contract/test_b012_qwen_raw_code_one_shot_workflow.py \
+            tests/contract/test_b012_qwen_raw_code_case_checkpoint_topology.py \
+            tests/contract/test_b012_executor_binding.py
+
+      - name: Canonical schema validation
+        run: python -m mstr_qualify validate
+
+      - name: Ruff lint
+        run: python -m ruff check .
+
+      - name: Changed Python Ruff format
+        run: |
+          python -m ruff format --check \
+            colab/mstr_b012_qwen_raw_code_one_shot.py \
+            colab/mstr_b012_raw_code_one_shot.py \
+            tests/contract/test_b012_qwen_raw_code_one_shot_topology.py \
+            tests/contract/test_b012_qwen_raw_code_one_shot_workflow.py
+
+      - name: Full pytest
+        run: python -m pytest -q
+
+      - name: Mypy
+        run: python -m mypy src/mstr_qualify
+
+      - name: Final immutable live guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git show -s --format=%T HEAD)" = "$TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE"
+          test "$(git ls-remote origin refs/heads/$SUBJECT_BRANCH | cut -f1)" = "$HEAD"
+          gh api "repos/$REPO/pulls/$PR" > /tmp/pr-final.json
+          jq -e --arg base "$BASE" --arg head "$HEAD" '.state=="open" and .draft==false and .base.sha==$base and .head.sha==$head and .changed_files==7' /tmp/pr-final.json >/dev/null
+          echo 'PR200_QUALIFICATION=PASS'
