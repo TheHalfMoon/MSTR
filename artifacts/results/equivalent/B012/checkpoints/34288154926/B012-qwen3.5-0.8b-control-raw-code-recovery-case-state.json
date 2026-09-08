@@ -1,0 +1,224 @@
+{
+  "candidate_id": "qwen3.5-0.8b-control",
+  "canonical_main_at_start": "66cd090fc75286bfc24db4bdf8fe58b64394e228",
+  "completed_stages": [
+    "init",
+    "source",
+    "quantize"
+  ],
+  "last_completed_stage": "quantize",
+  "local_ephemeral_paths": {
+    "cli": "/home/runner/work/_temp/b012-qwen-raw-code-work/tools/llama-cli",
+    "conversion_dir": "/home/runner/work/_temp/b012-qwen-raw-code-work/llama-convert",
+    "python_exe": "/home/runner/work/_temp/b012-qwen-raw-code-work/python/venv/bin/python",
+    "q4": "/home/runner/work/_temp/b012-qwen-raw-code-work/qwen3.5-0.8b-control-q4_k_m.gguf",
+    "quantizer": "/home/runner/work/_temp/b012-qwen-raw-code-work/tools/llama-quantize",
+    "source_dir": "/home/runner/work/_temp/b012-qwen-raw-code-work/source/qwen3.5-0.8b-control",
+    "workdir": "/home/runner/work/_temp/b012-qwen-raw-code-work"
+  },
+  "model_access_state": "RAW_CODE_CASE_PYTHON_CLAMP_IN_PROGRESS",
+  "paid_cost_usd": 0.0,
+  "producer_replay": {
+    "equivalence_gate": "EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH",
+    "historical_transitive_identity_claim": false,
+    "overlay_id": "T031_T029_PRODUCER_REPLAY_FULL_CLOSURE_2026_09_06",
+    "package_count": 40,
+    "packages": {
+      "annotated-doc": "0.0.5",
+      "anyio": "4.15.1",
+      "certifi": "2026.7.22",
+      "charset-normalizer": "3.5.1",
+      "click": "8.5.0",
+      "filelock": "3.32.5",
+      "fsspec": "2026.7.0",
+      "gguf": "0.19.0",
+      "h11": "0.16.0",
+      "hf-xet": "1.6.0",
+      "httpcore": "1.0.9",
+      "httpx": "0.28.1",
+      "huggingface-hub": "1.30.0",
+      "idna": "3.19",
+      "jinja2": "3.1.6",
+      "markdown-it-py": "4.2.0",
+      "markupsafe": "3.0.3",
+      "mdurl": "0.1.2",
+      "mpmath": "1.3.0",
+      "networkx": "3.6.1",
+      "numpy": "2.4.6",
+      "packaging": "26.3",
+      "protobuf": "7.36.0",
+      "pygments": "2.21.0",
+      "pyyaml": "6.0.3",
+      "regex": "2026.9.3",
+      "requests": "2.34.2",
+      "rich": "15.0.0",
+      "safetensors": "0.8.0",
+      "sentencepiece": "0.2.2",
+      "setuptools": "84.0.0",
+      "shellingham": "1.5.4",
+      "sympy": "1.14.0",
+      "tokenizers": "0.22.2",
+      "torch": "2.13.0+cpu",
+      "tqdm": "4.70.0",
+      "transformers": "5.15.1",
+      "typer": "0.27.2",
+      "typing-extensions": "4.16.0",
+      "urllib3": "2.7.0"
+    },
+    "python_version": "3.11.16"
+  },
+  "raw_code_case_results": {},
+  "regenerated_q4": {
+    "matches_prior_stage03": true,
+    "quantization": {
+      "conversion_seconds": 10.007093115999965,
+      "f16_sha256": "198297c5988d7420ef3939911c5a8e1a018a7404e7bf6fb5e6965c3cc9a04045",
+      "f16_size_bytes": 1557662144,
+      "fim_export_required": false,
+      "q4_k_m_fim_token_presence": {
+        "<|fim_middle|>": true,
+        "<|fim_pad|>": true,
+        "<|fim_prefix|>": true,
+        "<|fim_suffix|>": true,
+        "fim": true,
+        "Ġfim": true
+      },
+      "quantization_arms": {
+        "Q4_K_M": {
+          "regeneration_seconds": 21.373893465999913,
+          "sha256": "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa",
+          "size_bytes": 541903296
+        },
+        "Q4_K_S": {
+          "regeneration_seconds": 23.26438052700007,
+          "sha256": "a412656365e22625d722ede780dd745c2491aa74372ee4b20f2891947ba07c9e",
+          "size_bytes": 516778432
+        }
+      },
+      "source_fim_tokens": [
+        "<|fim_middle|>",
+        "<|fim_pad|>",
+        "<|fim_prefix|>",
+        "<|fim_suffix|>",
+        "fim",
+        "Ġfim"
+      ]
+    },
+    "sha256": "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa",
+    "size_bytes": 541903296
+  },
+  "repair_id": "B012_QWEN_RAW_CODE_ONE_SHOT_MODE_REPAIR_2026_09_08",
+  "schema_version": "mstr.b012-qwen-raw-code-case-state.v1",
+  "source_verification": [
+    {
+      "expected_sha256": "b90b86f35c8e6925ef74ee04d0e758f0a845c83a42089ad82bbaa948de9b4204",
+      "expected_size_bytes": 2907,
+      "file": "config.json",
+      "final_host": "huggingface.co",
+      "initial_host": "huggingface.co",
+      "sha256": "b90b86f35c8e6925ef74ee04d0e758f0a845c83a42089ad82bbaa948de9b4204",
+      "size_bytes": 2907,
+      "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/config.json"
+    },
+    {
+      "expected_sha256": "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d",
+      "expected_size_bytes": 3353259,
+      "file": "merges.txt",
+      "final_host": "huggingface.co",
+      "initial_host": "huggingface.co",
+      "sha256": "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d",
+      "size_bytes": 3353259,
+      "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/merges.txt"
+    },
+    {
+      "expected_sha256": "c2b1e5a17d9c1e27685d92ed9b382911ebb99955ecd89052d1721241adfbab6c",
+      "expected_size_bytes": 1746942600,
+      "file": "model.safetensors-00001-of-00001.safetensors",
+      "final_host": "us.aws.cdn.hf.co",
+      "initial_host": "huggingface.co",
+      "sha256": "c2b1e5a17d9c1e27685d92ed9b382911ebb99955ecd89052d1721241adfbab6c",
+      "size_bytes": 1746942600,
+      "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/model.safetensors-00001-of-00001.safetensors"
+    },
+    {
+      "expected_sha256": "ce9a885efdf27d3664fdef5d512ad365216f1074051ef840c7cd8e5431495d0a",
+      "expected_size_bytes": 50900,
+      "file": "model.safetensors.index.json",
+      "final_host": "huggingface.co",
+      "initial_host": "huggingface.co",
+      "sha256": "ce9a885efdf27d3664fdef5d512ad365216f1074051ef840c7cd8e5431495d0a",
+      "size_bytes": 50900,
+      "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/model.safetensors.index.json"
+    },
+    {
+      "expected_sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516",
+      "expected_size_bytes": 390,
+      "file": "preprocessor_config.json",
+      "final_host": "huggingface.co",
+      "initial_host": "huggingface.co",
+      "sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516",
+      "size_bytes": 390,
+      "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/preprocessor_config.json"
+    },
+    {
+      "expected_sha256": "fe000e3ed39ed12b8d2481d527d44f93c65d37e87645d2dcc80d1bf9d50d2927",
+      "expected_size_bytes": 12807196,
+      "file": "tokenizer.json",
+      "final_host": "us.aws.cdn.hf.co",
+      "initial_host": "huggingface.co",
+      "sha256": "fe000e3ed39ed12b8d2481d527d44f93c65d37e87645d2dcc80d1bf9d50d2927",
+      "size_bytes": 12807196,
+      "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/tokenizer.json"
+    },
+    {
+      "expected_sha256": "e611fbccc7c29ef3b1cafb1cb7ea548d189968632901d678fd62be68c47885de",
+      "expected_size_bytes": 16712,
+      "file": "tokenizer_config.json",
+      "final_host": "huggingface.co",
+      "initial_host": "huggingface.co",
+      "sha256": "e611fbccc7c29ef3b1cafb1cb7ea548d189968632901d678fd62be68c47885de",
+      "size_bytes": 16712,
+      "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/tokenizer_config.json"
+    },
+    {
+      "expected_sha256": "d039cd7d88b3502a99edd455496b75b44ecf7dd3b3669748bafac37e6cecc085",
+      "expected_size_bytes": 386,
+      "file": "video_preprocessor_config.json",
+      "final_host": "huggingface.co",
+      "initial_host": "huggingface.co",
+      "sha256": "d039cd7d88b3502a99edd455496b75b44ecf7dd3b3669748bafac37e6cecc085",
+      "size_bytes": 386,
+      "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/video_preprocessor_config.json"
+    },
+    {
+      "expected_sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003",
+      "expected_size_bytes": 6722759,
+      "file": "vocab.json",
+      "final_host": "huggingface.co",
+      "initial_host": "huggingface.co",
+      "sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003",
+      "size_bytes": 6722759,
+      "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/vocab.json"
+    }
+  ],
+  "started_utc": "2026-09-08T23:01:42Z",
+  "task_id": "B012",
+  "tool_identity": {
+    "build_flags": [
+      "-DGGML_NATIVE=ON",
+      "-DGGML_CUDA=OFF",
+      "-DLLAMA_CURL=OFF",
+      "-DBUILD_SHARED_LIBS=OFF",
+      "-DCMAKE_BUILD_TYPE=Release"
+    ],
+    "conversion_quantization_commit": "fc35562ba46fbbf8e30cac85edbb39642c37d248",
+    "llama_bench_built": false,
+    "recovery_targets": [
+      "llama-quantize",
+      "llama-cli"
+    ],
+    "repository": "https://github.com/ggml-org/llama.cpp.git",
+    "runtime_commit": "3173a56471c1753650cd806694145ffd6dcace67"
+  },
+  "training": false
+}
