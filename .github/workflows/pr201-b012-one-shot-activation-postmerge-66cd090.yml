@@ -1,0 +1,252 @@
+name: Postmerge PR201 B012 one-shot activation
+
+on:
+  push:
+    branches:
+      - evidence/pr201-b012-one-shot-activation-postmerge-66cd090
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  EXPECTED_MAIN: 66cd090fc75286bfc24db4bdf8fe58b64394e228
+  EXPECTED_TREE: f02010637016ac4b12ee3112b9fe7fb221ab98fd
+  BASE_MAIN: 04096a180e47ed8f81ee81c1bf3d9e471be607fc
+  SUBJECT_HEAD: 1f203ad7087d3ef28f9b24f23909a2a10eaada96
+  QUALIFICATION_RUN: '34285319693'
+  QUALIFICATION_EVIDENCE_HEAD: b56c72f2fb5d789d8b00b0b7f0ee462a22a9813f
+  REVIEW_V1_RUN: '34285827771'
+  REVIEW_V1_EVIDENCE_HEAD: cbe61a501a4b9069a36a5bd7ca728ccf8be8f7c6
+  REVIEW_V2_RUN: '34286709760'
+  REVIEW_V2_EVIDENCE_HEAD: f223cd622f5e8753491603faf07fd266646e45f0
+  PREMERGE_V1_RUN: '34287081209'
+  PREMERGE_V1_EVIDENCE_HEAD: 6cc20596a0bee391e4523c31dad52004b2e70e59
+  PREMERGE_V2_RUN: '34287301880'
+  PREMERGE_V2_EVIDENCE_HEAD: a5deb9151882bfe6f1feb8f91bfbe3736d9fbddf
+
+jobs:
+  live_merge_truth:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Verify exact merge and complete evidence chain
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          headers = {
+              "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+              "Accept": "application/vnd.github+json",
+          }
+
+          def get(url: str):
+              request = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(request) as response:
+                  return json.load(response)
+
+          root = "https://api.github.com/repos/TheHalfMoon/MSTR"
+          pr = get(f"{root}/pulls/201")
+          assert pr["state"] == "closed"
+          assert pr["merged"] is True
+          assert pr["merge_commit_sha"] == os.environ["EXPECTED_MAIN"]
+          assert pr["base"]["sha"] == os.environ["BASE_MAIN"]
+          assert pr["head"]["sha"] == os.environ["SUBJECT_HEAD"]
+          assert pr["changed_files"] == 13
+
+          merge = get(f"{root}/git/commits/{os.environ['EXPECTED_MAIN']}")
+          assert merge["tree"]["sha"] == os.environ["EXPECTED_TREE"]
+          assert [p["sha"] for p in merge["parents"]] == [
+              os.environ["BASE_MAIN"],
+              os.environ["SUBJECT_HEAD"],
+          ]
+
+          expected = (
+              ("QUALIFICATION_RUN", "QUALIFICATION_EVIDENCE_HEAD", "success"),
+              ("REVIEW_V1_RUN", "REVIEW_V1_EVIDENCE_HEAD", "failure"),
+              ("REVIEW_V2_RUN", "REVIEW_V2_EVIDENCE_HEAD", "success"),
+              ("PREMERGE_V1_RUN", "PREMERGE_V1_EVIDENCE_HEAD", "failure"),
+              ("PREMERGE_V2_RUN", "PREMERGE_V2_EVIDENCE_HEAD", "success"),
+          )
+          for run_key, head_key, conclusion in expected:
+              run = get(f"{root}/actions/runs/{os.environ[run_key]}")
+              assert run["status"] == "completed"
+              assert run["conclusion"] == conclusion
+              assert run["head_sha"] == os.environ[head_key]
+              assert run["run_attempt"] == 1
+          PY
+
+  canonical_activation_semantics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.16'
+          check-latest: false
+      - name: Verify canonical activation hashes authority and dispatch separation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B012 > /tmp/b012.json
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path.cwd()
+          eligible = json.loads(Path('/tmp/b012.json').read_text(encoding='utf-8'))
+          repair_path = root / 'artifacts/manifests/B012-qwen-raw-code-one-shot-topology-repair.json'
+          binding_path = root / 'artifacts/manifests/B012-executor-toolchain-binding.json'
+          active = root / '.github/workflows/b012-qwen-raw-code-recovery.yml'
+          spec = root / 'configs/workflows/b012-qwen-raw-code-one-shot-recovery.yml'
+          case_spec = root / 'configs/workflows/b012-qwen-raw-code-case-checkpoint-recovery.yml'
+          wrapper = root / 'colab/mstr_b012_qwen_raw_code_one_shot.py'
+          helper = root / 'colab/mstr_b012_raw_code_one_shot.py'
+          authority_path = root / 'artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json'
+          storage_path = root / 'docs/canonical/STORAGE_ARCHITECTURE.md'
+          sha = lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
+
+          repair = json.loads(repair_path.read_text(encoding='utf-8'))
+          binding = json.loads(binding_path.read_text(encoding='utf-8'))
+          authority = json.loads(authority_path.read_text(encoding='utf-8'))
+          act = repair['activation']
+          ab = repair['authority_boundary']
+          bound = binding['qwen_raw_code_one_shot_activation']
+
+          assert eligible['task_id'] == 'B012'
+          assert eligible['canonical_main'] == os.environ['EXPECTED_MAIN']
+          assert eligible['eligible'] is True and eligible['reasons'] == []
+          assert eligible['authority_result']['authority_id'] == 'B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
+          assert eligible['authority_result']['satisfied'] is True
+          assert eligible['state_consistency_result']['observed_state'] == 'PENDING'
+          assert eligible['supersession_result']['satisfied'] is True
+          assert all(x['satisfied'] for x in eligible['prerequisite_results'])
+          assert all(eligible['semantic_checks'].values())
+          assert authority['status'] == 'AUTHORIZED_CANONICAL'
+          assert authority['authority_id'] == 'B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
+          assert authority['task_id'] == 'B012'
+          assert authority['cost_resource_ceiling']['limits'][0]['max'] == 0.0
+
+          assert repair['status'] == 'READY_FOR_SEPARATE_CANONICAL_ACTIVATION'
+          assert repair['candidate_id'] == 'qwen3.5-0.8b-control'
+          assert repair['prior_qualification_run_id'] == 34155931982
+          assert repair['repair_hypothesis']['root_cause_claimed'] is False
+          assert act['activation_base_main'] == os.environ['BASE_MAIN']
+          assert act['repair_package_merge_commit'] == os.environ['BASE_MAIN']
+          assert act['repair_package_postmerge_run_id'] == 34282489164
+          assert act['repair_package_postmerge_evidence_head'] == '3618b69ab145f5ed4d18502ca5064812aa6081cd'
+          assert act['active_workflow_materialized'] is True
+          assert act['activation_is_separate_repository_change'] is True
+          assert act['activation_repository_change_only'] is True
+          assert act['package_performs_model_access'] is False
+          assert act['package_performs_model_execution'] is False
+          assert active.read_bytes() == spec.read_bytes()
+          assert active.read_bytes() != case_spec.read_bytes()
+
+          assert binding['status'] == 'SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL'
+          assert bound['repair_manifest_sha256'] == sha(repair_path)
+          assert bound['active_workflow_sha256'] == sha(active)
+          assert bound['one_shot_script_sha256'] == sha(wrapper)
+          assert bound['one_shot_raw_code_helper_sha256'] == sha(helper)
+          assert bound['activation_base_main'] == os.environ['BASE_MAIN']
+          assert bound['repair_package_postmerge_run_id'] == 34282489164
+          assert bound['repair_package_postmerge_evidence_head'] == '3618b69ab145f5ed4d18502ca5064812aa6081cd'
+
+          for key in ('authority_scope_modified','authority_transfer','candidate_expansion','candidate_revision_or_file_expansion','cross_run_resume_authority_created','external_dispatch_authority_created','paid_compute','paid_model_api','production_release','retry_authority_created','training','weight_changing_training'):
+              assert ab[key] is False, key
+          assert ab['paid_cost_usd'] == 0.0
+          assert ab['git_model_binaries'] == 0 and ab['founder_machine_model_binaries'] == 0
+          for key in ('retry_authority_created','external_dispatch_authority_created','cross_run_resume_authority_created','candidate_expansion','revision_or_file_expansion','training','weight_changing_training','paid_compute','paid_model_api','production_release'):
+              assert bound[key] is False, key
+          assert bound['model_access'] == 'NONE' and bound['model_execution'] == 'NONE' and bound['paid_cost_usd'] == 0.0
+
+          text = active.read_text(encoding='utf-8')
+          exact = 'B012_RECOVER_RAW_CODE_ONE_SHOT qwen3.5-0.8b-control 34155931982'
+          assert exact in text
+          assert 'B012_RECOVER_RAW_CODE_CASE_CHECKPOINT' not in text
+          assert 'colab/mstr_b012_qwen_raw_code_one_shot.py' in text
+          assert text.count('actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02') == 7
+          assert '.gguf' not in text and '.safetensors' not in text
+
+          storage = storage_path.read_text(encoding='utf-8')
+          assert 'FOUNDER_MAC_LARGE_ARTIFACTS = ZERO' in storage
+          assert 'MODEL_BINARIES_ON_MAC = PROHIBITED' in storage
+          assert 'GIT_TREE_BINARIES      = PROHIBITED' in storage
+          assert 'ACTIONS_EPHEMERAL_RUNNER      = approved autonomous executor' in storage
+          PY
+
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.16'
+          check-latest: false
+      - name: Run postmerge focused and full quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[dev]'
+          PYTHONPATH=colab python -m pytest -q \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_stage_checkpoint_topology.py \
+            tests/contract/test_b012_qwen_staged_recovery_topology.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_qwen_raw_code_case_checkpoint_topology.py \
+            tests/contract/test_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_qwen_case_checkpoint_runner_shutdown_evidence.py \
+            tests/contract/test_b012_qwen_raw_code_one_shot_topology.py \
+            tests/contract/test_b012_qwen_raw_code_one_shot_workflow.py
+          python -m mstr_qualify validate
+          python -m ruff check .
+          python -m ruff format --check \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_qwen_case_checkpoint_runner_shutdown_evidence.py \
+            tests/contract/test_b012_qwen_raw_code_case_checkpoint_topology.py \
+            tests/contract/test_b012_qwen_raw_code_one_shot_topology.py \
+            tests/contract/test_b012_qwen_raw_code_one_shot_workflow.py \
+            tests/contract/test_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_qwen_staged_recovery_topology.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_stage_checkpoint_topology.py
+          python -m pytest -q
+          python -m mypy src/mstr_qualify
+
+  final_gate:
+    needs: [live_merge_truth, canonical_activation_semantics, quality]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Final exact-main postmerge verdict
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo 'PR201_POSTMERGE=PASS'
+          echo 'ONE_SHOT_ACTIVATION_CANONICAL=YES'
+          echo 'B012_FRESH_PREDISPATCH_GATE=STILL_REQUIRED'
+          echo 'MODEL_DISPATCH_PERFORMED=NO'
