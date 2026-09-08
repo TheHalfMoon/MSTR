@@ -12,6 +12,7 @@ from pathlib import Path
 FAILURE_CLASS = (
     "B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_PARTIAL_DURABLE_PROGRESS_RAW_CODE_UNPROVEN"
 )
+BLOCKED_STATUS = "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR"
 F16_SHA256 = "198297c5988d7420ef3939911c5a8e1a018a7404e7bf6fb5e6965c3cc9a04045"
 F16_SIZE_BYTES = 1557662144
 
@@ -23,6 +24,17 @@ def _load_builder(script: Path):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _repair_generated_test(repo_root: Path) -> None:
+    path = repo_root / "tests/contract/test_b012_runner_shutdown_evidence.py"
+    text = path.read_text(encoding="utf-8")
+    needle = 'assert binding["status"] == BLOCKED_STATUS'
+    replacement = f'assert binding["status"] == "{BLOCKED_STATUS}"'
+    count = text.count(needle)
+    if count != 1:
+        raise RuntimeError(f"expected exactly one generated blocked-status assertion, found {count}")
+    path.write_text(text.replace(needle, replacement), encoding="utf-8")
 
 
 def _mark_untracked_intent_to_add(repo_root: Path) -> None:
@@ -69,6 +81,7 @@ def main() -> None:
         str(repo_root),
     ]
     module.main()
+    _repair_generated_test(repo_root)
     _mark_untracked_intent_to_add(repo_root)
 
 
