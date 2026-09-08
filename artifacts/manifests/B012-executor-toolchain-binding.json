@@ -2,7 +2,7 @@
   "schema_version": "mstr.b012-executor-binding.v1",
   "binding_id": "B012_CANONICAL_EXECUTOR_TOOLCHAIN_BINDING_2026_09_06",
   "task_id": "B012",
-  "status": "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR",
+  "status": "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL",
   "source_main": "603a6865fdbf5a5434565e870d73054c5b574f2a",
   "candidate_ids": [
     "mellum-4b",
@@ -356,5 +356,33 @@
     "paid_model_api": false,
     "candidate_expansion": false,
     "revision_or_file_expansion": false
+  },
+  "qwen_raw_code_one_shot_activation": {
+    "repair_id": "B012_QWEN_RAW_CODE_ONE_SHOT_MODE_REPAIR_2026_09_08",
+    "candidate_id": "qwen3.5-0.8b-control",
+    "prior_qualification_run_id": 34155931982,
+    "triggering_incident_run_id": 34265475666,
+    "repair_manifest_sha256": "e3b0983f4d20809f0b8b125b16791b2b6d826d586f4c5f1b083e0a993c6f7126",
+    "one_shot_script_sha256": "59566e753b50b019398fa99dfc3ddbb9387850056587fc3940bf52842edb6b82",
+    "one_shot_raw_code_helper_sha256": "46d0b9560ebb5b97e266c64380b97b251fff543359839503bf6145b36e84aa03",
+    "active_workflow_sha256": "9dd880bf058a41e54b87340445e45df72b41c84149f70571c36ca8284bd7da8a",
+    "activation_base_main": "04096a180e47ed8f81ee81c1bf3d9e471be607fc",
+    "repair_package_merge_commit": "04096a180e47ed8f81ee81c1bf3d9e471be607fc",
+    "repair_package_postmerge_run_id": 34282489164,
+    "repair_package_postmerge_evidence_head": "3618b69ab145f5ed4d18502ca5064812aa6081cd",
+    "activation_is_separate_repository_change": true,
+    "retry_authority_created": false,
+    "external_dispatch_authority_created": false,
+    "cross_run_resume_authority_created": false,
+    "candidate_expansion": false,
+    "revision_or_file_expansion": false,
+    "model_access": "NONE",
+    "model_execution": "NONE",
+    "training": false,
+    "weight_changing_training": false,
+    "paid_compute": false,
+    "paid_model_api": false,
+    "paid_cost_usd": 0.0,
+    "production_release": false
   }
 }

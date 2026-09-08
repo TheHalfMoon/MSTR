@@ -20,8 +20,12 @@ RAW_CODE = ROOT / "benchmarks/manifests/B012-raw-code-proxy.json"
 SHARED_HELPER = ROOT / "colab/mstr_b012_raw_code.py"
 ONE_SHOT_HELPER = ROOT / "colab/mstr_b012_raw_code_one_shot.py"
 CASE_CHECKPOINT = ROOT / "colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py"
+CASE_CHECKPOINT_WORKFLOW = (
+    ROOT / "configs/workflows/b012-qwen-raw-code-case-checkpoint-recovery.yml"
+)
 WRAPPER = ROOT / "colab/mstr_b012_qwen_raw_code_one_shot.py"
 ACTIVE_WORKFLOW = ROOT / ".github/workflows/b012-qwen-raw-code-recovery.yml"
+BINDING = ROOT / "artifacts/manifests/B012-executor-toolchain-binding.json"
 
 
 def _read_json(path: Path) -> dict[str, object]:
@@ -89,7 +93,7 @@ def test_one_shot_repair_component_hashes_preserve_canonical_surfaces() -> None:
     assert components["case_checkpoint_script_sha256"] == _sha256(CASE_CHECKPOINT)
     assert components["one_shot_raw_code_helper_sha256"] == _sha256(ONE_SHOT_HELPER)
     assert components["one_shot_wrapper_sha256"] == _sha256(WRAPPER)
-    assert components["active_workflow_at_repair_base_sha256"] == _sha256(ACTIVE_WORKFLOW)
+    assert components["active_workflow_at_repair_base_sha256"] == _sha256(CASE_CHECKPOINT_WORKFLOW)
 
     assert _sha256(SHARED_HELPER) == (
         "bd6d34afd8af60497a4971bb7245fc359c4132bad3772be212b6848aa73060d8"
@@ -97,7 +101,7 @@ def test_one_shot_repair_component_hashes_preserve_canonical_surfaces() -> None:
     assert _sha256(CASE_CHECKPOINT) == (
         "c6cb947bd84101b572e4bb8140a393e7dc067c858172339758031f855c6c24a3"
     )
-    assert _sha256(ACTIVE_WORKFLOW) == (
+    assert _sha256(CASE_CHECKPOINT_WORKFLOW) == (
         "f15941577213c5e96a1ebb3993989693628eae5f2e28620f90e03110d303d127"
     )
 
@@ -233,16 +237,60 @@ def test_wrapper_binds_isolated_helper_only_after_canonical_activation() -> None
     assert "is not canonically activated" in wrapper
 
 
-def test_repair_does_not_activate_dispatch_surface() -> None:
+def test_one_shot_activation_is_exactly_bound_and_non_authorizing() -> None:
     manifest = _read_json(MANIFEST)
+    binding = _read_json(BINDING)
     activation = manifest["activation"]
+    bound = binding["qwen_raw_code_one_shot_activation"]
     assert isinstance(activation, dict)
+    assert isinstance(bound, dict)
     assert activation["separate_activation_pr_required"] is True
-    assert activation["active_workflow_materialized"] is False
+    assert activation["active_workflow_materialized"] is True
+    assert activation["activation_base_main"] == "04096a180e47ed8f81ee81c1bf3d9e471be607fc"
+    assert activation["repair_package_merge_commit"] == "04096a180e47ed8f81ee81c1bf3d9e471be607fc"
+    assert activation["repair_package_postmerge_run_id"] == 34282489164
+    assert (
+        activation["repair_package_postmerge_evidence_head"]
+        == "3618b69ab145f5ed4d18502ca5064812aa6081cd"
+    )
+    assert activation["activation_is_separate_repository_change"] is True
     assert activation["package_performs_model_access"] is False
     assert activation["package_performs_model_execution"] is False
 
+    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
+    assert bound["repair_id"] == manifest["repair_id"]
+    assert bound["candidate_id"] == "qwen3.5-0.8b-control"
+    assert bound["prior_qualification_run_id"] == 34155931982
+    assert bound["triggering_incident_run_id"] == 34265475666
+    assert bound["repair_manifest_sha256"] == _sha256(MANIFEST)
+    assert bound["one_shot_script_sha256"] == _sha256(WRAPPER)
+    assert bound["one_shot_raw_code_helper_sha256"] == _sha256(ONE_SHOT_HELPER)
+    assert bound["active_workflow_sha256"] == _sha256(ACTIVE_WORKFLOW)
+    assert bound["activation_base_main"] == "04096a180e47ed8f81ee81c1bf3d9e471be607fc"
+    assert bound["repair_package_merge_commit"] == "04096a180e47ed8f81ee81c1bf3d9e471be607fc"
+    assert bound["repair_package_postmerge_run_id"] == 34282489164
+    assert (
+        bound["repair_package_postmerge_evidence_head"]
+        == "3618b69ab145f5ed4d18502ca5064812aa6081cd"
+    )
+    for key in (
+        "retry_authority_created",
+        "external_dispatch_authority_created",
+        "cross_run_resume_authority_created",
+        "candidate_expansion",
+        "revision_or_file_expansion",
+        "training",
+        "weight_changing_training",
+        "paid_compute",
+        "paid_model_api",
+        "production_release",
+    ):
+        assert bound[key] is False
+    assert bound["model_access"] == "NONE"
+    assert bound["model_execution"] == "NONE"
+    assert bound["paid_cost_usd"] == 0.0
+
     workflow = ACTIVE_WORKFLOW.read_text(encoding="utf-8")
-    assert "B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982" in workflow
-    assert "B012_RECOVER_RAW_CODE_ONE_SHOT" not in workflow
-    assert "mstr_b012_qwen_raw_code_one_shot.py" not in workflow
+    assert "B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982" not in workflow
+    assert "B012_RECOVER_RAW_CODE_ONE_SHOT qwen3.5-0.8b-control 34155931982" in workflow
+    assert "python colab/mstr_b012_qwen_raw_code_one_shot.py" in workflow

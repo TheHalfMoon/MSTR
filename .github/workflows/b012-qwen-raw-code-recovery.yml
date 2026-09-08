@@ -1,4 +1,4 @@
-name: B012 Qwen raw-code case-checkpoint recovery
+name: B012 Qwen raw-code one-shot recovery
 
 on:
   issue_comment:
@@ -18,7 +18,7 @@ jobs:
       github.event.issue.number == 162 &&
       github.event.comment.user.login == 'TheHalfMoon' &&
       github.event.comment.author_association == 'OWNER' &&
-      github.event.comment.body == 'B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982'
+      github.event.comment.body == 'B012_RECOVER_RAW_CODE_ONE_SHOT qwen3.5-0.8b-control 34155931982'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -40,7 +40,7 @@ jobs:
           PYTHONPATH: colab
         run: |
           set -euo pipefail
-          python colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py \
+          python colab/mstr_b012_qwen_raw_code_one_shot.py \
             --stage init \
             --output-dir "$RUNNER_TEMP/b012-qwen-raw-code-results" \
             --workdir "$RUNNER_TEMP/b012-qwen-raw-code-work"
@@ -49,7 +49,7 @@ jobs:
         if: always() && steps.init.outcome != 'skipped'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: b012-qwen-raw-code-stage-01-init-${{ github.run_id }}
+          name: b012-qwen-raw-code-one-shot-stage-01-init-${{ github.run_id }}
           path: ${{ runner.temp }}/b012-qwen-raw-code-results/*.json
           if-no-files-found: error
           retention-days: 7
@@ -60,7 +60,7 @@ jobs:
           PYTHONPATH: colab
         run: |
           set -euo pipefail
-          python colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py \
+          python colab/mstr_b012_qwen_raw_code_one_shot.py \
             --stage source \
             --output-dir "$RUNNER_TEMP/b012-qwen-raw-code-results" \
             --workdir "$RUNNER_TEMP/b012-qwen-raw-code-work"
@@ -69,7 +69,7 @@ jobs:
         if: always() && steps.source.outcome != 'skipped'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: b012-qwen-raw-code-stage-02-source-${{ github.run_id }}
+          name: b012-qwen-raw-code-one-shot-stage-02-source-${{ github.run_id }}
           path: ${{ runner.temp }}/b012-qwen-raw-code-results/*.json
           if-no-files-found: error
           retention-days: 7
@@ -80,7 +80,7 @@ jobs:
           PYTHONPATH: colab
         run: |
           set -euo pipefail
-          python colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py \
+          python colab/mstr_b012_qwen_raw_code_one_shot.py \
             --stage quantize \
             --output-dir "$RUNNER_TEMP/b012-qwen-raw-code-results" \
             --workdir "$RUNNER_TEMP/b012-qwen-raw-code-work"
@@ -89,18 +89,18 @@ jobs:
         if: always() && steps.quantize.outcome != 'skipped'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: b012-qwen-raw-code-stage-03-quantize-${{ github.run_id }}
+          name: b012-qwen-raw-code-one-shot-stage-03-quantize-${{ github.run_id }}
           path: ${{ runner.temp }}/b012-qwen-raw-code-results/*.json
           if-no-files-found: error
           retention-days: 7
 
-      - name: Stage 04a - run frozen raw-code python-clamp case
+      - name: Stage 04a - run frozen raw-code python-clamp case in explicit one-shot mode
         id: raw_code_clamp
         env:
           PYTHONPATH: colab
         run: |
           set -euo pipefail
-          python colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py \
+          python colab/mstr_b012_qwen_raw_code_one_shot.py \
             --stage raw-code-python-clamp \
             --output-dir "$RUNNER_TEMP/b012-qwen-raw-code-results" \
             --workdir "$RUNNER_TEMP/b012-qwen-raw-code-work"
@@ -109,18 +109,18 @@ jobs:
         if: always() && steps.raw_code_clamp.outcome != 'skipped'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: b012-qwen-raw-code-stage-04a-python-clamp-${{ github.run_id }}
+          name: b012-qwen-raw-code-one-shot-stage-04a-python-clamp-${{ github.run_id }}
           path: ${{ runner.temp }}/b012-qwen-raw-code-results/*.json
           if-no-files-found: error
           retention-days: 7
 
-      - name: Stage 04b - run frozen raw-code python-dedupe case
+      - name: Stage 04b - run frozen raw-code python-dedupe case in explicit one-shot mode
         id: raw_code_dedupe
         env:
           PYTHONPATH: colab
         run: |
           set -euo pipefail
-          python colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py \
+          python colab/mstr_b012_qwen_raw_code_one_shot.py \
             --stage raw-code-python-dedupe \
             --output-dir "$RUNNER_TEMP/b012-qwen-raw-code-results" \
             --workdir "$RUNNER_TEMP/b012-qwen-raw-code-work"
@@ -129,18 +129,18 @@ jobs:
         if: always() && steps.raw_code_dedupe.outcome != 'skipped'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: b012-qwen-raw-code-stage-04b-python-dedupe-${{ github.run_id }}
+          name: b012-qwen-raw-code-one-shot-stage-04b-python-dedupe-${{ github.run_id }}
           path: ${{ runner.temp }}/b012-qwen-raw-code-results/*.json
           if-no-files-found: error
           retention-days: 7
 
-      - name: Stage 04c - run frozen raw-code python-safe-divide case
+      - name: Stage 04c - run frozen raw-code python-safe-divide case in explicit one-shot mode
         id: raw_code_safe_divide
         env:
           PYTHONPATH: colab
         run: |
           set -euo pipefail
-          python colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py \
+          python colab/mstr_b012_qwen_raw_code_one_shot.py \
             --stage raw-code-python-safe-divide \
             --output-dir "$RUNNER_TEMP/b012-qwen-raw-code-results" \
             --workdir "$RUNNER_TEMP/b012-qwen-raw-code-work"
@@ -149,7 +149,7 @@ jobs:
         if: always() && steps.raw_code_safe_divide.outcome != 'skipped'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: b012-qwen-raw-code-stage-04c-python-safe-divide-${{ github.run_id }}
+          name: b012-qwen-raw-code-one-shot-stage-04c-python-safe-divide-${{ github.run_id }}
           path: ${{ runner.temp }}/b012-qwen-raw-code-results/*.json
           if-no-files-found: error
           retention-days: 7
@@ -160,7 +160,7 @@ jobs:
           PYTHONPATH: colab
         run: |
           set -euo pipefail
-          python colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py \
+          python colab/mstr_b012_qwen_raw_code_one_shot.py \
             --stage finalize \
             --output-dir "$RUNNER_TEMP/b012-qwen-raw-code-results" \
             --workdir "$RUNNER_TEMP/b012-qwen-raw-code-work"
@@ -169,7 +169,7 @@ jobs:
         if: always() && steps.finalize.outcome != 'skipped'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: b012-qwen-raw-code-stage-05-final-${{ github.run_id }}
+          name: b012-qwen-raw-code-one-shot-stage-05-final-${{ github.run_id }}
           path: ${{ runner.temp }}/b012-qwen-raw-code-results/*.json
           if-no-files-found: error
           retention-days: 7

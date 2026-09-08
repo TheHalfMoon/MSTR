@@ -134,7 +134,7 @@ def test_executor_binding_reblocks_same_topology_and_hash_binds_incident() -> No
     shutdown = binding["qwen_raw_code_case_checkpoint_runner_shutdown"]
     assert isinstance(shutdown, dict)
 
-    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR"
+    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
     assert shutdown["run_id"] == 34265475666
     assert shutdown["job_id"] == 102193622602
     assert shutdown["candidate_id"] == "qwen3.5-0.8b-control"
