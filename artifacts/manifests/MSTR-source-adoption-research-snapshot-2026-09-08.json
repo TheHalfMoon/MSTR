@@ -1,0 +1,277 @@
+{
+  "schema_version": "mstr.source-adoption-research-snapshot.v1",
+  "snapshot_id": "MSTR_SOURCE_ADOPTION_CAPABILITY_MINING_2026_09_08",
+  "observed_date": "2026-09-08",
+  "status": "PLANNING_RESEARCH_NOT_ADOPTION",
+  "source_use_permission": "FOUNDER_STATED_FOR_SOURCE_CODE",
+  "authority_boundary": {
+    "source_code_permission_is_data_admission": false,
+    "source_code_permission_is_model_weight_authority": false,
+    "source_code_permission_is_training_authority": false,
+    "source_code_permission_is_external_effect_authority": false,
+    "model_access": "NONE",
+    "model_execution": "NONE",
+    "training": false,
+    "paid_cost_usd": 0.0
+  },
+  "adoption_policy": {
+    "prefer_minimal_primitive": true,
+    "whole_repository_vendoring_default": false,
+    "mutable_upstream_runtime_dependency_allowed": false,
+    "runtime_auto_update_allowed": false,
+    "license_notice_review_required_before_copy": true,
+    "transitive_dependency_review_required": true,
+    "behavior_or_equivalence_tests_required": true,
+    "rollback_required": true,
+    "independent_review_required": true
+  },
+  "sources": [
+    {
+      "source_id": "tencent-loopforge",
+      "repository": "Tencent/LoopForge",
+      "url": "https://github.com/Tencent/LoopForge",
+      "observed_ref": "main",
+      "observed_revision": "09c765286f549624dd95434e1e6ef2249657cbeb",
+      "disposition": "ADOPT_PRIMITIVE",
+      "planned_primitives": [
+        "resumable workflow semantics",
+        "durable task checkpoints",
+        "phase handoff structure"
+      ]
+    },
+    {
+      "source_id": "tencent-skillhone",
+      "repository": "Tencent/SkillHone",
+      "url": "https://github.com/Tencent/SkillHone",
+      "observed_ref": "main",
+      "observed_revision": "7d565839fb4dc74f9c77f09ace660e1c0484e048",
+      "disposition": "ADOPT_PRIMITIVE",
+      "planned_primitives": [
+        "persistent improvement decisions",
+        "optimizer evaluator separation",
+        "regression gated whole-skill improvement"
+      ]
+    },
+    {
+      "source_id": "deepseek-harness",
+      "repository": "deepseek-ai/deepseek-harness",
+      "url": "https://github.com/deepseek-ai/deepseek-harness",
+      "observed_ref": "master",
+      "observed_revision": "c389f96bf3a9b6807cb71ed6bdad5849be0df6d8",
+      "disposition": "STUDY_METHOD",
+      "planned_primitives": [
+        "harness compatibility patterns",
+        "bounded primitive mining"
+      ],
+      "whole_repo_core_dependency": false
+    },
+    {
+      "source_id": "mini-swe-agent",
+      "repository": "SWE-agent/mini-swe-agent",
+      "url": "https://github.com/SWE-agent/mini-swe-agent",
+      "observed_ref": "main",
+      "observed_revision": "04d809ceab9df28f9adaed044884180159172930",
+      "disposition": "REFERENCE_BASELINE",
+      "planned_primitives": [
+        "MINIMAL_BASH_LINEAR_BASELINE",
+        "anti-complexity control"
+      ]
+    },
+    {
+      "source_id": "swe-rex",
+      "repository": "SWE-agent/SWE-ReX",
+      "url": "https://github.com/SWE-agent/SWE-ReX",
+      "observed_ref": "main",
+      "observed_revision": "5c995c365dfb1fd5bc56fda688be5d8538f9931f",
+      "disposition": "ADOPT_PRIMITIVE",
+      "planned_primitives": [
+        "execution backend profile",
+        "session lifecycle",
+        "streaming cancellation reset semantics"
+      ]
+    },
+    {
+      "source_id": "aider",
+      "repository": "Aider-AI/aider",
+      "url": "https://github.com/Aider-AI/aider",
+      "observed_ref": "main",
+      "observed_revision": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+      "disposition": "ADOPT_PRIMITIVE",
+      "planned_primitives": [
+        "repository map",
+        "syntax symbol index",
+        "token-budgeted context ranking"
+      ]
+    },
+    {
+      "source_id": "ifm-xllm",
+      "repository": "ifm-ai/xllm",
+      "url": "https://github.com/ifm-ai/xllm",
+      "observed_ref": "main",
+      "observed_revision": "1891e22b25bda4a4e88e23b3866c3ee7a127e3be",
+      "disposition": "STUDY_METHOD",
+      "planned_primitives": [
+        "local model lifecycle method mining"
+      ]
+    },
+    {
+      "source_id": "ifm-horizon-post-train",
+      "repository": "ifm-ai/horizon-post-train",
+      "url": "https://github.com/ifm-ai/horizon-post-train",
+      "observed_ref": "main",
+      "observed_revision": "023c0f7b9de5da693d435a196b0fd436dddb0438",
+      "disposition": "STUDY_METHOD",
+      "planned_primitives": [
+        "post-training architecture method mining"
+      ]
+    },
+    {
+      "source_id": "ifm-uno",
+      "repository": "ifm-ai/uno",
+      "url": "https://github.com/ifm-ai/uno",
+      "observed_ref": "main",
+      "observed_revision": "46fbdb66f026bae9c68a1e5a3f97a17c7805c778",
+      "disposition": "STUDY_METHOD",
+      "planned_primitives": [
+        "parallel generation acceleration research"
+      ]
+    },
+    {
+      "source_id": "tencent-angelslim",
+      "repository": "Tencent/AngelSlim",
+      "url": "https://github.com/Tencent/AngelSlim",
+      "observed_ref": "main",
+      "observed_revision": "ee8ddb2b43e20800bcfdda1e9ac34ea2aab5de5d",
+      "disposition": "STUDY_METHOD",
+      "planned_primitives": [
+        "compression research",
+        "speculative decoding research"
+      ],
+      "baseline_import": false
+    },
+    {
+      "source_id": "llama-cpp",
+      "repository": "ggml-org/llama.cpp",
+      "url": "https://github.com/ggml-org/llama.cpp",
+      "observed_ref": "master",
+      "observed_revision": "67672dc5b76f8bc17785a19d3dc6d1463fc2902c",
+      "disposition": "REFERENCE_BASELINE",
+      "planned_primitives": [
+        "native local inference baseline",
+        "native acceleration baseline"
+      ]
+    },
+    {
+      "source_id": "unsloth",
+      "repository": "unslothai/unsloth",
+      "url": "https://github.com/unslothai/unsloth",
+      "observed_ref": "main",
+      "observed_revision": "132f1155a62f98cbb95f2d07b10a666599b7d7dc",
+      "disposition": "REFERENCE_BASELINE",
+      "planned_primitives": [
+        "accelerated training backend parity candidate"
+      ],
+      "training_authority_created": false
+    },
+    {
+      "source_id": "selfcodealign",
+      "repository": "bigcode-project/selfcodealign",
+      "url": "https://github.com/bigcode-project/selfcodealign",
+      "observed_ref": "main",
+      "observed_revision": "045354e1f60ed01b0652ff9716359bb73d246740",
+      "disposition": "STUDY_METHOD",
+      "planned_primitives": [
+        "synthetic task response generation",
+        "execution filtering"
+      ],
+      "data_admission_created": false
+    },
+    {
+      "source_id": "swe-rl",
+      "repository": "facebookresearch/swe-rl",
+      "url": "https://github.com/facebookresearch/swe-rl",
+      "observed_ref": "main",
+      "observed_revision": "5aa10d67f1db07ecd3a20483d63fe2d5029ac9c9",
+      "disposition": "STUDY_METHOD",
+      "planned_primitives": [
+        "software evolution task methodology",
+        "rule-based reward methodology"
+      ],
+      "training_authority_created": false
+    },
+    {
+      "source_id": "programbench",
+      "repository": "facebookresearch/ProgramBench",
+      "url": "https://github.com/facebookresearch/ProgramBench",
+      "observed_ref": "main",
+      "observed_revision": "963063c9271cc40fa179977356782ea4582e0b0c",
+      "disposition": "REFERENCE_BASELINE",
+      "planned_primitives": [
+        "behavioral reconstruction evaluation"
+      ]
+    },
+    {
+      "source_id": "fea-bench",
+      "repository": "microsoft/FEA-Bench",
+      "url": "https://github.com/microsoft/FEA-Bench",
+      "observed_ref": "main",
+      "observed_revision": "fb3c11274796f6057bf447410540fcf2fa1d90b1",
+      "disposition": "STUDY_METHOD",
+      "planned_primitives": [
+        "repository feature implementation benchmark design"
+      ],
+      "external_dataset_scraping_admitted": false
+    },
+    {
+      "source_id": "codeclash",
+      "repository": "CodeClash-ai/CodeClash",
+      "url": "https://github.com/CodeClash-ai/CodeClash",
+      "observed_ref": "main",
+      "observed_revision": "f0694c64ecf6abfca2bc867bad2de9333fef5be8",
+      "disposition": "STUDY_METHOD",
+      "planned_primitives": [
+        "long-horizon goal-oriented software engineering evaluation"
+      ]
+    },
+    {
+      "source_id": "autoresearch",
+      "repository": "karpathy/autoresearch",
+      "url": "https://github.com/karpathy/autoresearch",
+      "observed_ref": "master",
+      "observed_revision": "228791fb499afffb54b46200aca536f79142f117",
+      "disposition": "REFERENCE_BASELINE",
+      "planned_primitives": [
+        "bounded propose run keep discard crash research controller"
+      ]
+    }
+  ],
+  "planned_contracts": [
+    "SourceAdoptionRecord",
+    "ExecutionBackendProfile",
+    "ResumableTaskCheckpoint",
+    "ImprovementDecisionRecord",
+    "RepositoryContextIndexProfile",
+    "TrainingBackendParityRecord"
+  ],
+  "planned_task_binding": {
+    "B031": "UNCHANGED_EXISTING_PREREQUISITE",
+    "B032": "FREEZE_SOURCE_ADOPTION_AND_CAPABILITY_MINING_DESIGN",
+    "B033": "RED_TEAM_SOURCE_ADOPTION_AND_HIDDEN_AUTHORITY_EXPANSION",
+    "B034": "FINAL_CLOSEOUT_AFTER_NEW_PLAN_OBLIGATIONS"
+  },
+  "canonical_planning_base": "5e74e77c1fc86d4ebc7e64654f45bd18f565edd6",
+  "canonical_planning_base_tree": "66120bf247e7d9b9da34d5d47603493c8dce4c30",
+  "revision_reverification": {
+    "reverified_date": "2026-09-08",
+    "source_count": 18,
+    "unchanged_source_count": 13,
+    "changed_source_count": 5,
+    "changed_sources": [
+      "deepseek-harness",
+      "mini-swe-agent",
+      "swe-rex",
+      "aider",
+      "ifm-xllm"
+    ]
+  }
+}
