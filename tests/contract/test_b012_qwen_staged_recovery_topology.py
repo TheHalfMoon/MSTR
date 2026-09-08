@@ -176,7 +176,7 @@ def test_qwen_staged_recovery_activation_is_preserved_after_case_checkpoint_supe
         "B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982"
         in ACTIVE_WORKFLOW.read_text(encoding="utf-8")
     )
-    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
+    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR"
     assert activation["repair_id"] == manifest["repair_id"]
     assert activation["candidate_id"] == "qwen3.5-0.8b-control"
     assert activation["prior_run_id"] == 34155931982

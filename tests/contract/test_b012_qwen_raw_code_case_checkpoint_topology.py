@@ -319,7 +319,7 @@ def test_case_checkpoint_activation_is_exactly_bound_and_non_authorizing() -> No
         == "f5dac568a809fe9fed707c3c2d8a298c859d16bb"
     )
     assert activation["active_workflow_materialized"] is True
-    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
+    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR"
     assert bound["repair_id"] == manifest["repair_id"]
     assert bound["candidate_id"] == "qwen3.5-0.8b-control"
     assert bound["prior_run_id"] == 34155931982
