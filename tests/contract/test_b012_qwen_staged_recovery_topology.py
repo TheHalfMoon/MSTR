@@ -164,21 +164,25 @@ def test_qwen_staged_checkpoint_is_json_only_and_non_authorizing(tmp_path: Path)
     assert checkpoint["durable_output_format"] == "JSON_ONLY"
 
 
-def test_qwen_staged_recovery_is_materialized_as_current_active_workflow() -> None:
+def test_qwen_staged_recovery_activation_is_preserved_after_case_checkpoint_supersession() -> None:
     manifest = _read_json(MANIFEST)
     binding = _read_json(BINDING)
     activation = binding["qwen_raw_code_recovery_staged_activation"]
     assert isinstance(activation, dict)
 
     assert manifest["status"] == "READY_FOR_SEPARATE_CANONICAL_ACTIVATION"
-    assert ACTIVE_WORKFLOW.read_bytes() == WORKFLOW.read_bytes()
-    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR"
+    assert ACTIVE_WORKFLOW.read_bytes() != WORKFLOW.read_bytes()
+    assert (
+        "B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982"
+        in ACTIVE_WORKFLOW.read_text(encoding="utf-8")
+    )
+    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
     assert activation["repair_id"] == manifest["repair_id"]
     assert activation["candidate_id"] == "qwen3.5-0.8b-control"
     assert activation["prior_run_id"] == 34155931982
     assert activation["repair_manifest_sha256"] == _sha256(MANIFEST)
     assert activation["staged_script_sha256"] == _sha256(SCRIPT)
-    assert activation["active_workflow_sha256"] == _sha256(ACTIVE_WORKFLOW)
+    assert activation["active_workflow_sha256"] == _sha256(WORKFLOW)
     assert activation["activation_base_main"] == "0cff2d57ab78c0189c8557f3e2ec59300bd8082d"
     assert activation["repair_package_postmerge_run_id"] == 34177394009
     assert activation["repair_package_postmerge_evidence_head"] == (
