@@ -124,7 +124,7 @@ def test_binding_records_recurrence_without_authority_expansion() -> None:
 def test_binding_preserves_prior_shutdown_evidence_while_qwen_recovery_is_reblocked() -> None:
     binding = _read_json(BINDING)
 
-    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
+    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR"
     second = binding["repeated_runner_shutdown_recovery"]
     qwen = binding["qwen_raw_code_recovery_runner_shutdown"]
     assert isinstance(second, dict)
@@ -135,3 +135,50 @@ def test_binding_preserves_prior_shutdown_evidence_while_qwen_recovery_is_rebloc
     assert qwen["repeating_same_recovery_topology_authorized_by_this_evidence"] is False
     assert qwen["retry_authority_created"] is False
     assert qwen["external_dispatch_authority_created"] is False
+
+
+STAGED_QWEN_EVIDENCE = ROOT / (
+    "artifacts/results/equivalent/B012/failures/"
+    "B012-qwen3.5-0.8b-control-raw-code-staged-recovery-run-34231845282.json"
+)
+STAGED_QWEN_EVIDENCE_SHA256 = "a067895cc6f0356b917d896f7da59faab0db4dcd27c29d76bc157968c2d8134b"
+STAGED_QWEN_FAILURE_CLASS = (
+    "B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_PARTIAL_DURABLE_PROGRESS_RAW_CODE_UNPROVEN"
+)
+
+
+def test_qwen_staged_shutdown_preserves_partial_progress_without_quality_claim() -> None:
+    evidence = _read_json(STAGED_QWEN_EVIDENCE)
+    binding = _read_json(BINDING)
+    staged = binding["qwen_raw_code_staged_recovery_runner_shutdown"]
+    assert isinstance(staged, dict)
+
+    assert _sha256(STAGED_QWEN_EVIDENCE) == STAGED_QWEN_EVIDENCE_SHA256
+    assert evidence["run_id"] == 34231845282
+    assert evidence["job_id"] == 102079676195
+    assert evidence["canonical_main_at_start"] == "98feee7765cbf64428f149f885519cef76800caf"
+    assert evidence["failure_classification"] == STAGED_QWEN_FAILURE_CLASS
+    assert evidence["durable_stages"] == ["init", "source", "quantize"]
+    assert evidence["durable_artifact_count"] == 3
+    assert evidence["source_verification"]["file_count"] == 9
+    assert evidence["regenerated_q4"]["matches_prior_stage03"] is True
+    assert evidence["regenerated_q4"]["q4_k_m_sha256"] == (
+        "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa"
+    )
+    assert evidence["raw_code_stage_conclusion"] == "cancelled"
+    assert evidence["raw_code_result"] == "NONE_DURABLY_PROVEN"
+    assert evidence["model_quality_verdict"] == "NONE"
+    assert evidence["candidate_admission_decision"] == "NONE"
+    assert evidence["ephemeral_cleanup_completion"] == "NOT_PROVEN"
+    assert evidence["retry_authority_created"] is False
+    assert evidence["external_dispatch_authority_created"] is False
+    assert evidence["same_staged_topology_redispatch_authorized_by_this_evidence"] is False
+
+    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR"
+    assert staged["run_id"] == 34231845282
+    assert staged["failure_evidence_sha256"] == _sha256(STAGED_QWEN_EVIDENCE)
+    assert staged["durable_stages"] == ["init", "source", "quantize"]
+    assert staged["raw_code_result"] == "NONE_DURABLY_PROVEN"
+    assert staged["model_quality_verdict"] == "NONE"
+    assert staged["retry_authority_created"] is False
+    assert staged["external_dispatch_authority_created"] is False

@@ -1,0 +1,85 @@
+{
+  "schema_version": "mstr.b012-infrastructure-cancellation.v1",
+  "task_id": "B012",
+  "candidate_id": "qwen3.5-0.8b-control",
+  "run_id": 34231845282,
+  "job_id": 102079676195,
+  "workflow_name": "B012 Qwen raw-code staged recovery",
+  "workflow_event": "issue_comment",
+  "workflow_conclusion": "failure",
+  "workflow_head_sha": "98feee7765cbf64428f149f885519cef76800caf",
+  "canonical_main_at_start": "98feee7765cbf64428f149f885519cef76800caf",
+  "run_created_utc": "2026-09-08T13:25:14Z",
+  "run_updated_utc": "2026-09-08T13:44:57Z",
+  "raw_code_stage_started_utc": "2026-09-08T13:35:05Z",
+  "runner_shutdown_utc": "2026-09-08T13:44:52.5488705Z",
+  "runner_diagnostic": "The runner has received a shutdown signal. This can happen when the runner service is stopped, or a manually started runner is canceled. The operation was canceled.",
+  "infrastructure_root_cause": "UNKNOWN_BEYOND_RUNNER_SHUTDOWN_SIGNAL",
+  "workflow_timeout_minutes": 45,
+  "shutdown_occurred_before_workflow_timeout_budget": true,
+  "failure_classification": "B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_PARTIAL_DURABLE_PROGRESS_RAW_CODE_UNPROVEN",
+  "executor_authored_failure_json": false,
+  "durable_stage_count": 3,
+  "durable_stages": [
+    "init",
+    "source",
+    "quantize"
+  ],
+  "durable_artifact_count": 3,
+  "durable_artifacts": [
+    {
+      "stage": "init",
+      "artifact_id": 10058420119,
+      "digest": "sha256:fe42fd594f5a5501f25ce2fe2f9449031e1760eec90d71bf2983f6965aa297fc"
+    },
+    {
+      "stage": "source",
+      "artifact_id": 10058479985,
+      "digest": "sha256:1884986d415cacfc7d51b072dd87124cd6c0577e33585a3ec199019883f4e71b"
+    },
+    {
+      "stage": "quantize",
+      "artifact_id": 10058522893,
+      "digest": "sha256:ff094686270f646371a9b218ce0fbc8378d5b2b0cbc4d9f8794b5bfcb6c86f68"
+    }
+  ],
+  "source_verification": {
+    "status": "EXACT_B010_QWEN_FILES_REACQUIRED_AND_VERIFIED",
+    "file_count": 9,
+    "total_download_bytes": 1769897109,
+    "weight_sha256": "c2b1e5a17d9c1e27685d92ed9b382911ebb99955ecd89052d1721241adfbab6c",
+    "weight_size_bytes": 1746942600,
+    "tokenizer_sha256": "fe000e3ed39ed12b8d2481d527d44f93c65d37e87645d2dcc80d1bf9d50d2927",
+    "tokenizer_size_bytes": 12807196
+  },
+  "regenerated_q4": {
+    "status": "EXACT_PRIOR_Q4_IDENTITY_REPRODUCED",
+    "matches_prior_stage03": true,
+    "f16_sha256": "198297c5988d7420ef3939911c5a8e1a018a7404e7bf6fb5e6965c3cc9a04045",
+    "f16_size_bytes": 1557662144,
+    "q4_k_m_sha256": "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa",
+    "q4_k_m_size_bytes": 541903296
+  },
+  "raw_code_stage_conclusion": "cancelled",
+  "raw_code_result": "NONE_DURABLY_PROVEN",
+  "raw_code_checkpoint_artifact": "NONE",
+  "finalize_stage_conclusion": "skipped",
+  "final_evidence_artifact": "NONE",
+  "explicit_cleanup_step_conclusion": "skipped",
+  "ephemeral_cleanup_completion": "NOT_PROVEN",
+  "candidate_execution_completion": "NOT_PROVEN",
+  "candidate_admission_decision": "NONE",
+  "model_quality_verdict": "NONE",
+  "model_access_before_shutdown": "MODEL_ARTIFACT_BODIES_ACCESSED",
+  "durable_binary_artifacts": false,
+  "training": false,
+  "paid_cost_usd": 0.0,
+  "paid_model_api": false,
+  "candidate_expansion": false,
+  "revision_or_file_expansion": false,
+  "retry_authority_created": false,
+  "external_dispatch_authority_created": false,
+  "same_staged_topology_redispatch_authorized_by_this_evidence": false,
+  "separate_topology_repair_required": true,
+  "prior_qualification_run_id": 34155931982
+}

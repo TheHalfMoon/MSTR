@@ -172,7 +172,7 @@ def test_qwen_staged_recovery_is_materialized_as_current_active_workflow() -> No
 
     assert manifest["status"] == "READY_FOR_SEPARATE_CANONICAL_ACTIVATION"
     assert ACTIVE_WORKFLOW.read_bytes() == WORKFLOW.read_bytes()
-    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
+    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR"
     assert activation["repair_id"] == manifest["repair_id"]
     assert activation["candidate_id"] == "qwen3.5-0.8b-control"
     assert activation["prior_run_id"] == 34155931982
