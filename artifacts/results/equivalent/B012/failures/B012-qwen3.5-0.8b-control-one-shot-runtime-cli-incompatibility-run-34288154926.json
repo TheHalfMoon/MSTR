@@ -1,0 +1,158 @@
+{
+  "authority_boundary": {
+    "authority_satisfied": true,
+    "candidate_scope_expanded": false,
+    "cross_run_resume_authority_created": false,
+    "durable_binary_artifacts": false,
+    "external_dispatch_authority_created": false,
+    "failed_entry_harness_run_id": 34290792864,
+    "founder_authority_id": "B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION",
+    "paid_compute": false,
+    "paid_cost_usd": 0.0,
+    "paid_model_api": false,
+    "retry_authority_created": false,
+    "same_topology_redispatch_authorized": false,
+    "task_eligibility_entry_run_id": 34290864636,
+    "task_eligible": true,
+    "training": false
+  },
+  "candidate_id": "qwen3.5-0.8b-control",
+  "canonical_effect": {
+    "b012_state": "PENDING",
+    "b013_opening_authorized": false,
+    "binding_reblock_required": true,
+    "binding_status": "BLOCKED_PENDING_QWEN_RAW_CODE_RUNTIME_CONTRACT_REPAIR",
+    "runtime_contract_repair_required": true,
+    "runtime_migration_requires_equivalence_review": true
+  },
+  "canonical_source_files": {
+    "checkpoint_01_init": {
+      "path": "artifacts/results/equivalent/B012/checkpoints/34288154926/B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-01-init.json",
+      "sha256": "fb6b5165037691699a36ed53a5d239d500a2818ed230f06932743bfc6072f14f"
+    },
+    "checkpoint_02_source": {
+      "path": "artifacts/results/equivalent/B012/checkpoints/34288154926/B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-02-source.json",
+      "sha256": "d95e154bb519cd89359483f49566ad7bcda05127991bd8b1116d8a250e7e5b58"
+    },
+    "checkpoint_03_quantize": {
+      "path": "artifacts/results/equivalent/B012/checkpoints/34288154926/B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-03-quantize.json",
+      "sha256": "0f09abec985a3bb26987f529d86a9d9b1ed6dd2859250700520a81be733322e7"
+    },
+    "failure": {
+      "path": "artifacts/results/equivalent/B012/checkpoints/34288154926/B012-qwen3.5-0.8b-control-raw-code-recovery-case-failure.json",
+      "sha256": "b0aff98dabafd1335b27a771cd74e4cffa9364da3a7d22154db618a7173743ef"
+    },
+    "state": {
+      "path": "artifacts/results/equivalent/B012/checkpoints/34288154926/B012-qwen3.5-0.8b-control-raw-code-recovery-case-state.json",
+      "sha256": "4c5c6521180b17949d77bdedf2d18c04dfb7f3345dde40db14527ff3b407e3b8"
+    }
+  },
+  "durable_workflow_artifacts": [
+    {
+      "archive_sha256": "f9901fa1f59e8a9d1913c2ca794d95735a0ff85753eaaa0e148a592c9c782495",
+      "artifact_id": 10080491362,
+      "name": "b012-qwen-raw-code-one-shot-stage-01-init-34288154926",
+      "size_bytes": 2944,
+      "stage": "init"
+    },
+    {
+      "archive_sha256": "ccceafbce9e4414a4d64648d08268cf8fca78d40f097e03c9828a82de8cc53e4",
+      "artifact_id": 10080513976,
+      "name": "b012-qwen-raw-code-one-shot-stage-02-source-34288154926",
+      "size_bytes": 5244,
+      "stage": "source"
+    },
+    {
+      "archive_sha256": "bff7116601dee3124be48361cc144798944de6fdef74b8a6e25a14e281b1ea8f",
+      "artifact_id": 10080541374,
+      "name": "b012-qwen-raw-code-one-shot-stage-03-quantize-34288154926",
+      "size_bytes": 6690,
+      "stage": "quantize"
+    },
+    {
+      "archive_sha256": "14d67ce0a098d9e59f2b1067ceaa079b0dc082f1f321263f272ba81138ce4168",
+      "artifact_id": 10080542101,
+      "name": "b012-qwen-raw-code-one-shot-stage-04a-python-clamp-34288154926",
+      "size_bytes": 7649,
+      "stage": "raw-code-python-clamp-failure"
+    }
+  ],
+  "execution": {
+    "candidate_admission_decision": "NONE",
+    "candidate_execution_completion": "NOT_PROVEN",
+    "cleanup": "PROVEN_WORKFLOW_SUCCESS",
+    "durable_completed_stages": [
+      "init",
+      "source",
+      "quantize"
+    ],
+    "durable_raw_code_cases": [],
+    "finalization": "SKIPPED",
+    "interrupted_stage": "raw-code-python-clamp",
+    "interrupted_stage_conclusion": "failure",
+    "last_durable_checkpoint_stage": "quantize",
+    "later_raw_code_cases": "SKIPPED",
+    "model_quality_verdict": "NONE",
+    "raw_code_completed_case_checkpoint_present": false,
+    "raw_code_result": "NONE_DURABLY_PROVEN"
+  },
+  "failure_classification": "B012_EXECUTOR_RUNTIME_CLI_INCOMPATIBILITY_RAW_CODE_UNEXECUTED",
+  "regenerated_artifacts": {
+    "f16": {
+      "sha256": "198297c5988d7420ef3939911c5a8e1a018a7404e7bf6fb5e6965c3cc9a04045",
+      "size_bytes": 1557662144
+    },
+    "matches_prior_stage03": true,
+    "q4_k_m": {
+      "sha256": "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa",
+      "size_bytes": 541903296
+    },
+    "q4_k_s": {
+      "sha256": "a412656365e22625d722ede780dd745c2491aa74372ee4b20f2891947ba07c9e",
+      "size_bytes": 516778432
+    }
+  },
+  "root_cause": {
+    "argument_scope": "LLAMA_EXAMPLE_COMPLETION_ONLY",
+    "classification": "PINNED_LLAMA_CLI_REJECTS_COMPLETION_ONLY_NO_CONVERSATION_ARGUMENT",
+    "cli_argument_parse_failed_before_raw_code_result": true,
+    "model_inference_completion": "NOT_PROVEN",
+    "parser_example": "LLAMA_EXAMPLE_CLI",
+    "pinned_arg_source_path": "common/arg.cpp",
+    "pinned_cli_behavior_path": "tools/cli/cli-context.cpp",
+    "pinned_cli_source_path": "tools/cli/cli.cpp",
+    "rejected_argument": "--no-conversation",
+    "runner_shutdown_observed": false,
+    "runtime_binary": "llama-cli",
+    "runtime_commit": "3173a56471c1753650cd806694145ffd6dcace67",
+    "runtime_repository": "https://github.com/ggml-org/llama.cpp.git",
+    "timeout_observed": false
+  },
+  "run": {
+    "canonical_main_at_start": "66cd090fc75286bfc24db4bdf8fe58b64394e228",
+    "completed_utc": "2026-09-08T23:03:33Z",
+    "conclusion": "failure",
+    "created_utc": "2026-09-08T22:54:06Z",
+    "dispatch_command": "B012_RECOVER_RAW_CODE_ONE_SHOT qwen3.5-0.8b-control 34155931982",
+    "dispatch_comment_id": 5592988994,
+    "dispatch_issue_number": 162,
+    "event": "issue_comment",
+    "failed_utc": "2026-09-08T23:03:29Z",
+    "job_id": 102268410928,
+    "prior_qualification_run_id": 34155931982,
+    "run_attempt": 1,
+    "run_id": 34288154926,
+    "workflow_name": "B012 Qwen raw-code one-shot recovery",
+    "workflow_path": ".github/workflows/b012-qwen-raw-code-recovery.yml"
+  },
+  "schema_version": "mstr.b012-executor-runtime-cli-incompatibility.v1",
+  "source_verification": {
+    "source_repository": "Qwen/Qwen3.5-0.8B-Base",
+    "source_revision": "dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68",
+    "tokenizer_sha256": "fe000e3ed39ed12b8d2481d527d44f93c65d37e87645d2dcc80d1bf9d50d2927",
+    "verified_download_bytes": 1769897109,
+    "verified_file_count": 9,
+    "weight_sha256": "c2b1e5a17d9c1e27685d92ed9b382911ebb99955ecd89052d1721241adfbab6c"
+  },
+  "task_id": "B012"
+}
