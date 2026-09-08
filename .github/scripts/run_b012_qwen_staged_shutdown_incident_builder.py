@@ -29,12 +29,29 @@ def _load_builder(script: Path):
 def _repair_generated_test(repo_root: Path) -> None:
     path = repo_root / "tests/contract/test_b012_runner_shutdown_evidence.py"
     text = path.read_text(encoding="utf-8")
-    needle = 'assert binding["status"] == BLOCKED_STATUS'
-    replacement = f'assert binding["status"] == "{BLOCKED_STATUS}"'
-    count = text.count(needle)
-    if count != 1:
-        raise RuntimeError(f"expected exactly one generated blocked-status assertion, found {count}")
-    path.write_text(text.replace(needle, replacement), encoding="utf-8")
+
+    blocked_needle = 'assert binding["status"] == BLOCKED_STATUS'
+    blocked_replacement = f'assert binding["status"] == "{BLOCKED_STATUS}"'
+    blocked_count = text.count(blocked_needle)
+    if blocked_count != 1:
+        raise RuntimeError(
+            f"expected exactly one generated blocked-status assertion, found {blocked_count}"
+        )
+    text = text.replace(blocked_needle, blocked_replacement)
+
+    failure_needle = f'STAGED_QWEN_FAILURE_CLASS = "{FAILURE_CLASS}"'
+    failure_replacement = (
+        "STAGED_QWEN_FAILURE_CLASS = (\n"
+        f'    "{FAILURE_CLASS}"\n'
+        ")"
+    )
+    failure_count = text.count(failure_needle)
+    if failure_count != 1:
+        raise RuntimeError(
+            f"expected exactly one generated failure-class assignment, found {failure_count}"
+        )
+    text = text.replace(failure_needle, failure_replacement)
+    path.write_text(text, encoding="utf-8")
 
 
 def _mark_untracked_intent_to_add(repo_root: Path) -> None:
