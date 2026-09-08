@@ -15,6 +15,8 @@ import mstr_b012_qwen_raw_code_recovery_staged as staged  # noqa: E402
 MANIFEST = ROOT / "artifacts/manifests/B012-qwen-raw-code-recovery-staged-topology.json"
 SCRIPT = COLAB / "mstr_b012_qwen_raw_code_recovery_staged.py"
 WORKFLOW = ROOT / "configs/workflows/b012-qwen-raw-code-recovery-staged.yml"
+ACTIVE_WORKFLOW = ROOT / ".github/workflows/b012-qwen-raw-code-recovery.yml"
+BINDING = ROOT / "artifacts/manifests/B012-executor-toolchain-binding.json"
 
 
 def _read_json(path: Path) -> dict[str, object]:
@@ -160,3 +162,38 @@ def test_qwen_staged_checkpoint_is_json_only_and_non_authorizing(tmp_path: Path)
     assert checkpoint["paid_cost_usd"] == 0.0
     assert checkpoint["durable_binary_artifacts"] is False
     assert checkpoint["durable_output_format"] == "JSON_ONLY"
+
+
+def test_qwen_staged_recovery_is_materialized_as_current_active_workflow() -> None:
+    manifest = _read_json(MANIFEST)
+    binding = _read_json(BINDING)
+    activation = binding["qwen_raw_code_recovery_staged_activation"]
+    assert isinstance(activation, dict)
+
+    assert manifest["status"] == "READY_FOR_SEPARATE_CANONICAL_ACTIVATION"
+    assert ACTIVE_WORKFLOW.read_bytes() == WORKFLOW.read_bytes()
+    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
+    assert activation["repair_id"] == manifest["repair_id"]
+    assert activation["candidate_id"] == "qwen3.5-0.8b-control"
+    assert activation["prior_run_id"] == 34155931982
+    assert activation["repair_manifest_sha256"] == _sha256(MANIFEST)
+    assert activation["staged_script_sha256"] == _sha256(SCRIPT)
+    assert activation["active_workflow_sha256"] == _sha256(ACTIVE_WORKFLOW)
+    assert activation["activation_base_main"] == "0cff2d57ab78c0189c8557f3e2ec59300bd8082d"
+    assert activation["repair_package_postmerge_run_id"] == 34177394009
+    assert activation["repair_package_postmerge_evidence_head"] == (
+        "6e26a1bcaf844cd9a4ff100de54f116cdca77853"
+    )
+    assert activation["activation_is_separate_repository_change"] is True
+    assert activation["retry_authority_created"] is False
+    assert activation["external_dispatch_authority_created"] is False
+    assert activation["candidate_expansion"] is False
+    assert activation["revision_or_file_expansion"] is False
+    assert activation["model_access"] == "NONE"
+    assert activation["model_execution"] == "NONE"
+    assert activation["training"] is False
+    assert activation["weight_changing_training"] is False
+    assert activation["paid_compute"] is False
+    assert activation["paid_model_api"] is False
+    assert activation["paid_cost_usd"] == 0.0
+    assert activation["production_release"] is False

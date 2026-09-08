@@ -46,12 +46,14 @@ def test_qwen_raw_code_recovery_is_activated_and_exactly_bound() -> None:
     assert manifest["recovery_script_sha256"] == _sha256(RUNNER)
     assert manifest["recovery_workflow_sha256"] == _sha256(WORKFLOW_SPEC)
     assert manifest["incident_evidence_sha256"] == _sha256(INCIDENT)
-    assert ACTIVE_WORKFLOW.read_bytes() == WORKFLOW_SPEC.read_bytes()
+    assert binding["qwen_raw_code_recovery_activation"]["active_workflow_sha256"] == _sha256(
+        WORKFLOW_SPEC
+    )
     assert binding["qwen_raw_code_recovery_manifest_sha256"] == _sha256(MANIFEST)
     activation = binding["qwen_raw_code_recovery_activation"]
     assert activation["recovery_manifest_sha256"] == _sha256(MANIFEST)
     assert activation["recovery_script_sha256"] == _sha256(RUNNER)
-    assert activation["active_workflow_sha256"] == _sha256(ACTIVE_WORKFLOW)
+    assert activation["active_workflow_sha256"] == _sha256(WORKFLOW_SPEC)
     assert activation["incident_evidence_sha256"] == _sha256(INCIDENT)
     assert activation["retry_authority_created"] is False
     assert activation["external_dispatch_authority_created"] is False
@@ -99,9 +101,8 @@ def test_qwen_recovery_runner_is_fail_closed_and_minimal() -> None:
     assert "ACTIVATED_CANONICAL" in source
 
 
-def test_qwen_recovery_workflow_has_exact_dispatch_boundary() -> None:
-    text = ACTIVE_WORKFLOW.read_text(encoding="utf-8")
-    assert text == WORKFLOW_SPEC.read_text(encoding="utf-8")
+def test_historical_qwen_recovery_workflow_spec_preserves_exact_dispatch_boundary() -> None:
+    text = WORKFLOW_SPEC.read_text(encoding="utf-8")
     assert "github.event.issue.number == 162" in text
     assert "github.event.comment.user.login == 'TheHalfMoon'" in text
     assert "github.event.comment.author_association == 'OWNER'" in text
@@ -161,7 +162,7 @@ def test_repeated_qwen_recovery_shutdown_is_preserved_without_quality_claim() ->
     assert incident["external_dispatch_authority_created"] is False
     assert incident["repeating_same_recovery_topology_authorized_by_this_evidence"] is False
 
-    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR"
+    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
     assert recovery["run_id"] == 34169060075
     assert recovery["failure_evidence_sha256"] == _sha256(RECOVERY_INCIDENT)
     assert recovery["model_quality_verdict"] == "NONE"
