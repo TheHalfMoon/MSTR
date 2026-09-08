@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the staged Qwen activation builder while honoring exact-main and format gates."""
+"""Run the staged Qwen activation builder with exact-main, format, and scope gates."""
 
 from __future__ import annotations
 
@@ -78,8 +78,23 @@ def main() -> None:
             "tests/contract/test_b012_stage_checkpoint_topology.py",
         )
 
+    def exact_scope_and_live_guard() -> None:
+        tracked = set(builder.output("git", "diff", "--name-only", builder.BASE).splitlines())
+        untracked = set(
+            builder.output("git", "ls-files", "--others", "--exclude-standard").splitlines()
+        )
+        changed = tracked | untracked
+        if changed != builder.ALLOWED:
+            raise RuntimeError(f"activation scope drift: {sorted(changed)}")
+        if builder.output("git", "ls-remote", "origin", "refs/heads/main").split()[0] != builder.BASE:
+            raise RuntimeError("canonical main moved before activation commit")
+        target_ref = f"refs/heads/{builder.TARGET}"
+        if builder.output("git", "ls-remote", "origin", target_ref).split()[0] != builder.BASE:
+            raise RuntimeError("target activation branch moved before publication")
+
     builder.assert_exact_main_b012_eligibility = exact_main_eligibility
     builder.materialize_activation = materialize_and_format
+    builder.final_scope_and_live_guard = exact_scope_and_live_guard
     builder.main()
 
 
