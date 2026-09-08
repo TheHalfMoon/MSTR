@@ -153,14 +153,28 @@ jobs:
           python -m mstr_qualify task eligible B012 > /tmp/b012-eligibility.json
           python - <<'PY'
           import json
+          import os
           d=json.load(open('/tmp/b012-eligibility.json', encoding='utf-8'))
-          assert d.get('task_id')=='B012'
-          assert d.get('eligible') is True
-          assert d.get('canonical_main_overrides',{}).get('B011') is True
-          authority=d.get('authority_result',{})
-          assert authority.get('authority_id')=='B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
-          assert authority.get('satisfied') is True
-          assert all(x.get('satisfied') is True for x in d.get('prerequisite_results',[]))
+          assert d['schema_version']=='mstr.task-eligibility.v0'
+          assert d['task_id']=='B012'
+          assert d['canonical_main']==os.environ['BASE_SHA']
+          assert d['eligible'] is True
+          assert d['reasons']==[]
+          assert d['authority_result']=={
+              'required': True,
+              'authority_id': 'B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION',
+              'satisfied': True,
+              'reasons': [],
+          }
+          prerequisites=d['prerequisite_results']
+          assert prerequisites
+          assert all(x['evidence_present'] is True for x in prerequisites)
+          assert all(x['satisfied'] is True and x['reasons']==[] for x in prerequisites)
+          assert d['supersession_result']['satisfied'] is True
+          assert d['supersession_result']['superseded'] is False
+          assert d['state_consistency_result']['satisfied'] is True
+          assert d['candidate_pool_result']['satisfied'] is True
+          assert all(d['semantic_checks'].values())
           PY
           set +e
           python -m ruff format --check --diff . > /tmp/base-format.diff 2>&1
