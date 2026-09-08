@@ -2,7 +2,7 @@
   "schema_version": "mstr.b012-executor-binding.v1",
   "binding_id": "B012_CANONICAL_EXECUTOR_TOOLCHAIN_BINDING_2026_09_06",
   "task_id": "B012",
-  "status": "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL",
+  "status": "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR",
   "source_main": "603a6865fdbf5a5434565e870d73054c5b574f2a",
   "candidate_ids": [
     "mellum-4b",
@@ -263,5 +263,38 @@
     "paid_model_api": false,
     "paid_cost_usd": 0.0,
     "production_release": false
+  },
+  "qwen_raw_code_staged_recovery_runner_shutdown": {
+    "run_id": 34231845282,
+    "job_id": 102079676195,
+    "candidate_id": "qwen3.5-0.8b-control",
+    "canonical_main_at_start": "98feee7765cbf64428f149f885519cef76800caf",
+    "runner_shutdown_utc": "2026-09-08T13:44:52.5488705Z",
+    "failure_classification": "B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_PARTIAL_DURABLE_PROGRESS_RAW_CODE_UNPROVEN",
+    "failure_evidence_path": "artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-raw-code-staged-recovery-run-34231845282.json",
+    "failure_evidence_sha256": "a067895cc6f0356b917d896f7da59faab0db4dcd27c29d76bc157968c2d8134b",
+    "prior_qualification_run_id": 34155931982,
+    "durable_stage_count": 3,
+    "durable_stages": [
+      "init",
+      "source",
+      "quantize"
+    ],
+    "durable_artifact_count": 3,
+    "source_reacquisition_verified": true,
+    "regenerated_q4_identity": "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa",
+    "regenerated_q4_size_bytes": 541903296,
+    "raw_code_result": "NONE_DURABLY_PROVEN",
+    "model_quality_verdict": "NONE",
+    "model_access_before_shutdown": "MODEL_ARTIFACT_BODIES_ACCESSED",
+    "candidate_execution_completion": "NOT_PROVEN",
+    "ephemeral_cleanup_completion": "NOT_PROVEN",
+    "same_staged_topology_redispatch_authorized_by_this_evidence": false,
+    "retry_authority_created": false,
+    "external_dispatch_authority_created": false,
+    "training": false,
+    "paid_model_api": false,
+    "candidate_expansion": false,
+    "revision_or_file_expansion": false
   }
 }
