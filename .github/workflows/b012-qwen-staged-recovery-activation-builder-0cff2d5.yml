@@ -44,4 +44,4 @@ jobs:
           set -euo pipefail
           git config user.name "Abdulaziz M. Shehri"
           git config user.email "alshehriofficial@gmail.com"
-          python ../builder/.github/scripts/build_b012_qwen_staged_recovery_activation.py
+          python ../builder/.github/scripts/build_b012_qwen_staged_recovery_activation_v2.py
