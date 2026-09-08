@@ -10,10 +10,16 @@ INCIDENT = (
     ROOT / "artifacts/results/equivalent/B012/failures/"
     "B012-qwen3.5-0.8b-control-run-34155931982.json"
 )
+RECOVERY_INCIDENT = (
+    ROOT / "artifacts/results/equivalent/B012/failures/"
+    "B012-qwen3.5-0.8b-control-raw-code-recovery-run-34169060075.json"
+)
 BINDING = ROOT / "artifacts/manifests/B012-executor-toolchain-binding.json"
 RUNNER = ROOT / "colab/mstr_b012_qwen_raw_code_recovery.py"
 WORKFLOW_SPEC = ROOT / "configs/workflows/b012-qwen-raw-code-recovery.yml"
 ACTIVE_WORKFLOW = ROOT / ".github/workflows/b012-qwen-raw-code-recovery.yml"
+
+RECOVERY_INCIDENT_SHA256 = "3994421abe4d368746672f539edca2c509188147cadf9f1d6fd142f9ff9dc8ea"
 
 
 def _sha256(path: Path) -> str:
@@ -127,3 +133,38 @@ def test_qwen_shutdown_incident_is_not_a_model_verdict_or_retry_grant() -> None:
     assert incident["model_quality_verdict"] == "NONE"
     assert incident["retry_authority_created"] is False
     assert incident["external_dispatch_authority_created"] is False
+
+
+def test_repeated_qwen_recovery_shutdown_is_preserved_without_quality_claim() -> None:
+    incident = json.loads(RECOVERY_INCIDENT.read_text(encoding="utf-8"))
+    binding = json.loads(BINDING.read_text(encoding="utf-8"))
+    recovery = binding["qwen_raw_code_recovery_runner_shutdown"]
+
+    assert _sha256(RECOVERY_INCIDENT) == RECOVERY_INCIDENT_SHA256
+    assert incident["run_id"] == 34169060075
+    assert incident["job_id"] == 101885732522
+    assert incident["canonical_main_at_start"] == ("5e74e77c1fc86d4ebc7e64654f45bd18f565edd6")
+    assert incident["failure_classification"] == (
+        "B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_NO_DURABLE_RECOVERY_RESULT"
+    )
+    assert incident["workflow_conclusion"] == "failure"
+    assert incident["execution_step_conclusion"] == "cancelled"
+    assert incident["artifact_upload_step_conclusion"] == "skipped"
+    assert incident["cleanup_step_conclusion"] == "skipped"
+    assert incident["durable_artifact_count"] == 0
+    assert incident["raw_code_result"] == "NONE_DURABLY_PROVEN"
+    assert incident["model_quality_verdict"] == "NONE"
+    assert incident["candidate_admission_decision"] == "NONE"
+    assert incident["regenerated_q4_identity_before_shutdown"] == "UNKNOWN_UNRECORDED"
+    assert incident["ephemeral_cleanup_completion"] == "NOT_PROVEN"
+    assert incident["retry_authority_created"] is False
+    assert incident["external_dispatch_authority_created"] is False
+    assert incident["repeating_same_recovery_topology_authorized_by_this_evidence"] is False
+
+    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR"
+    assert recovery["run_id"] == 34169060075
+    assert recovery["failure_evidence_sha256"] == _sha256(RECOVERY_INCIDENT)
+    assert recovery["model_quality_verdict"] == "NONE"
+    assert recovery["repeating_same_recovery_topology_authorized_by_this_evidence"] is False
+    assert recovery["retry_authority_created"] is False
+    assert recovery["external_dispatch_authority_created"] is False

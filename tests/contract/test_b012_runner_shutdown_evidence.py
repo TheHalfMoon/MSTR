@@ -121,10 +121,17 @@ def test_binding_records_recurrence_without_authority_expansion() -> None:
         assert boundary[key] is False
 
 
-def test_binding_preserves_shutdown_evidence_after_separate_topology_activation() -> None:
+def test_binding_preserves_prior_shutdown_evidence_while_qwen_recovery_is_reblocked() -> None:
     binding = _read_json(BINDING)
 
-    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
+    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR"
     second = binding["repeated_runner_shutdown_recovery"]
+    qwen = binding["qwen_raw_code_recovery_runner_shutdown"]
     assert isinstance(second, dict)
+    assert isinstance(qwen, dict)
     assert second["repeating_same_topology_authorized_by_this_evidence"] is False
+    assert qwen["run_id"] == 34169060075
+    assert qwen["model_quality_verdict"] == "NONE"
+    assert qwen["repeating_same_recovery_topology_authorized_by_this_evidence"] is False
+    assert qwen["retry_authority_created"] is False
+    assert qwen["external_dispatch_authority_created"] is False
