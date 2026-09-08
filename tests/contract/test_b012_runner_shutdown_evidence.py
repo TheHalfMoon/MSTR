@@ -124,7 +124,7 @@ def test_binding_records_recurrence_without_authority_expansion() -> None:
 def test_binding_preserves_prior_shutdown_evidence_while_qwen_recovery_is_reblocked() -> None:
     binding = _read_json(BINDING)
 
-    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR"
+    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
     second = binding["repeated_runner_shutdown_recovery"]
     qwen = binding["qwen_raw_code_recovery_runner_shutdown"]
     assert isinstance(second, dict)

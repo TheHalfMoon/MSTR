@@ -11,7 +11,16 @@
     "exact_issue_command": "B012_RECOVER_RAW_CODE_STAGED qwen3.5-0.8b-control 34155931982",
     "package_performs_model_access": false,
     "package_performs_model_execution": false,
-    "separate_activation_pr_required": true
+    "separate_activation_pr_required": true,
+    "activation_base_main": "0cff2d57ab78c0189c8557f3e2ec59300bd8082d",
+    "repair_package_merge_commit": "0cff2d57ab78c0189c8557f3e2ec59300bd8082d",
+    "repair_package_postmerge_run_id": 34177394009,
+    "repair_package_postmerge_evidence_head": "6e26a1bcaf844cd9a4ff100de54f116cdca77853",
+    "active_workflow_materialized": true,
+    "activation_repository_change_only": true,
+    "activation_model_access": "NONE",
+    "activation_model_execution": "NONE",
+    "activation_paid_cost_usd": 0.0
   },
   "authority_boundary": {
     "authority_scope_modified": false,
