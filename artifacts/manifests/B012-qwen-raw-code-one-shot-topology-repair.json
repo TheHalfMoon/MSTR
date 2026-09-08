@@ -44,7 +44,7 @@
     "one_shot_raw_code_helper_path": "colab/mstr_b012_raw_code_one_shot.py",
     "one_shot_raw_code_helper_sha256": "46d0b9560ebb5b97e266c64380b97b251fff543359839503bf6145b36e84aa03",
     "one_shot_wrapper_path": "colab/mstr_b012_qwen_raw_code_one_shot.py",
-    "one_shot_wrapper_sha256": "624e644d5e8efa9e4ee614c67ecfb3e7a94307929d7e67de0a5487b0eed82991",
+    "one_shot_wrapper_sha256": "59566e753b50b019398fa99dfc3ddbb9387850056587fc3940bf52842edb6b82",
     "raw_code_manifest_path": "benchmarks/manifests/B012-raw-code-proxy.json",
     "raw_code_manifest_sha256": "038586bb8156add6bb2de8573a9d15d0f1201909c36820a6cc608a2b5d393349"
   },
