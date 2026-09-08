@@ -1,0 +1,275 @@
+name: Build B012 staged Qwen shutdown incident
+
+on:
+  push:
+    branches:
+      - evidence/b012-qwen-staged-shutdown-builder-98feee7
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BASE_SHA: 98feee7765cbf64428f149f885519cef76800caf
+      TARGET_BRANCH: governance/b012-qwen-staged-recovery-runner-shutdown-34231845282
+      RUN_ID: '34231845282'
+      JOB_ID: '102079676195'
+      STAGE01_ARTIFACT_ID: '10058420119'
+      STAGE02_ARTIFACT_ID: '10058479985'
+      STAGE03_ARTIFACT_ID: '10058522893'
+      STAGE01_ZIP_SHA256: fe42fd594f5a5501f25ce2fe2f9449031e1760eec90d71bf2983f6965aa297fc
+      STAGE02_ZIP_SHA256: 1884986d415cacfc7d51b072dd87124cd6c0577e33585a3ec199019883f4e71b
+      STAGE03_ZIP_SHA256: ff094686270f646371a9b218ce0fbc8378d5b2b0cbc4d9f8794b5bfcb6c86f68
+      FAILURE_CLASS: B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_PARTIAL_DURABLE_PROGRESS_RAW_CODE_UNPROVEN
+      BLOCKED_STATUS: BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.16'
+          check-latest: false
+
+      - name: Preserve builder scripts outside the subject tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/scripts/build_b012_qwen_staged_shutdown_incident.py /tmp/build_incident.py
+          cp .github/scripts/run_b012_qwen_staged_shutdown_incident_builder.py /tmp/run_builder.py
+
+      - name: Reverify exact live run, job, and durable checkpoint artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > /tmp/run.json
+          python - <<'PY'
+          import json, os
+          run=json.load(open('/tmp/run.json', encoding='utf-8'))
+          assert run['id']==int(os.environ['RUN_ID'])
+          assert run['head_sha']==os.environ['BASE_SHA']
+          assert run['event']=='issue_comment'
+          assert run['status']=='completed'
+          assert run['conclusion']=='failure'
+          assert run['name']=='B012 Qwen raw-code staged recovery'
+          PY
+
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" > /tmp/jobs.json
+          python - <<'PY'
+          import json, os
+          jobs=json.load(open('/tmp/jobs.json', encoding='utf-8'))['jobs']
+          job=next(x for x in jobs if x['id']==int(os.environ['JOB_ID']))
+          assert job['name']=='recover'
+          assert job['conclusion']=='failure'
+          steps={x['name']:x['conclusion'] for x in job['steps']}
+          assert steps['Stage 01 - initialize pinned recovery toolchain']=='success'
+          assert steps['Upload Stage 01 checkpoint']=='success'
+          assert steps['Stage 02 - reacquire exact Qwen source']=='success'
+          assert steps['Upload Stage 02 checkpoint']=='success'
+          assert steps['Stage 03 - regenerate exact Q4']=='success'
+          assert steps['Upload Stage 03 checkpoint']=='success'
+          assert steps['Stage 04 - run frozen raw-code proxy']=='cancelled'
+          assert steps['Upload Stage 04 checkpoint']=='skipped'
+          assert steps['Stage 05 - finalize recovery evidence']=='skipped'
+          assert steps['Upload Stage 05 final recovery JSON']=='skipped'
+          assert steps['Remove ephemeral B012 recovery binaries']=='skipped'
+          PY
+
+          gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$JOB_ID/logs" > /tmp/job.log
+          grep -F 'The runner has received a shutdown signal.' /tmp/job.log
+          grep -F 'The operation was canceled.' /tmp/job.log
+
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$STAGE01_ARTIFACT_ID/zip" > /tmp/stage01.zip
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$STAGE02_ARTIFACT_ID/zip" > /tmp/stage02.zip
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$STAGE03_ARTIFACT_ID/zip" > /tmp/stage03.zip
+          [[ "$(sha256sum /tmp/stage01.zip | cut -d' ' -f1)" == "$STAGE01_ZIP_SHA256" ]]
+          [[ "$(sha256sum /tmp/stage02.zip | cut -d' ' -f1)" == "$STAGE02_ZIP_SHA256" ]]
+          [[ "$(sha256sum /tmp/stage03.zip | cut -d' ' -f1)" == "$STAGE03_ZIP_SHA256" ]]
+
+          python - <<'PY'
+          import json, os, zipfile
+
+          def read_member(path, suffix):
+              with zipfile.ZipFile(path) as zf:
+                  name=next(n for n in zf.namelist() if n.endswith(suffix))
+                  return json.loads(zf.read(name))
+
+          init=read_member('/tmp/stage01.zip', 'checkpoint-01-init.json')
+          source=read_member('/tmp/stage02.zip', 'checkpoint-02-source.json')
+          quant=read_member('/tmp/stage03.zip', 'checkpoint-03-quantize.json')
+          state=read_member('/tmp/stage03.zip', 'stage-state.json')
+
+          for payload in (init, source, quant, state):
+              assert payload['candidate_id']=='qwen3.5-0.8b-control'
+              assert payload['canonical_main_at_start']==os.environ['BASE_SHA']
+              assert payload['training'] is False
+              assert payload['paid_cost_usd']==0.0
+
+          sv=source['checkpoint_payload']
+          assert sv['verified_file_count']==9
+          assert sv['verified_download_bytes']==1769897109
+          weight=next(x for x in sv['source_verification'] if x['file']=='model.safetensors-00001-of-00001.safetensors')
+          assert weight['sha256']=='c2b1e5a17d9c1e27685d92ed9b382911ebb99955ecd89052d1721241adfbab6c'
+          assert weight['size_bytes']==1746942600
+
+          q=quant['checkpoint_payload']
+          assert q['matches_prior_stage03'] is True
+          assert q['q4_k_m_sha256']=='177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa'
+          assert q['q4_k_m_size_bytes']==541903296
+          quantization=q['quantization']
+          assert quantization['f16_sha256']=='198297c5988d7420ef3939911c5a8e1a018a7404e7bf6fb5e6965c3cc9a04045'
+          assert quantization['f16_size_bytes']==1557662144
+          assert state['last_completed_stage']=='quantize'
+          assert state['completed_stages']==['init','source','quantize']
+          PY
+
+      - name: Reverify exact canonical eligibility and clean target branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH"
+          [[ "$(git rev-parse origin/main)" == "$BASE_SHA" ]]
+          [[ "$(git rev-parse "origin/$TARGET_BRANCH")" == "$BASE_SHA" ]]
+          git checkout --detach origin/main
+          python -m pip install -e '.[dev]'
+          python -m mstr_qualify task eligible B012 > /tmp/b012-eligibility.json
+          python - <<'PY'
+          import json, os
+          d=json.load(open('/tmp/b012-eligibility.json', encoding='utf-8'))
+          assert d['task_id']=='B012'
+          assert d['canonical_main']==os.environ['BASE_SHA']
+          assert d['eligible'] is True
+          assert d['authority_result']['satisfied'] is True
+          assert d['state_consistency_result']['observed_state']=='PENDING'
+          assert d['supersession_result']['superseded'] is False
+          assert all(x['satisfied'] for x in d['prerequisite_results'])
+          PY
+          set +e
+          python -m ruff format --check --diff . > /tmp/base-format.diff 2>&1
+          base_format_code=$?
+          set -e
+          [[ "$base_format_code" -eq 0 || "$base_format_code" -eq 1 ]]
+
+      - name: Build the fail-closed incident subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -B incident "origin/$TARGET_BRANCH"
+          python /tmp/run_builder.py --repo-root "$PWD" --builder-script /tmp/build_incident.py
+          expected=$(printf '%s\n' \
+            'artifacts/manifests/B012-executor-toolchain-binding.json' \
+            'artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-raw-code-staged-recovery-run-34231845282.json' \
+            'evidence/mstr-000b/B012-qwen-staged-recovery-runner-shutdown-34231845282.md' \
+            'tests/contract/test_b012_executor_binding.py' \
+            'tests/contract/test_b012_qwen_raw_code_recovery.py' \
+            'tests/contract/test_b012_qwen_staged_recovery_topology.py' \
+            'tests/contract/test_b012_runner_shutdown_evidence.py' \
+            'tests/contract/test_b012_stage_checkpoint_topology.py')
+          [[ "$(git diff --name-only | sort)" == "$expected" ]]
+          git diff --check
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          p=Path('artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-raw-code-staged-recovery-run-34231845282.json')
+          e=json.loads(p.read_text(encoding='utf-8'))
+          b=json.loads(Path('artifacts/manifests/B012-executor-toolchain-binding.json').read_text(encoding='utf-8'))
+          assert e['failure_classification']==os.environ['FAILURE_CLASS']
+          assert e['regenerated_q4']['f16_sha256']=='198297c5988d7420ef3939911c5a8e1a018a7404e7bf6fb5e6965c3cc9a04045'
+          assert e['regenerated_q4']['f16_size_bytes']==1557662144
+          assert e['regenerated_q4']['q4_k_m_sha256']=='177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa'
+          assert e['raw_code_result']=='NONE_DURABLY_PROVEN'
+          assert e['candidate_admission_decision']=='NONE'
+          assert e['model_quality_verdict']=='NONE'
+          assert e['ephemeral_cleanup_completion']=='NOT_PROVEN'
+          assert e['retry_authority_created'] is False
+          assert e['external_dispatch_authority_created'] is False
+          assert b['status']==os.environ['BLOCKED_STATUS']
+          assert b['qwen_raw_code_staged_recovery_runner_shutdown']['failure_classification']==os.environ['FAILURE_CLASS']
+          print('INCIDENT_SHA256='+hashlib.sha256(p.read_bytes()).hexdigest())
+          PY
+
+      - name: Focused incident contracts and formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q \
+            tests/contract/test_b012_authority.py \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_qwen_staged_recovery_topology.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_stage_checkpoint_topology.py
+          python -m ruff format --check \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_qwen_staged_recovery_topology.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_stage_checkpoint_topology.py
+          python -m ruff check \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_qwen_staged_recovery_topology.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_stage_checkpoint_topology.py
+
+      - name: Fresh full repository quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify validate
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src/mstr_qualify
+          set +e
+          python -m ruff format --check --diff . > /tmp/subject-format.diff 2>&1
+          subject_format_code=$?
+          set -e
+          [[ "$subject_format_code" -eq 0 || "$subject_format_code" -eq 1 ]]
+          python - <<'PY'
+          from pathlib import Path
+          def changed_paths(path):
+              out=set()
+              for line in Path(path).read_text(encoding='utf-8').splitlines():
+                  if line.startswith('--- '):
+                      out.add(line[4:].split(':cell ',1)[0])
+              return out
+          base=changed_paths('/tmp/base-format.diff')
+          subject=changed_paths('/tmp/subject-format.diff')
+          new=subject-base
+          assert not new, f'incident introduced formatter debt: {sorted(new)}'
+          print(f'CANONICAL_FORMAT_DEBT_PATHS={len(base)}')
+          print(f'SUBJECT_FORMAT_DEBT_PATHS={len(subject)}')
+          print('FULL_TREE_FORMAT_REGRESSION=NONE')
+          PY
+
+      - name: Commit and fast-forward the incident branch only after all gates pass
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git ls-remote origin refs/heads/main | cut -f1)" == "$BASE_SHA" ]]
+          [[ "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" == "$BASE_SHA" ]]
+          git add \
+            artifacts/manifests/B012-executor-toolchain-binding.json \
+            artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-raw-code-staged-recovery-run-34231845282.json \
+            evidence/mstr-000b/B012-qwen-staged-recovery-runner-shutdown-34231845282.md \
+            tests/contract/test_b012_executor_binding.py \
+            tests/contract/test_b012_qwen_raw_code_recovery.py \
+            tests/contract/test_b012_qwen_staged_recovery_topology.py \
+            tests/contract/test_b012_runner_shutdown_evidence.py \
+            tests/contract/test_b012_stage_checkpoint_topology.py
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'governance(b012): record staged Qwen runner shutdown'
+          [[ "$(git rev-parse HEAD^)" == "$BASE_SHA" ]]
+          echo "SUBJECT_SHA=$(git rev-parse HEAD)"
+          echo "SUBJECT_TREE=$(git show -s --format=%T HEAD)"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
