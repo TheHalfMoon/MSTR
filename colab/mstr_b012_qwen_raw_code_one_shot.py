@@ -13,9 +13,7 @@ from mstr_executor_toolchain import read_json, require_file_sha256
 CANDIDATE_ID = "qwen3.5-0.8b-control"
 PRIOR_QUALIFICATION_RUN_ID = 34155931982
 TRIGGERING_INCIDENT_RUN_ID = 34265475666
-REPAIR_MANIFEST_PATH = Path(
-    "artifacts/manifests/B012-qwen-raw-code-one-shot-topology-repair.json"
-)
+REPAIR_MANIFEST_PATH = Path("artifacts/manifests/B012-qwen-raw-code-one-shot-topology-repair.json")
 SCRIPT_PATH = Path("colab/mstr_b012_qwen_raw_code_one_shot.py")
 ONE_SHOT_HELPER_PATH = Path("colab/mstr_b012_raw_code_one_shot.py")
 ACTIVE_WORKFLOW_PATH = Path(".github/workflows/b012-qwen-raw-code-recovery.yml")
