@@ -124,7 +124,7 @@ def test_binding_records_recurrence_without_authority_expansion() -> None:
 def test_binding_preserves_prior_shutdown_evidence_while_qwen_recovery_is_reblocked() -> None:
     binding = _read_json(BINDING)
 
-    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
+    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR"
     second = binding["repeated_runner_shutdown_recovery"]
     qwen = binding["qwen_raw_code_recovery_runner_shutdown"]
     assert isinstance(second, dict)
@@ -174,7 +174,7 @@ def test_qwen_staged_shutdown_preserves_partial_progress_without_quality_claim()
     assert evidence["external_dispatch_authority_created"] is False
     assert evidence["same_staged_topology_redispatch_authorized_by_this_evidence"] is False
 
-    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
+    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RECOVERY_TOPOLOGY_REPAIR"
     assert staged["run_id"] == 34231845282
     assert staged["failure_evidence_sha256"] == _sha256(STAGED_QWEN_EVIDENCE)
     assert staged["durable_stages"] == ["init", "source", "quantize"]
