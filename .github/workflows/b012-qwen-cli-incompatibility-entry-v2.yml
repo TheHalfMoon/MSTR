@@ -1,0 +1,91 @@
+name: B012 Qwen CLI incompatibility incident entry gate v2
+
+on:
+  push:
+    branches:
+      - evidence/b012-qwen-cli-incompatibility-entry-v2-66cd090
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  REPO: TheHalfMoon/MSTR
+  EXPECTED_MAIN: 66cd090fc75286bfc24db4bdf8fe58b64394e228
+  FAILED_RUN: '34288154926'
+  PREDECESSOR_RUN: '34290792864'
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  entry:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact canonical main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXPECTED_MAIN }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.16'
+          check-latest: false
+
+      - name: Prove immutable canonical main and exact failed run
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          gh api "repos/$REPO/actions/runs/$FAILED_RUN" > /tmp/run.json
+          jq -e --arg head "$EXPECTED_MAIN" '.status=="completed" and .conclusion=="failure" and .run_attempt==1 and .head_sha==$head and .name=="B012 Qwen raw-code one-shot recovery"' /tmp/run.json >/dev/null
+          gh api "repos/$REPO/actions/runs/$PREDECESSOR_RUN" > /tmp/predecessor.json
+          jq -e '.status=="completed" and .conclusion=="failure" and .run_attempt==1' /tmp/predecessor.json >/dev/null
+          git update-ref refs/heads/main "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+
+      - name: Install repository dev dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Prove fresh B012 eligibility and exact Founder authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m mstr_qualify task eligible B012 > /tmp/b012.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          d=json.loads(Path('/tmp/b012.json').read_text(encoding='utf-8'))
+          assert d['task_id']=='B012'
+          assert d['canonical_main']==os.environ['EXPECTED_MAIN']
+          assert d['eligible'] is True and d['reasons']==[]
+          assert d['state_consistency_result']['observed_state']=='PENDING'
+          assert d['authority_result']['authority_id']=='B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
+          assert d['authority_result']['satisfied'] is True
+          assert all(x['satisfied'] for x in d['prerequisite_results'])
+          assert all(d['semantic_checks'].values())
+          a=json.loads(Path('artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json').read_text(encoding='utf-8'))
+          assert a['status']=='AUTHORIZED_CANONICAL'
+          assert a['scope']['candidate_ids']==['mellum-4b','qwen3.5-0.8b-control']
+          assert a['scope']['training'] is False
+          assert a['scope']['paid_compute'] is False
+          assert a['scope']['paid_model_api'] is False
+          assert a['cost_resource_ceiling']['limits'][0]['max']==0.0
+          PY
+
+      - name: Final incident-entry guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          echo 'B012_QWEN_CLI_INCOMPATIBILITY_INCIDENT_ENTRY=PASS'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'PAID_COST_USD=0.0'
