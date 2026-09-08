@@ -146,6 +146,8 @@ jobs:
           git fetch origin main "$TARGET_BRANCH"
           [[ "$(git rev-parse origin/main)" == "$BASE_SHA" ]]
           [[ "$(git rev-parse "origin/$TARGET_BRANCH")" == "$BASE_SHA" ]]
+          git branch -f main origin/main
+          [[ "$(git rev-parse refs/heads/main)" == "$BASE_SHA" ]]
           git checkout --detach origin/main
           python -m pip install -e '.[dev]'
           python -m mstr_qualify task eligible B012 > /tmp/b012-eligibility.json
