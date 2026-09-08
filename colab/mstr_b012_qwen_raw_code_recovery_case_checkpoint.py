@@ -174,7 +174,9 @@ def _require_activation(
     if activation.get("retry_authority_created") is not False:
         raise ExecutionError("B012 Qwen case-checkpoint repair must not fabricate retry authority")
     if activation.get("external_dispatch_authority_created") is not False:
-        raise ExecutionError("B012 Qwen case-checkpoint repair must not fabricate dispatch authority")
+        raise ExecutionError(
+            "B012 Qwen case-checkpoint repair must not fabricate dispatch authority"
+        )
     return binding, envelope, lock, repair
 
 
