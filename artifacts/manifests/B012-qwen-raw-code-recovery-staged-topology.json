@@ -1,0 +1,98 @@
+{
+  "activation": {
+    "activation_requires_exact_head_qualification": true,
+    "activation_requires_exact_main_task_eligibility": true,
+    "activation_requires_guarded_merge": true,
+    "activation_requires_independent_semantic_review": true,
+    "activation_requires_mandatory_premerge": true,
+    "activation_requires_postmerge_verification": true,
+    "activation_requires_reverification_of_existing_b012_authority": true,
+    "active_workflow_target": ".github/workflows/b012-qwen-raw-code-recovery.yml",
+    "exact_issue_command": "B012_RECOVER_RAW_CODE_STAGED qwen3.5-0.8b-control 34155931982",
+    "package_performs_model_access": false,
+    "package_performs_model_execution": false,
+    "separate_activation_pr_required": true
+  },
+  "authority_boundary": {
+    "authority_scope_modified": false,
+    "authority_transfer": false,
+    "candidate_expansion": false,
+    "candidate_revision_or_file_expansion": false,
+    "existing_authority_id": "B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION",
+    "external_dispatch_authority_created": false,
+    "founder_machine_model_binaries": 0,
+    "git_model_binaries": 0,
+    "paid_compute": false,
+    "paid_cost_usd": 0.0,
+    "paid_model_api": false,
+    "production_release": false,
+    "retry_authority_created": false,
+    "training": false,
+    "weight_changing_training": false
+  },
+  "base_main": "5e15cfd0d5eb696154a757edd9382dfea65359cf",
+  "candidate_id": "qwen3.5-0.8b-control",
+  "durability_boundary": {
+    "hosted_runner_shutdown_cannot_erase_prior_uploaded_stage_checkpoints": true,
+    "init_checkpoint_precedes_model_access": true,
+    "quantize_checkpoint_records_exact_q4_identity_before_raw_code": true,
+    "raw_code_checkpoint_precedes_finalize": true,
+    "source_checkpoint_records_exact_verified_files": true,
+    "stage_interrupted_before_its_upload_remains_not_proven": true
+  },
+  "expected_q4_k_m_sha256": "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa",
+  "expected_q4_k_m_size_bytes": 541903296,
+  "prior_qualification_run_id": 34155931982,
+  "prior_stage05_artifact_digest": "sha256:726e154a9e94c67eea4b0bdec5440912af6055e46cac9f95861872a044616fee",
+  "prior_stage05_artifact_id": 10031329744,
+  "prior_stage05_checkpoint_sha256": "2141781456f54623e6b87c9e7528ea767f49062670fbb62b77d639b3ec3d1f88",
+  "repair_id": "B012_QWEN_RAW_CODE_STAGED_DURABILITY_REPAIR_2026_09_08",
+  "schema_version": "mstr.b012-qwen-raw-code-recovery-topology-repair.v1",
+  "semantic_preservation": {
+    "candidate_admission_not_decided_by_recovery": true,
+    "exact_b010_candidate_and_files_required": true,
+    "q4_identity_match_to_prior_stage03_required": true,
+    "raw_code_manifest_unchanged": true,
+    "raw_code_sampling_unchanged": true,
+    "runtime_and_tool_revisions_unchanged": true
+  },
+  "staged_script_path": "colab/mstr_b012_qwen_raw_code_recovery_staged.py",
+  "staged_script_sha256": "5ba839a00d089ec2734fffce877a52b5a88abbb1f23277ccde8ee4111bc13f22",
+  "staged_workflow_sha256": "e5a666641af6557efb2aba7091a51db3deef973f6177ab682207a4326d3f4bbe",
+  "staged_workflow_spec_path": "configs/workflows/b012-qwen-raw-code-recovery-staged.yml",
+  "status": "READY_FOR_SEPARATE_CANONICAL_ACTIVATION",
+  "task_id": "B012",
+  "topology": {
+    "decode_rerun": false,
+    "durable_checkpoint_after_each_completed_stage": true,
+    "durable_checkpoint_format": "JSON_ONLY",
+    "ephemeral_workspace_shared_across_stages": true,
+    "final_cleanup": "REMOVE_EPHEMERAL_B012_QWEN_RECOVERY_WORKDIR",
+    "large_binary_artifact_uploads": false,
+    "large_binary_transfer_between_jobs": false,
+    "max_job_minutes": 45,
+    "prefill_rerun": false,
+    "runner": "ubuntu-24.04",
+    "single_ephemeral_job": true,
+    "source_reacquisition_count_per_dispatch": 1,
+    "stages": [
+      "init",
+      "source",
+      "quantize",
+      "raw-code",
+      "finalize"
+    ]
+  },
+  "triggering_incidents": [
+    {
+      "classification": "B012_RAW_CODE_RECOVERY_FAILED_BEFORE_RAW_CODE",
+      "durable_recovery_result": false,
+      "run_id": 34163308005
+    },
+    {
+      "classification": "B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_NO_DURABLE_RECOVERY_RESULT",
+      "durable_recovery_result": false,
+      "run_id": 34169060075
+    }
+  ]
+}
