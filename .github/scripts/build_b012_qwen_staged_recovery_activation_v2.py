@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the staged Qwen activation builder while honoring the exact-main task-gate contract."""
+"""Run the staged Qwen activation builder while honoring exact-main and format gates."""
 
 from __future__ import annotations
 
@@ -62,7 +62,24 @@ def main() -> None:
         if builder.output("git", "rev-parse", "HEAD") != builder.BASE:
             raise RuntimeError("activation branch identity drift after exact-main eligibility")
 
+    original_materialize = builder.materialize_activation
+
+    def materialize_and_format() -> None:
+        original_materialize()
+        builder.run(
+            "python",
+            "-m",
+            "ruff",
+            "format",
+            "tests/contract/test_b012_executor_binding.py",
+            "tests/contract/test_b012_qwen_raw_code_recovery.py",
+            "tests/contract/test_b012_qwen_staged_recovery_topology.py",
+            "tests/contract/test_b012_runner_shutdown_evidence.py",
+            "tests/contract/test_b012_stage_checkpoint_topology.py",
+        )
+
     builder.assert_exact_main_b012_eligibility = exact_main_eligibility
+    builder.materialize_activation = materialize_and_format
     builder.main()
 
 
