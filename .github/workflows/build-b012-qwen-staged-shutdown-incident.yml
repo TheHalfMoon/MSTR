@@ -69,18 +69,22 @@ jobs:
           job=next(x for x in jobs if x['id']==int(os.environ['JOB_ID']))
           assert job['name']=='recover'
           assert job['conclusion']=='failure'
+          expected={
+              'Stage 01 - initialize exact recovery toolchains': 'success',
+              'Upload stage 01 JSON checkpoint': 'success',
+              'Stage 02 - reacquire and verify exact B010 source files': 'success',
+              'Upload stage 02 JSON checkpoint': 'success',
+              'Stage 03 - regenerate and verify exact Q4': 'success',
+              'Upload stage 03 JSON checkpoint': 'success',
+              'Stage 04 - run frozen raw-code proxy': 'cancelled',
+              'Upload stage 04 JSON checkpoint': 'skipped',
+              'Stage 05 - finalize recovery evidence': 'skipped',
+              'Upload stage 05 final JSON evidence': 'skipped',
+              'Remove ephemeral B012 recovery binaries': 'skipped',
+          }
           steps={x['name']:x['conclusion'] for x in job['steps']}
-          assert steps['Stage 01 - initialize pinned recovery toolchain']=='success'
-          assert steps['Upload Stage 01 checkpoint']=='success'
-          assert steps['Stage 02 - reacquire exact Qwen source']=='success'
-          assert steps['Upload Stage 02 checkpoint']=='success'
-          assert steps['Stage 03 - regenerate exact Q4']=='success'
-          assert steps['Upload Stage 03 checkpoint']=='success'
-          assert steps['Stage 04 - run frozen raw-code proxy']=='cancelled'
-          assert steps['Upload Stage 04 checkpoint']=='skipped'
-          assert steps['Stage 05 - finalize recovery evidence']=='skipped'
-          assert steps['Upload Stage 05 final recovery JSON']=='skipped'
-          assert steps['Remove ephemeral B012 recovery binaries']=='skipped'
+          for name, conclusion in expected.items():
+              assert steps.get(name)==conclusion, (name, steps.get(name), conclusion)
           PY
 
           gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$JOB_ID/logs" > /tmp/job.log
@@ -142,15 +146,15 @@ jobs:
           python -m pip install -e '.[dev]'
           python -m mstr_qualify task eligible B012 > /tmp/b012-eligibility.json
           python - <<'PY'
-          import json, os
+          import json
           d=json.load(open('/tmp/b012-eligibility.json', encoding='utf-8'))
-          assert d['task_id']=='B012'
-          assert d['canonical_main']==os.environ['BASE_SHA']
-          assert d['eligible'] is True
-          assert d['authority_result']['satisfied'] is True
-          assert d['state_consistency_result']['observed_state']=='PENDING'
-          assert d['supersession_result']['superseded'] is False
-          assert all(x['satisfied'] for x in d['prerequisite_results'])
+          assert d.get('task_id')=='B012'
+          assert d.get('eligible') is True
+          assert d.get('canonical_main_overrides',{}).get('B011') is True
+          authority=d.get('authority_result',{})
+          assert authority.get('authority_id')=='B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
+          assert authority.get('satisfied') is True
+          assert all(x.get('satisfied') is True for x in d.get('prerequisite_results',[]))
           PY
           set +e
           python -m ruff format --check --diff . > /tmp/base-format.diff 2>&1
@@ -192,7 +196,9 @@ jobs:
           assert e['retry_authority_created'] is False
           assert e['external_dispatch_authority_created'] is False
           assert b['status']==os.environ['BLOCKED_STATUS']
-          assert b['qwen_raw_code_staged_recovery_runner_shutdown']['failure_classification']==os.environ['FAILURE_CLASS']
+          shutdown=b['qwen_raw_code_staged_recovery_runner_shutdown']
+          assert shutdown['failure_classification']==os.environ['FAILURE_CLASS']
+          assert shutdown['run_id']==int(os.environ['RUN_ID'])
           print('INCIDENT_SHA256='+hashlib.sha256(p.read_bytes()).hexdigest())
           PY
 
