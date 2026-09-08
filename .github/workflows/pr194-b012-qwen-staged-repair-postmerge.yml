@@ -1,0 +1,125 @@
+name: PR194 B012 Qwen staged repair postmerge verification
+
+on:
+  push:
+    branches:
+      - evidence/pr194-postmerge-0cff2d5
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      REPO: TheHalfMoon/MSTR
+      OLD_MAIN: 5e15cfd0d5eb696154a757edd9382dfea65359cf
+      SUBJECT: e58435cbb02ec30ba60df1f24f7574f8712dc1ca
+      MERGE: 0cff2d57ab78c0189c8557f3e2ec59300bd8082d
+      TREE: bd04fe85b9d69747b1936c1c180012449042cfbb
+      QUAL_RUN: '34176458994'
+      REVIEW_RUN: '34176864462'
+      PREMERGE_RUN: '34177121357'
+      PR: '194'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout exact canonical merge
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.MERGE }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: 3.11.16
+          check-latest: false
+
+      - name: Prove exact merge topology and evidence chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          test "$(git rev-parse HEAD)" = "$MERGE"
+          test "$(git show -s --format=%T HEAD)" = "$TREE"
+          test "$(git rev-parse origin/main)" = "$MERGE"
+          mapfile -t parents < <(git show -s --format=%P HEAD | tr ' ' '\n')
+          [[ ${#parents[@]} -eq 2 ]]
+          [[ "${parents[0]}" == "$OLD_MAIN" ]]
+          [[ "${parents[1]}" == "$SUBJECT" ]]
+          gh api "repos/$REPO/actions/runs/$QUAL_RUN" | jq -e '.status=="completed" and .conclusion=="success"' >/dev/null
+          gh api "repos/$REPO/actions/runs/$REVIEW_RUN" | jq -e '.status=="completed" and .conclusion=="success"' >/dev/null
+          gh api "repos/$REPO/actions/runs/$PREMERGE_RUN" | jq -e '.status=="completed" and .conclusion=="success"' >/dev/null
+          gh api "repos/$REPO/pulls/$PR" > /tmp/pr.json
+          jq -e --arg merge "$MERGE" --arg subject "$SUBJECT" '.state=="closed" and .merged==true and .merge_commit_sha==$merge and .head.sha==$subject' /tmp/pr.json >/dev/null
+
+      - name: Install repository dev dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Prove canonical repair package remains non-active and hash-bound
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          m=json.loads(Path('artifacts/manifests/B012-qwen-raw-code-recovery-staged-topology.json').read_text(encoding='utf-8'))
+          sha=lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
+          assert m['status']=='READY_FOR_SEPARATE_CANONICAL_ACTIVATION'
+          assert m['task_id']=='B012' and m['candidate_id']=='qwen3.5-0.8b-control'
+          assert sha(m['staged_script_path'])==m['staged_script_sha256']
+          assert sha(m['staged_workflow_spec_path'])==m['staged_workflow_sha256']
+          assert m['activation']['separate_activation_pr_required'] is True
+          assert m['activation']['package_performs_model_access'] is False
+          assert m['activation']['package_performs_model_execution'] is False
+          b=m['authority_boundary']
+          assert b['retry_authority_created'] is False
+          assert b['external_dispatch_authority_created'] is False
+          assert b['training'] is False and b['paid_compute'] is False and b['paid_model_api'] is False
+          assert b['candidate_expansion'] is False and b['candidate_revision_or_file_expansion'] is False
+          PY
+          git diff --quiet "$OLD_MAIN" "$MERGE" -- .github/workflows/b012-qwen-raw-code-recovery.yml
+          git diff --quiet "$OLD_MAIN" "$MERGE" -- colab/mstr_b012_governance.py
+          git diff --quiet "$OLD_MAIN" "$MERGE" -- artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json
+
+      - name: Exact-main B012 eligibility and canonical state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -B main origin/main
+          test "$(git rev-parse HEAD)" = "$MERGE"
+          python -m mstr_qualify task eligible B012 > /tmp/b012.json
+          python - <<'PY'
+          import json, os
+          d=json.load(open('/tmp/b012.json', encoding='utf-8'))
+          assert d['task_id']=='B012'
+          assert d['canonical_main']==os.environ['MERGE']
+          assert d['eligible'] is True
+          assert d['authority_result']['satisfied'] is True
+          assert d['state_consistency_result']['observed_state']=='PENDING'
+          assert d['supersession_result']['superseded'] is False
+          assert all(x['satisfied'] for x in d['prerequisite_results'])
+          PY
+
+      - name: Focused and full canonical quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=colab python -m pytest -q tests/contract/test_b012_qwen_staged_recovery_topology.py
+          python -m mstr_qualify validate
+          python -m ruff check .
+          python -m ruff format --check colab/mstr_b012_qwen_raw_code_recovery_staged.py tests/contract/test_b012_qwen_staged_recovery_topology.py
+          python -m pytest -q
+          python -m mypy src/mstr_qualify
+
+      - name: Final exact canonical guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGE"
+          test "$(git show -s --format=%T HEAD)" = "$TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MERGE"
+          gh api "repos/$REPO/pulls/$PR" | jq -e --arg merge "$MERGE" '.state=="closed" and .merged==true and .merge_commit_sha==$merge' >/dev/null
+          echo 'PR194_POSTMERGE=PASS'
