@@ -19,6 +19,7 @@ SCRIPT = COLAB / "mstr_b012_qwen_raw_code_recovery_case_checkpoint.py"
 WORKFLOW = ROOT / "configs/workflows/b012-qwen-raw-code-case-checkpoint-recovery.yml"
 ACTIVE_WORKFLOW = ROOT / ".github/workflows/b012-qwen-raw-code-recovery.yml"
 RAW_CODE = ROOT / "benchmarks/manifests/B012-raw-code-proxy.json"
+BINDING = ROOT / "artifacts/manifests/B012-executor-toolchain-binding.json"
 INCIDENT = ROOT / (
     "artifacts/results/equivalent/B012/failures/"
     "B012-qwen3.5-0.8b-control-raw-code-staged-recovery-run-34231845282.json"
@@ -131,16 +132,16 @@ def test_case_checkpoint_repair_preserves_exact_raw_code_manifest() -> None:
         assert semantic[key] is True
 
 
-def test_case_checkpoint_workflow_is_non_active_and_json_only() -> None:
+def test_case_checkpoint_workflow_is_active_and_json_only() -> None:
     manifest = _read_json(MANIFEST)
     activation = manifest["activation"]
     assert isinstance(activation, dict)
     workflow = WORKFLOW.read_text(encoding="utf-8")
     active = ACTIVE_WORKFLOW.read_text(encoding="utf-8")
 
-    assert activation["active_workflow_materialized"] is False
-    assert WORKFLOW.read_bytes() != ACTIVE_WORKFLOW.read_bytes()
-    assert "B012_RECOVER_RAW_CODE_STAGED qwen3.5-0.8b-control 34155931982" in active
+    assert activation["active_workflow_materialized"] is True
+    assert WORKFLOW.read_bytes() == ACTIVE_WORKFLOW.read_bytes()
+    assert "B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982" in active
     assert "B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982" in workflow
     assert "timeout-minutes: 45" in workflow
     assert "cancel-in-progress: false" in workflow
@@ -301,3 +302,48 @@ def test_checkpoint_artifacts_are_transient_transport_until_git_canonicalization
     )
     assert durability["missing_or_expired_checkpoint_artifact_fails_closed"] is True
     assert durability["checkpoint_write_must_succeed_before_completed_state_commit"] is True
+
+
+def test_case_checkpoint_activation_is_exactly_bound_and_non_authorizing() -> None:
+    manifest = _read_json(MANIFEST)
+    binding = _read_json(BINDING)
+    activation = manifest["activation"]
+    bound = binding["qwen_raw_code_case_checkpoint_activation"]
+    assert isinstance(activation, dict)
+    assert isinstance(bound, dict)
+    assert activation["activation_base_main"] == "4deca995306c197e5cefaf8202e64fe5469f873c"
+    assert activation["repair_package_merge_commit"] == "4deca995306c197e5cefaf8202e64fe5469f873c"
+    assert activation["repair_package_postmerge_run_id"] == 34261221062
+    assert (
+        activation["repair_package_postmerge_evidence_head"]
+        == "f5dac568a809fe9fed707c3c2d8a298c859d16bb"
+    )
+    assert activation["active_workflow_materialized"] is True
+    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
+    assert bound["repair_id"] == manifest["repair_id"]
+    assert bound["candidate_id"] == "qwen3.5-0.8b-control"
+    assert bound["prior_run_id"] == 34155931982
+    assert bound["repair_manifest_sha256"] == _sha256(MANIFEST)
+    assert bound["case_checkpoint_script_sha256"] == _sha256(SCRIPT)
+    assert bound["active_workflow_sha256"] == _sha256(ACTIVE_WORKFLOW)
+    assert bound["activation_base_main"] == "4deca995306c197e5cefaf8202e64fe5469f873c"
+    assert bound["repair_package_postmerge_run_id"] == 34261221062
+    assert (
+        bound["repair_package_postmerge_evidence_head"]
+        == "f5dac568a809fe9fed707c3c2d8a298c859d16bb"
+    )
+    for key in (
+        "retry_authority_created",
+        "external_dispatch_authority_created",
+        "candidate_expansion",
+        "revision_or_file_expansion",
+        "training",
+        "weight_changing_training",
+        "paid_compute",
+        "paid_model_api",
+        "production_release",
+    ):
+        assert bound[key] is False
+    assert bound["model_access"] == "NONE"
+    assert bound["model_execution"] == "NONE"
+    assert bound["paid_cost_usd"] == 0.0

@@ -11,12 +11,17 @@
     "activation_requires_mandatory_premerge": true,
     "activation_requires_postmerge_verification": true,
     "activation_requires_reverification_of_existing_b012_authority": true,
-    "active_workflow_materialized": false,
+    "active_workflow_materialized": true,
     "active_workflow_target": ".github/workflows/b012-qwen-raw-code-recovery.yml",
     "exact_issue_command": "B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982",
     "package_performs_model_access": false,
     "package_performs_model_execution": false,
-    "separate_activation_pr_required": true
+    "separate_activation_pr_required": true,
+    "activation_base_main": "4deca995306c197e5cefaf8202e64fe5469f873c",
+    "repair_package_merge_commit": "4deca995306c197e5cefaf8202e64fe5469f873c",
+    "repair_package_postmerge_run_id": 34261221062,
+    "repair_package_postmerge_evidence_head": "f5dac568a809fe9fed707c3c2d8a298c859d16bb",
+    "activation_is_separate_repository_change": true
   },
   "active_workflow_at_repair_base_sha256": "e5a666641af6557efb2aba7091a51db3deef973f6177ab682207a4326d3f4bbe",
   "authority_boundary": {
