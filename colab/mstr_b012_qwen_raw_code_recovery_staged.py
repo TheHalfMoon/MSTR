@@ -143,7 +143,10 @@ def _require_repair_activation(
     expected_manifest = activation.get("repair_manifest_sha256")
     expected_script = activation.get("staged_script_sha256")
     expected_workflow = activation.get("active_workflow_sha256")
-    if not all(isinstance(value, str) for value in (expected_manifest, expected_script, expected_workflow)):
+    if not all(
+        isinstance(value, str)
+        for value in (expected_manifest, expected_script, expected_workflow)
+    ):
         raise ExecutionError("B012 Qwen staged activation hash binding is incomplete")
     require_file_sha256(repo_root / REPAIR_MANIFEST_PATH, str(expected_manifest))
     require_file_sha256(repo_root / STAGED_SCRIPT_PATH, str(expected_script))
@@ -168,6 +171,16 @@ def _require_stage_main(
             f"B012 Qwen staged canonical-main drift: start={canonical_start}, live={live}"
         )
     return _require_repair_activation(repo_root)
+
+
+def _require_same_main(repo_root: Path, state: dict[str, object]) -> str:
+    live = _require_live_main(repo_root)
+    canonical_start = state.get("canonical_main_at_start")
+    if not isinstance(canonical_start, str) or live != canonical_start:
+        raise ExecutionError(
+            f"B012 Qwen staged canonical-main drift: start={canonical_start}, live={live}"
+        )
+    return live
 
 
 def _complete_stage(
@@ -340,7 +353,7 @@ def _stage_source(*, repo_root: Path, output_dir: Path) -> None:
         candidate_id=CANDIDATE_ID,
         destination=source_dir,
     )
-    _require_live_main(repo_root)
+    _require_same_main(repo_root, state)
     state["model_access_state"] = "EXACT_B010_FILES_REACQUIRED_VERIFIED"
     state["source_verification"] = source_records
     paths = state.get("local_ephemeral_paths")
@@ -381,6 +394,7 @@ def _stage_quantize(*, repo_root: Path, output_dir: Path) -> None:
         raise ExecutionError("B012 Qwen staged regenerated Q4 SHA-256 mismatch")
     if regenerated_size != EXPECTED_Q4_K_M_SIZE_BYTES:
         raise ExecutionError("B012 Qwen staged regenerated Q4 size mismatch")
+    _require_same_main(repo_root, state)
     state["regenerated_q4"] = {
         "sha256": regenerated_sha,
         "size_bytes": regenerated_size,
@@ -413,6 +427,7 @@ def _stage_raw_code(*, repo_root: Path, output_dir: Path) -> None:
         model=_path_from_state(state, "q4"),
         manifest=raw_manifest,
     )
+    _require_same_main(repo_root, state)
     state["raw_code_proxy"] = raw_code
     _complete_stage(
         output_dir=output_dir,
