@@ -50,9 +50,33 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > /tmp/run.json
+          api_get() {
+            curl --fail --location --silent --show-error \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/$1" \
+              --output "$2"
+          }
+
+          api_get "actions/runs/$RUN_ID" /tmp/run.json
+          api_get "actions/runs/$RUN_ID/jobs?per_page=100" /tmp/jobs.json
+          api_get "actions/jobs/$JOB_ID/logs" /tmp/job.log
+          api_get "actions/artifacts/$STAGE01_ARTIFACT_ID/zip" /tmp/stage01.zip
+          api_get "actions/artifacts/$STAGE02_ARTIFACT_ID/zip" /tmp/stage02.zip
+          api_get "actions/artifacts/$STAGE03_ARTIFACT_ID/zip" /tmp/stage03.zip
+
+          grep -F 'The runner has received a shutdown signal.' /tmp/job.log
+          grep -F 'The operation was canceled.' /tmp/job.log
+          [[ "$(sha256sum /tmp/stage01.zip | cut -d' ' -f1)" == "$STAGE01_ZIP_SHA256" ]]
+          [[ "$(sha256sum /tmp/stage02.zip | cut -d' ' -f1)" == "$STAGE02_ZIP_SHA256" ]]
+          [[ "$(sha256sum /tmp/stage03.zip | cut -d' ' -f1)" == "$STAGE03_ZIP_SHA256" ]]
+
           python - <<'PY'
-          import json, os
+          import json
+          import os
+          import zipfile
+
           run=json.load(open('/tmp/run.json', encoding='utf-8'))
           assert run['id']==int(os.environ['RUN_ID'])
           assert run['head_sha']==os.environ['BASE_SHA']
@@ -60,11 +84,7 @@ jobs:
           assert run['status']=='completed'
           assert run['conclusion']=='failure'
           assert run['name']=='B012 Qwen raw-code staged recovery'
-          PY
 
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" > /tmp/jobs.json
-          python - <<'PY'
-          import json, os
           jobs=json.load(open('/tmp/jobs.json', encoding='utf-8'))['jobs']
           job=next(x for x in jobs if x['id']==int(os.environ['JOB_ID']))
           assert job['name']=='recover'
@@ -85,21 +105,6 @@ jobs:
           steps={x['name']:x['conclusion'] for x in job['steps']}
           for name, conclusion in expected.items():
               assert steps.get(name)==conclusion, (name, steps.get(name), conclusion)
-          PY
-
-          gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$JOB_ID/logs" > /tmp/job.log
-          grep -F 'The runner has received a shutdown signal.' /tmp/job.log
-          grep -F 'The operation was canceled.' /tmp/job.log
-
-          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$STAGE01_ARTIFACT_ID/zip" > /tmp/stage01.zip
-          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$STAGE02_ARTIFACT_ID/zip" > /tmp/stage02.zip
-          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$STAGE03_ARTIFACT_ID/zip" > /tmp/stage03.zip
-          [[ "$(sha256sum /tmp/stage01.zip | cut -d' ' -f1)" == "$STAGE01_ZIP_SHA256" ]]
-          [[ "$(sha256sum /tmp/stage02.zip | cut -d' ' -f1)" == "$STAGE02_ZIP_SHA256" ]]
-          [[ "$(sha256sum /tmp/stage03.zip | cut -d' ' -f1)" == "$STAGE03_ZIP_SHA256" ]]
-
-          python - <<'PY'
-          import json, os, zipfile
 
           def read_member(path, suffix):
               with zipfile.ZipFile(path) as zf:
@@ -110,7 +115,6 @@ jobs:
           source=read_member('/tmp/stage02.zip', 'checkpoint-02-source.json')
           quant=read_member('/tmp/stage03.zip', 'checkpoint-03-quantize.json')
           state=read_member('/tmp/stage03.zip', 'stage-state.json')
-
           for payload in (init, source, quant, state):
               assert payload['candidate_id']=='qwen3.5-0.8b-control'
               assert payload['canonical_main_at_start']==os.environ['BASE_SHA']
@@ -180,7 +184,9 @@ jobs:
           [[ "$(git diff --name-only | sort)" == "$expected" ]]
           git diff --check
           python - <<'PY'
-          import hashlib, json, os
+          import hashlib
+          import json
+          import os
           from pathlib import Path
           p=Path('artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-raw-code-staged-recovery-run-34231845282.json')
           e=json.loads(p.read_text(encoding='utf-8'))
