@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -24,12 +25,30 @@ def _load_builder(script: Path):
     return module
 
 
+def _mark_untracked_intent_to_add(repo_root: Path) -> None:
+    result = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard", "-z"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    paths = [path for path in result.stdout.split(b"\0") if path]
+    if not paths:
+        return
+    subprocess.run(
+        ["git", "add", "--intent-to-add", "--", *[path.decode() for path in paths]],
+        cwd=repo_root,
+        check=True,
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", required=True)
     parser.add_argument("--builder-script", required=True)
     args = parser.parse_args()
 
+    repo_root = Path(args.repo_root).resolve()
     module = _load_builder(Path(args.builder_script).resolve())
     module.FAILURE_CLASS = FAILURE_CLASS
     original_build_incident = module.build_incident
@@ -47,9 +66,10 @@ def main() -> None:
     sys.argv = [
         str(Path(args.builder_script).resolve()),
         "--repo-root",
-        str(Path(args.repo_root).resolve()),
+        str(repo_root),
     ]
     module.main()
+    _mark_untracked_intent_to_add(repo_root)
 
 
 if __name__ == "__main__":
