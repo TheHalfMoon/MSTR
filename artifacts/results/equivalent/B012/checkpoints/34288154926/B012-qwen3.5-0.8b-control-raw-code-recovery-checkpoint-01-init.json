@@ -1,0 +1,87 @@
+{
+  "candidate_id": "qwen3.5-0.8b-control",
+  "canonical_main_at_start": "66cd090fc75286bfc24db4bdf8fe58b64394e228",
+  "checkpoint_payload": {
+    "canonical_main_at_end": "66cd090fc75286bfc24db4bdf8fe58b64394e228",
+    "model_access": "NONE",
+    "producer_replay": {
+      "equivalence_gate": "EXACT_T029_F16_AND_Q4_SHA256_MUST_MATCH",
+      "historical_transitive_identity_claim": false,
+      "overlay_id": "T031_T029_PRODUCER_REPLAY_FULL_CLOSURE_2026_09_06",
+      "package_count": 40,
+      "packages": {
+        "annotated-doc": "0.0.5",
+        "anyio": "4.15.1",
+        "certifi": "2026.7.22",
+        "charset-normalizer": "3.5.1",
+        "click": "8.5.0",
+        "filelock": "3.32.5",
+        "fsspec": "2026.7.0",
+        "gguf": "0.19.0",
+        "h11": "0.16.0",
+        "hf-xet": "1.6.0",
+        "httpcore": "1.0.9",
+        "httpx": "0.28.1",
+        "huggingface-hub": "1.30.0",
+        "idna": "3.19",
+        "jinja2": "3.1.6",
+        "markdown-it-py": "4.2.0",
+        "markupsafe": "3.0.3",
+        "mdurl": "0.1.2",
+        "mpmath": "1.3.0",
+        "networkx": "3.6.1",
+        "numpy": "2.4.6",
+        "packaging": "26.3",
+        "protobuf": "7.36.0",
+        "pygments": "2.21.0",
+        "pyyaml": "6.0.3",
+        "regex": "2026.9.3",
+        "requests": "2.34.2",
+        "rich": "15.0.0",
+        "safetensors": "0.8.0",
+        "sentencepiece": "0.2.2",
+        "setuptools": "84.0.0",
+        "shellingham": "1.5.4",
+        "sympy": "1.14.0",
+        "tokenizers": "0.22.2",
+        "torch": "2.13.0+cpu",
+        "tqdm": "4.70.0",
+        "transformers": "5.15.1",
+        "typer": "0.27.2",
+        "typing-extensions": "4.16.0",
+        "urllib3": "2.7.0"
+      },
+      "python_version": "3.11.16"
+    },
+    "tool_identity": {
+      "build_flags": [
+        "-DGGML_NATIVE=ON",
+        "-DGGML_CUDA=OFF",
+        "-DLLAMA_CURL=OFF",
+        "-DBUILD_SHARED_LIBS=OFF",
+        "-DCMAKE_BUILD_TYPE=Release"
+      ],
+      "conversion_quantization_commit": "fc35562ba46fbbf8e30cac85edbb39642c37d248",
+      "llama_bench_built": false,
+      "recovery_targets": [
+        "llama-quantize",
+        "llama-cli"
+      ],
+      "repository": "https://github.com/ggml-org/llama.cpp.git",
+      "runtime_commit": "3173a56471c1753650cd806694145ffd6dcace67"
+    }
+  },
+  "completed_stages": [
+    "init"
+  ],
+  "completed_utc": "2026-09-08T23:01:42Z",
+  "durable_binary_artifacts": false,
+  "durable_output_format": "JSON_ONLY",
+  "model_access_state": "NONE",
+  "paid_cost_usd": 0.0,
+  "schema_version": "mstr.b012-qwen-raw-code-case-checkpoint.v1",
+  "stage": "init",
+  "stage_label": "01-init",
+  "task_id": "B012",
+  "training": false
+}
