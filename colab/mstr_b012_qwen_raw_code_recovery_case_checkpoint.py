@@ -40,9 +40,7 @@ PRIOR_STAGE05_CHECKPOINT_SHA256 = "2141781456f54623e6b87c9e7528ea767f49062670fbb
 EXPECTED_Q4_K_M_SHA256 = "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa"
 EXPECTED_Q4_K_M_SIZE_BYTES = 541903296
 
-REPAIR_MANIFEST_PATH = Path(
-    "artifacts/manifests/B012-qwen-raw-code-case-checkpoint-topology.json"
-)
+REPAIR_MANIFEST_PATH = Path("artifacts/manifests/B012-qwen-raw-code-case-checkpoint-topology.json")
 SCRIPT_PATH = Path("colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py")
 ACTIVE_WORKFLOW_PATH = Path(".github/workflows/b012-qwen-raw-code-recovery.yml")
 CASE_IDS = ("python-clamp", "python-dedupe", "python-safe-divide")
@@ -393,9 +391,7 @@ def _stage_quantize(*, repo_root: Path, output_dir: Path) -> None:
     )
 
 
-def _single_case_manifest(
-    raw_manifest: dict[str, object], case_id: str
-) -> dict[str, object]:
+def _single_case_manifest(raw_manifest: dict[str, object], case_id: str) -> dict[str, object]:
     tasks = raw_manifest.get("tasks")
     if not isinstance(tasks, list) or not all(isinstance(item, dict) for item in tasks):
         raise ExecutionError("B012 raw-code task list is invalid")

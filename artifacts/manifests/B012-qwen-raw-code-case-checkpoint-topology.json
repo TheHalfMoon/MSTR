@@ -39,7 +39,7 @@
   "base_main": "2d35efe6d7350f6aa0241ee9de128134cd321f90",
   "candidate_id": "qwen3.5-0.8b-control",
   "case_checkpoint_script_path": "colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py",
-  "case_checkpoint_script_sha256": "e2583e98c19df15a3c553e9104b956d01a70b05df980935741ebeb94638dd709",
+  "case_checkpoint_script_sha256": "c1c6269b4a9ee1eae77a568bd0b0c6e1688012e2bff797d3938f68acd63dabd3",
   "case_checkpoint_workflow_sha256": "f15941577213c5e96a1ebb3993989693628eae5f2e28620f90e03110d303d127",
   "case_checkpoint_workflow_spec_path": "configs/workflows/b012-qwen-raw-code-case-checkpoint-recovery.yml",
   "durability_boundary": {

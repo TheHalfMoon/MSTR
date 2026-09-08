@@ -12,9 +12,7 @@ if str(COLAB) not in sys.path:
 
 import mstr_b012_qwen_raw_code_recovery_case_checkpoint as case_checkpoint  # noqa: E402
 
-MANIFEST = (
-    ROOT / "artifacts/manifests/B012-qwen-raw-code-case-checkpoint-topology.json"
-)
+MANIFEST = ROOT / "artifacts/manifests/B012-qwen-raw-code-case-checkpoint-topology.json"
 SCRIPT = COLAB / "mstr_b012_qwen_raw_code_recovery_case_checkpoint.py"
 WORKFLOW = ROOT / "configs/workflows/b012-qwen-raw-code-case-checkpoint-recovery.yml"
 ACTIVE_WORKFLOW = ROOT / ".github/workflows/b012-qwen-raw-code-recovery.yml"
@@ -141,10 +139,7 @@ def test_case_checkpoint_workflow_is_non_active_and_json_only() -> None:
     assert activation["active_workflow_materialized"] is False
     assert WORKFLOW.read_bytes() != ACTIVE_WORKFLOW.read_bytes()
     assert "B012_RECOVER_RAW_CODE_STAGED qwen3.5-0.8b-control 34155931982" in active
-    assert (
-        "B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982"
-        in workflow
-    )
+    assert "B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982" in workflow
     assert "timeout-minutes: 45" in workflow
     assert "cancel-in-progress: false" in workflow
     assert "if: always()" in workflow
@@ -239,8 +234,7 @@ def test_checkpoint_payload_is_json_only_and_non_authorizing(tmp_path: Path) -> 
         checkpoint_payload={"synthetic": True},
     )
     checkpoint = _read_json(
-        tmp_path
-        / "B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-01-init.json"
+        tmp_path / "B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-01-init.json"
     )
     assert checkpoint["stage"] == "init"
     assert checkpoint["completed_stages"] == ["init"]
