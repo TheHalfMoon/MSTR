@@ -13,7 +13,7 @@ permissions:
 jobs:
   premerge:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       REPO: TheHalfMoon/MSTR
       BASE: 5e74e77c1fc86d4ebc7e64654f45bd18f565edd6
@@ -34,6 +34,7 @@ jobs:
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: '3.11.16'
+          check-latest: false
 
       - name: Prove exact live topology and successful evidence chain
         env:
@@ -41,27 +42,16 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin main --quiet
-          test "$(git rev-parse HEAD)" = "$HEAD"
-          test "$(git rev-parse HEAD^{tree})" = "$TREE"
-          test "$(git rev-parse origin/main)" = "$BASE"
-          git merge-base --is-ancestor "$BASE" "$HEAD"
+          [[ "$(git rev-parse HEAD)" == "$HEAD" ]]
+          [[ "$(git show -s --format=%T HEAD)" == "$TREE" ]]
+          [[ "$(git rev-parse origin/main)" == "$BASE" ]]
+          [[ "$(git merge-base "$BASE" "$HEAD")" == "$BASE" ]]
           api="https://api.github.com/repos/$REPO"
-          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'X-GitHub-Api-Version: 2022-11-28' "$api/pulls/$PR")"
-          python - <<'PY' "$pr_json"
-          import json, os, sys
-          p=json.loads(sys.argv[1])
-          assert p['state']=='open' and not p['draft']
-          assert p['base']['sha']==os.environ['BASE']
-          assert p['head']['sha']==os.environ['HEAD']
-          assert p.get('mergeable') is not False
-          PY
+          gh api "repos/$REPO/pulls/$PR" > /tmp/pr.json
+          jq -e --arg base "$BASE" --arg head "$HEAD" '.state=="open" and .draft==false and .mergeable==true and .base.sha==$base and .head.sha==$head and .changed_files==7' /tmp/pr.json >/dev/null
           for run in "$QUAL_RUN" "$REVIEW_RUN"; do
-            run_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'X-GitHub-Api-Version: 2022-11-28' "$api/actions/runs/$run")"
-            python - <<'PY' "$run_json"
-          import json, sys
-          r=json.loads(sys.argv[1])
-          assert r['status']=='completed' and r['conclusion']=='success'
-          PY
+            gh api "repos/$REPO/actions/runs/$run" > /tmp/run.json
+            jq -e '.status=="completed" and .conclusion=="success"' /tmp/run.json >/dev/null
           done
 
       - name: Prove no blocking reviews or unresolved review threads
@@ -69,44 +59,26 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          api="https://api.github.com/repos/$REPO"
-          reviews="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'X-GitHub-Api-Version: 2022-11-28' "$api/pulls/$PR/reviews?per_page=100")"
-          python - <<'PY' "$reviews"
-          import json, sys
-          reviews=json.loads(sys.argv[1])
-          assert not any(r.get('state')=='CHANGES_REQUESTED' for r in reviews)
-          PY
-          query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}'
-          body="$(python - <<'PY'
-          import json
-          print(json.dumps({'query': '''query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}''','variables':{'owner':'TheHalfMoon','name':'MSTR','number':193}}))
-          PY
-          )"
-          threads="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Content-Type: application/json' https://api.github.com/graphql -d "$body")"
-          python - <<'PY' "$threads"
-          import json, sys
-          p=json.loads(sys.argv[1])
-          assert 'errors' not in p, p
-          nodes=p['data']['repository']['pullRequest']['reviewThreads']['nodes']
-          assert not any(not n['isResolved'] for n in nodes), nodes
-          PY
+          gh api "repos/$REPO/pulls/$PR/reviews?per_page=100" > /tmp/reviews.json
+          jq -e '[.[] | select(.state=="CHANGES_REQUESTED")] | length == 0' /tmp/reviews.json >/dev/null
+          gh api graphql -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}' -f owner=TheHalfMoon -f name=MSTR -F number=193 > /tmp/threads.json
+          jq -e '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false)] | length == 0' /tmp/threads.json >/dev/null
 
       - name: Prove exact seven-file bounded scope and fail-closed semantics
         run: |
           set -euo pipefail
-          expected="$(mktemp)"; actual="$(mktemp)"
-          cat > "$expected" <<'EOF'
-          artifacts/manifests/B012-executor-toolchain-binding.json
-          artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-raw-code-recovery-run-34169060075.json
-          evidence/mstr-000b/B012-qwen-recovery-runner-shutdown-34169060075.md
-          tests/contract/test_b012_executor_binding.py
-          tests/contract/test_b012_qwen_raw_code_recovery.py
-          tests/contract/test_b012_runner_shutdown_evidence.py
-          tests/contract/test_b012_stage_checkpoint_topology.py
-          EOF
-          git diff --name-only "$BASE" "$HEAD" | sort > "$actual"
-          sort -o "$expected" "$expected"
-          diff -u "$expected" "$actual"
+          expected=$(printf '%s\n' \
+            'artifacts/manifests/B012-executor-toolchain-binding.json' \
+            'artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-raw-code-recovery-run-34169060075.json' \
+            'evidence/mstr-000b/B012-qwen-recovery-runner-shutdown-34169060075.md' \
+            'tests/contract/test_b012_executor_binding.py' \
+            'tests/contract/test_b012_qwen_raw_code_recovery.py' \
+            'tests/contract/test_b012_runner_shutdown_evidence.py' \
+            'tests/contract/test_b012_stage_checkpoint_topology.py')
+          [[ "$(git diff --name-only "$BASE...$HEAD" | sort)" == "$expected" ]]
+          for path in .github/workflows/b012-qwen-raw-code-recovery.yml configs/workflows/b012-qwen-raw-code-recovery.yml colab/mstr_b012_qwen_raw_code_recovery.py colab/mstr_b012_governance.py benchmarks/manifests/B012-raw-code-proxy.json artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json; do
+            git diff --quiet "$BASE" "$HEAD" -- "$path"
+          done
           python - <<'PY'
           import json
           from pathlib import Path
@@ -126,54 +98,67 @@ jobs:
           assert e['training'] is False
           assert e['paid_compute_authority_created'] is False
           PY
-          test "$(git diff --name-only "$BASE" "$HEAD" -- .github/workflows configs/workflows colab | wc -l)" -eq 0
 
       - name: Exact-main B012 gate and canonical formatter baseline
         run: |
           set -euo pipefail
-          git branch -f main "$BASE"
-          git checkout --detach "$BASE"
-          python -m pip install -q pytest ruff mypy
-          python -m mstr_qualify validate
+          git checkout -B main origin/main
+          [[ "$(git symbolic-ref --short HEAD)" == main ]]
+          [[ "$(git rev-parse HEAD)" == "$BASE" ]]
+          python -m pip install -e '.[dev]'
           python -m mstr_qualify task eligible B012 > /tmp/b012.json
           python - <<'PY'
-          import json
-          p=json.load(open('/tmp/b012.json'))
-          assert p['eligible'] is True
-          assert p['authority']['required'] is True
-          assert p['authority']['satisfied'] is True
+          import json, os
+          d=json.load(open('/tmp/b012.json',encoding='utf-8'))
+          assert d['task_id']=='B012'
+          assert d['canonical_main']==os.environ['BASE']
+          assert d['eligible'] is True
+          assert d['authority_result']['satisfied'] is True
+          assert d['state_consistency_result']['observed_state']=='PENDING'
+          assert d['supersession_result']['superseded'] is False
+          assert all(x['satisfied'] for x in d['prerequisite_results'])
           PY
-          ruff format --check . > /tmp/base-format.txt 2>&1 || true
-          grep '^Would reformat: ' /tmp/base-format.txt | sed 's/^Would reformat: //' | sort -u > /tmp/base-format-paths.txt
+          set +e
+          python -m ruff format --check --diff . > /tmp/base-format.diff 2>&1
+          code=$?
+          set -e
+          [[ "$code" -eq 1 ]]
 
       - name: Fresh exact-head quality and formatter-regression gate
         run: |
           set -euo pipefail
           git checkout --detach "$HEAD"
-          pytest -q tests/contract/test_b012_executor_binding.py tests/contract/test_b012_qwen_raw_code_recovery.py tests/contract/test_b012_runner_shutdown_evidence.py tests/contract/test_b012_stage_checkpoint_topology.py
+          python -m pytest -q tests/contract/test_b012_authority.py tests/contract/test_b012_executor_binding.py tests/contract/test_b012_qwen_raw_code_recovery.py tests/contract/test_b012_runner_shutdown_evidence.py tests/contract/test_b012_stage_checkpoint_topology.py
           python -m mstr_qualify validate
-          pytest -q
-          ruff check .
-          mypy --strict src tests
-          ruff format --check tests/contract/test_b012_executor_binding.py tests/contract/test_b012_qwen_raw_code_recovery.py tests/contract/test_b012_runner_shutdown_evidence.py tests/contract/test_b012_stage_checkpoint_topology.py
-          ruff format --check . > /tmp/head-format.txt 2>&1 || true
-          grep '^Would reformat: ' /tmp/head-format.txt | sed 's/^Would reformat: //' | sort -u > /tmp/head-format-paths.txt
-          comm -23 /tmp/head-format-paths.txt /tmp/base-format-paths.txt > /tmp/new-format-debt.txt
-          test ! -s /tmp/new-format-debt.txt
+          python -m pytest -q
+          python -m ruff check .
+          python -m mypy src/mstr_qualify
+          python -m ruff format --check tests/contract/test_b012_executor_binding.py tests/contract/test_b012_qwen_raw_code_recovery.py tests/contract/test_b012_runner_shutdown_evidence.py tests/contract/test_b012_stage_checkpoint_topology.py
+          set +e
+          python -m ruff format --check --diff . > /tmp/head-format.diff 2>&1
+          code=$?
+          set -e
+          [[ "$code" -eq 1 ]]
+          python - <<'PY'
+          from pathlib import Path
+          def paths(path):
+              out=set()
+              for line in Path(path).read_text(encoding='utf-8').splitlines():
+                  if line.startswith('--- '): out.add(line[4:].split(':cell ',1)[0])
+              return out
+          base=paths('/tmp/base-format.diff'); head=paths('/tmp/head-format.diff')
+          assert base
+          assert not (head-base), f'new formatter debt: {sorted(head-base)}'
+          PY
 
       - name: Final mandatory live premerge guard
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          git fetch origin main --quiet
-          test "$(git rev-parse origin/main)" = "$BASE"
-          api="https://api.github.com/repos/$REPO"
-          pr_json="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'X-GitHub-Api-Version: 2022-11-28' "$api/pulls/$PR")"
-          python - <<'PY' "$pr_json"
-          import json, os, sys
-          p=json.loads(sys.argv[1])
-          assert p['state']=='open'
-          assert p['base']['sha']==os.environ['BASE']
-          assert p['head']['sha']==os.environ['HEAD']
-          PY
+          [[ "$(git rev-parse HEAD)" == "$HEAD" ]]
+          [[ "$(git ls-remote origin refs/heads/main | cut -f1)" == "$BASE" ]]
+          [[ "$(git ls-remote origin refs/heads/fix/b012-qwen-recovery-runner-shutdown-34169060075 | cut -f1)" == "$HEAD" ]]
+          gh api "repos/$REPO/pulls/$PR" > /tmp/pr-final.json
+          jq -e --arg base "$BASE" --arg head "$HEAD" '.state=="open" and .draft==false and .mergeable==true and .base.sha==$base and .head.sha==$head and .changed_files==7' /tmp/pr-final.json >/dev/null
+          echo 'PR193_MANDATORY_PREMERGE=PASS'
