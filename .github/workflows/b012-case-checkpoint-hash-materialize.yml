@@ -1,0 +1,32 @@
+name: B012 case-checkpoint hash materialization
+
+on:
+  push:
+    branches:
+      - evidence/b012-case-checkpoint-hash-materialize-0bbb995
+
+permissions:
+  contents: read
+
+jobs:
+  hash:
+    runs-on: ubuntu-24.04
+    env:
+      SUBJECT: 0bbb99511d578f8228552601f281350c9e5961e2
+    steps:
+      - name: Checkout exact repair subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SUBJECT }}
+          persist-credentials: false
+
+      - name: Materialize exact repair hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SUBJECT"
+          sha256sum \
+            colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py \
+            configs/workflows/b012-qwen-raw-code-case-checkpoint-recovery.yml \
+            benchmarks/manifests/B012-raw-code-proxy.json \
+            .github/workflows/b012-qwen-raw-code-recovery.yml
