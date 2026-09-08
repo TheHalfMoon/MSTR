@@ -129,6 +129,10 @@ def test_qwen_staged_script_preserves_exact_recovery_scope() -> None:
     assert "B012_RAW_CODE_RECOVERY_FAILED_CLOSED" in source
     assert "retry_authority_created" in source
     assert "external_dispatch_authority_created" in source
+    assert "EXACT_B010_FILE_REACQUISITION_IN_PROGRESS" in source
+    assert "EXACT_Q4_REGENERATION_IN_PROGRESS" in source
+    assert "RAW_CODE_EXECUTION_IN_PROGRESS" in source
+    assert '"completed_stages": list(STAGES)' in source
 
 
 def test_qwen_staged_checkpoint_is_json_only_and_non_authorizing(tmp_path: Path) -> None:

@@ -40,9 +40,7 @@ PRIOR_STAGE05_CHECKPOINT_SHA256 = "2141781456f54623e6b87c9e7528ea767f49062670fbb
 EXPECTED_Q4_K_M_SHA256 = "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa"
 EXPECTED_Q4_K_M_SIZE_BYTES = 541903296
 
-REPAIR_MANIFEST_PATH = Path(
-    "artifacts/manifests/B012-qwen-raw-code-recovery-staged-topology.json"
-)
+REPAIR_MANIFEST_PATH = Path("artifacts/manifests/B012-qwen-raw-code-recovery-staged-topology.json")
 STAGED_SCRIPT_PATH = Path("colab/mstr_b012_qwen_raw_code_recovery_staged.py")
 STAGED_WORKFLOW_PATH = Path("configs/workflows/b012-qwen-raw-code-recovery-staged.yml")
 STAGES = ("init", "source", "quantize", "raw-code", "finalize")
@@ -144,8 +142,7 @@ def _require_repair_activation(
     expected_script = activation.get("staged_script_sha256")
     expected_workflow = activation.get("active_workflow_sha256")
     if not all(
-        isinstance(value, str)
-        for value in (expected_manifest, expected_script, expected_workflow)
+        isinstance(value, str) for value in (expected_manifest, expected_script, expected_workflow)
     ):
         raise ExecutionError("B012 Qwen staged activation hash binding is incomplete")
     require_file_sha256(repo_root / REPAIR_MANIFEST_PATH, str(expected_manifest))
@@ -347,6 +344,8 @@ def _stage_source(*, repo_root: Path, output_dir: Path) -> None:
     state = _load_state(output_dir, "source")
     _, envelope, _, _ = _require_stage_main(repo_root, state)
     source_dir = _path_from_state(state, "workdir") / "source" / CANDIDATE_ID
+    state["model_access_state"] = "EXACT_B010_FILE_REACQUISITION_IN_PROGRESS"
+    _write(_state_path(output_dir), state)
     source_records = download_candidate(
         repo_root=repo_root,
         envelope=envelope,
@@ -380,6 +379,8 @@ def _stage_source(*, repo_root: Path, output_dir: Path) -> None:
 def _stage_quantize(*, repo_root: Path, output_dir: Path) -> None:
     state = _load_state(output_dir, "quantize")
     _require_stage_main(repo_root, state)
+    state["model_access_state"] = "EXACT_Q4_REGENERATION_IN_PROGRESS"
+    _write(_state_path(output_dir), state)
     q4, quantization = convert_quantize(
         python_exe=_path_from_state(state, "python_exe"),
         conversion_dir=_path_from_state(state, "conversion_dir"),
@@ -395,6 +396,7 @@ def _stage_quantize(*, repo_root: Path, output_dir: Path) -> None:
     if regenerated_size != EXPECTED_Q4_K_M_SIZE_BYTES:
         raise ExecutionError("B012 Qwen staged regenerated Q4 size mismatch")
     _require_same_main(repo_root, state)
+    state["model_access_state"] = "EXACT_Q4_REGENERATED_VERIFIED"
     state["regenerated_q4"] = {
         "sha256": regenerated_sha,
         "size_bytes": regenerated_size,
@@ -421,6 +423,8 @@ def _stage_quantize(*, repo_root: Path, output_dir: Path) -> None:
 def _stage_raw_code(*, repo_root: Path, output_dir: Path) -> None:
     state = _load_state(output_dir, "raw-code")
     _require_stage_main(repo_root, state)
+    state["model_access_state"] = "RAW_CODE_EXECUTION_IN_PROGRESS"
+    _write(_state_path(output_dir), state)
     raw_manifest = read_json(repo_root / RAW_CODE_PATH)
     raw_code = run_raw_code_proxy(
         executable=_path_from_state(state, "cli"),
@@ -428,6 +432,7 @@ def _stage_raw_code(*, repo_root: Path, output_dir: Path) -> None:
         manifest=raw_manifest,
     )
     _require_same_main(repo_root, state)
+    state["model_access_state"] = "RAW_CODE_EXECUTION_COMPLETE"
     state["raw_code_proxy"] = raw_code
     _complete_stage(
         output_dir=output_dir,
@@ -467,7 +472,7 @@ def _stage_finalize(*, repo_root: Path, output_dir: Path) -> None:
         "canonical_main_at_end": canonical_end,
         "started_utc": state.get("started_utc"),
         "completed_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "completed_stages": ["init", "source", "quantize", "raw-code"],
+        "completed_stages": list(STAGES),
         "prior_stage_evidence": {
             "run_id": PRIOR_RUN_ID,
             "canonical_main": PRIOR_MAIN,
@@ -485,6 +490,7 @@ def _stage_finalize(*, repo_root: Path, output_dir: Path) -> None:
         "regenerated_q4": regenerated_q4,
         "raw_code_proxy": raw_code,
         "recovery_repair_id": state.get("repair_id"),
+        "model_access_state": state.get("model_access_state"),
         "training": False,
         "paid_cost_usd": 0.0,
         "durable_binary_artifacts": False,

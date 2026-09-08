@@ -33,6 +33,8 @@
   "base_main": "5e15cfd0d5eb696154a757edd9382dfea65359cf",
   "candidate_id": "qwen3.5-0.8b-control",
   "durability_boundary": {
+    "caught_stage_failures_preserve_in_progress_model_access_state": true,
+    "final_result_completed_stages_include_finalize": true,
     "hosted_runner_shutdown_cannot_erase_prior_uploaded_stage_checkpoints": true,
     "init_checkpoint_precedes_model_access": true,
     "quantize_checkpoint_records_exact_q4_identity_before_raw_code": true,
@@ -57,7 +59,7 @@
     "runtime_and_tool_revisions_unchanged": true
   },
   "staged_script_path": "colab/mstr_b012_qwen_raw_code_recovery_staged.py",
-  "staged_script_sha256": "33b1368441b63aae9f12f20c02847595b1e89de94e83e7de36209550eb3692d4",
+  "staged_script_sha256": "f856a353144ad0cc5e63827b46b7e1f41de61116944bef4b86c6e5cd09dd0c32",
   "staged_workflow_sha256": "e5a666641af6557efb2aba7091a51db3deef973f6177ab682207a4326d3f4bbe",
   "staged_workflow_spec_path": "configs/workflows/b012-qwen-raw-code-recovery-staged.yml",
   "status": "READY_FOR_SEPARATE_CANONICAL_ACTIVATION",
