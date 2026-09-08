@@ -81,7 +81,7 @@
         "<|fim_prefix|>": true,
         "<|fim_suffix|>": true,
         "fim": true,
-        "Ġfim": true
+        "\u0120fim": true
       },
       "quantization_arms": {
         "Q4_K_M": {
@@ -101,7 +101,7 @@
         "<|fim_prefix|>",
         "<|fim_suffix|>",
         "fim",
-        "Ġfim"
+        "\u0120fim"
       ]
     },
     "sha256": "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa",
