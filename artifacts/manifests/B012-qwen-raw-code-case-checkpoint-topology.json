@@ -39,7 +39,7 @@
   "base_main": "2d35efe6d7350f6aa0241ee9de128134cd321f90",
   "candidate_id": "qwen3.5-0.8b-control",
   "case_checkpoint_script_path": "colab/mstr_b012_qwen_raw_code_recovery_case_checkpoint.py",
-  "case_checkpoint_script_sha256": "c1c6269b4a9ee1eae77a568bd0b0c6e1688012e2bff797d3938f68acd63dabd3",
+  "case_checkpoint_script_sha256": "c6cb947bd84101b572e4bb8140a393e7dc067c858172339758031f855c6c24a3",
   "case_checkpoint_workflow_sha256": "f15941577213c5e96a1ebb3993989693628eae5f2e28620f90e03110d303d127",
   "case_checkpoint_workflow_spec_path": "configs/workflows/b012-qwen-raw-code-case-checkpoint-recovery.yml",
   "durability_boundary": {
@@ -53,7 +53,14 @@
     "quantize_checkpoint_records_exact_q4_identity_before_raw_code": true,
     "same_failed_topology_redispatch_authorized": false,
     "source_checkpoint_records_exact_verified_files": true,
-    "stage_interrupted_before_its_upload_remains_not_proven": true
+    "stage_interrupted_before_its_upload_remains_not_proven": true,
+    "checkpoint_write_must_succeed_before_completed_state_commit": true,
+    "actions_artifact_retention_days": 7,
+    "actions_artifacts_are_transient_transport_not_canonical_evidence": true,
+    "canonical_long_term_evidence_store": "GIT_JSON_REPORTS_MANIFESTS_EVIDENCE",
+    "storage_policy_path": "docs/canonical/STORAGE_ARCHITECTURE.md",
+    "all_checkpoint_artifacts_must_be_canonicalized_to_git_before_dispatch_closeout": true,
+    "missing_or_expired_checkpoint_artifact_fails_closed": true
   },
   "expected_q4_k_m_sha256": "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa",
   "expected_q4_k_m_size_bytes": 541903296,

@@ -5,6 +5,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 COLAB = ROOT / "colab"
 if str(COLAB) not in sys.path:
@@ -242,3 +244,60 @@ def test_checkpoint_payload_is_json_only_and_non_authorizing(tmp_path: Path) -> 
     assert checkpoint["paid_cost_usd"] == 0.0
     assert checkpoint["durable_binary_artifacts"] is False
     assert checkpoint["durable_output_format"] == "JSON_ONLY"
+
+
+def test_checkpoint_write_must_succeed_before_completed_state_is_persisted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prior: dict[str, object] = {
+        "task_id": "B012",
+        "candidate_id": "qwen3.5-0.8b-control",
+        "canonical_main_at_start": "a" * 40,
+        "completed_stages": ["init", "source", "quantize"],
+        "last_completed_stage": "quantize",
+        "model_access_state": "EXACT_Q4_REGENERATED_VERIFIED",
+    }
+    state_path = tmp_path / "B012-qwen3.5-0.8b-control-raw-code-recovery-case-state.json"
+    state_path.write_text(json.dumps(prior, indent=2) + "\n", encoding="utf-8")
+    working = dict(prior)
+    working["completed_stages"] = list(prior["completed_stages"])
+    real_write = case_checkpoint._write
+    checkpoint_path = case_checkpoint._checkpoint_path(tmp_path, "raw-code-python-clamp")
+
+    def guarded_write(path: Path, payload: dict[str, object]) -> None:
+        if path == checkpoint_path:
+            raise OSError("synthetic checkpoint write failure")
+        real_write(path, payload)
+
+    monkeypatch.setattr(case_checkpoint, "_write", guarded_write)
+    with pytest.raises(OSError, match="synthetic checkpoint write failure"):
+        case_checkpoint._complete_stage(
+            output_dir=tmp_path,
+            state=working,
+            stage="raw-code-python-clamp",
+            checkpoint_payload={"synthetic": True},
+        )
+
+    persisted = _read_json(state_path)
+    assert persisted["completed_stages"] == ["init", "source", "quantize"]
+    assert persisted["last_completed_stage"] == "quantize"
+
+
+def test_checkpoint_artifacts_are_transient_transport_until_git_canonicalization() -> None:
+    manifest = _read_json(MANIFEST)
+    durability = manifest["durability_boundary"]
+    assert isinstance(durability, dict)
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    assert workflow.count("retention-days: 7") == 7
+    assert durability["actions_artifact_retention_days"] == 7
+    assert durability["actions_artifacts_are_transient_transport_not_canonical_evidence"] is True
+    assert durability["canonical_long_term_evidence_store"] == (
+        "GIT_JSON_REPORTS_MANIFESTS_EVIDENCE"
+    )
+    assert durability["storage_policy_path"] == "docs/canonical/STORAGE_ARCHITECTURE.md"
+    assert (
+        durability["all_checkpoint_artifacts_must_be_canonicalized_to_git_before_dispatch_closeout"]
+        is True
+    )
+    assert durability["missing_or_expired_checkpoint_artifact_fails_closed"] is True
+    assert durability["checkpoint_write_must_succeed_before_completed_state_commit"] is True

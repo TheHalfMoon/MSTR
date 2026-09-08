@@ -228,7 +228,6 @@ def _complete_stage(
     completed.append(stage)
     state["completed_stages"] = completed
     state["last_completed_stage"] = stage
-    _write(_state_path(output_dir), state)
     _write(
         _checkpoint_path(output_dir, stage),
         {
@@ -248,6 +247,7 @@ def _complete_stage(
             "checkpoint_payload": checkpoint_payload,
         },
     )
+    _write(_state_path(output_dir), state)
 
 
 def _stage_init(*, repo_root: Path, output_dir: Path, workdir: Path) -> None:

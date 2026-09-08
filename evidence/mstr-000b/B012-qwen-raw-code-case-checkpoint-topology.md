@@ -108,3 +108,12 @@ The later exact owner command is proposed as:
 `B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982`
 
 Repair review is not activation. Activation is not dispatch.
+
+
+## Canonical checkpoint evidence lifecycle
+
+GitHub Actions checkpoint artifacts are transient transport, not the canonical long-term evidence store. The seven-day artifact retention window is intentionally bounded and does not authorize a new persistent cloud store or paid storage. Canonical storage policy remains `docs/canonical/STORAGE_ARCHITECTURE.md`: JSON reports, manifests, hashes, evidence, and reports return to Git; model and derived binaries remain ephemeral.
+
+Every required checkpoint artifact from an authorized case-checkpoint dispatch MUST be captured, hash-verified, and canonicalized into Git evidence before B012 dispatch closeout or any candidate-admission decision. If any required checkpoint artifact is missing, expired, inconsistent, or cannot be canonicalized, the run remains fail-closed and B012 completion/admission is not proven. Runner cleanup may occur after artifact upload because uploaded JSON survives the ephemeral VM; cleanup does not substitute for canonical evidence capture.
+
+The stage writer also commits a stage checkpoint before persisting the completed-stage state. A checkpoint-write failure therefore cannot leave the durable state claiming that a stage completed when its required checkpoint was never written.
