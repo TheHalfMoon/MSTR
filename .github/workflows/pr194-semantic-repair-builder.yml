@@ -1,0 +1,130 @@
+name: PR194 semantic repair builder
+
+on:
+  push:
+    branches:
+      - evidence/pr194-semantic-repair-builder-7c638a6
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EXPECTED_HEAD: 7c638a6db7d9f7401bb973d714fcac3902212f54
+      TARGET_BRANCH: fix/b012-qwen-staged-recovery-topology
+    steps:
+      - name: Checkout exact target branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Guard exact target head
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_HEAD" ]]
+
+      - name: Apply evidence-state semantic repair
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          script_path = Path('colab/mstr_b012_qwen_raw_code_recovery_staged.py')
+          text = script_path.read_text(encoding='utf-8')
+
+          replacements = [
+              (
+                  '    source_dir = _path_from_state(state, "workdir") / "source" / CANDIDATE_ID\n    source_records = download_candidate(\n',
+                  '    source_dir = _path_from_state(state, "workdir") / "source" / CANDIDATE_ID\n    state["model_access_state"] = "EXACT_B010_FILE_REACQUISITION_IN_PROGRESS"\n    _write(_state_path(output_dir), state)\n    source_records = download_candidate(\n',
+              ),
+              (
+                  '    state = _load_state(output_dir, "quantize")\n    _require_stage_main(repo_root, state)\n    q4, quantization = convert_quantize(\n',
+                  '    state = _load_state(output_dir, "quantize")\n    _require_stage_main(repo_root, state)\n    state["model_access_state"] = "EXACT_Q4_REGENERATION_IN_PROGRESS"\n    _write(_state_path(output_dir), state)\n    q4, quantization = convert_quantize(\n',
+              ),
+              (
+                  '    _require_same_main(repo_root, state)\n    state["regenerated_q4"] = {\n',
+                  '    _require_same_main(repo_root, state)\n    state["model_access_state"] = "EXACT_Q4_REGENERATED_VERIFIED"\n    state["regenerated_q4"] = {\n',
+              ),
+              (
+                  '    state = _load_state(output_dir, "raw-code")\n    _require_stage_main(repo_root, state)\n    raw_manifest = read_json(repo_root / RAW_CODE_PATH)\n',
+                  '    state = _load_state(output_dir, "raw-code")\n    _require_stage_main(repo_root, state)\n    state["model_access_state"] = "RAW_CODE_EXECUTION_IN_PROGRESS"\n    _write(_state_path(output_dir), state)\n    raw_manifest = read_json(repo_root / RAW_CODE_PATH)\n',
+              ),
+              (
+                  '    _require_same_main(repo_root, state)\n    state["raw_code_proxy"] = raw_code\n',
+                  '    _require_same_main(repo_root, state)\n    state["model_access_state"] = "RAW_CODE_EXECUTION_COMPLETE"\n    state["raw_code_proxy"] = raw_code\n',
+              ),
+              (
+                  '        "completed_stages": ["init", "source", "quantize", "raw-code"],\n',
+                  '        "completed_stages": list(STAGES),\n',
+              ),
+              (
+                  '        "recovery_repair_id": state.get("repair_id"),\n        "training": False,\n',
+                  '        "recovery_repair_id": state.get("repair_id"),\n        "model_access_state": state.get("model_access_state"),\n        "training": False,\n',
+              ),
+          ]
+          for old, new in replacements:
+              count = text.count(old)
+              assert count == 1, (old, count)
+              text = text.replace(old, new, 1)
+          script_path.write_text(text, encoding='utf-8')
+
+          test_path = Path('tests/contract/test_b012_qwen_staged_recovery_topology.py')
+          test = test_path.read_text(encoding='utf-8')
+          anchor = '    assert "external_dispatch_authority_created" in source\n'
+          addition = (
+              '    assert "EXACT_B010_FILE_REACQUISITION_IN_PROGRESS" in source\n'
+              '    assert "EXACT_Q4_REGENERATION_IN_PROGRESS" in source\n'
+              '    assert "RAW_CODE_EXECUTION_IN_PROGRESS" in source\n'
+              '    assert \'"completed_stages": list(STAGES)\' in source\n'
+          )
+          assert test.count(anchor) == 1
+          test = test.replace(anchor, anchor + addition, 1)
+          test_path.write_text(test, encoding='utf-8')
+
+          manifest_path = Path('artifacts/manifests/B012-qwen-raw-code-recovery-staged-topology.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          durability = manifest['durability_boundary']
+          durability['caught_stage_failures_preserve_in_progress_model_access_state'] = True
+          durability['final_result_completed_stages_include_finalize'] = True
+          manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          PY
+
+      - name: Format changed Python and bind exact script hash
+        run: |
+          set -euo pipefail
+          python -m pip install -q ruff pytest
+          python -m ruff format colab/mstr_b012_qwen_raw_code_recovery_staged.py tests/contract/test_b012_qwen_staged_recovery_topology.py
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          manifest_path=Path('artifacts/manifests/B012-qwen-raw-code-recovery-staged-topology.json')
+          manifest=json.loads(manifest_path.read_text(encoding='utf-8'))
+          script=Path(manifest['staged_script_path'])
+          workflow=Path(manifest['staged_workflow_spec_path'])
+          manifest['staged_script_sha256']=hashlib.sha256(script.read_bytes()).hexdigest()
+          manifest['staged_workflow_sha256']=hashlib.sha256(workflow.read_bytes()).hexdigest()
+          manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          PY
+
+      - name: Focused static verification
+        run: |
+          set -euo pipefail
+          PYTHONPATH=colab python -m pytest -q tests/contract/test_b012_qwen_staged_recovery_topology.py
+          python -m ruff check colab/mstr_b012_qwen_raw_code_recovery_staged.py tests/contract/test_b012_qwen_staged_recovery_topology.py
+          python -m ruff format --check colab/mstr_b012_qwen_raw_code_recovery_staged.py tests/contract/test_b012_qwen_staged_recovery_topology.py
+
+      - name: Commit and push exact repaired target
+        run: |
+          set -euo pipefail
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add colab/mstr_b012_qwen_raw_code_recovery_staged.py artifacts/manifests/B012-qwen-raw-code-recovery-staged-topology.json tests/contract/test_b012_qwen_staged_recovery_topology.py
+          git diff --cached --quiet && { echo 'expected semantic repair diff missing' >&2; exit 1; }
+          git commit -m 'fix(b012): preserve staged model-access evidence state'
+          git push origin HEAD:"$TARGET_BRANCH"
