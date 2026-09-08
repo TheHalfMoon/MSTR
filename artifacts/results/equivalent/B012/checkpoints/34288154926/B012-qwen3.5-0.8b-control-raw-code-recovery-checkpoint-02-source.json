@@ -1,0 +1,114 @@
+{
+  "candidate_id": "qwen3.5-0.8b-control",
+  "canonical_main_at_start": "66cd090fc75286bfc24db4bdf8fe58b64394e228",
+  "checkpoint_payload": {
+    "source_verification": [
+      {
+        "expected_sha256": "b90b86f35c8e6925ef74ee04d0e758f0a845c83a42089ad82bbaa948de9b4204",
+        "expected_size_bytes": 2907,
+        "file": "config.json",
+        "final_host": "huggingface.co",
+        "initial_host": "huggingface.co",
+        "sha256": "b90b86f35c8e6925ef74ee04d0e758f0a845c83a42089ad82bbaa948de9b4204",
+        "size_bytes": 2907,
+        "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/config.json"
+      },
+      {
+        "expected_sha256": "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d",
+        "expected_size_bytes": 3353259,
+        "file": "merges.txt",
+        "final_host": "huggingface.co",
+        "initial_host": "huggingface.co",
+        "sha256": "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d",
+        "size_bytes": 3353259,
+        "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/merges.txt"
+      },
+      {
+        "expected_sha256": "c2b1e5a17d9c1e27685d92ed9b382911ebb99955ecd89052d1721241adfbab6c",
+        "expected_size_bytes": 1746942600,
+        "file": "model.safetensors-00001-of-00001.safetensors",
+        "final_host": "us.aws.cdn.hf.co",
+        "initial_host": "huggingface.co",
+        "sha256": "c2b1e5a17d9c1e27685d92ed9b382911ebb99955ecd89052d1721241adfbab6c",
+        "size_bytes": 1746942600,
+        "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/model.safetensors-00001-of-00001.safetensors"
+      },
+      {
+        "expected_sha256": "ce9a885efdf27d3664fdef5d512ad365216f1074051ef840c7cd8e5431495d0a",
+        "expected_size_bytes": 50900,
+        "file": "model.safetensors.index.json",
+        "final_host": "huggingface.co",
+        "initial_host": "huggingface.co",
+        "sha256": "ce9a885efdf27d3664fdef5d512ad365216f1074051ef840c7cd8e5431495d0a",
+        "size_bytes": 50900,
+        "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/model.safetensors.index.json"
+      },
+      {
+        "expected_sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516",
+        "expected_size_bytes": 390,
+        "file": "preprocessor_config.json",
+        "final_host": "huggingface.co",
+        "initial_host": "huggingface.co",
+        "sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516",
+        "size_bytes": 390,
+        "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/preprocessor_config.json"
+      },
+      {
+        "expected_sha256": "fe000e3ed39ed12b8d2481d527d44f93c65d37e87645d2dcc80d1bf9d50d2927",
+        "expected_size_bytes": 12807196,
+        "file": "tokenizer.json",
+        "final_host": "us.aws.cdn.hf.co",
+        "initial_host": "huggingface.co",
+        "sha256": "fe000e3ed39ed12b8d2481d527d44f93c65d37e87645d2dcc80d1bf9d50d2927",
+        "size_bytes": 12807196,
+        "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/tokenizer.json"
+      },
+      {
+        "expected_sha256": "e611fbccc7c29ef3b1cafb1cb7ea548d189968632901d678fd62be68c47885de",
+        "expected_size_bytes": 16712,
+        "file": "tokenizer_config.json",
+        "final_host": "huggingface.co",
+        "initial_host": "huggingface.co",
+        "sha256": "e611fbccc7c29ef3b1cafb1cb7ea548d189968632901d678fd62be68c47885de",
+        "size_bytes": 16712,
+        "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/tokenizer_config.json"
+      },
+      {
+        "expected_sha256": "d039cd7d88b3502a99edd455496b75b44ecf7dd3b3669748bafac37e6cecc085",
+        "expected_size_bytes": 386,
+        "file": "video_preprocessor_config.json",
+        "final_host": "huggingface.co",
+        "initial_host": "huggingface.co",
+        "sha256": "d039cd7d88b3502a99edd455496b75b44ecf7dd3b3669748bafac37e6cecc085",
+        "size_bytes": 386,
+        "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/video_preprocessor_config.json"
+      },
+      {
+        "expected_sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003",
+        "expected_size_bytes": 6722759,
+        "file": "vocab.json",
+        "final_host": "huggingface.co",
+        "initial_host": "huggingface.co",
+        "sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003",
+        "size_bytes": 6722759,
+        "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B-Base/resolve/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68/vocab.json"
+      }
+    ],
+    "verified_download_bytes": 1769897109,
+    "verified_file_count": 9
+  },
+  "completed_stages": [
+    "init",
+    "source"
+  ],
+  "completed_utc": "2026-09-08T23:02:30Z",
+  "durable_binary_artifacts": false,
+  "durable_output_format": "JSON_ONLY",
+  "model_access_state": "EXACT_B010_FILES_REACQUIRED_VERIFIED",
+  "paid_cost_usd": 0.0,
+  "schema_version": "mstr.b012-qwen-raw-code-case-checkpoint.v1",
+  "stage": "source",
+  "stage_label": "02-source",
+  "task_id": "B012",
+  "training": false
+}
