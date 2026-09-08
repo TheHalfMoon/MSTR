@@ -16,7 +16,7 @@
         "<|fim_prefix|>": true,
         "<|fim_suffix|>": true,
         "fim": true,
-        "Ġfim": true
+        "\u0120fim": true
       },
       "quantization_arms": {
         "Q4_K_M": {
@@ -36,7 +36,7 @@
         "<|fim_prefix|>",
         "<|fim_suffix|>",
         "fim",
-        "Ġfim"
+        "\u0120fim"
       ]
     }
   },
