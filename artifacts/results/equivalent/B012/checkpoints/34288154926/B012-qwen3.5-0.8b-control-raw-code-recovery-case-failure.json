@@ -1,0 +1,28 @@
+{
+  "candidate_admission_decision": "NONE",
+  "candidate_id": "qwen3.5-0.8b-control",
+  "completed_raw_code_cases": [],
+  "completed_stages": [
+    "init",
+    "source",
+    "quantize"
+  ],
+  "error": "llama-cli raw-code execution failed for python-clamp: warning: no usable GPU found, --gpu-layers option will be ignored\nwarning: one possible reason is that llama.cpp was compiled without GPU support\nwarning: consult docs/build.md for compilation instructions\nerror: invalid argument: --no-conversation",
+  "error_type": "ExecutionError",
+  "execution_stage": "CASE_CHECKPOINT_RAW_CODE_PYTHON_CLAMP",
+  "expected_q4_k_m_sha256": "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa",
+  "expected_q4_k_m_size_bytes": 541903296,
+  "external_dispatch_authority_created": false,
+  "failed_utc": "2026-09-08T23:03:29Z",
+  "last_durable_checkpoint_stage": "quantize",
+  "model_access_state": "RAW_CODE_CASE_PYTHON_CLAMP_IN_PROGRESS",
+  "model_quality_verdict": "NONE",
+  "paid_cost_usd": 0.0,
+  "prior_run_id": 34155931982,
+  "result_classification": "B012_RAW_CODE_RECOVERY_FAILED_CLOSED",
+  "retry_authority_created": false,
+  "schema_version": "mstr.b012-qwen-raw-code-recovery-failure.v3",
+  "started_utc": "2026-09-08T23:01:42Z",
+  "task_id": "B012",
+  "training": false
+}
