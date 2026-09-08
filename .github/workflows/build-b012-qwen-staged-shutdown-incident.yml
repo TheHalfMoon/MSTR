@@ -194,9 +194,9 @@ jobs:
             'evidence/mstr-000b/B012-qwen-staged-recovery-runner-shutdown-34231845282.md' \
             'tests/contract/test_b012_executor_binding.py' \
             'tests/contract/test_b012_qwen_raw_code_recovery.py' \
-            'tests/contract/test_b012_qwen_staged_recovery_topology.py' \
             'tests/contract/test_b012_runner_shutdown_evidence.py' \
-            'tests/contract/test_b012_stage_checkpoint_topology.py')
+            'tests/contract/test_b012_stage_checkpoint_topology.py' \
+            'tests/contract/test_b012_qwen_staged_recovery_topology.py' | sort)
           [[ "$(git diff --name-only | sort)" == "$expected" ]]
           git diff --check
           python - <<'PY'
