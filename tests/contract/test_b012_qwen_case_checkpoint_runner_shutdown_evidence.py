@@ -11,12 +11,8 @@ INCIDENT = ROOT / (
     "B012-qwen3.5-0.8b-control-raw-code-case-checkpoint-recovery-run-34265475666.json"
 )
 CHECKPOINT_DIR = ROOT / "artifacts/results/equivalent/B012/checkpoints/34265475666"
-INIT = CHECKPOINT_DIR / (
-    "B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-01-init.json"
-)
-SOURCE = CHECKPOINT_DIR / (
-    "B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-02-source.json"
-)
+INIT = CHECKPOINT_DIR / ("B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-01-init.json")
+SOURCE = CHECKPOINT_DIR / ("B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-02-source.json")
 QUANTIZE = CHECKPOINT_DIR / (
     "B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-03-quantize.json"
 )
@@ -29,9 +25,7 @@ CHECKPOINT_SHA256 = {
     "quantize": "ed15864153a8e4b26fffca5298dcbd80763e9c7edd0106845555b8325b079205",
 }
 STATE_SHA256 = "e5accce8487556a649db0c147a3c5876c0b31f8c1c0b334e48510f3680f58733"
-FAILURE_CLASS = (
-    "B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_PARTIAL_DURABLE_PROGRESS_RAW_CODE_UNPROVEN"
-)
+FAILURE_CLASS = "B012_INFRASTRUCTURE_RUNNER_SHUTDOWN_PARTIAL_DURABLE_PROGRESS_RAW_CODE_UNPROVEN"
 
 
 def _read_json(path: Path) -> dict[str, object]:
