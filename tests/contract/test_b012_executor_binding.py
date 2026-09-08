@@ -50,7 +50,7 @@ def test_binding_matches_canonical_authority_and_envelope() -> None:
     assert authority["status"] == "AUTHORIZED_CANONICAL"
     assert authority["authority_id"] == "B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION"
     assert authority["task_id"] == "B012"
-    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
+    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RUNTIME_CONTRACT_REPAIR"
     assert binding["task_id"] == "B012"
     assert binding["source_main"] == "603a6865fdbf5a5434565e870d73054c5b574f2a"
     assert binding["candidate_ids"] == CANDIDATES
