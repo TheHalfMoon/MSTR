@@ -36,9 +36,7 @@ def _sha256(path: Path) -> str:
 
 def test_one_shot_repair_is_inert_hash_bound_and_non_authorizing() -> None:
     manifest = _read_json(MANIFEST)
-    assert manifest["schema_version"] == (
-        "mstr.b012-qwen-raw-code-one-shot-topology-repair.v1"
-    )
+    assert manifest["schema_version"] == ("mstr.b012-qwen-raw-code-one-shot-topology-repair.v1")
     assert manifest["repair_id"] == "B012_QWEN_RAW_CODE_ONE_SHOT_MODE_REPAIR_2026_09_08"
     assert manifest["task_id"] == "B012"
     assert manifest["status"] == "READY_FOR_SEPARATE_CANONICAL_ACTIVATION"
@@ -230,9 +228,7 @@ def test_wrapper_binds_isolated_helper_only_after_canonical_activation() -> None
     assert "import mstr_b012_raw_code_one_shot as one_shot_raw_code" in wrapper
     assert "one_shot_raw_code_helper_sha256" in wrapper
     assert "require_file_sha256(repo_root / ONE_SHOT_HELPER_PATH" in wrapper
-    assert (
-        "case_checkpoint.run_raw_code_proxy = one_shot_raw_code.run_raw_code_proxy" in wrapper
-    )
+    assert "case_checkpoint.run_raw_code_proxy = one_shot_raw_code.run_raw_code_proxy" in wrapper
     assert 'ACTIVATION_KEY = "qwen_raw_code_one_shot_activation"' in wrapper
     assert "is not canonically activated" in wrapper
 
@@ -247,8 +243,6 @@ def test_repair_does_not_activate_dispatch_surface() -> None:
     assert activation["package_performs_model_execution"] is False
 
     workflow = ACTIVE_WORKFLOW.read_text(encoding="utf-8")
-    assert (
-        "B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982" in workflow
-    )
+    assert "B012_RECOVER_RAW_CODE_CASE_CHECKPOINT qwen3.5-0.8b-control 34155931982" in workflow
     assert "B012_RECOVER_RAW_CODE_ONE_SHOT" not in workflow
     assert "mstr_b012_qwen_raw_code_one_shot.py" not in workflow
