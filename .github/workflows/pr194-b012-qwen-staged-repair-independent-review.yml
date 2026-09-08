@@ -1,0 +1,254 @@
+name: PR194 B012 Qwen staged repair independent semantic review
+
+on:
+  push:
+    branches:
+      - evidence/pr194-independent-semantic-review-e58435c
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    env:
+      REPO: TheHalfMoon/MSTR
+      BASE: 5e15cfd0d5eb696154a757edd9382dfea65359cf
+      HEAD: e58435cbb02ec30ba60df1f24f7574f8712dc1ca
+      TREE: bd04fe85b9d69747b1936c1c180012449042cfbb
+      PR: '194'
+      QUAL_RUN: '34176458994'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout exact reviewed subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: 3.11.16
+          check-latest: false
+
+      - name: Prove exact subject and successful qualification identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git show -s --format=%T HEAD)" = "$TREE"
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git merge-base "$BASE" "$HEAD")" = "$BASE"
+          gh api "repos/$REPO/actions/runs/$QUAL_RUN" > /tmp/qual.json
+          jq -e --arg head '530c193ad00b0b82dfdf8d1ede64a86deb290a6b' '.status=="completed" and .conclusion=="success" and .head_sha==$head' /tmp/qual.json >/dev/null
+          gh api "repos/$REPO/pulls/$PR" > /tmp/pr.json
+          jq -e --arg base "$BASE" --arg head "$HEAD" '.state=="open" and .draft==false and .base.sha==$base and .head.sha==$head and .changed_files==5' /tmp/pr.json >/dev/null
+
+      - name: Install repository dev dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Review exact non-active authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          base='5e15cfd0d5eb696154a757edd9382dfea65359cf'
+          manifest_path=Path('artifacts/manifests/B012-qwen-raw-code-recovery-staged-topology.json')
+          m=json.loads(manifest_path.read_text(encoding='utf-8'))
+          sha=lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+          script=Path(m['staged_script_path'])
+          workflow=Path(m['staged_workflow_spec_path'])
+          assert m['base_main']==base
+          assert m['status']=='READY_FOR_SEPARATE_CANONICAL_ACTIVATION'
+          assert m['activation']['separate_activation_pr_required'] is True
+          assert m['activation']['package_performs_model_access'] is False
+          assert m['activation']['package_performs_model_execution'] is False
+          assert sha(script)==m['staged_script_sha256']
+          assert sha(workflow)==m['staged_workflow_sha256']
+          boundary=m['authority_boundary']
+          assert boundary['existing_authority_id']=='B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
+          for key in ('authority_scope_modified','authority_transfer','candidate_expansion','candidate_revision_or_file_expansion','external_dispatch_authority_created','paid_compute','paid_model_api','production_release','retry_authority_created','training','weight_changing_training'):
+              assert boundary[key] is False, key
+          assert boundary['git_model_binaries']==0
+          assert boundary['founder_machine_model_binaries']==0
+          assert boundary['paid_cost_usd']==0.0
+          PY
+          for path in \
+            .github/workflows/b012-qwen-raw-code-recovery.yml \
+            colab/mstr_b012_governance.py \
+            artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json \
+            artifacts/manifests/B010-new-candidate-weight-access.json \
+            benchmarks/manifests/B012-raw-code-proxy.json; do
+            git diff --quiet "$BASE" "$HEAD" -- "$path"
+          done
+
+      - name: Review workflow durability and artifact boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          text=Path('configs/workflows/b012-qwen-raw-code-recovery-staged.yml').read_text(encoding='utf-8')
+          assert "github.event.issue.number == 162" in text
+          assert "github.event.comment.user.login == 'TheHalfMoon'" in text
+          assert "github.event.comment.author_association == 'OWNER'" in text
+          assert "github.event.comment.body == 'B012_RECOVER_RAW_CODE_STAGED qwen3.5-0.8b-control 34155931982'" in text
+          assert text.count('actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02')==5
+          assert text.count('${{ runner.temp }}/b012-qwen-raw-code-results/*.json')==5
+          assert 'actions/download-artifact@' not in text
+          assert 'actions/cache@' not in text
+          assert '.gguf' not in text
+          assert '.safetensors' not in text
+          stages=['--stage init','--stage source','--stage quantize','--stage raw-code','--stage finalize']
+          positions=[text.index(x) for x in stages]
+          assert positions==sorted(positions)
+          assert text.index('Upload stage 01 JSON checkpoint') < text.index('--stage source')
+          assert text.index('Upload stage 02 JSON checkpoint') < text.index('--stage quantize')
+          assert text.index('Upload stage 03 JSON checkpoint') < text.index('--stage raw-code')
+          assert text.index('Upload stage 04 JSON checkpoint') < text.index('--stage finalize')
+          assert 'rm -rf "$RUNNER_TEMP/b012-qwen-raw-code-work"' in text
+          PY
+
+      - name: Independently exercise failure-state truthfulness
+        shell: bash
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          cat > /tmp/test_review_failure_states.py <<'PY'
+          import argparse
+          import json
+          from pathlib import Path
+          import pytest
+          import mstr_b012_qwen_raw_code_recovery_staged as s
+
+          def state(path: Path, completed, extra_paths):
+              payload={
+                  'task_id':'B012',
+                  'candidate_id':s.CANDIDATE_ID,
+                  'canonical_main_at_start':'a'*40,
+                  'completed_stages':list(completed),
+                  'last_completed_stage':completed[-1] if completed else None,
+                  'model_access_state':'NONE' if completed==['init'] else 'EXACT_B010_FILES_REACQUIRED_VERIFIED',
+                  'local_ephemeral_paths':{'workdir':str(path/'work'), **extra_paths},
+              }
+              s._write(s._state_path(path), payload)
+
+          def fail(msg):
+              raise RuntimeError(msg)
+
+          def read_failure(path):
+              return json.loads(s._failure_path(path).read_text(encoding='utf-8'))
+
+          def test_source_failure_preserves_in_progress_state(tmp_path, monkeypatch):
+              state(tmp_path,['init'],{})
+              monkeypatch.setattr(s,'_require_stage_main',lambda *a,**k: ({},{},{},{}))
+              monkeypatch.setattr(s,'download_candidate',lambda **k: fail('source boom'))
+              rc=s.execute(argparse.Namespace(stage='source',output_dir=tmp_path,workdir=tmp_path/'work'))
+              assert rc==1
+              d=read_failure(tmp_path)
+              assert d['model_access_state']=='EXACT_B010_FILE_REACQUISITION_IN_PROGRESS'
+              assert d['completed_stages']==['init']
+              assert d['model_quality_verdict']=='NONE'
+
+          def test_quantize_failure_preserves_in_progress_state(tmp_path, monkeypatch):
+              paths={k:str(tmp_path/k) for k in ('python_exe','conversion_dir','quantizer','source_dir')}
+              state(tmp_path,['init','source'],paths)
+              monkeypatch.setattr(s,'_require_stage_main',lambda *a,**k: ({},{},{},{}))
+              monkeypatch.setattr(s,'convert_quantize',lambda **k: fail('quantize boom'))
+              rc=s.execute(argparse.Namespace(stage='quantize',output_dir=tmp_path,workdir=tmp_path/'work'))
+              assert rc==1
+              d=read_failure(tmp_path)
+              assert d['model_access_state']=='EXACT_Q4_REGENERATION_IN_PROGRESS'
+              assert d['completed_stages']==['init','source']
+              assert d['candidate_admission_decision']=='NONE'
+
+          def test_raw_code_failure_preserves_in_progress_state(tmp_path, monkeypatch):
+              paths={'cli':str(tmp_path/'cli'),'q4':str(tmp_path/'q4')}
+              state(tmp_path,['init','source','quantize'],paths)
+              monkeypatch.setattr(s,'_require_stage_main',lambda *a,**k: ({},{},{},{}))
+              monkeypatch.setattr(s,'read_json',lambda *a,**k: {})
+              monkeypatch.setattr(s,'run_raw_code_proxy',lambda **k: fail('raw boom'))
+              rc=s.execute(argparse.Namespace(stage='raw-code',output_dir=tmp_path,workdir=tmp_path/'work'))
+              assert rc==1
+              d=read_failure(tmp_path)
+              assert d['model_access_state']=='RAW_CODE_EXECUTION_IN_PROGRESS'
+              assert d['completed_stages']==['init','source','quantize']
+              assert d['retry_authority_created'] is False
+              assert d['external_dispatch_authority_created'] is False
+          PY
+          python -m pytest -q /tmp/test_review_failure_states.py
+
+      - name: Independently exercise finalize semantics
+        shell: bash
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          cat > /tmp/test_review_finalize.py <<'PY'
+          import json
+          import mstr_b012_qwen_raw_code_recovery_staged as s
+
+          def test_finalize_contains_complete_stage_chain(tmp_path, monkeypatch):
+              s._write(s._state_path(tmp_path),{
+                  'task_id':'B012','candidate_id':s.CANDIDATE_ID,
+                  'canonical_main_at_start':'a'*40,
+                  'started_utc':'2026-09-08T00:00:00Z',
+                  'completed_stages':['init','source','quantize','raw-code'],
+                  'last_completed_stage':'raw-code',
+                  'model_access_state':'RAW_CODE_EXECUTION_COMPLETE',
+                  'source_verification':[],
+                  'regenerated_q4':{'sha256':s.EXPECTED_Q4_K_M_SHA256,'size_bytes':s.EXPECTED_Q4_K_M_SIZE_BYTES},
+                  'raw_code_proxy':{'score':0.5},
+                  'repair_id':'review-fixture',
+                  'producer_replay':{},'tool_identity':{},'local_ephemeral_paths':{'workdir':str(tmp_path/'work')},
+              })
+              monkeypatch.setattr(s,'_require_stage_main',lambda *a,**k: ({},{},{},{}))
+              monkeypatch.setattr(s,'_require_live_main',lambda *a,**k: 'a'*40)
+              s._stage_finalize(repo_root=tmp_path, output_dir=tmp_path)
+              result=json.loads(s._result_path(tmp_path).read_text(encoding='utf-8'))
+              state=json.loads(s._state_path(tmp_path).read_text(encoding='utf-8'))
+              assert result['completed_stages']==['init','source','quantize','raw-code','finalize']
+              assert result['model_access_state']=='RAW_CODE_EXECUTION_COMPLETE'
+              assert result['candidate_admission_decision']=='NOT_MADE_BY_B012_RECOVERY'
+              assert state['completed_stages']==['init','source','quantize','raw-code','finalize']
+              assert state['last_completed_stage']=='finalize'
+          PY
+          python -m pytest -q /tmp/test_review_finalize.py
+
+      - name: Independent focused and full quality confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=colab python -m pytest -q tests/contract/test_b012_qwen_staged_recovery_topology.py
+          python -m ruff check .
+          python -m ruff format --check colab/mstr_b012_qwen_raw_code_recovery_staged.py tests/contract/test_b012_qwen_staged_recovery_topology.py
+          python -m pytest -q
+          python -m mypy src/mstr_qualify
+
+      - name: Prove no blocking reviews or unresolved threads
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/pulls/$PR/reviews?per_page=100" > /tmp/reviews.json
+          jq -e 'all(.[]; .state != "CHANGES_REQUESTED")' /tmp/reviews.json >/dev/null
+          gh api graphql -f query='query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$pr){reviewThreads(first:100){nodes{isResolved}}}}}' -f owner=TheHalfMoon -f repo=MSTR -F pr=194 > /tmp/threads.json
+          jq -e '.data.repository.pullRequest.reviewThreads.nodes | all(.isResolved == true)' /tmp/threads.json >/dev/null
+
+      - name: Final independent live guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git show -s --format=%T HEAD)" = "$TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE"
+          test "$(git ls-remote origin refs/heads/fix/b012-qwen-staged-recovery-topology | cut -f1)" = "$HEAD"
+          gh api "repos/$REPO/pulls/$PR" > /tmp/pr-final.json
+          jq -e --arg base "$BASE" --arg head "$HEAD" '.state=="open" and .draft==false and .mergeable==true and .base.sha==$base and .head.sha==$head and .changed_files==5' /tmp/pr-final.json >/dev/null
+          echo 'PR194_INDEPENDENT_SEMANTIC_REVIEW=PASS'
