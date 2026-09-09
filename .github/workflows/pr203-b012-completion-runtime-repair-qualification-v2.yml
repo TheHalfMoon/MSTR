@@ -1,0 +1,216 @@
+name: PR203 B012 completion runtime repair qualification v2
+
+on:
+  push:
+    branches:
+      - evidence/pr203-b012-completion-runtime-repair-qualification-v2-4cda21d
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  REPO: TheHalfMoon/MSTR
+  BASE: e87328872232471fa0e1eb05d74223bc0aeaafd3
+  TARGET_HEAD: 4cda21ddf7c7fcf0083ed1be3f1d170a050cf9f2
+  TARGET_TREE: 4d3546fa4371e8f08d81252db1459f4d458f9fc4
+  TARGET_BRANCH: fix/b012-qwen-raw-completion-runtime-contract
+  PR: '203'
+  QUAL_V1_RUN: '34298836988'
+  QUAL_V1_HEAD: aeb590802fe24fc07ea18af800df85568bc3395f
+  ENTRY_V2_RUN: '34297979527'
+  ENTRY_V2_HEAD: ad87bba0447143837d26af6cf6b53911b8a708e3
+  RUNTIME_COMMIT: 3173a56471c1753650cd806694145ffd6dcace67
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  qualify_v2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Preserve v1 failure and verify live immutable identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$BASE"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_HEAD"
+          gh api "repos/$REPO/actions/runs/$QUAL_V1_RUN" > /tmp/qual-v1.json
+          jq -e --arg h "$QUAL_V1_HEAD" '.status=="completed" and .conclusion=="failure" and .run_attempt==1 and .head_sha==$h' /tmp/qual-v1.json >/dev/null
+          gh api "repos/$REPO/actions/runs/$ENTRY_V2_RUN" > /tmp/entry-v2.json
+          jq -e --arg h "$ENTRY_V2_HEAD" '.status=="completed" and .conclusion=="success" and .run_attempt==1 and .head_sha==$h' /tmp/entry-v2.json >/dev/null
+          gh api "repos/$REPO/pulls/$PR" > /tmp/pr.json
+          jq -e --arg base "$BASE" --arg head "$TARGET_HEAD" '.state=="open" and .draft==false and .base.sha==$base and .head.sha==$head and .changed_files==7' /tmp/pr.json >/dev/null
+
+      - name: Checkout exact repair subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.16'
+          check-latest: false
+
+      - name: Prove exact inactive repair scope and frozen active surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$BASE" "$TARGET_HEAD")" = "$BASE"
+          git diff --check "$BASE" "$TARGET_HEAD"
+          git diff --name-only "$BASE" "$TARGET_HEAD" | sort > /tmp/actual.txt
+          cat > /tmp/expected.txt <<'EOF'
+          artifacts/manifests/B012-qwen-raw-code-completion-runtime-repair.json
+          benchmarks/manifests/B012-raw-code-proxy-completion-runtime.json
+          colab/mstr_b012_qwen_raw_code_completion.py
+          colab/mstr_b012_raw_code_completion.py
+          configs/workflows/b012-qwen-raw-code-completion-recovery.yml
+          evidence/mstr-000b/B012-qwen-raw-code-completion-runtime-contract-repair.md
+          tests/contract/test_b012_qwen_raw_code_completion_runtime_contract.py
+          EOF
+          sed -i 's/^          //' /tmp/expected.txt
+          sort -o /tmp/expected.txt /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+          for path in \
+            .github/workflows/b012-qwen-raw-code-recovery.yml \
+            artifacts/manifests/B012-executor-toolchain-binding.json \
+            artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json \
+            artifacts/manifests/B012-equivalent-qualification-execution-envelope.json \
+            artifacts/manifests/B012-executor-toolchain-lock.json \
+            benchmarks/manifests/B012-raw-code-proxy.json \
+            colab/mstr_b012_raw_code_one_shot.py \
+            colab/mstr_b012_qwen_raw_code_one_shot.py \
+            specs/002-code-model-supremacy-foundation/tasks.md \
+            docs/canonical/CURRENT_STATE.md; do
+            git diff --quiet "$BASE" "$TARGET_HEAD" -- "$path"
+          done
+
+      - name: Prove immutable pinned llama.cpp completion parser contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/ggml-org/llama.cpp/contents/common/arg.cpp?ref=$RUNTIME_COMMIT" --jq .sha)" = '4469612cd5b26611ee08a1937cb721576e24d095'
+          test "$(gh api "repos/ggml-org/llama.cpp/contents/tools/cli/cli.cpp?ref=$RUNTIME_COMMIT" --jq .sha)" = 'dcdb6aeac21dcada049f9cd7cc37d352b41f1f35'
+          test "$(gh api "repos/ggml-org/llama.cpp/contents/tools/completion/CMakeLists.txt?ref=$RUNTIME_COMMIT" --jq .sha)" = 'a310251eff6e18c5ab09787066d7c76afa673e8f'
+          test "$(gh api "repos/ggml-org/llama.cpp/contents/tools/completion/completion.cpp?ref=$RUNTIME_COMMIT" --jq .sha)" = '941b7399b2e3fb9a069619c17d1f64b67320ef72'
+          test "$(gh api "repos/ggml-org/llama.cpp/contents/tools/completion/main.cpp?ref=$RUNTIME_COMMIT" --jq .sha)" = 'bea9a0ec9aa75e9eb4f7962d85ed136e9e0dcb7b'
+          mkdir -p /tmp/llama-src
+          base_url="https://raw.githubusercontent.com/ggml-org/llama.cpp/$RUNTIME_COMMIT"
+          curl -fsSL "$base_url/common/arg.cpp" -o /tmp/llama-src/arg.cpp
+          curl -fsSL "$base_url/tools/cli/cli.cpp" -o /tmp/llama-src/cli.cpp
+          curl -fsSL "$base_url/tools/completion/completion.cpp" -o /tmp/llama-src/completion.cpp
+          curl -fsSL "$base_url/tools/completion/CMakeLists.txt" -o /tmp/llama-src/CMakeLists.txt
+          python - <<'PY'
+          from pathlib import Path
+          arg=Path('/tmp/llama-src/arg.cpp').read_text(encoding='utf-8')
+          cli=Path('/tmp/llama-src/cli.cpp').read_text(encoding='utf-8')
+          completion=Path('/tmp/llama-src/completion.cpp').read_text(encoding='utf-8')
+          cmake=Path('/tmp/llama-src/CMakeLists.txt').read_text(encoding='utf-8')
+          needle='{"-no-cnv", "--no-conversation"}'
+          i=arg.index(needle)
+          assert 'LLAMA_EXAMPLE_COMPLETION' in arg[i:i+1400]
+          assert 'common_params_parse(argc, argv, params, LLAMA_EXAMPLE_CLI)' in cli
+          assert 'common_params_parse(argc, argv, params, LLAMA_EXAMPLE_COMPLETION' in completion
+          assert '-no-cnv' in completion
+          assert 'llama-completion' in cmake
+          PY
+
+      - name: Reprove exact-main B012 eligibility and canonical Founder authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -B main "$BASE"
+          test "$(git rev-parse HEAD)" = "$BASE"
+          git update-ref refs/heads/main "$BASE"
+          python -m pip install -e .
+          python -m mstr_qualify task eligible B012 > /tmp/b012.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          d=json.loads(Path('/tmp/b012.json').read_text(encoding='utf-8'))
+          assert d['task_id']=='B012'
+          assert d['canonical_main']==os.environ['BASE']
+          assert d['eligible'] is True and d['reasons']==[]
+          assert d['state_consistency_result']['observed_state']=='PENDING'
+          assert d['authority_result']['authority_id']=='B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
+          assert d['authority_result']['satisfied'] is True
+          assert all(item['satisfied'] for item in d['prerequisite_results'])
+          assert all(d['semantic_checks'].values())
+          a=json.loads(Path('artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json').read_text(encoding='utf-8'))
+          assert a['status']=='AUTHORIZED_CANONICAL'
+          assert a['scope']['candidate_ids']==['mellum-4b','qwen3.5-0.8b-control']
+          assert a['scope']['training'] is False
+          assert a['scope']['paid_compute'] is False
+          assert a['scope']['paid_model_api'] is False
+          assert a['cost_resource_ceiling']['limits'][0]['max']==0.0
+          PY
+          git checkout --detach "$TARGET_HEAD"
+
+      - name: Validate repair semantics without model execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('.')
+          repair=json.loads((root/'artifacts/manifests/B012-qwen-raw-code-completion-runtime-repair.json').read_text())
+          old=json.loads((root/'benchmarks/manifests/B012-raw-code-proxy.json').read_text())
+          new=json.loads((root/'benchmarks/manifests/B012-raw-code-proxy-completion-runtime.json').read_text())
+          assert repair['status']=='READY_FOR_SEPARATE_CANONICAL_ACTIVATION'
+          assert repair['runtime_migration']['runtime_commit']=='3173a56471c1753650cd806694145ffd6dcace67'
+          assert repair['runtime_migration']['from_executable']=='llama-cli'
+          assert repair['runtime_migration']['to_executable']=='llama-completion'
+          assert repair['activation_boundary']['activation_required'] is True
+          assert repair['activation_boundary']['repair_pr_must_not_execute_model'] is True
+          for key in ('retry_authority_created','external_dispatch_authority_created','cross_run_resume_authority_created','candidate_expansion','revision_or_file_expansion','training','weight_changing_training','paid_compute','paid_model_api','production_release'):
+              assert repair['activation_boundary'][key] is False, key
+          old_exec=dict(old['execution']); new_exec=dict(new['execution'])
+          assert old_exec.pop('runtime')=='llama.cpp-llama-cli-cpu'
+          assert new_exec.pop('runtime')=='llama.cpp-llama-completion-cpu'
+          assert old_exec==new_exec
+          assert old['purpose']==new['purpose']
+          assert old['verification']==new['verification']
+          assert old['tasks']==new['tasks']
+          wrapper=(root/'colab/mstr_b012_qwen_raw_code_completion.py').read_text()
+          assert 'target="llama-completion"' in wrapper
+          assert 'case_checkpoint.RAW_CODE_PATH = COMPLETION_MANIFEST_PATH' in wrapper
+          assert 'completion_raw_code_manifest_sha256' in wrapper
+          PY
+
+      - name: Install repository dev dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Run focused and full quality gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=colab python -m pytest -q tests/contract/test_b012*.py
+          python -m mstr_qualify validate
+          python -m ruff check .
+          python -m ruff format --check \
+            colab/mstr_b012_raw_code_completion.py \
+            colab/mstr_b012_qwen_raw_code_completion.py \
+            tests/contract/test_b012_qwen_raw_code_completion_runtime_contract.py
+          python -m pytest -q
+          python -m mypy src/mstr_qualify
+
+      - name: Final immutable qualification guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_HEAD"
+          gh api "repos/$REPO/pulls/$PR" > /tmp/pr-final.json
+          jq -e --arg base "$BASE" --arg head "$TARGET_HEAD" '.state=="open" and .draft==false and .base.sha==$base and .head.sha==$head and .changed_files==7' /tmp/pr-final.json >/dev/null
+          echo 'PR203_B012_COMPLETION_RUNTIME_REPAIR_QUALIFICATION_V2=PASS'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'PAID_COST_USD=0.0'
