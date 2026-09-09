@@ -1,0 +1,86 @@
+name: B012 completion runtime repair entry v2
+
+on:
+  push:
+    branches:
+      - evidence/b012-completion-runtime-repair-entry-v2-e873288
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  REPO: TheHalfMoon/MSTR
+  MAIN: e87328872232471fa0e1eb05d74223bc0aeaafd3
+  ENTRY_V1_RUN: '34297897331'
+  ENTRY_V1_HEAD: dbaf5e0cb873192c4b834c058c81631a5c42a2cd
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  exact_main_entry_v2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Preserve v1 harness-only failure and prove live main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$MAIN"
+          gh api "repos/$REPO/actions/runs/$ENTRY_V1_RUN" > /tmp/v1.json
+          jq -e --arg head "$ENTRY_V1_HEAD" '.status=="completed" and .conclusion=="failure" and .run_attempt==1 and .head_sha==$head' /tmp/v1.json >/dev/null
+
+      - name: Checkout exact canonical main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.MAIN }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.16'
+          check-latest: false
+
+      - name: Install repository package
+        run: python -m pip install -e .
+
+      - name: Bind exact local main and prove B012 eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MAIN"
+          git update-ref refs/heads/main "$MAIN"
+          test "$(git rev-parse refs/heads/main)" = "$MAIN"
+          python -m mstr_qualify task eligible B012 > /tmp/b012.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          d=json.loads(Path('/tmp/b012.json').read_text(encoding='utf-8'))
+          assert d['task_id']=='B012'
+          assert d['canonical_main']==os.environ['MAIN']
+          assert d['eligible'] is True and d['reasons']==[]
+          assert d['state_consistency_result']['observed_state']=='PENDING'
+          assert d['authority_result']['authority_id']=='B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
+          assert d['authority_result']['satisfied'] is True
+          assert all(item['satisfied'] for item in d['prerequisite_results'])
+          assert all(d['semantic_checks'].values())
+          a=json.loads(Path('artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json').read_text(encoding='utf-8'))
+          assert a['status']=='AUTHORIZED_CANONICAL'
+          assert a['scope']['candidate_ids']==['mellum-4b','qwen3.5-0.8b-control']
+          assert a['scope']['training'] is False
+          assert a['scope']['paid_compute'] is False
+          assert a['scope']['paid_model_api'] is False
+          assert a['cost_resource_ceiling']['limits'][0]['max']==0.0
+          PY
+
+      - name: Final immutable entry guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MAIN"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$MAIN"
+          echo 'B012_COMPLETION_RUNTIME_REPAIR_ENTRY_V2=PASS'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'PAID_COST_USD=0.0'
