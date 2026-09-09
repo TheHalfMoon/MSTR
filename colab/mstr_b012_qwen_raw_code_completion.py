@@ -17,6 +17,7 @@ TRIGGERING_INCIDENT_RUN_ID = 34288154926
 REPAIR_MANIFEST_PATH = Path(
     "artifacts/manifests/B012-qwen-raw-code-completion-runtime-repair.json"
 )
+COMPLETION_MANIFEST_PATH = Path("benchmarks/manifests/B012-raw-code-proxy-completion-runtime.json")
 SCRIPT_PATH = Path("colab/mstr_b012_qwen_raw_code_completion.py")
 COMPLETION_HELPER_PATH = Path("colab/mstr_b012_raw_code_completion.py")
 ACTIVE_WORKFLOW_PATH = Path(".github/workflows/b012-qwen-raw-code-recovery.yml")
@@ -109,17 +110,25 @@ def _require_completion_activation(
     if activation.get("triggering_incident_run_id") != TRIGGERING_INCIDENT_RUN_ID:
         raise ExecutionError("B012 Qwen completion activation incident drift detected")
 
-    expected_manifest = activation.get("repair_manifest_sha256")
+    expected_repair = activation.get("repair_manifest_sha256")
+    expected_runtime_manifest = activation.get("completion_raw_code_manifest_sha256")
     expected_script = activation.get("completion_script_sha256")
     expected_helper = activation.get("completion_raw_code_helper_sha256")
     expected_workflow = activation.get("active_workflow_sha256")
     if not all(
         isinstance(value, str)
-        for value in (expected_manifest, expected_script, expected_helper, expected_workflow)
+        for value in (
+            expected_repair,
+            expected_runtime_manifest,
+            expected_script,
+            expected_helper,
+            expected_workflow,
+        )
     ):
         raise ExecutionError("B012 Qwen completion activation hash binding is incomplete")
 
-    require_file_sha256(repo_root / REPAIR_MANIFEST_PATH, str(expected_manifest))
+    require_file_sha256(repo_root / REPAIR_MANIFEST_PATH, str(expected_repair))
+    require_file_sha256(repo_root / COMPLETION_MANIFEST_PATH, str(expected_runtime_manifest))
     require_file_sha256(repo_root / SCRIPT_PATH, str(expected_script))
     require_file_sha256(repo_root / COMPLETION_HELPER_PATH, str(expected_helper))
     require_file_sha256(repo_root / ACTIVE_WORKFLOW_PATH, str(expected_workflow))
@@ -134,6 +143,7 @@ def _require_completion_activation(
 
 def _activate_variant() -> None:
     case_checkpoint.REPAIR_MANIFEST_PATH = REPAIR_MANIFEST_PATH
+    case_checkpoint.RAW_CODE_PATH = COMPLETION_MANIFEST_PATH
     case_checkpoint.SCRIPT_PATH = SCRIPT_PATH
     case_checkpoint.ACTIVE_WORKFLOW_PATH = ACTIVE_WORKFLOW_PATH
     case_checkpoint._require_activation = _require_completion_activation
