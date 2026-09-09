@@ -1,0 +1,115 @@
+{
+  "schema_version": "mstr.b012-qwen-raw-code-completion-runtime-repair.v1",
+  "task_id": "B012",
+  "repair_id": "B012_QWEN_RAW_CODE_COMPLETION_RUNTIME_CONTRACT_REPAIR_2026_09_09",
+  "status": "READY_FOR_SEPARATE_CANONICAL_ACTIVATION",
+  "candidate_id": "qwen3.5-0.8b-control",
+  "prior_qualification_run_id": 34155931982,
+  "triggering_incident": {
+    "run_id": 34288154926,
+    "run_attempt": 1,
+    "failure_classification": "B012_EXECUTOR_RUNTIME_CLI_INCOMPATIBILITY_RAW_CODE_UNEXECUTED",
+    "incident_path": "artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-one-shot-runtime-cli-incompatibility-run-34288154926.json",
+    "incident_sha256": "20e30ef5382189dc22407df0caaab171668c91863cdf972a66bfd90e4615f03d",
+    "model_quality_verdict": "NONE",
+    "candidate_admission_decision": "NONE",
+    "candidate_execution_completion": "NOT_PROVEN"
+  },
+  "entry_evidence": {
+    "canonical_main": "e87328872232471fa0e1eb05d74223bc0aeaafd3",
+    "v1": {
+      "run_id": 34297897331,
+      "evidence_head": "dbaf5e0cb873192c4b834c058c81631a5c42a2cd",
+      "conclusion": "failure",
+      "classification": "HARNESS_ONLY_REPOSITORY_PACKAGE_NOT_INSTALLED",
+      "eligibility_false_observed": false,
+      "model_access": "NONE",
+      "model_execution": "NONE",
+      "paid_cost_usd": 0.0
+    },
+    "v2": {
+      "run_id": 34297979527,
+      "evidence_head": "ad87bba0447143837d26af6cf6b53911b8a708e3",
+      "run_attempt": 1,
+      "conclusion": "success",
+      "b012_eligible": true,
+      "founder_authority_satisfied": true,
+      "model_access": "NONE",
+      "model_execution": "NONE",
+      "paid_cost_usd": 0.0
+    }
+  },
+  "runtime_migration": {
+    "repository": "https://github.com/ggml-org/llama.cpp.git",
+    "runtime_commit": "3173a56471c1753650cd806694145ffd6dcace67",
+    "from_executable": "llama-cli",
+    "from_parser_example": "LLAMA_EXAMPLE_CLI",
+    "to_executable": "llama-completion",
+    "to_parser_example": "LLAMA_EXAMPLE_COMPLETION",
+    "rejected_argument": "--no-conversation",
+    "argument_scope": "LLAMA_EXAMPLE_COMPLETION_ONLY",
+    "conversation_mode": "EXPLICITLY_DISABLED",
+    "prompt_display": "DISABLED",
+    "io_mode": "SIMPLE_IO",
+    "semantic_reason": "Use the official completion parser at the same pinned runtime commit so the frozen raw prompt remains a completion request instead of silently changing to chat semantics."
+  },
+  "immutable_upstream_source": {
+    "common_arg_cpp_git_blob": "4469612cd5b26611ee08a1937cb721576e24d095",
+    "tools_cli_cli_cpp_git_blob": "dcdb6aeac21dcada049f9cd7cc37d352b41f1f35",
+    "tools_completion_cmake_git_blob": "a310251eff6e18c5ab09787066d7c76afa673e8f",
+    "tools_completion_completion_cpp_git_blob": "941b7399b2e3fb9a069619c17d1f64b67320ef72",
+    "tools_completion_main_cpp_git_blob": "bea9a0ec9aa75e9eb4f7962d85ed136e9e0dcb7b"
+  },
+  "equivalence_contract": {
+    "runtime_commit_changed": false,
+    "conversion_quantization_commit_changed": false,
+    "candidate_revision_or_file_scope_changed": false,
+    "q4_contract_changed": false,
+    "raw_code_prompts_changed": false,
+    "context_tokens_changed": false,
+    "generated_tokens_changed": false,
+    "threads_changed": false,
+    "gpu_layers_changed": false,
+    "temperature_changed": false,
+    "seed_changed": false,
+    "verifier_changed": false,
+    "only_runtime_parser_surface_changed": true,
+    "new_runtime": "llama.cpp-llama-completion-cpu",
+    "raw_code_manifest": "benchmarks/manifests/B012-raw-code-proxy-completion-runtime.json"
+  },
+  "repair_package": {
+    "completion_raw_code_helper": "colab/mstr_b012_raw_code_completion.py",
+    "qwen_completion_wrapper": "colab/mstr_b012_qwen_raw_code_completion.py",
+    "completion_runtime_manifest": "benchmarks/manifests/B012-raw-code-proxy-completion-runtime.json",
+    "inactive_workflow_template": "configs/workflows/b012-qwen-raw-code-completion-recovery.yml",
+    "evidence": "evidence/mstr-000b/B012-qwen-raw-code-completion-runtime-contract-repair.md",
+    "contract_test": "tests/contract/test_b012_qwen_raw_code_completion_runtime_contract.py",
+    "sha256_binding": "DEFERRED_TO_SEPARATE_ACTIVATION_CHANGE_AFTER_REPAIR_PACKAGE_IS_CANONICAL"
+  },
+  "protected_active_surfaces_at_entry": {
+    "active_workflow": ".github/workflows/b012-qwen-raw-code-recovery.yml",
+    "active_workflow_git_blob": "3bb2a6d34f5de78069c000b4afb7acecb05e4295",
+    "executor_binding": "artifacts/manifests/B012-executor-toolchain-binding.json",
+    "executor_binding_git_blob": "16314a91da525174b0361c935132f21ce09c99d3",
+    "active_raw_code_helper": "colab/mstr_b012_raw_code_one_shot.py",
+    "active_raw_code_helper_git_blob": "2be399e3ecb868d13e5e9c6648c07461b5423297"
+  },
+  "activation_boundary": {
+    "activation_required": true,
+    "activation_is_separate_repository_change": true,
+    "repair_pr_must_not_modify_active_workflow": true,
+    "repair_pr_must_not_modify_executor_binding": true,
+    "repair_pr_must_not_execute_model": true,
+    "retry_authority_created": false,
+    "external_dispatch_authority_created": false,
+    "cross_run_resume_authority_created": false,
+    "candidate_expansion": false,
+    "revision_or_file_expansion": false,
+    "training": false,
+    "weight_changing_training": false,
+    "paid_compute": false,
+    "paid_model_api": false,
+    "paid_cost_usd": 0.0,
+    "production_release": false
+  }
+}
