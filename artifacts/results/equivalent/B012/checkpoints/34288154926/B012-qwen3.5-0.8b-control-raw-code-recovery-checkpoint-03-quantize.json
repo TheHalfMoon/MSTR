@@ -1,0 +1,58 @@
+{
+  "candidate_id": "qwen3.5-0.8b-control",
+  "canonical_main_at_start": "66cd090fc75286bfc24db4bdf8fe58b64394e228",
+  "checkpoint_payload": {
+    "matches_prior_stage03": true,
+    "q4_k_m_sha256": "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa",
+    "q4_k_m_size_bytes": 541903296,
+    "quantization": {
+      "conversion_seconds": 10.007093115999965,
+      "f16_sha256": "198297c5988d7420ef3939911c5a8e1a018a7404e7bf6fb5e6965c3cc9a04045",
+      "f16_size_bytes": 1557662144,
+      "fim_export_required": false,
+      "q4_k_m_fim_token_presence": {
+        "<|fim_middle|>": true,
+        "<|fim_pad|>": true,
+        "<|fim_prefix|>": true,
+        "<|fim_suffix|>": true,
+        "fim": true,
+        "\u0120fim": true
+      },
+      "quantization_arms": {
+        "Q4_K_M": {
+          "regeneration_seconds": 21.373893465999913,
+          "sha256": "177a8435373b58e09910ee68e6643f656b5d93b6d64e03ee4c37be4a86c995fa",
+          "size_bytes": 541903296
+        },
+        "Q4_K_S": {
+          "regeneration_seconds": 23.26438052700007,
+          "sha256": "a412656365e22625d722ede780dd745c2491aa74372ee4b20f2891947ba07c9e",
+          "size_bytes": 516778432
+        }
+      },
+      "source_fim_tokens": [
+        "<|fim_middle|>",
+        "<|fim_pad|>",
+        "<|fim_prefix|>",
+        "<|fim_suffix|>",
+        "fim",
+        "\u0120fim"
+      ]
+    }
+  },
+  "completed_stages": [
+    "init",
+    "source",
+    "quantize"
+  ],
+  "completed_utc": "2026-09-08T23:03:28Z",
+  "durable_binary_artifacts": false,
+  "durable_output_format": "JSON_ONLY",
+  "model_access_state": "EXACT_Q4_REGENERATED_VERIFIED",
+  "paid_cost_usd": 0.0,
+  "schema_version": "mstr.b012-qwen-raw-code-case-checkpoint.v1",
+  "stage": "quantize",
+  "stage_label": "03-quantize",
+  "task_id": "B012",
+  "training": false
+}

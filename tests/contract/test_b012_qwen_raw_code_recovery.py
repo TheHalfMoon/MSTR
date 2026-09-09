@@ -162,7 +162,7 @@ def test_repeated_qwen_recovery_shutdown_is_preserved_without_quality_claim() ->
     assert incident["external_dispatch_authority_created"] is False
     assert incident["repeating_same_recovery_topology_authorized_by_this_evidence"] is False
 
-    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
+    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RUNTIME_CONTRACT_REPAIR"
     assert recovery["run_id"] == 34169060075
     assert recovery["failure_evidence_sha256"] == _sha256(RECOVERY_INCIDENT)
     assert recovery["model_quality_verdict"] == "NONE"

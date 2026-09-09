@@ -257,7 +257,7 @@ def test_one_shot_activation_is_exactly_bound_and_non_authorizing() -> None:
     assert activation["package_performs_model_access"] is False
     assert activation["package_performs_model_execution"] is False
 
-    assert binding["status"] == "SATISFIES_DISPATCH_PRECONDITION_WHEN_CANONICAL"
+    assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RUNTIME_CONTRACT_REPAIR"
     assert bound["repair_id"] == manifest["repair_id"]
     assert bound["candidate_id"] == "qwen3.5-0.8b-control"
     assert bound["prior_qualification_run_id"] == 34155931982
