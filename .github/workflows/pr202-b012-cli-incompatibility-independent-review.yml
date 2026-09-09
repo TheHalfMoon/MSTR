@@ -1,0 +1,215 @@
+name: Independent semantic security review PR202 B012 CLI incompatibility
+
+on:
+  push:
+    branches:
+      - evidence/pr202-b012-cli-incompatibility-independent-review-870e9d7
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  REPO: TheHalfMoon/MSTR
+  BASE: 66cd090fc75286bfc24db4bdf8fe58b64394e228
+  TARGET_HEAD: 870e9d70335817007a07e3115f17545c584e3c86
+  TARGET_TREE: 616eb2183621d7d81df02df83ece354ccd7099a5
+  TARGET_BRANCH: governance/b012-qwen-one-shot-cli-incompatibility-34288154926
+  PR: '202'
+  QUALIFICATION_RUN: '34294460806'
+  QUALIFICATION_EVIDENCE_HEAD: 9898177c9f94ae2c63059fc6b05aca2dba565218
+  FAILED_RUN: '34288154926'
+  INCIDENT_SHA256: 20e30ef5382189dc22407df0caaab171668c91863cdf972a66bfd90e4615f03d
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  independent_semantic_security_review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Verify immutable qualification and live PR identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/main | cut -f1)" = "$BASE"
+          test "$(git ls-remote https://github.com/TheHalfMoon/MSTR.git refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_HEAD"
+          gh api "repos/$REPO/actions/runs/$QUALIFICATION_RUN" > /tmp/qualification.json
+          jq -e --arg head "$QUALIFICATION_EVIDENCE_HEAD" '.status=="completed" and .conclusion=="success" and .head_sha==$head and .run_attempt==1' /tmp/qualification.json >/dev/null
+          gh api "repos/$REPO/pulls/$PR" > /tmp/pr.json
+          jq -e --arg base "$BASE" --arg head "$TARGET_HEAD" '.state=="open" and .draft==false and .base.sha==$base and .head.sha==$head and .changed_files==17' /tmp/pr.json >/dev/null
+
+      - name: Checkout exact incident subject
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.TARGET_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11.16'
+          check-latest: false
+
+      - name: Review exact incident-only scope and protected surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git merge-base "$BASE" "$TARGET_HEAD")" = "$BASE"
+          git diff --check "$BASE" "$TARGET_HEAD"
+          git diff --name-only "$BASE" "$TARGET_HEAD" | sort > /tmp/actual.txt
+          cat > /tmp/expected.txt <<'EOF'
+          artifacts/manifests/B012-executor-toolchain-binding.json
+          artifacts/results/equivalent/B012/checkpoints/34288154926/B012-qwen3.5-0.8b-control-raw-code-recovery-case-failure.json
+          artifacts/results/equivalent/B012/checkpoints/34288154926/B012-qwen3.5-0.8b-control-raw-code-recovery-case-state.json
+          artifacts/results/equivalent/B012/checkpoints/34288154926/B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-01-init.json
+          artifacts/results/equivalent/B012/checkpoints/34288154926/B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-02-source.json
+          artifacts/results/equivalent/B012/checkpoints/34288154926/B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-03-quantize.json
+          artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-one-shot-runtime-cli-incompatibility-run-34288154926.json
+          evidence/mstr-000b/B012-qwen-one-shot-runtime-cli-incompatibility-34288154926.md
+          tests/contract/test_b012_executor_binding.py
+          tests/contract/test_b012_qwen_case_checkpoint_runner_shutdown_evidence.py
+          tests/contract/test_b012_qwen_one_shot_runtime_cli_incompatibility_evidence.py
+          tests/contract/test_b012_qwen_raw_code_case_checkpoint_topology.py
+          tests/contract/test_b012_qwen_raw_code_one_shot_topology.py
+          tests/contract/test_b012_qwen_raw_code_recovery.py
+          tests/contract/test_b012_qwen_staged_recovery_topology.py
+          tests/contract/test_b012_runner_shutdown_evidence.py
+          tests/contract/test_b012_stage_checkpoint_topology.py
+          EOF
+          sed -i 's/^          //' /tmp/expected.txt
+          sort -o /tmp/expected.txt /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/actual.txt
+          for path in \
+            artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json \
+            artifacts/manifests/B012-equivalent-qualification-execution-envelope.json \
+            artifacts/manifests/B012-executor-toolchain-lock.json \
+            artifacts/manifests/B012-qwen-raw-code-one-shot-topology-repair.json \
+            benchmarks/manifests/B012-raw-code-proxy.json \
+            .github/workflows/b012-qwen-raw-code-recovery.yml \
+            colab/mstr_b012_qwen_raw_code_one_shot.py \
+            colab/mstr_b012_raw_code_one_shot.py; do
+            git diff --quiet "$BASE" "$TARGET_HEAD" -- "$path"
+          done
+
+      - name: Independently verify pinned llama.cpp parser incompatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/llama-src
+          base_url='https://raw.githubusercontent.com/ggml-org/llama.cpp/3173a56471c1753650cd806694145ffd6dcace67'
+          curl -fsSL "$base_url/common/arg.cpp" -o /tmp/llama-src/arg.cpp
+          curl -fsSL "$base_url/tools/cli/cli.cpp" -o /tmp/llama-src/cli.cpp
+          curl -fsSL "$base_url/tools/cli/cli-context.cpp" -o /tmp/llama-src/cli-context.cpp
+          echo '35c2d762e5c7ea2a2d456a13d44587129e9fb3c7970c75145a1c3d7312125438  /tmp/llama-src/arg.cpp' | sha256sum -c -
+          echo 'd5e6778b6fed13692099dca94b6f432bb5733942b291c0e0c98a6eb21bce429d  /tmp/llama-src/cli.cpp' | sha256sum -c -
+          echo '1d418665a19ab34ca7cce209a3ec63d36334e0cb5c09d0171296b9bd50647027  /tmp/llama-src/cli-context.cpp' | sha256sum -c -
+          grep -F '{"-cnv", "--conversation"}' /tmp/llama-src/arg.cpp >/dev/null
+          grep -F '{"-no-cnv", "--no-conversation"}' /tmp/llama-src/arg.cpp >/dev/null
+          python - <<'PY'
+          from pathlib import Path
+          text=Path('/tmp/llama-src/arg.cpp').read_text(encoding='utf-8')
+          needle='{"-no-cnv", "--no-conversation"}'
+          i=text.index(needle)
+          window=text[i:i+1200]
+          assert 'LLAMA_EXAMPLE_COMPLETION' in window
+          assert 'LLAMA_EXAMPLE_CLI' not in window.split('));', 1)[0]
+          cli=Path('/tmp/llama-src/cli.cpp').read_text(encoding='utf-8')
+          assert 'common_params_parse(argc, argv, params, LLAMA_EXAMPLE_CLI)' in cli
+          context=Path('/tmp/llama-src/cli-context.cpp').read_text(encoding='utf-8')
+          assert '/v1/chat/completions' in context
+          PY
+
+      - name: Review incident evidence semantics and authority containment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root=Path('.')
+          incident_path=root/'artifacts/results/equivalent/B012/failures/B012-qwen3.5-0.8b-control-one-shot-runtime-cli-incompatibility-run-34288154926.json'
+          failure_path=root/'artifacts/results/equivalent/B012/checkpoints/34288154926/B012-qwen3.5-0.8b-control-raw-code-recovery-case-failure.json'
+          state_path=root/'artifacts/results/equivalent/B012/checkpoints/34288154926/B012-qwen3.5-0.8b-control-raw-code-recovery-case-state.json'
+          incident=json.loads(incident_path.read_text(encoding='utf-8'))
+          failure=json.loads(failure_path.read_text(encoding='utf-8'))
+          state=json.loads(state_path.read_text(encoding='utf-8'))
+          binding=json.loads((root/'artifacts/manifests/B012-executor-toolchain-binding.json').read_text(encoding='utf-8'))
+          authority=json.loads((root/'artifacts/authorities/B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION.json').read_text(encoding='utf-8'))
+          sha=lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+          assert sha(incident_path)==os.environ['INCIDENT_SHA256']
+          assert incident['failure_classification']=='B012_EXECUTOR_RUNTIME_CLI_INCOMPATIBILITY_RAW_CODE_UNEXECUTED'
+          assert incident['root_cause']['runtime_commit']=='3173a56471c1753650cd806694145ffd6dcace67'
+          assert incident['root_cause']['runtime_binary']=='llama-cli'
+          assert incident['root_cause']['parser_example']=='LLAMA_EXAMPLE_CLI'
+          assert incident['root_cause']['rejected_argument']=='--no-conversation'
+          assert incident['root_cause']['argument_scope']=='LLAMA_EXAMPLE_COMPLETION_ONLY'
+          assert incident['root_cause']['model_inference_completion']=='NOT_PROVEN'
+          assert incident['execution']['durable_raw_code_cases']==[]
+          assert incident['execution']['raw_code_result']=='NONE_DURABLY_PROVEN'
+          assert incident['execution']['model_quality_verdict']=='NONE'
+          assert incident['execution']['candidate_admission_decision']=='NONE'
+          assert incident['execution']['candidate_execution_completion']=='NOT_PROVEN'
+          assert failure['completed_raw_code_cases']==[]
+          assert failure['model_quality_verdict']=='NONE'
+          assert failure['candidate_admission_decision']=='NONE'
+          assert 'error: invalid argument: --no-conversation' in failure['error']
+          assert state['raw_code_case_results']=={}
+          assert state['completed_stages']==['init','source','quantize']
+          assert incident['canonical_effect']['b012_state']=='PENDING'
+          assert incident['canonical_effect']['b013_opening_authorized'] is False
+          assert binding['status']=='BLOCKED_PENDING_QWEN_RAW_CODE_RUNTIME_CONTRACT_REPAIR'
+          bound=binding['qwen_raw_code_one_shot_runtime_cli_incompatibility']
+          for key in ('same_topology_redispatch_authorized','cross_run_resume_authority_created','retry_authority_created','external_dispatch_authority_created','candidate_expansion','revision_or_file_expansion','training','weight_changing_training','paid_compute','paid_model_api','production_release'):
+              assert bound[key] is False, key
+          assert bound['paid_cost_usd']==0.0
+          assert authority['authority_id']=='B012_FOUNDER_AUTHORITY_FOR_EQUIVALENT_QUALIFICATION'
+          assert authority['status']=='AUTHORIZED_CANONICAL'
+          assert authority['scope']['candidate_ids']==['mellum-4b','qwen3.5-0.8b-control']
+          assert authority['scope']['training'] is False
+          assert authority['scope']['paid_compute'] is False
+          assert authority['scope']['paid_model_api'] is False
+          assert authority['cost_resource_ceiling']['limits'][0]['max']==0.0
+          PY
+
+      - name: Verify failed run is preserved and not rerun
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/actions/runs/$FAILED_RUN" > /tmp/failed-run.json
+          jq -e --arg head "$BASE" '.status=="completed" and .conclusion=="failure" and .run_attempt==1 and .head_sha==$head and .name=="B012 Qwen raw-code one-shot recovery"' /tmp/failed-run.json >/dev/null
+          gh api "repos/$REPO/actions/runs/$FAILED_RUN/artifacts" > /tmp/artifacts.json
+          jq -e '.total_count==4' /tmp/artifacts.json >/dev/null
+
+      - name: Install repository dev dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Independent focused and full quality rerun
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=colab python -m pytest -q tests/contract/test_b012*.py
+          python -m mstr_qualify validate
+          python -m ruff check .
+          python -m ruff format --check tests/contract/test_b012_qwen_one_shot_runtime_cli_incompatibility_evidence.py
+          python -m pytest -q
+          python -m mypy src/mstr_qualify
+
+      - name: Final immutable review verdict
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE"
+          test "$(git ls-remote origin refs/heads/$TARGET_BRANCH | cut -f1)" = "$TARGET_HEAD"
+          gh api "repos/$REPO/pulls/$PR" > /tmp/pr-final.json
+          jq -e --arg base "$BASE" --arg head "$TARGET_HEAD" '.state=="open" and .draft==false and .base.sha==$base and .head.sha==$head and .changed_files==17' /tmp/pr-final.json >/dev/null
+          echo 'FINDINGS=NONE'
+          echo 'INDEPENDENT_SEMANTIC_SECURITY_REVIEW=PASS'
+          echo 'MODEL_ACCESS=NONE'
+          echo 'MODEL_EXECUTION=NONE'
+          echo 'PAID_COST_USD=0.0'
