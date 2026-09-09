@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 from pathlib import Path
 
@@ -102,7 +100,11 @@ def test_qwen_wrapper_builds_completion_target_but_requires_future_activation() 
     assert 'tools / "llama-completion"' in wrapper
     assert '"runtime_parser_example": "LLAMA_EXAMPLE_COMPLETION"' in wrapper
     assert 'ACTIVATION_KEY = "qwen_raw_code_completion_activation"' in wrapper
-    assert 'COMPLETION_MANIFEST_PATH = Path("benchmarks/manifests/B012-raw-code-proxy-completion-runtime.json")' in wrapper
+    expected_manifest_binding = (
+        'COMPLETION_MANIFEST_PATH = '
+        'Path("benchmarks/manifests/B012-raw-code-proxy-completion-runtime.json")'
+    )
+    assert expected_manifest_binding in wrapper
     assert "case_checkpoint.RAW_CODE_PATH = COMPLETION_MANIFEST_PATH" in wrapper
     assert 'activation.get("completion_raw_code_manifest_sha256")' in wrapper
     assert 'repair.get("status") != "READY_FOR_SEPARATE_CANONICAL_ACTIVATION"' in wrapper
