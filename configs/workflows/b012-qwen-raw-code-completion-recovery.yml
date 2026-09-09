@@ -1,0 +1,180 @@
+name: B012 Qwen raw-code completion-runtime recovery
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: b012-equivalent-qualification-single-candidate
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    if: >-
+      github.event.issue.number == 162 &&
+      github.event.comment.user.login == 'TheHalfMoon' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.body == 'B012_RECOVER_RAW_CODE_COMPLETION qwen3.5-0.8b-control 34288154926'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout live canonical main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned B012 Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11.16"
+
+      - name: Stage 01 - initialize exact completion runtime recovery toolchains
+        id: init
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          python colab/mstr_b012_qwen_raw_code_completion.py \
+            --stage init \
+            --output-dir "$RUNNER_TEMP/b012-qwen-completion-results" \
+            --workdir "$RUNNER_TEMP/b012-qwen-completion-work"
+
+      - name: Upload stage 01 JSON checkpoint
+        if: always() && steps.init.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: b012-qwen-completion-stage-01-init-${{ github.run_id }}
+          path: ${{ runner.temp }}/b012-qwen-completion-results/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Stage 02 - reacquire and verify exact B010 source files
+        id: source
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          python colab/mstr_b012_qwen_raw_code_completion.py \
+            --stage source \
+            --output-dir "$RUNNER_TEMP/b012-qwen-completion-results" \
+            --workdir "$RUNNER_TEMP/b012-qwen-completion-work"
+
+      - name: Upload stage 02 JSON checkpoint
+        if: always() && steps.source.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: b012-qwen-completion-stage-02-source-${{ github.run_id }}
+          path: ${{ runner.temp }}/b012-qwen-completion-results/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Stage 03 - regenerate and verify exact Q4
+        id: quantize
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          python colab/mstr_b012_qwen_raw_code_completion.py \
+            --stage quantize \
+            --output-dir "$RUNNER_TEMP/b012-qwen-completion-results" \
+            --workdir "$RUNNER_TEMP/b012-qwen-completion-work"
+
+      - name: Upload stage 03 JSON checkpoint
+        if: always() && steps.quantize.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: b012-qwen-completion-stage-03-quantize-${{ github.run_id }}
+          path: ${{ runner.temp }}/b012-qwen-completion-results/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Stage 04a - run frozen raw-code python-clamp case with completion runtime
+        id: raw_code_clamp
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          python colab/mstr_b012_qwen_raw_code_completion.py \
+            --stage raw-code-python-clamp \
+            --output-dir "$RUNNER_TEMP/b012-qwen-completion-results" \
+            --workdir "$RUNNER_TEMP/b012-qwen-completion-work"
+
+      - name: Upload stage 04a python-clamp JSON checkpoint
+        if: always() && steps.raw_code_clamp.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: b012-qwen-completion-stage-04a-python-clamp-${{ github.run_id }}
+          path: ${{ runner.temp }}/b012-qwen-completion-results/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Stage 04b - run frozen raw-code python-dedupe case with completion runtime
+        id: raw_code_dedupe
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          python colab/mstr_b012_qwen_raw_code_completion.py \
+            --stage raw-code-python-dedupe \
+            --output-dir "$RUNNER_TEMP/b012-qwen-completion-results" \
+            --workdir "$RUNNER_TEMP/b012-qwen-completion-work"
+
+      - name: Upload stage 04b python-dedupe JSON checkpoint
+        if: always() && steps.raw_code_dedupe.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: b012-qwen-completion-stage-04b-python-dedupe-${{ github.run_id }}
+          path: ${{ runner.temp }}/b012-qwen-completion-results/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Stage 04c - run frozen raw-code python-safe-divide case with completion runtime
+        id: raw_code_safe_divide
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          python colab/mstr_b012_qwen_raw_code_completion.py \
+            --stage raw-code-python-safe-divide \
+            --output-dir "$RUNNER_TEMP/b012-qwen-completion-results" \
+            --workdir "$RUNNER_TEMP/b012-qwen-completion-work"
+
+      - name: Upload stage 04c python-safe-divide JSON checkpoint
+        if: always() && steps.raw_code_safe_divide.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: b012-qwen-completion-stage-04c-python-safe-divide-${{ github.run_id }}
+          path: ${{ runner.temp }}/b012-qwen-completion-results/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Stage 05 - finalize completion runtime recovery evidence
+        id: finalize
+        env:
+          PYTHONPATH: colab
+        run: |
+          set -euo pipefail
+          python colab/mstr_b012_qwen_raw_code_completion.py \
+            --stage finalize \
+            --output-dir "$RUNNER_TEMP/b012-qwen-completion-results" \
+            --workdir "$RUNNER_TEMP/b012-qwen-completion-work"
+
+      - name: Upload stage 05 final JSON evidence
+        if: always() && steps.finalize.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: b012-qwen-completion-stage-05-final-${{ github.run_id }}
+          path: ${{ runner.temp }}/b012-qwen-completion-results/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove ephemeral B012 recovery binaries
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/b012-qwen-completion-work"
