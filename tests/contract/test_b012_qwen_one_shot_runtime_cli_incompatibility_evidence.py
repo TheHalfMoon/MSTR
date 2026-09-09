@@ -7,27 +7,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 BINDING = ROOT / "artifacts/manifests/B012-executor-toolchain-binding.json"
 INCIDENT = (
-    ROOT
-    / "artifacts/results/equivalent/B012/failures/"
+    ROOT / "artifacts/results/equivalent/B012/failures/"
     "B012-qwen3.5-0.8b-control-one-shot-runtime-cli-incompatibility-run-34288154926.json"
 )
 CHECKPOINT_DIR = ROOT / "artifacts/results/equivalent/B012/checkpoints/34288154926"
-FAILURE = (
-    CHECKPOINT_DIR / "B012-qwen3.5-0.8b-control-raw-code-recovery-case-failure.json"
-)
+FAILURE = CHECKPOINT_DIR / "B012-qwen3.5-0.8b-control-raw-code-recovery-case-failure.json"
 STATE = CHECKPOINT_DIR / "B012-qwen3.5-0.8b-control-raw-code-recovery-case-state.json"
-CP1 = (
-    CHECKPOINT_DIR
-    / "B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-01-init.json"
-)
-CP2 = (
-    CHECKPOINT_DIR
-    / "B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-02-source.json"
-)
-CP3 = (
-    CHECKPOINT_DIR
-    / "B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-03-quantize.json"
-)
+CP1 = CHECKPOINT_DIR / "B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-01-init.json"
+CP2 = CHECKPOINT_DIR / "B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-02-source.json"
+CP3 = CHECKPOINT_DIR / "B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-03-quantize.json"
 RAW_HELPER = ROOT / "colab/mstr_b012_raw_code_one_shot.py"
 TOOLCHAIN_LOCK = ROOT / "artifacts/manifests/B012-executor-toolchain-lock.json"
 RAW_MANIFEST = ROOT / "benchmarks/manifests/B012-raw-code-proxy.json"
@@ -49,9 +37,7 @@ def test_one_shot_cli_incompatibility_is_canonical_and_fail_closed() -> None:
     failure = _read(FAILURE)
     state = _read(STATE)
 
-    assert _sha256(INCIDENT) == (
-        "20e30ef5382189dc22407df0caaab171668c91863cdf972a66bfd90e4615f03d"
-    )
+    assert _sha256(INCIDENT) == ("20e30ef5382189dc22407df0caaab171668c91863cdf972a66bfd90e4615f03d")
     assert binding["status"] == "BLOCKED_PENDING_QWEN_RAW_CODE_RUNTIME_CONTRACT_REPAIR"
     bound = binding["qwen_raw_code_one_shot_runtime_cli_incompatibility"]
     assert isinstance(bound, dict)
@@ -71,9 +57,7 @@ def test_one_shot_cli_incompatibility_is_canonical_and_fail_closed() -> None:
     )
     root_cause = incident["root_cause"]
     assert isinstance(root_cause, dict)
-    assert root_cause["runtime_commit"] == (
-        "3173a56471c1753650cd806694145ffd6dcace67"
-    )
+    assert root_cause["runtime_commit"] == ("3173a56471c1753650cd806694145ffd6dcace67")
     assert root_cause["runtime_binary"] == "llama-cli"
     assert root_cause["parser_example"] == "LLAMA_EXAMPLE_CLI"
     assert root_cause["rejected_argument"] == "--no-conversation"
@@ -108,21 +92,11 @@ def test_one_shot_cli_incompatibility_is_canonical_and_fail_closed() -> None:
 
 
 def test_one_shot_cli_incident_preserves_exact_durable_sources() -> None:
-    assert _sha256(FAILURE) == (
-        "b0aff98dabafd1335b27a771cd74e4cffa9364da3a7d22154db618a7173743ef"
-    )
-    assert _sha256(STATE) == (
-        "4c5c6521180b17949d77bdedf2d18c04dfb7f3345dde40db14527ff3b407e3b8"
-    )
-    assert _sha256(CP1) == (
-        "fb6b5165037691699a36ed53a5d239d500a2818ed230f06932743bfc6072f14f"
-    )
-    assert _sha256(CP2) == (
-        "d95e154bb519cd89359483f49566ad7bcda05127991bd8b1116d8a250e7e5b58"
-    )
-    assert _sha256(CP3) == (
-        "0f09abec985a3bb26987f529d86a9d9b1ed6dd2859250700520a81be733322e7"
-    )
+    assert _sha256(FAILURE) == ("b0aff98dabafd1335b27a771cd74e4cffa9364da3a7d22154db618a7173743ef")
+    assert _sha256(STATE) == ("4c5c6521180b17949d77bdedf2d18c04dfb7f3345dde40db14527ff3b407e3b8")
+    assert _sha256(CP1) == ("fb6b5165037691699a36ed53a5d239d500a2818ed230f06932743bfc6072f14f")
+    assert _sha256(CP2) == ("d95e154bb519cd89359483f49566ad7bcda05127991bd8b1116d8a250e7e5b58")
+    assert _sha256(CP3) == ("0f09abec985a3bb26987f529d86a9d9b1ed6dd2859250700520a81be733322e7")
 
     cp2 = _read(CP2)
     cp3 = _read(CP3)
