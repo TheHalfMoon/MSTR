@@ -28,7 +28,7 @@ CP3 = (
     CHECKPOINT_DIR
     / "B012-qwen3.5-0.8b-control-raw-code-recovery-checkpoint-03-quantize.json"
 )
-RAW_HELPER = ROOT / "colab/mstr_b012_raw_code.py"
+RAW_HELPER = ROOT / "colab/mstr_b012_raw_code_one_shot.py"
 TOOLCHAIN_LOCK = ROOT / "artifacts/manifests/B012-executor-toolchain-lock.json"
 RAW_MANIFEST = ROOT / "benchmarks/manifests/B012-raw-code-proxy.json"
 
