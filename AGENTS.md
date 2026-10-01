@@ -270,3 +270,15 @@ For each task:
 No force-push is required.
 
 If no GitHub Actions run exists, do not claim CI PASS.
+
+<!-- graft:start -->
+## Graft — repository context layer
+
+Use Graft (https://github.com/trailhq/Graft, `@nanonets/graft`) only as local developer/agent tooling for repository context and code navigation. It does not grant model-weight access, paid API execution, rented compute, training authority, or any external effect prohibited by the canonical task graph.
+
+If Graft is unavailable or the local `graft/` graph is absent/stale, run `graft init`, select the active agent(s), then run `graft build`. Before broad source exploration prefer `graft check`, `graft map`, `graft ask "<question>" --source`, `graft skeleton <file>`, `graft callers <symbol>`, and `graft grep "<literal>"`. After material code changes, run `graft build` again.
+
+Treat `graft/` as a local regenerable cache and do not commit it. Keep Graft usage zero-cost and offline-compatible; do not introduce paid model/API usage. Any model-backed enrichment requires separate existing task/provider authority.
+
+Graft output is context, not project authority, eligibility evidence, verifier-health evidence, model-quality evidence, or CI evidence. Continue all canonical task gates, deterministic tests, Jev review/qualification where applicable, Alibaba Open Code Review, CI, security, provenance, rights, and resource checks. Never fabricate Graft output, tool execution, CI, reviews, or evidence.
+<!-- graft:end -->
